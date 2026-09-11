@@ -34,6 +34,22 @@ export function roundQuantity(qty: number, decimals = 4): number {
   return Math.round(qty * factor) / factor;
 }
 
+export type ReceiptQuantityInput =
+  | { kind: "skip" }
+  | { kind: "valid"; quantity: number }
+  | { kind: "invalid" };
+
+/** Treat an empty or zero UI quantity as an untouched line, not a bad receipt. */
+export function parseReceiptQuantity(value: unknown): ReceiptQuantityInput {
+  const raw = String(value ?? "").trim();
+  if (!raw) return { kind: "skip" };
+
+  const quantity = Number(raw);
+  if (!Number.isFinite(quantity) || quantity < 0) return { kind: "invalid" };
+  if (quantity === 0) return { kind: "skip" };
+  return { kind: "valid", quantity };
+}
+
 export function isValidReceipt(receipt: PurchaseOrderReceipt): boolean {
   return receipt.status === "RECEIVED";
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Download, FileText, History, Loader2, Mail, MessageSquareText, Printer, RotateCcw, ShieldCheck, X } from "lucide-react";
 import type { FinancialDocumentSnapshot } from "../lib/documentGeneration.ts";
 import { documentFileName, downloadPdfBytes, generateFinancialDocumentPdf } from "../lib/documentGeneration.ts";
@@ -10,6 +10,7 @@ import { downloadDocxBytes, generateDocumentTemplateDocument, generateDocumentTe
 import { useAppPermission } from "../app/AppPermissionContext.tsx";
 import { useOptionalCompanyAccess } from "../context/CompanyAccessContext.tsx";
 import { PERMISSION_KEYS } from "../utils/accessControl.ts";
+import { useDialogFocus } from "./ui/useDialogFocus.ts";
 
 interface DocumentPreviewModalProps {
   document: FinancialDocumentSnapshot;
@@ -45,6 +46,8 @@ function deliveryStatusClass(status: DocumentDeliveryHistoryEntry["status"]) {
 export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ document: initialDocument, onClose, onSent, onOpenCommunications }) => {
   const canSendIssuedDocument = useAppPermission(PERMISSION_KEYS.documentSend);
   const companyAccess = useOptionalCompanyAccess();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useDialogFocus({ open: true, onClose, initialFocusRef: closeButtonRef });
   const [document, setDocument] = useState(initialDocument);
   const [loadingSnapshot, setLoadingSnapshot] = useState(initialDocument.status === "ISSUED" && !initialDocument.snapshotId);
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -254,7 +257,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
     ? "Resend by Email"
     : latestDelivery?.status === "FAILED" ? "Try send again" : "Send by Email";
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-2 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="document-preview-title">
+    <div ref={dialogRef} className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-2 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="document-preview-title">
       <section className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-slate-100 shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-5">
           <div className="min-w-0">
@@ -262,13 +265,13 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
             <h2 id="document-preview-title" className="mt-1 truncate text-base font-black text-slate-950">{isPo ? "Purchase Order" : "Client Invoice"} {document.documentNumber}</h2>
             <p className="mt-0.5 text-[10px] text-slate-500">{isIssued ? "Issued snapshot · immutable" : isDraft ? "Draft preview · changes regenerate until issuance" : "Finalized record · sending disabled"}{loadingSnapshot ? " · loading authoritative snapshot" : ""}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close document preview"><X className="h-4 w-4" /></button>
+          <button ref={closeButtonRef} type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close document preview"><X className="h-4 w-4" /></button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-5">
           <article className="mx-auto min-h-[760px] w-full max-w-[720px] bg-white px-7 py-8 text-slate-900 shadow-lg sm:px-12" id="financial-document-preview">
-            <div className="relative flex min-h-16 items-start justify-center">
-              {document.company.logoPath && <img src={document.company.logoPath} alt={`${document.company.legalName} logo`} className="absolute left-0 top-0 h-16 w-24 object-contain" />}
+            <div className="relative flex min-h-16 flex-col items-center justify-center gap-2 text-center sm:block">
+              {document.company.logoPath && <img src={document.company.logoPath} alt={`${document.company.legalName} logo`} className="h-12 w-20 object-contain sm:absolute sm:left-0 sm:top-0 sm:h-16 sm:w-24" />}
               <div className="w-full text-center">
                 <p className="text-lg font-black uppercase tracking-tight text-[#0d2e6b] sm:text-2xl">{document.company.legalName}</p>
                 {document.company.address && <p className="mt-1 text-[10px] font-bold text-[#0d2e6b]">{document.company.address}</p>}
@@ -277,9 +280,9 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
               </div>
             </div>
             <div className="mt-5 space-y-1"><div className="h-0.5 bg-[#0ba9df]" /><div className="h-1 bg-slate-500" /></div>
-            <div className="relative mt-8 flex min-h-10 items-center justify-center">
+            <div className="relative mt-8 flex min-h-10 flex-col items-center justify-center gap-2 sm:block">
               <h3 className="w-full text-center text-xl font-black text-black sm:text-2xl">{isPo ? "PURCHASE ORDER" : "INVOICE"}</h3>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 border border-black px-3 py-2 text-xs font-bold">No: {document.documentNumber}</div>
+              <div className="border border-black px-3 py-2 text-xs font-bold sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">No: {document.documentNumber}</div>
             </div>
 
             {isPo ? (
@@ -291,7 +294,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
                   <span>Attention</span><span>: {document.supplier.attention || ""}</span><span />
                   <span>VAT TIN</span><span>: {document.supplier.vatTin || ""}</span><span />
                 </div>
-                <table className="mt-7 w-full border-collapse text-[10px]"><thead><tr className="bg-slate-100">{["Item No.", "Qty", "Unit", "Description", "Unit Price", "Amount"].map((header) => <th key={header} className="border border-slate-400 px-1.5 py-2 text-center font-black">{header}</th>)}</tr></thead><tbody>{document.lines.map((line) => <tr key={`${line.lineNumber}-${line.description}`}><td className="border border-slate-300 px-1.5 py-2 text-center">{line.lineNumber}</td><td className="border border-slate-300 px-1.5 py-2 text-center">{line.quantity ?? ""}</td><td className="border border-slate-300 px-1.5 py-2 text-center">{line.unit || ""}</td><td className="border border-slate-300 px-1.5 py-2">{line.description}</td><td className="border border-slate-300 px-1.5 py-2 text-right">{line.unitPrice === undefined ? "" : money(line.unitPrice, document.currency)}</td><td className="border border-slate-300 px-1.5 py-2 text-right">{money(line.amount, document.currency)}</td></tr>)}<tr><td colSpan={4} className="border border-slate-400 px-1.5 py-2 font-semibold">{document.amountInWords}</td><td className="border border-slate-400 px-1.5 py-2 text-right font-black">Total ({document.currency})</td><td className="border border-slate-400 px-1.5 py-2 text-right font-black">{money(document.totalAmount, document.currency)}</td></tr></tbody></table>
+                <table className="mt-7 w-full table-fixed border-collapse text-[10px]"><thead><tr className="bg-slate-100">{["Item No.", "Qty", "Unit", "Description", "Unit Price", "Amount"].map((header) => <th key={header} className="border border-slate-400 px-1.5 py-2 text-center font-black">{header}</th>)}</tr></thead><tbody>{document.lines.map((line) => <tr key={`${line.lineNumber}-${line.description}`}><td className="border border-slate-300 px-1.5 py-2 text-center">{line.lineNumber}</td><td className="border border-slate-300 px-1.5 py-2 text-center">{line.quantity ?? ""}</td><td className="border border-slate-300 px-1.5 py-2 text-center">{line.unit || ""}</td><td className="break-words border border-slate-300 px-1.5 py-2">{line.description}</td><td className="break-words border border-slate-300 px-1.5 py-2 text-right">{line.unitPrice === undefined ? "" : money(line.unitPrice, document.currency)}</td><td className="break-words border border-slate-300 px-1.5 py-2 text-right">{money(line.amount, document.currency)}</td></tr>)}<tr><td colSpan={4} className="break-words border border-slate-400 px-1.5 py-2 font-semibold">{document.amountInWords}</td><td className="break-words border border-slate-400 px-1.5 py-2 text-right font-black">Total ({document.currency})</td><td className="break-words border border-slate-400 px-1.5 py-2 text-right font-black">{money(document.totalAmount, document.currency)}</td></tr></tbody></table>
                 <div className="mt-3 border border-slate-400 px-2 py-2 text-xs"><p>Deliver to: {document.project.deliverTo || ""}</p><p className="mt-1">Remarks: {document.notes || document.description || ""}</p></div>
                 <div className="mt-1 border border-slate-400 px-2 py-2 text-xs"><strong>Terms and Conditions:</strong> {document.termsAndConditions || "Not specified"}</div>
                 <div className="mt-16 grid grid-cols-2 gap-8 text-xs"><div><p className="font-black">Processed by: <span className="ml-2 underline">{document.processor.name}</span></p>{document.processor.title && <p className="ml-[6.2rem] text-[10px]">{document.processor.title}</p>}</div><div className="text-right"><p className="font-black">Conforme: __________________</p><p className="text-[10px]">Supplier's Authorized Representative</p></div></div>
@@ -300,7 +303,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
               <>
                 <div className="mt-7 grid gap-2 text-xs sm:grid-cols-2"><p><strong>Invoice date:</strong> {shortDate(document.invoiceDate)}</p><p><strong>Due date:</strong> {shortDate(document.dueDate)}</p><p><strong>Project:</strong> {document.project.projectCode || ""} {document.project.projectName || ""}</p><p><strong>Terms:</strong> {document.paymentTerms || ""}</p></div>
                 <div className="mt-5 border border-slate-400 p-3 text-xs"><p className="font-black">Bill To</p><p className="mt-1 font-bold">{document.billTo.name || ""}</p><p>{document.billTo.contactName || ""}</p><p>{document.billTo.email || ""}</p><p>{document.billTo.address || ""}</p><p>{document.billTo.reference ? `Reference: ${document.billTo.reference}` : ""}</p></div>
-                <table className="mt-5 w-full border-collapse text-[10px]"><thead><tr className="bg-slate-100"><th className="border border-slate-400 px-1.5 py-2 text-center">#</th><th className="border border-slate-400 px-1.5 py-2 text-left">Description</th><th className="border border-slate-400 px-1.5 py-2 text-right">Amount</th></tr></thead><tbody>{document.lines.map((line) => <tr key={`${line.lineNumber}-${line.description}`}><td className="border border-slate-300 px-1.5 py-2 text-center">{line.lineNumber}</td><td className="border border-slate-300 px-1.5 py-2">{line.description}</td><td className="border border-slate-300 px-1.5 py-2 text-right">{money(line.amount, document.currency)}</td></tr>)}</tbody></table>
+                <table className="mt-5 w-full table-fixed border-collapse text-[10px]"><thead><tr className="bg-slate-100"><th className="border border-slate-400 px-1.5 py-2 text-center">#</th><th className="border border-slate-400 px-1.5 py-2 text-left">Description</th><th className="border border-slate-400 px-1.5 py-2 text-right">Amount</th></tr></thead><tbody>{document.lines.map((line) => <tr key={`${line.lineNumber}-${line.description}`}><td className="border border-slate-300 px-1.5 py-2 text-center">{line.lineNumber}</td><td className="break-words border border-slate-300 px-1.5 py-2">{line.description}</td><td className="break-words border border-slate-300 px-1.5 py-2 text-right">{money(line.amount, document.currency)}</td></tr>)}</tbody></table>
                 <div className="mt-5 ml-auto max-w-xs space-y-2 text-xs"><div className="flex justify-between gap-5"><span>Subtotal</span><strong>{money(document.subtotal, document.currency)}</strong></div>{document.taxAmount !== undefined && document.taxAmount > 0 && <div className="flex justify-between gap-5"><span>{document.taxLabel || "Tax"}</span><strong>{money(document.taxAmount, document.currency)}</strong></div>}<div className="flex justify-between gap-5 border-t border-slate-400 pt-2 text-sm font-black"><span>Total ({document.currency})</span><span>{money(document.totalAmount, document.currency)}</span></div></div>
                 <p className="mt-5 text-xs">{document.amountInWords}</p>
                 {document.company.paymentInstructions && <p className="mt-3 text-xs">Payment instructions: {document.company.paymentInstructions}</p>}

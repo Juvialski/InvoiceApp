@@ -1,0 +1,5586 @@
+{
+  "schemaVersion": 1,
+  "run": {
+    "commitSha": "0e5c05fe614326f7c0c60351ee7fc963548117aa",
+    "branch": "codex/ui-ux-audit-20260911",
+    "timestamp": "2026-09-11T03:52:06.493Z",
+    "trigger": "local",
+    "appMode": "demo"
+  },
+  "summary": {
+    "routesTested": 34,
+    "viewportsTested": 4,
+    "interactionScenarios": 57,
+    "screenshotsCaptured": 76,
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "failedRequests": 0,
+    "overflowFailures": 0,
+    "failedScenarios": 0,
+    "navigationFailures": 0,
+    "ignoredConsoleErrors": 0,
+    "ignoredFailedRequests": 0
+  },
+  "scenarios": [
+    {
+      "scenarioId": "demo--landing--base-route-loaded--desktop-1440",
+      "feature": "demo",
+      "route": {
+        "id": "landing",
+        "canonicalPath": "/demo"
+      },
+      "requestedPath": "/demo",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/demo--landing--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo",
+        "finalPath": "/demo",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Hydroqualisense | Hydroqualisense Solutions Corp."
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1265"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 3009,
+      "timestamp": "2026-09-11T03:52:06.587Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "dashboard--dashboard--base-route-loaded--desktop-1440",
+      "feature": "dashboard",
+      "route": {
+        "id": "dashboard",
+        "canonicalPath": "/dashboard"
+      },
+      "requestedPath": "/demo/app/dashboard",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/dashboard--dashboard--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/dashboard",
+        "finalPath": "/demo/app/dashboard",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7651"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1643,
+      "timestamp": "2026-09-11T03:52:09.597Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "dashboard--dashboard--base-route-loaded--laptop-1366",
+      "feature": "dashboard",
+      "route": {
+        "id": "dashboard",
+        "canonicalPath": "/dashboard"
+      },
+      "requestedPath": "/demo/app/dashboard",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "laptop-1366",
+        "width": 1366,
+        "height": 768
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/dashboard--dashboard--base-route-loaded--laptop-1366.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1366,
+        "bodyWidth": 1366,
+        "viewportWidth": 1366,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/dashboard",
+        "finalPath": "/demo/app/dashboard",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7651"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1366px viewport"
+        }
+      ],
+      "durationMs": 1727,
+      "timestamp": "2026-09-11T03:52:11.240Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "dashboard--dashboard--mobile-navigation-opened--mobile-390",
+      "feature": "dashboard",
+      "route": {
+        "id": "dashboard",
+        "canonicalPath": "/dashboard"
+      },
+      "requestedPath": "/demo/app/dashboard",
+      "interactionState": "mobile navigation opened",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/dashboard--dashboard--mobile-navigation-opened--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/dashboard",
+        "finalPath": "/demo/app/dashboard",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7553"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "mobile-navigation-visible",
+          "passed": true,
+          "details": "close-navigation controls: 2"
+        }
+      ],
+      "durationMs": 1697,
+      "timestamp": "2026-09-11T03:52:12.967Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "projects--projects--portfolio-dashboard-verified--desktop-1440",
+      "feature": "projects",
+      "route": {
+        "id": "projects",
+        "canonicalPath": "/projects"
+      },
+      "requestedPath": "/demo/app/projects",
+      "interactionState": "portfolio dashboard verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/projects--projects--portfolio-dashboard-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects",
+        "finalPath": "/demo/app/projects",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3498"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "portfolio-heading-visible",
+          "passed": true,
+          "details": "portfolio headings: 1"
+        },
+        {
+          "id": "portfolio-financial-totals-visible",
+          "passed": true,
+          "details": "portfolio total regions: 1"
+        },
+        {
+          "id": "portfolio-remaining-to-bill-visible",
+          "passed": true,
+          "details": "remaining-to-bill labels: 8"
+        }
+      ],
+      "durationMs": 2106,
+      "timestamp": "2026-09-11T03:52:14.664Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "projects--projects--attention-filters-verified--desktop-1440",
+      "feature": "projects",
+      "route": {
+        "id": "projects",
+        "canonicalPath": "/projects"
+      },
+      "requestedPath": "/demo/app/projects",
+      "interactionState": "attention filters verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/projects--projects--attention-filters-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects",
+        "finalPath": "/demo/app/projects",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3915"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "portfolio-attention-count-visible",
+          "passed": true,
+          "details": "needs-attention labels: 2"
+        },
+        {
+          "id": "portfolio-critical-count-visible",
+          "passed": true,
+          "details": "critical-signal labels: 1"
+        },
+        {
+          "id": "portfolio-needs-attention-filter-returns-projects",
+          "passed": true,
+          "details": "flagged project result nodes: 3"
+        }
+      ],
+      "durationMs": 1356,
+      "timestamp": "2026-09-11T03:52:16.770Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "projects--projects--portfolio-dashboard-verified--laptop-1366",
+      "feature": "projects",
+      "route": {
+        "id": "projects",
+        "canonicalPath": "/projects"
+      },
+      "requestedPath": "/demo/app/projects",
+      "interactionState": "portfolio dashboard verified",
+      "viewport": {
+        "name": "laptop-1366",
+        "width": 1366,
+        "height": 768
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/projects--projects--portfolio-dashboard-verified--laptop-1366.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1366,
+        "bodyWidth": 1366,
+        "viewportWidth": 1366,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects",
+        "finalPath": "/demo/app/projects",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3498"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1366px viewport"
+        },
+        {
+          "id": "portfolio-heading-visible",
+          "passed": true,
+          "details": "portfolio headings: 1"
+        },
+        {
+          "id": "portfolio-financial-totals-visible",
+          "passed": true,
+          "details": "portfolio total regions: 1"
+        },
+        {
+          "id": "portfolio-remaining-to-bill-visible",
+          "passed": true,
+          "details": "remaining-to-bill labels: 8"
+        }
+      ],
+      "durationMs": 1173,
+      "timestamp": "2026-09-11T03:52:18.127Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "projects--projects--portfolio-dashboard-verified--tablet-768",
+      "feature": "projects",
+      "route": {
+        "id": "projects",
+        "canonicalPath": "/projects"
+      },
+      "requestedPath": "/demo/app/projects",
+      "interactionState": "portfolio dashboard verified",
+      "viewport": {
+        "name": "tablet-768",
+        "width": 768,
+        "height": 1024
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/projects--projects--portfolio-dashboard-verified--tablet-768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 768,
+        "bodyWidth": 768,
+        "viewportWidth": 768,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects",
+        "finalPath": "/demo/app/projects",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3812"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 768px viewport"
+        },
+        {
+          "id": "portfolio-heading-visible",
+          "passed": true,
+          "details": "portfolio headings: 1"
+        },
+        {
+          "id": "portfolio-financial-totals-visible",
+          "passed": true,
+          "details": "portfolio total regions: 1"
+        },
+        {
+          "id": "portfolio-remaining-to-bill-visible",
+          "passed": true,
+          "details": "remaining-to-bill labels: 8"
+        }
+      ],
+      "durationMs": 1179,
+      "timestamp": "2026-09-11T03:52:19.301Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "projects--projects--portfolio-dashboard-verified--mobile-390",
+      "feature": "projects",
+      "route": {
+        "id": "projects",
+        "canonicalPath": "/projects"
+      },
+      "requestedPath": "/demo/app/projects",
+      "interactionState": "portfolio dashboard verified",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/projects--projects--portfolio-dashboard-verified--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects",
+        "finalPath": "/demo/app/projects",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3724"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "portfolio-heading-visible",
+          "passed": true,
+          "details": "portfolio headings: 1"
+        },
+        {
+          "id": "portfolio-financial-totals-visible",
+          "passed": true,
+          "details": "portfolio total regions: 1"
+        },
+        {
+          "id": "portfolio-remaining-to-bill-visible",
+          "passed": true,
+          "details": "remaining-to-bill labels: 8"
+        }
+      ],
+      "durationMs": 1159,
+      "timestamp": "2026-09-11T03:52:20.480Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "procurement--procurement--base-route-loaded--desktop-1440",
+      "feature": "procurement",
+      "route": {
+        "id": "procurement",
+        "canonicalPath": "/procurement"
+      },
+      "requestedPath": "/demo/app/procurement",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/procurement--procurement--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/procurement",
+        "finalPath": "/demo/app/procurement",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3384"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1126,
+      "timestamp": "2026-09-11T03:52:21.639Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "procurement--procurement--subcontract-claim-and-variation-parity-verified--desktop-1440",
+      "feature": "procurement",
+      "route": {
+        "id": "procurement",
+        "canonicalPath": "/procurement"
+      },
+      "requestedPath": "/demo/app/procurement",
+      "interactionState": "subcontract claim and variation parity verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/procurement--procurement--subcontract-claim-and-variation-parity-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/procurement",
+        "finalPath": "/demo/app/procurement",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2620"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "production-equivalent-subcontract-tab-visible",
+          "passed": true,
+          "details": "subcontract KPI labels: 1"
+        },
+        {
+          "id": "subcontract-claims-metric-visible",
+          "passed": true,
+          "details": "claim KPI labels: 1"
+        },
+        {
+          "id": "subcontract-variations-metric-visible",
+          "passed": true,
+          "details": "variation KPI labels: 2"
+        },
+        {
+          "id": "subcontract-records-not-dropped",
+          "passed": true,
+          "details": "subcontract row nodes: 2"
+        }
+      ],
+      "durationMs": 1230,
+      "timestamp": "2026-09-11T03:52:22.765Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "procurement--procurement--subcontract-claim-settlement-workflow-verified--mobile-390",
+      "feature": "procurement",
+      "route": {
+        "id": "procurement",
+        "canonicalPath": "/procurement"
+      },
+      "requestedPath": "/demo/app/procurement",
+      "interactionState": "subcontract claim settlement workflow verified",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/procurement--procurement--subcontract-claim-settlement-workflow-verified--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/procurement",
+        "finalPath": "/demo/app/procurement",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 4711"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "subcontract-mobile-claim-cards-visible",
+          "passed": true,
+          "details": "responsive claim card regions: 1"
+        },
+        {
+          "id": "subcontract-net-payable-visible",
+          "passed": true,
+          "details": "net certified payable labels: 2"
+        },
+        {
+          "id": "subcontract-settlement-evidence-visible",
+          "passed": true,
+          "details": "settlement evidence panels: 1"
+        },
+        {
+          "id": "subcontract-record-payment-visible",
+          "passed": true,
+          "details": "Record Payment links: 1"
+        }
+      ],
+      "durationMs": 1385,
+      "timestamp": "2026-09-11T03:52:23.995Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "document-delivery--procurement--purchase-order-delivery-preview-and-disconnected-history-verified--desktop-1440",
+      "feature": "document-delivery",
+      "route": {
+        "id": "procurement",
+        "canonicalPath": "/procurement"
+      },
+      "requestedPath": "/demo/app/procurement",
+      "interactionState": "Purchase Order delivery preview and disconnected history verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/document-delivery--procurement--purchase-order-delivery-preview-and-disconnected-history-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/procurement",
+        "finalPath": "/demo/app/procurement",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 4676"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "po-document-preview-visible",
+          "passed": true,
+          "details": "Purchase Order preview headings: 1"
+        },
+        {
+          "id": "po-delivery-history-surface-visible",
+          "passed": true,
+          "details": "delivery history surfaces: 1"
+        },
+        {
+          "id": "po-programmatic-pdf-fallback-control-visible",
+          "passed": true,
+          "details": "programmatic PDF controls: 1"
+        },
+        {
+          "id": "po-company-template-pdf-control-visible",
+          "passed": true,
+          "details": "company-template PDF controls: 1"
+        },
+        {
+          "id": "po-email-send-control-visible",
+          "passed": true,
+          "details": "email send controls: 1"
+        },
+        {
+          "id": "po-demo-history-disconnected-state-visible",
+          "passed": true,
+          "details": "disconnected delivery-history notices: 1"
+        }
+      ],
+      "durationMs": 1253,
+      "timestamp": "2026-09-11T03:52:25.380Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "document-delivery--procurement--purchase-order-delivery-preview-and-disconnected-history-verified--mobile-390",
+      "feature": "document-delivery",
+      "route": {
+        "id": "procurement",
+        "canonicalPath": "/procurement"
+      },
+      "requestedPath": "/demo/app/procurement",
+      "interactionState": "Purchase Order delivery preview and disconnected history verified",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/document-delivery--procurement--purchase-order-delivery-preview-and-disconnected-history-verified--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/procurement",
+        "finalPath": "/demo/app/procurement",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 4570"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "po-document-preview-visible",
+          "passed": true,
+          "details": "Purchase Order preview headings: 1"
+        },
+        {
+          "id": "po-delivery-history-surface-visible",
+          "passed": true,
+          "details": "delivery history surfaces: 1"
+        },
+        {
+          "id": "po-programmatic-pdf-fallback-control-visible",
+          "passed": true,
+          "details": "programmatic PDF controls: 1"
+        },
+        {
+          "id": "po-company-template-pdf-control-visible",
+          "passed": true,
+          "details": "company-template PDF controls: 1"
+        },
+        {
+          "id": "po-email-send-control-visible",
+          "passed": true,
+          "details": "email send controls: 1"
+        },
+        {
+          "id": "po-demo-history-disconnected-state-visible",
+          "passed": true,
+          "details": "disconnected delivery-history notices: 1"
+        }
+      ],
+      "durationMs": 1252,
+      "timestamp": "2026-09-11T03:52:26.633Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "warehouse-inventory--warehouse--warehouse-ledger-rendered--desktop-1440",
+      "feature": "warehouse-inventory",
+      "route": {
+        "id": "warehouse",
+        "canonicalPath": "/warehouse"
+      },
+      "requestedPath": "/demo/app/warehouse",
+      "interactionState": "warehouse ledger rendered",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/warehouse-inventory--warehouse--warehouse-ledger-rendered--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/warehouse",
+        "finalPath": "/demo/app/procurement?poId=demo-po-wh-002&receiptId=demo-po-rec-wh-01&from=%2Fwarehouse%3FmovementId%3Ddemo-inventory-movement-concrete-receipt",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 5703"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "warehouse-heading-visible",
+          "passed": true,
+          "details": "warehouse headings: 1"
+        },
+        {
+          "id": "warehouse-items-visible",
+          "passed": true,
+          "details": "warehouse item rows: 4"
+        },
+        {
+          "id": "warehouse-movement-truth-visible",
+          "passed": true,
+          "details": "movement truth banners: 1"
+        },
+        {
+          "id": "warehouse-history-dialog-visible",
+          "passed": true,
+          "details": "item history dialogs: 1"
+        },
+        {
+          "id": "warehouse-history-movement-visible",
+          "passed": true,
+          "details": "opening movement rows: 1"
+        },
+        {
+          "id": "warehouse-authoritative-source-link-visible",
+          "passed": true,
+          "details": "Procurement source links: 1"
+        },
+        {
+          "id": "warehouse-authoritative-source-link-opens-procurement",
+          "passed": true,
+          "details": "final source path: http://127.0.0.1:3000/demo/app/procurement?poId=demo-po-wh-002&receiptId=demo-po-rec-wh-01&from=%2Fwarehouse%3FmovementId%3Ddemo-inventory-movement-concrete-receipt"
+        }
+      ],
+      "durationMs": 1919,
+      "timestamp": "2026-09-11T03:52:27.885Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "warehouse-inventory--warehouse--warehouse-source-continuation-verified--mobile-390",
+      "feature": "warehouse-inventory",
+      "route": {
+        "id": "warehouse",
+        "canonicalPath": "/warehouse"
+      },
+      "requestedPath": "/demo/app/warehouse",
+      "interactionState": "warehouse source continuation verified",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/warehouse-inventory--warehouse--warehouse-source-continuation-verified--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/warehouse",
+        "finalPath": "/demo/app/procurement?poId=demo-po-wh-002&receiptId=demo-po-rec-wh-01&from=%2Fwarehouse%3FmovementId%3Ddemo-inventory-movement-concrete-receipt",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 5403"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "warehouse-heading-visible",
+          "passed": true,
+          "details": "warehouse headings: 1"
+        },
+        {
+          "id": "warehouse-items-visible",
+          "passed": true,
+          "details": "warehouse item rows: 4"
+        },
+        {
+          "id": "warehouse-movement-truth-visible",
+          "passed": true,
+          "details": "movement truth banners: 1"
+        },
+        {
+          "id": "warehouse-history-dialog-visible",
+          "passed": true,
+          "details": "item history dialogs: 1"
+        },
+        {
+          "id": "warehouse-history-movement-visible",
+          "passed": true,
+          "details": "opening movement rows: 1"
+        },
+        {
+          "id": "warehouse-authoritative-source-link-visible",
+          "passed": true,
+          "details": "Procurement source links: 1"
+        },
+        {
+          "id": "warehouse-authoritative-source-link-opens-procurement",
+          "passed": true,
+          "details": "final source path: http://127.0.0.1:3000/demo/app/procurement?poId=demo-po-wh-002&receiptId=demo-po-rec-wh-01&from=%2Fwarehouse%3FmovementId%3Ddemo-inventory-movement-concrete-receipt"
+        }
+      ],
+      "durationMs": 1709,
+      "timestamp": "2026-09-11T03:52:29.804Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "equipment-registry--equipment--equipment-registry-rendered--desktop-1440",
+      "feature": "equipment-registry",
+      "route": {
+        "id": "equipment",
+        "canonicalPath": "/equipment"
+      },
+      "requestedPath": "/demo/app/equipment",
+      "interactionState": "Equipment Registry rendered",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/equipment-registry--equipment--equipment-registry-rendered--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/equipment",
+        "finalPath": "/demo/app/equipment",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2575"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "equipment-heading-visible",
+          "passed": true,
+          "details": "equipment headings: 1"
+        },
+        {
+          "id": "equipment-registry-visible",
+          "passed": true,
+          "details": "equipment registry regions: 1"
+        },
+        {
+          "id": "equipment-authority-boundary-visible",
+          "passed": true,
+          "details": "authority banners: 1"
+        },
+        {
+          "id": "equipment-history-actions-visible",
+          "passed": true,
+          "details": "history controls: 5"
+        }
+      ],
+      "durationMs": 1194,
+      "timestamp": "2026-09-11T03:52:31.513Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-workspace--project-overview--project-selected--desktop-1440",
+      "feature": "project-workspace",
+      "route": {
+        "id": "project-overview",
+        "canonicalPath": "/projects/:projectId"
+      },
+      "requestedPath": "/demo/app/projects",
+      "interactionState": "project selected",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-workspace--project-overview--project-selected--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects",
+        "finalPath": "/demo/app/projects/demo-project-warehouse",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7379"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "project-workspace-visible",
+          "passed": true,
+          "details": "matching project headings: 1"
+        }
+      ],
+      "durationMs": 1857,
+      "timestamp": "2026-09-11T03:52:32.707Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-workspace--project-overview--attention-and-engineering-drilldowns-verified--desktop-1440",
+      "feature": "project-workspace",
+      "route": {
+        "id": "project-overview",
+        "canonicalPath": "/projects/:projectId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse",
+      "interactionState": "attention and engineering drilldowns verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-workspace--project-overview--attention-and-engineering-drilldowns-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/materials-equipment",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2172"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "project-management-attention-visible",
+          "passed": true,
+          "details": "management-attention headings: 1"
+        },
+        {
+          "id": "project-engineering-summary-visible",
+          "passed": true,
+          "details": "engineering summaries: 1"
+        },
+        {
+          "id": "project-signal-evidence-visible",
+          "passed": true,
+          "details": "evidence labels: 10"
+        },
+        {
+          "id": "project-documents-drilldown-visible",
+          "passed": true,
+          "details": "document registers: 1"
+        },
+        {
+          "id": "project-rfis-drilldown-visible",
+          "passed": true,
+          "details": "RFI registers: 1"
+        },
+        {
+          "id": "project-submittals-drilldown-visible",
+          "passed": true,
+          "details": "submittal registers: 1"
+        },
+        {
+          "id": "project-site-logs-drilldown-visible",
+          "passed": true,
+          "details": "Site Log registers: 1"
+        },
+        {
+          "id": "project-materials-warehouse-read-through-visible",
+          "passed": true,
+          "details": "project warehouse read-through labels: 1"
+        }
+      ],
+      "durationMs": 1587,
+      "timestamp": "2026-09-11T03:52:34.564Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-financial-control--project-financial-control--financial-control-dashboard-verified--desktop-1440",
+      "feature": "project-financial-control",
+      "route": {
+        "id": "project-financial-control",
+        "canonicalPath": "/projects/:projectId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse",
+      "interactionState": "financial control dashboard verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-financial-control--project-financial-control--financial-control-dashboard-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse",
+        "finalPath": "/demo/app/projects/demo-project-warehouse",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7379"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "project-financial-control-heading-visible",
+          "passed": true,
+          "details": "financial-control headings: 1"
+        },
+        {
+          "id": "project-cost-control-visible",
+          "passed": true,
+          "details": "cost-control headings: 1"
+        },
+        {
+          "id": "project-commercial-control-visible",
+          "passed": true,
+          "details": "commercial-control headings: 1"
+        },
+        {
+          "id": "project-budget-control-drilldown-visible",
+          "passed": true,
+          "details": "budget-control CTAs: 1"
+        },
+        {
+          "id": "project-financial-metrics-visible",
+          "passed": true,
+          "details": "financial metric cards: 13"
+        }
+      ],
+      "durationMs": 1570,
+      "timestamp": "2026-09-11T03:52:36.151Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-financial-control--project-financial-control--financial-control-dashboard-verified--laptop-1366",
+      "feature": "project-financial-control",
+      "route": {
+        "id": "project-financial-control",
+        "canonicalPath": "/projects/:projectId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse",
+      "interactionState": "financial control dashboard verified",
+      "viewport": {
+        "name": "laptop-1366",
+        "width": 1366,
+        "height": 768
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-financial-control--project-financial-control--financial-control-dashboard-verified--laptop-1366.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1366,
+        "bodyWidth": 1366,
+        "viewportWidth": 1366,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse",
+        "finalPath": "/demo/app/projects/demo-project-warehouse",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7379"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1366px viewport"
+        },
+        {
+          "id": "project-financial-control-heading-visible",
+          "passed": true,
+          "details": "financial-control headings: 1"
+        },
+        {
+          "id": "project-cost-control-visible",
+          "passed": true,
+          "details": "cost-control headings: 1"
+        },
+        {
+          "id": "project-commercial-control-visible",
+          "passed": true,
+          "details": "commercial-control headings: 1"
+        },
+        {
+          "id": "project-budget-control-drilldown-visible",
+          "passed": true,
+          "details": "budget-control CTAs: 1"
+        },
+        {
+          "id": "project-financial-metrics-visible",
+          "passed": true,
+          "details": "financial metric cards: 13"
+        }
+      ],
+      "durationMs": 1516,
+      "timestamp": "2026-09-11T03:52:37.721Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-financial-control--project-financial-control--financial-control-dashboard-verified--tablet-768",
+      "feature": "project-financial-control",
+      "route": {
+        "id": "project-financial-control",
+        "canonicalPath": "/projects/:projectId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse",
+      "interactionState": "financial control dashboard verified",
+      "viewport": {
+        "name": "tablet-768",
+        "width": 768,
+        "height": 1024
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-financial-control--project-financial-control--financial-control-dashboard-verified--tablet-768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 768,
+        "bodyWidth": 768,
+        "viewportWidth": 768,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse",
+        "finalPath": "/demo/app/projects/demo-project-warehouse",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7090"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 768px viewport"
+        },
+        {
+          "id": "project-financial-control-heading-visible",
+          "passed": true,
+          "details": "financial-control headings: 1"
+        },
+        {
+          "id": "project-cost-control-visible",
+          "passed": true,
+          "details": "cost-control headings: 1"
+        },
+        {
+          "id": "project-commercial-control-visible",
+          "passed": true,
+          "details": "commercial-control headings: 1"
+        },
+        {
+          "id": "project-budget-control-drilldown-visible",
+          "passed": true,
+          "details": "budget-control CTAs: 1"
+        },
+        {
+          "id": "project-financial-metrics-visible",
+          "passed": true,
+          "details": "financial metric cards: 13"
+        }
+      ],
+      "durationMs": 1399,
+      "timestamp": "2026-09-11T03:52:39.237Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-financial-control--project-financial-control--financial-control-dashboard-verified--mobile-390",
+      "feature": "project-financial-control",
+      "route": {
+        "id": "project-financial-control",
+        "canonicalPath": "/projects/:projectId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse",
+      "interactionState": "financial control dashboard verified",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-financial-control--project-financial-control--financial-control-dashboard-verified--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse",
+        "finalPath": "/demo/app/projects/demo-project-warehouse",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7002"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "project-financial-control-heading-visible",
+          "passed": true,
+          "details": "financial-control headings: 1"
+        },
+        {
+          "id": "project-cost-control-visible",
+          "passed": true,
+          "details": "cost-control headings: 1"
+        },
+        {
+          "id": "project-commercial-control-visible",
+          "passed": true,
+          "details": "commercial-control headings: 1"
+        },
+        {
+          "id": "project-budget-control-drilldown-visible",
+          "passed": true,
+          "details": "budget-control CTAs: 1"
+        },
+        {
+          "id": "project-financial-metrics-visible",
+          "passed": true,
+          "details": "financial metric cards: 13"
+        }
+      ],
+      "durationMs": 1453,
+      "timestamp": "2026-09-11T03:52:40.637Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-financial-control--project-financial-control--mixed-currency-control-state-verified--desktop-1440",
+      "feature": "project-financial-control",
+      "route": {
+        "id": "project-financial-control",
+        "canonicalPath": "/projects/:projectId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-solar",
+      "interactionState": "mixed-currency control state verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-financial-control--project-financial-control--mixed-currency-control-state-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-solar",
+        "finalPath": "/demo/app/projects/demo-project-solar",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7796"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "php-only-mixed-currency-warning-absent",
+          "passed": true,
+          "details": "mixed-currency warnings: 0"
+        },
+        {
+          "id": "php-only-budget-chart-not-withheld",
+          "passed": true,
+          "details": "withheld budget chart messages: 0"
+        },
+        {
+          "id": "php-only-financial-metrics-not-partial",
+          "passed": true,
+          "details": "partial financial metrics: 0"
+        },
+        {
+          "id": "php-only-financial-metrics-available",
+          "passed": true,
+          "details": "available financial metrics: 13"
+        }
+      ],
+      "durationMs": 1431,
+      "timestamp": "2026-09-11T03:52:42.090Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-workspace--project-overview--base-route-loaded--tablet-768",
+      "feature": "project-workspace",
+      "route": {
+        "id": "project-overview",
+        "canonicalPath": "/projects/:projectId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "tablet-768",
+        "width": 768,
+        "height": 1024
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-workspace--project-overview--base-route-loaded--tablet-768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 768,
+        "bodyWidth": 768,
+        "viewportWidth": 768,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse",
+        "finalPath": "/demo/app/projects/demo-project-warehouse",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7090"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 768px viewport"
+        }
+      ],
+      "durationMs": 1535,
+      "timestamp": "2026-09-11T03:52:43.521Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-workspace--project-documents--base-route-loaded--desktop-1440",
+      "feature": "project-workspace",
+      "route": {
+        "id": "project-documents",
+        "canonicalPath": "/projects/:projectId/documents"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/documents",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-workspace--project-documents--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/documents",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/documents",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2245"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1171,
+      "timestamp": "2026-09-11T03:52:45.057Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "project-workspace--project-documents--base-route-loaded--mobile-390",
+      "feature": "project-workspace",
+      "route": {
+        "id": "project-documents",
+        "canonicalPath": "/projects/:projectId/documents"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/documents",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/project-workspace--project-documents--base-route-loaded--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/documents",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/documents",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1787"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        }
+      ],
+      "durationMs": 1212,
+      "timestamp": "2026-09-11T03:52:46.228Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "engineering-documents--blueprint-viewer--demo-drawing-preview-opened--desktop-1440",
+      "feature": "engineering-documents",
+      "route": {
+        "id": "blueprint-viewer",
+        "canonicalPath": "/projects/:projectId/documents"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/documents",
+      "interactionState": "demo drawing preview opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/engineering-documents--blueprint-viewer--demo-drawing-preview-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/documents",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/documents",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2351"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "blueprint-viewer-visible",
+          "passed": true,
+          "details": "demo drawing preview panels: 1"
+        }
+      ],
+      "durationMs": 1285,
+      "timestamp": "2026-09-11T03:52:47.441Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "documents--documents--unified-document-register-rendered--desktop-1440",
+      "feature": "documents",
+      "route": {
+        "id": "documents",
+        "canonicalPath": "/documents"
+      },
+      "requestedPath": "/demo/app/documents",
+      "interactionState": "unified document register rendered",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/documents--documents--unified-document-register-rendered--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/documents",
+        "finalPath": "/demo/app/documents",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 10020"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "documents-workspace-visible",
+          "passed": true,
+          "details": "Documents workspace surfaces: 1"
+        },
+        {
+          "id": "documents-register-populated",
+          "passed": true,
+          "details": "document register entries: 47"
+        },
+        {
+          "id": "documents-owner-navigation-visible",
+          "passed": true,
+          "details": "owner navigation controls: 47"
+        },
+        {
+          "id": "documents-template-management-link-visible",
+          "passed": true,
+          "details": "template management controls: 1"
+        }
+      ],
+      "durationMs": 1501,
+      "timestamp": "2026-09-11T03:52:48.726Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "documents--documents--unified-document-register-rendered--tablet-768",
+      "feature": "documents",
+      "route": {
+        "id": "documents",
+        "canonicalPath": "/documents"
+      },
+      "requestedPath": "/demo/app/documents",
+      "interactionState": "unified document register rendered",
+      "viewport": {
+        "name": "tablet-768",
+        "width": 768,
+        "height": 1024
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/documents--documents--unified-document-register-rendered--tablet-768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 768,
+        "bodyWidth": 768,
+        "viewportWidth": 768,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/documents",
+        "finalPath": "/demo/app/documents",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 9731"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 768px viewport"
+        },
+        {
+          "id": "documents-workspace-visible",
+          "passed": true,
+          "details": "Documents workspace surfaces: 1"
+        },
+        {
+          "id": "documents-register-populated",
+          "passed": true,
+          "details": "document register entries: 47"
+        },
+        {
+          "id": "documents-owner-navigation-visible",
+          "passed": true,
+          "details": "owner navigation controls: 47"
+        },
+        {
+          "id": "documents-template-management-link-visible",
+          "passed": true,
+          "details": "template management controls: 1"
+        }
+      ],
+      "durationMs": 1320,
+      "timestamp": "2026-09-11T03:52:50.227Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "documents--documents--unified-document-register-rendered--mobile-390",
+      "feature": "documents",
+      "route": {
+        "id": "documents",
+        "canonicalPath": "/documents"
+      },
+      "requestedPath": "/demo/app/documents",
+      "interactionState": "unified document register rendered",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/documents--documents--unified-document-register-rendered--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/documents",
+        "finalPath": "/demo/app/documents",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 9643"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "documents-workspace-visible",
+          "passed": true,
+          "details": "Documents workspace surfaces: 1"
+        },
+        {
+          "id": "documents-register-populated",
+          "passed": true,
+          "details": "document register entries: 47"
+        },
+        {
+          "id": "documents-owner-navigation-visible",
+          "passed": true,
+          "details": "owner navigation controls: 47"
+        },
+        {
+          "id": "documents-template-management-link-visible",
+          "passed": true,
+          "details": "template management controls: 1"
+        }
+      ],
+      "durationMs": 1257,
+      "timestamp": "2026-09-11T03:52:51.547Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "documents--documents--exact-document-handoff-to-email-sms-compose--desktop-1440",
+      "feature": "documents",
+      "route": {
+        "id": "documents",
+        "canonicalPath": "/documents"
+      },
+      "requestedPath": "/demo/app/documents",
+      "interactionState": "exact document handoff to Email / SMS compose",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/documents--documents--exact-document-handoff-to-email-sms-compose--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/documents",
+        "finalPath": "/demo/app/email-sms?view=compose&documentType=PURCHASE_ORDER&documentId=demo-po-sol-001&from=%2Fdocuments",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2302"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "documents-to-email-compose-handoff",
+          "passed": true,
+          "details": "compose panels after handoff: 1"
+        },
+        {
+          "id": "documents-to-email-exact-selection",
+          "passed": true,
+          "details": "handoff URL: http://127.0.0.1:3000/demo/app/email-sms?view=compose&documentType=PURCHASE_ORDER&documentId=demo-po-sol-001&from=%2Fdocuments"
+        }
+      ],
+      "durationMs": 2054,
+      "timestamp": "2026-09-11T03:52:52.804Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "engineering-documents--engineering-documents--base-route-loaded--desktop-1440",
+      "feature": "engineering-documents",
+      "route": {
+        "id": "engineering-documents",
+        "canonicalPath": "/documents"
+      },
+      "requestedPath": "/demo/app/documents",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/engineering-documents--engineering-documents--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/documents",
+        "finalPath": "/demo/app/documents",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 10020"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1421,
+      "timestamp": "2026-09-11T03:52:54.858Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "rfis--rfis--base-route-loaded--desktop-1440",
+      "feature": "rfis",
+      "route": {
+        "id": "rfis",
+        "canonicalPath": "/projects/:projectId/rfis"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/rfis",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/rfis--rfis--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/rfis",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/rfis",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2229"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1117,
+      "timestamp": "2026-09-11T03:52:56.279Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "rfis--rfi-detail--rfi-detail-opened--desktop-1440",
+      "feature": "rfis",
+      "route": {
+        "id": "rfi-detail",
+        "canonicalPath": "/projects/:projectId/rfis?rfiId=:rfiId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/rfis?rfiId=demo-rfi-wh-001",
+      "interactionState": "RFI detail opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/rfis--rfi-detail--rfi-detail-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/rfis?rfiId=demo-rfi-wh-001",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/rfis?rfiId=demo-rfi-wh-001",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1832"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1129,
+      "timestamp": "2026-09-11T03:52:57.396Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "submittals--submittals--base-route-loaded--desktop-1440",
+      "feature": "submittals",
+      "route": {
+        "id": "submittals",
+        "canonicalPath": "/projects/:projectId/submittals"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/submittals",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/submittals--submittals--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/submittals",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/submittals",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1908"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1100,
+      "timestamp": "2026-09-11T03:52:58.525Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "submittals--submittal-detail--submittal-detail-and-round-opened--desktop-1440",
+      "feature": "submittals",
+      "route": {
+        "id": "submittal-detail",
+        "canonicalPath": "/projects/:projectId/submittals?submittalId=:submittalId&roundId=:roundId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/submittals?submittalId=demo-sub-wh-014&roundId=demo-round-wh-014-2",
+      "interactionState": "Submittal detail and round opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/submittals--submittal-detail--submittal-detail-and-round-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/submittals?submittalId=demo-sub-wh-014&roundId=demo-round-wh-014-2",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/submittals?submittalId=demo-sub-wh-014&roundId=demo-round-wh-014-2",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2019"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1131,
+      "timestamp": "2026-09-11T03:52:59.625Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "site-logs--site-logs--base-route-loaded--desktop-1440",
+      "feature": "site-logs",
+      "route": {
+        "id": "site-logs",
+        "canonicalPath": "/projects/:projectId/site-logs"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/site-logs--site-logs--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2029"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1148,
+      "timestamp": "2026-09-11T03:53:00.756Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "site-logs--site-log-detail--site-log-detail-opened--desktop-1440",
+      "feature": "site-logs",
+      "route": {
+        "id": "site-log-detail",
+        "canonicalPath": "/projects/:projectId/site-logs?siteLogId=:siteLogId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/site-logs?siteLogId=demo-site-log-wh-concrete",
+      "interactionState": "Site Log detail opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/site-logs--site-log-detail--site-log-detail-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/site-logs?siteLogId=demo-site-log-wh-concrete",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/site-logs?siteLogId=demo-site-log-wh-concrete",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3206"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1219,
+      "timestamp": "2026-09-11T03:53:01.905Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "site-logs--site-logs--base-route-loaded--tablet-768",
+      "feature": "site-logs",
+      "route": {
+        "id": "site-logs",
+        "canonicalPath": "/projects/:projectId/site-logs"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "tablet-768",
+        "width": 768,
+        "height": 1024
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/site-logs--site-logs--base-route-loaded--tablet-768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 768,
+        "bodyWidth": 768,
+        "viewportWidth": 768,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1687"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 768px viewport"
+        }
+      ],
+      "durationMs": 1130,
+      "timestamp": "2026-09-11T03:53:03.124Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "site-logs--site-logs--base-route-loaded--mobile-390",
+      "feature": "site-logs",
+      "route": {
+        "id": "site-logs",
+        "canonicalPath": "/projects/:projectId/site-logs"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/site-logs--site-logs--base-route-loaded--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/site-logs",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1599"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        }
+      ],
+      "durationMs": 1118,
+      "timestamp": "2026-09-11T03:53:04.254Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "cash-banking--cash--base-route-loaded--desktop-1440",
+      "feature": "cash-banking",
+      "route": {
+        "id": "cash",
+        "canonicalPath": "/cash"
+      },
+      "requestedPath": "/demo/app/cash",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/cash-banking--cash--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/cash",
+        "finalPath": "/demo/app/cash",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 14322"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1680,
+      "timestamp": "2026-09-11T03:53:05.372Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440",
+      "feature": "cash-banking",
+      "route": {
+        "id": "cash-settlement",
+        "canonicalPath": "/cash?transactionId=:transactionId"
+      },
+      "requestedPath": "/demo/app/cash?transactionId=demo-transaction-split-01",
+      "interactionState": "cash settlement workspace opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/cash?transactionId=demo-transaction-split-01",
+        "finalPath": "/demo/app/cash?transactionId=demo-transaction-split-01",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 14546"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1494,
+      "timestamp": "2026-09-11T03:53:07.052Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "cash-banking--cash--base-route-loaded--tablet-768",
+      "feature": "cash-banking",
+      "route": {
+        "id": "cash",
+        "canonicalPath": "/cash"
+      },
+      "requestedPath": "/demo/app/cash",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "tablet-768",
+        "width": 768,
+        "height": 1024
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/cash-banking--cash--base-route-loaded--tablet-768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 768,
+        "bodyWidth": 768,
+        "viewportWidth": 768,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/cash",
+        "finalPath": "/demo/app/cash",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 14033"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 768px viewport"
+        }
+      ],
+      "durationMs": 1415,
+      "timestamp": "2026-09-11T03:53:08.546Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "invoice-extraction--extract--extractor-screen-rendered--desktop-1440",
+      "feature": "invoice-extraction",
+      "route": {
+        "id": "extract",
+        "canonicalPath": "/extract"
+      },
+      "requestedPath": "/demo/app/extract",
+      "interactionState": "extractor screen rendered",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/invoice-extraction--extract--extractor-screen-rendered--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/extract",
+        "finalPath": "/demo/app/extract",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1140"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "invoice-extractor-visible",
+          "passed": true,
+          "details": "matching headings: 1"
+        }
+      ],
+      "durationMs": 1460,
+      "timestamp": "2026-09-11T03:53:09.961Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "email-sms--inbox--email-sms-workspace-rendered-with-disconnected-gmail--desktop-1440",
+      "feature": "email-sms",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-sms",
+      "interactionState": "Email / SMS workspace rendered with disconnected Gmail",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/email-sms--inbox--email-sms-workspace-rendered-with-disconnected-gmail--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-sms",
+        "finalPath": "/demo/app/email-sms",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2366"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "email-sms-workspace-visible",
+          "passed": true,
+          "details": "Email / SMS workspace surfaces: 1"
+        },
+        {
+          "id": "email-sms-section-tabs-visible",
+          "passed": true,
+          "details": "Email / SMS section tabs: 4"
+        },
+        {
+          "id": "email-sms-intake-preserved",
+          "passed": true,
+          "details": "Inbox / Intake headings: 1"
+        },
+        {
+          "id": "email-sms-gmail-disconnected-state-visible",
+          "passed": true,
+          "details": "Gmail connection controls: 1"
+        }
+      ],
+      "durationMs": 1150,
+      "timestamp": "2026-09-11T03:53:11.421Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "email-sms--inbox--email-sms-workspace-rendered-with-disconnected-gmail--tablet-768",
+      "feature": "email-sms",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-sms",
+      "interactionState": "Email / SMS workspace rendered with disconnected Gmail",
+      "viewport": {
+        "name": "tablet-768",
+        "width": 768,
+        "height": 1024
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/email-sms--inbox--email-sms-workspace-rendered-with-disconnected-gmail--tablet-768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 768,
+        "bodyWidth": 768,
+        "viewportWidth": 768,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-sms",
+        "finalPath": "/demo/app/email-sms",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2077"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 768px viewport"
+        },
+        {
+          "id": "email-sms-workspace-visible",
+          "passed": true,
+          "details": "Email / SMS workspace surfaces: 1"
+        },
+        {
+          "id": "email-sms-section-tabs-visible",
+          "passed": true,
+          "details": "Email / SMS section tabs: 4"
+        },
+        {
+          "id": "email-sms-intake-preserved",
+          "passed": true,
+          "details": "Inbox / Intake headings: 1"
+        },
+        {
+          "id": "email-sms-gmail-disconnected-state-visible",
+          "passed": true,
+          "details": "Gmail connection controls: 1"
+        }
+      ],
+      "durationMs": 1078,
+      "timestamp": "2026-09-11T03:53:12.571Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "email-sms--inbox--email-sms-workspace-rendered-with-disconnected-gmail--mobile-390",
+      "feature": "email-sms",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-sms",
+      "interactionState": "Email / SMS workspace rendered with disconnected Gmail",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/email-sms--inbox--email-sms-workspace-rendered-with-disconnected-gmail--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-sms",
+        "finalPath": "/demo/app/email-sms",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1989"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "email-sms-workspace-visible",
+          "passed": true,
+          "details": "Email / SMS workspace surfaces: 1"
+        },
+        {
+          "id": "email-sms-section-tabs-visible",
+          "passed": true,
+          "details": "Email / SMS section tabs: 4"
+        },
+        {
+          "id": "email-sms-intake-preserved",
+          "passed": true,
+          "details": "Inbox / Intake headings: 1"
+        },
+        {
+          "id": "email-sms-gmail-disconnected-state-visible",
+          "passed": true,
+          "details": "Gmail connection controls: 1"
+        }
+      ],
+      "durationMs": 1089,
+      "timestamp": "2026-09-11T03:53:13.649Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "email-sms--inbox--email-compose-review-surface-rendered--desktop-1440",
+      "feature": "email-sms",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-sms?view=compose",
+      "interactionState": "Email compose review surface rendered",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/email-sms--inbox--email-compose-review-surface-rendered--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-sms?view=compose",
+        "finalPath": "/demo/app/email-sms?view=compose",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2282"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "email-compose-visible",
+          "passed": true,
+          "details": "compose panels: 1"
+        },
+        {
+          "id": "email-compose-fields-visible",
+          "passed": true,
+          "details": "To/Subject/Message fields: 1/1/1"
+        },
+        {
+          "id": "email-compose-review-visible",
+          "passed": true,
+          "details": "review controls: 1"
+        },
+        {
+          "id": "email-compose-confirm-visible",
+          "passed": true,
+          "details": "confirm controls: 1"
+        }
+      ],
+      "durationMs": 1116,
+      "timestamp": "2026-09-11T03:53:14.738Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "email-sms--inbox--email-compose-review-surface-rendered--mobile-390",
+      "feature": "email-sms",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-sms?view=compose",
+      "interactionState": "Email compose review surface rendered",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/email-sms--inbox--email-compose-review-surface-rendered--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-sms?view=compose",
+        "finalPath": "/demo/app/email-sms?view=compose",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1905"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "email-compose-visible",
+          "passed": true,
+          "details": "compose panels: 1"
+        },
+        {
+          "id": "email-compose-fields-visible",
+          "passed": true,
+          "details": "To/Subject/Message fields: 1/1/1"
+        },
+        {
+          "id": "email-compose-review-visible",
+          "passed": true,
+          "details": "review controls: 1"
+        },
+        {
+          "id": "email-compose-confirm-visible",
+          "passed": true,
+          "details": "confirm controls: 1"
+        }
+      ],
+      "durationMs": 1108,
+      "timestamp": "2026-09-11T03:53:15.854Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "email-sms--inbox--sent-delivery-history-surface-rendered--desktop-1440",
+      "feature": "email-sms",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-sms?view=sent",
+      "interactionState": "sent delivery history surface rendered",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/email-sms--inbox--sent-delivery-history-surface-rendered--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-sms?view=sent",
+        "finalPath": "/demo/app/email-sms?view=sent",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1428"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1077,
+      "timestamp": "2026-09-11T03:53:16.962Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "email-sms--inbox--sms-not-configured-surface-rendered--desktop-1440",
+      "feature": "email-sms",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-sms?view=sms",
+      "interactionState": "SMS not-configured surface rendered",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/email-sms--inbox--sms-not-configured-surface-rendered--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-sms?view=sms",
+        "finalPath": "/demo/app/email-sms?view=sms",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1566"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "sms-not-configured-visible",
+          "passed": true,
+          "details": "SMS not-configured panels/text: 1/1"
+        }
+      ],
+      "durationMs": 1087,
+      "timestamp": "2026-09-11T03:53:18.039Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "email-sms--inbox--sms-not-configured-surface-rendered--mobile-390",
+      "feature": "email-sms",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-sms?view=sms",
+      "interactionState": "SMS not-configured surface rendered",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/email-sms--inbox--sms-not-configured-surface-rendered--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-sms?view=sms",
+        "finalPath": "/demo/app/email-sms?view=sms",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1189"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "sms-not-configured-visible",
+          "passed": true,
+          "details": "SMS not-configured panels/text: 1/1"
+        }
+      ],
+      "durationMs": 1051,
+      "timestamp": "2026-09-11T03:53:19.126Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "gmail-inbox--inbox--legacy-email-intake-path-opens-the-communications-workspace--desktop-1440",
+      "feature": "gmail-inbox",
+      "route": {
+        "id": "inbox",
+        "canonicalPath": "/email-sms"
+      },
+      "requestedPath": "/demo/app/email-intake",
+      "interactionState": "legacy Email Intake path opens the communications workspace",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/gmail-inbox--inbox--legacy-email-intake-path-opens-the-communications-workspace--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/email-intake",
+        "finalPath": "/demo/app/email-intake",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2366"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "gmail-inbox-visible",
+          "passed": true,
+          "details": "matching headings: 1"
+        }
+      ],
+      "durationMs": 1093,
+      "timestamp": "2026-09-11T03:53:20.177Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "invoices--invoices--supplier-invoice-navigation-and-register-verified--desktop-1440",
+      "feature": "invoices",
+      "route": {
+        "id": "invoices",
+        "canonicalPath": "/invoices"
+      },
+      "requestedPath": "/demo/app/invoices",
+      "interactionState": "supplier invoice navigation and register verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/invoices--invoices--supplier-invoice-navigation-and-register-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/invoices",
+        "finalPath": "/demo/app/invoices",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7870"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "supplier-invoice-module-visible",
+          "passed": true,
+          "details": "Supplier Invoices module controls: 1"
+        },
+        {
+          "id": "supplier-invoice-register-visible",
+          "passed": true,
+          "details": "Supplier invoice register headings: 1"
+        },
+        {
+          "id": "supplier-invoice-child-route-visible",
+          "passed": true,
+          "details": "Supplier documents child routes: 1"
+        }
+      ],
+      "durationMs": 1308,
+      "timestamp": "2026-09-11T03:53:21.270Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "invoices--invoice-detail--invoice-detail-opened--desktop-1440",
+      "feature": "invoices",
+      "route": {
+        "id": "invoice-detail",
+        "canonicalPath": "/invoices/:invoiceId"
+      },
+      "requestedPath": "/demo/app/invoices/demo-invoice-01",
+      "interactionState": "invoice detail opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/invoices--invoice-detail--invoice-detail-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/invoices/demo-invoice-01",
+        "finalPath": "/demo/app/invoices/demo-invoice-01",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 6771"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1177,
+      "timestamp": "2026-09-11T03:53:22.578Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--desktop-1440",
+      "feature": "supplier-payables",
+      "route": {
+        "id": "invoice-detail",
+        "canonicalPath": "/invoices/:invoiceId"
+      },
+      "requestedPath": "/demo/app/invoices/demo-invoice-02",
+      "interactionState": "inline supplier payment modal opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/invoices/demo-invoice-02",
+        "finalPath": "/demo/app/invoices/demo-invoice-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 6649"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "supplier-payment-change-status-visible",
+          "passed": true,
+          "details": "Change Status controls: 1"
+        },
+        {
+          "id": "supplier-payment-dialog-visible",
+          "passed": true,
+          "details": "supplier payment dialogs: 1"
+        },
+        {
+          "id": "supplier-payment-status-options-visible",
+          "passed": true,
+          "details": "Paid/Partially Paid controls: 1/1"
+        },
+        {
+          "id": "supplier-payment-confirm-visible",
+          "passed": true,
+          "details": "Confirm Payment controls: 1"
+        },
+        {
+          "id": "supplier-payment-inline-account-visible",
+          "passed": true,
+          "details": "Add Cash/Bank Account controls: 1"
+        },
+        {
+          "id": "supplier-expense-secondary-correction-link-visible",
+          "passed": true,
+          "details": "linked Expense correction links: 1"
+        },
+        {
+          "id": "supplier-invoice-correction-continuation-visible",
+          "passed": true,
+          "details": "correction continuation controls: 1"
+        }
+      ],
+      "durationMs": 1338,
+      "timestamp": "2026-09-11T03:53:23.755Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--mobile-390",
+      "feature": "supplier-payables",
+      "route": {
+        "id": "invoice-detail",
+        "canonicalPath": "/invoices/:invoiceId"
+      },
+      "requestedPath": "/demo/app/invoices/demo-invoice-02",
+      "interactionState": "inline supplier payment modal opened",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/invoices/demo-invoice-02",
+        "finalPath": "/demo/app/invoices/demo-invoice-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 6108"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "supplier-payment-change-status-visible",
+          "passed": true,
+          "details": "Change Status controls: 1"
+        },
+        {
+          "id": "supplier-payment-dialog-visible",
+          "passed": true,
+          "details": "supplier payment dialogs: 1"
+        },
+        {
+          "id": "supplier-payment-status-options-visible",
+          "passed": true,
+          "details": "Paid/Partially Paid controls: 1/1"
+        },
+        {
+          "id": "supplier-payment-confirm-visible",
+          "passed": true,
+          "details": "Confirm Payment controls: 1"
+        },
+        {
+          "id": "supplier-payment-inline-account-visible",
+          "passed": true,
+          "details": "Add Cash/Bank Account controls: 1"
+        },
+        {
+          "id": "supplier-expense-secondary-correction-link-visible",
+          "passed": true,
+          "details": "linked Expense correction links: 1"
+        },
+        {
+          "id": "supplier-invoice-correction-continuation-visible",
+          "passed": true,
+          "details": "correction continuation controls: 1"
+        }
+      ],
+      "durationMs": 1346,
+      "timestamp": "2026-09-11T03:53:25.093Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "invoices--review--invoice-review-opened--desktop-1440",
+      "feature": "invoices",
+      "route": {
+        "id": "review",
+        "canonicalPath": "/review?invoiceId=:invoiceId"
+      },
+      "requestedPath": "/demo/app/review?invoiceId=demo-invoice-07",
+      "interactionState": "invoice review opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/invoices--review--invoice-review-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/review?invoiceId=demo-invoice-07",
+        "finalPath": "/demo/app/review?invoiceId=demo-invoice-07",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 6639"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1170,
+      "timestamp": "2026-09-11T03:53:26.439Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "vendors--vendors--vendor-directory-rendered--desktop-1440",
+      "feature": "vendors",
+      "route": {
+        "id": "vendors",
+        "canonicalPath": "/vendors"
+      },
+      "requestedPath": "/demo/app/vendors",
+      "interactionState": "vendor directory rendered",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/vendors--vendors--vendor-directory-rendered--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/vendors",
+        "finalPath": "/demo/app/vendors",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2944"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "vendor-directory-visible",
+          "passed": true,
+          "details": "matching headings: 1"
+        }
+      ],
+      "durationMs": 1139,
+      "timestamp": "2026-09-11T03:53:27.609Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "payroll--payroll--base-route-loaded--desktop-1440",
+      "feature": "payroll",
+      "route": {
+        "id": "payroll",
+        "canonicalPath": "/payroll"
+      },
+      "requestedPath": "/demo/app/payroll",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/payroll--payroll--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/payroll",
+        "finalPath": "/demo/app/payroll",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 2491"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1498,
+      "timestamp": "2026-09-11T03:53:28.748Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "payroll--payroll-run--payroll-run-opened--desktop-1440",
+      "feature": "payroll",
+      "route": {
+        "id": "payroll-run",
+        "canonicalPath": "/payroll?runId=:runId"
+      },
+      "requestedPath": "/demo/app/payroll?runId=demo-payroll-run-9",
+      "interactionState": "payroll run opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/payroll--payroll-run--payroll-run-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/payroll?runId=demo-payroll-run-9",
+        "finalPath": "/demo/app/payroll?runId=demo-payroll-run-9",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 4439"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1212,
+      "timestamp": "2026-09-11T03:53:30.246Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "expenses--expenses--base-route-loaded--desktop-1440",
+      "feature": "expenses",
+      "route": {
+        "id": "expenses",
+        "canonicalPath": "/expenses"
+      },
+      "requestedPath": "/demo/app/expenses",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/expenses--expenses--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/expenses",
+        "finalPath": "/demo/app/expenses",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 10609"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1530,
+      "timestamp": "2026-09-11T03:53:31.459Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "supplier-payables--expenses--authoritative-expense-payment-surface-opened--desktop-1440",
+      "feature": "supplier-payables",
+      "route": {
+        "id": "expenses",
+        "canonicalPath": "/expenses?expenseId=:expenseId"
+      },
+      "requestedPath": "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02",
+      "interactionState": "authoritative Expense payment surface opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/supplier-payables--expenses--authoritative-expense-payment-surface-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02",
+        "finalPath": "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 11504"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "expense-detail-visible",
+          "passed": true,
+          "details": "Expense detail panels: 1"
+        },
+        {
+          "id": "expense-payment-cta-visible",
+          "passed": true,
+          "details": "Record Payment links: 1"
+        },
+        {
+          "id": "expense-source-invoice-link-visible",
+          "passed": true,
+          "details": "supplier invoice source links: 1"
+        }
+      ],
+      "durationMs": 1506,
+      "timestamp": "2026-09-11T03:53:32.990Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "supplier-payables--expenses--authoritative-expense-payment-surface-opened--mobile-390",
+      "feature": "supplier-payables",
+      "route": {
+        "id": "expenses",
+        "canonicalPath": "/expenses?expenseId=:expenseId"
+      },
+      "requestedPath": "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02",
+      "interactionState": "authoritative Expense payment surface opened",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/supplier-payables--expenses--authoritative-expense-payment-surface-opened--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02",
+        "finalPath": "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 11057"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "expense-detail-visible",
+          "passed": true,
+          "details": "Expense detail panels: 1"
+        },
+        {
+          "id": "expense-payment-cta-visible",
+          "passed": true,
+          "details": "Record Payment links: 1"
+        },
+        {
+          "id": "expense-source-invoice-link-visible",
+          "passed": true,
+          "details": "supplier invoice source links: 1"
+        }
+      ],
+      "durationMs": 1337,
+      "timestamp": "2026-09-11T03:53:34.496Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "supplier-payables--invoice-detail--stale-supplier-invoice-recovery-verified--desktop-1440",
+      "feature": "supplier-payables",
+      "route": {
+        "id": "invoice-detail",
+        "canonicalPath": "/invoices/:invoiceId"
+      },
+      "requestedPath": "/demo/app/invoices/demo-missing-invoice",
+      "interactionState": "stale supplier invoice recovery verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/supplier-payables--invoice-detail--stale-supplier-invoice-recovery-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/invoices/demo-missing-invoice",
+        "finalPath": "/demo/app/invoices",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7870"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "stale-supplier-invoice-recovery-visible",
+          "passed": true,
+          "details": "recovery headings: 1"
+        },
+        {
+          "id": "stale-supplier-invoice-recovery-action-visible",
+          "passed": true,
+          "details": "recovery actions: 1"
+        },
+        {
+          "id": "stale-supplier-invoice-recovered-to-register",
+          "passed": true,
+          "details": "recovered register headings: 1"
+        }
+      ],
+      "durationMs": 1581,
+      "timestamp": "2026-09-11T03:53:35.833Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "supplier-payables--cash--cash-expense-target-and-return-context-opened--desktop-1440",
+      "feature": "supplier-payables",
+      "route": {
+        "id": "cash",
+        "canonicalPath": "/cash?fromTargetType=:fromTargetType&fromTargetId=:fromTargetId&returnTo=:returnTo"
+      },
+      "requestedPath": "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02&returnTo=%2Fexpenses%3FexpenseId%3Ddemo-expense-supplier-bm-02",
+      "interactionState": "Cash Expense target and return context opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/supplier-payables--cash--cash-expense-target-and-return-context-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02&returnTo=%2Fexpenses%3FexpenseId%3Ddemo-expense-supplier-bm-02",
+        "finalPath": "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 11504"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "cash-expense-target-context-visible",
+          "passed": true,
+          "details": "cash target contexts: 1"
+        },
+        {
+          "id": "cash-expense-target-prioritized",
+          "passed": true,
+          "details": "requested-target badges: 1"
+        },
+        {
+          "id": "cash-expense-return-link-visible",
+          "passed": true,
+          "details": "Expense return links: 1"
+        },
+        {
+          "id": "cash-expense-returned-to-exact-expense",
+          "passed": true,
+          "details": "returned Expense panels: 1"
+        }
+      ],
+      "durationMs": 1876,
+      "timestamp": "2026-09-11T03:53:37.414Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "supplier-payables--cash--cash-expense-target-and-return-context-opened--mobile-390",
+      "feature": "supplier-payables",
+      "route": {
+        "id": "cash",
+        "canonicalPath": "/cash?fromTargetType=:fromTargetType&fromTargetId=:fromTargetId&returnTo=:returnTo"
+      },
+      "requestedPath": "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02&returnTo=%2Fexpenses%3FexpenseId%3Ddemo-expense-supplier-bm-02",
+      "interactionState": "Cash Expense target and return context opened",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/supplier-payables--cash--cash-expense-target-and-return-context-opened--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02&returnTo=%2Fexpenses%3FexpenseId%3Ddemo-expense-supplier-bm-02",
+        "finalPath": "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 11057"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "cash-expense-target-context-visible",
+          "passed": true,
+          "details": "cash target contexts: 1"
+        },
+        {
+          "id": "cash-expense-target-prioritized",
+          "passed": true,
+          "details": "requested-target badges: 1"
+        },
+        {
+          "id": "cash-expense-return-link-visible",
+          "passed": true,
+          "details": "Expense return links: 1"
+        },
+        {
+          "id": "cash-expense-returned-to-exact-expense",
+          "passed": true,
+          "details": "returned Expense panels: 1"
+        }
+      ],
+      "durationMs": 1805,
+      "timestamp": "2026-09-11T03:53:39.290Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440",
+      "feature": "client-receivables",
+      "route": {
+        "id": "project-billing",
+        "canonicalPath": "/projects/:projectId/billing?billingId=:billingId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+      "interactionState": "client invoice collection lifecycle verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3597"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "client-invoice-collection-position-visible",
+          "passed": true,
+          "details": "invoice collection position panels: 1"
+        },
+        {
+          "id": "client-invoice-record-collection-visible",
+          "passed": true,
+          "details": "contextual Record Collection CTAs: 1"
+        },
+        {
+          "id": "client-invoice-collection-history-visible",
+          "passed": true,
+          "details": "invoice collection history panels: 1"
+        },
+        {
+          "id": "client-collection-exact-billing-context-visible",
+          "passed": true,
+          "details": "exact billing contexts in collection editor: 1"
+        },
+        {
+          "id": "client-collection-cash-continuation-visible",
+          "passed": true,
+          "details": "Cash continuation CTAs: 1"
+        },
+        {
+          "id": "client-collection-cash-target-context-visible",
+          "passed": true,
+          "details": "CLIENT_COLLECTION cash target contexts: 1"
+        },
+        {
+          "id": "client-collection-cash-target-prioritized",
+          "passed": true,
+          "details": "requested-target badges: 1"
+        },
+        {
+          "id": "client-collection-cash-return-visible",
+          "passed": true,
+          "details": "client-invoice return links: 1"
+        },
+        {
+          "id": "client-collection-returned-to-invoice",
+          "passed": true,
+          "details": "returned invoice position/history panels: 1/1"
+        }
+      ],
+      "durationMs": 2067,
+      "timestamp": "2026-09-11T03:53:41.095Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390",
+      "feature": "client-receivables",
+      "route": {
+        "id": "project-billing",
+        "canonicalPath": "/projects/:projectId/billing?billingId=:billingId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+      "interactionState": "client invoice collection lifecycle verified",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 3220"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "client-invoice-collection-position-visible",
+          "passed": true,
+          "details": "invoice collection position panels: 1"
+        },
+        {
+          "id": "client-invoice-record-collection-visible",
+          "passed": true,
+          "details": "contextual Record Collection CTAs: 1"
+        },
+        {
+          "id": "client-invoice-collection-history-visible",
+          "passed": true,
+          "details": "invoice collection history panels: 1"
+        },
+        {
+          "id": "client-collection-exact-billing-context-visible",
+          "passed": true,
+          "details": "exact billing contexts in collection editor: 1"
+        },
+        {
+          "id": "client-collection-cash-continuation-visible",
+          "passed": true,
+          "details": "Cash continuation CTAs: 1"
+        },
+        {
+          "id": "client-collection-cash-target-context-visible",
+          "passed": true,
+          "details": "CLIENT_COLLECTION cash target contexts: 1"
+        },
+        {
+          "id": "client-collection-cash-target-prioritized",
+          "passed": true,
+          "details": "requested-target badges: 1"
+        },
+        {
+          "id": "client-collection-cash-return-visible",
+          "passed": true,
+          "details": "client-invoice return links: 1"
+        },
+        {
+          "id": "client-collection-returned-to-invoice",
+          "passed": true,
+          "details": "returned invoice position/history panels: 1/1"
+        }
+      ],
+      "durationMs": 2039,
+      "timestamp": "2026-09-11T03:53:43.162Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "document-delivery--project-billing--client-invoice-delivery-preview-and-disconnected-history-verified--desktop-1440",
+      "feature": "document-delivery",
+      "route": {
+        "id": "project-billing",
+        "canonicalPath": "/projects/:projectId/billing?billingId=:billingId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+      "interactionState": "Client Invoice delivery preview and disconnected history verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/document-delivery--project-billing--client-invoice-delivery-preview-and-disconnected-history-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 4562"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "client-invoice-document-preview-visible",
+          "passed": true,
+          "details": "Client Invoice preview headings: 1"
+        },
+        {
+          "id": "client-invoice-delivery-history-surface-visible",
+          "passed": true,
+          "details": "delivery history surfaces: 1"
+        },
+        {
+          "id": "client-invoice-programmatic-pdf-fallback-control-visible",
+          "passed": true,
+          "details": "programmatic PDF controls: 1"
+        },
+        {
+          "id": "client-invoice-company-template-pdf-control-visible",
+          "passed": true,
+          "details": "company-template PDF controls: 1"
+        },
+        {
+          "id": "client-invoice-email-send-control-visible",
+          "passed": true,
+          "details": "email send controls: 1"
+        },
+        {
+          "id": "client-invoice-demo-history-disconnected-state-visible",
+          "passed": true,
+          "details": "disconnected delivery-history notices: 1"
+        }
+      ],
+      "durationMs": 1264,
+      "timestamp": "2026-09-11T03:53:45.201Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "document-delivery--project-billing--client-invoice-delivery-preview-and-disconnected-history-verified--mobile-390",
+      "feature": "document-delivery",
+      "route": {
+        "id": "project-billing",
+        "canonicalPath": "/projects/:projectId/billing?billingId=:billingId"
+      },
+      "requestedPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+      "interactionState": "Client Invoice delivery preview and disconnected history verified",
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/document-delivery--project-billing--client-invoice-delivery-preview-and-disconnected-history-verified--mobile-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 390,
+        "bodyWidth": 390,
+        "viewportWidth": 390,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+        "finalPath": "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 4185"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 390px viewport"
+        },
+        {
+          "id": "client-invoice-document-preview-visible",
+          "passed": true,
+          "details": "Client Invoice preview headings: 1"
+        },
+        {
+          "id": "client-invoice-delivery-history-surface-visible",
+          "passed": true,
+          "details": "delivery history surfaces: 1"
+        },
+        {
+          "id": "client-invoice-programmatic-pdf-fallback-control-visible",
+          "passed": true,
+          "details": "programmatic PDF controls: 1"
+        },
+        {
+          "id": "client-invoice-company-template-pdf-control-visible",
+          "passed": true,
+          "details": "company-template PDF controls: 1"
+        },
+        {
+          "id": "client-invoice-email-send-control-visible",
+          "passed": true,
+          "details": "email send controls: 1"
+        },
+        {
+          "id": "client-invoice-demo-history-disconnected-state-visible",
+          "passed": true,
+          "details": "disconnected delivery-history notices: 1"
+        }
+      ],
+      "durationMs": 1217,
+      "timestamp": "2026-09-11T03:53:46.466Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "reports--reports--base-route-loaded--desktop-1440",
+      "feature": "reports",
+      "route": {
+        "id": "reports",
+        "canonicalPath": "/reports"
+      },
+      "requestedPath": "/demo/app/reports",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/reports--reports--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/reports",
+        "finalPath": "/demo/app/reports",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 4358"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1238,
+      "timestamp": "2026-09-11T03:53:47.683Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "settings--settings--settings-product-surface-verified--desktop-1440",
+      "feature": "settings",
+      "route": {
+        "id": "settings",
+        "canonicalPath": "/settings"
+      },
+      "requestedPath": "/demo/app/settings",
+      "interactionState": "settings product surface verified",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/settings--settings--settings-product-surface-verified--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/settings",
+        "finalPath": "/demo/app/settings",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 7358"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "settings-heading-visible",
+          "passed": true,
+          "details": "settings headings: 1"
+        },
+        {
+          "id": "regional-preferences-visible",
+          "passed": true,
+          "details": "regional preference headings: 1"
+        },
+        {
+          "id": "client-roadmap-visible",
+          "passed": true,
+          "details": "client roadmap headings: 1"
+        },
+        {
+          "id": "planned-worker-registration-visible",
+          "passed": true,
+          "details": "Worker Registration cards: 1"
+        },
+        {
+          "id": "future-face-attendance-visible",
+          "passed": true,
+          "details": "Future / Design Stage cards: 1"
+        },
+        {
+          "id": "internal-feature-registry-hidden",
+          "passed": true,
+          "details": "internal feature registry panels: 0"
+        },
+        {
+          "id": "template-pdf-capability-truthful",
+          "passed": true,
+          "details": "template PDF unavailable states: 1"
+        }
+      ],
+      "durationMs": 1386,
+      "timestamp": "2026-09-11T03:53:48.921Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "assistant--assistant--base-route-loaded--desktop-1440",
+      "feature": "assistant",
+      "route": {
+        "id": "assistant",
+        "canonicalPath": "/assistant"
+      },
+      "requestedPath": "/demo/app/assistant",
+      "interactionState": "base route loaded",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/assistant--assistant--base-route-loaded--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/assistant",
+        "finalPath": "/demo/app/assistant",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "AI Assistant | Hydroqualisense Demo"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 1658"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        }
+      ],
+      "durationMs": 1014,
+      "timestamp": "2026-09-11T03:53:50.307Z",
+      "status": "PASS",
+      "failureReasons": []
+    },
+    {
+      "scenarioId": "demo--demo-tour--demo-tour-opened--desktop-1440",
+      "feature": "demo",
+      "route": {
+        "id": "demo-tour",
+        "canonicalPath": "/demo/app/dashboard"
+      },
+      "requestedPath": "/demo/app/dashboard",
+      "interactionState": "demo tour opened",
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "expectedNoHorizontalOverflow": true,
+      "screenshotPath": "screenshots/demo--demo-tour--demo-tour-opened--desktop-1440.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "overflow": {
+        "detected": false,
+        "pixels": 0,
+        "documentWidth": 1440,
+        "bodyWidth": 1440,
+        "viewportWidth": 1440,
+        "tolerancePx": 2
+      },
+      "navigation": {
+        "requestedPath": "/demo/app/dashboard",
+        "finalPath": "/demo/app/dashboard",
+        "status": 200,
+        "loaded": true
+      },
+      "assertions": [
+        {
+          "id": "navigation-response",
+          "passed": true,
+          "details": "HTTP 200"
+        },
+        {
+          "id": "page-has-title",
+          "passed": true,
+          "details": "Client Demo | Hydroqualisense"
+        },
+        {
+          "id": "page-has-content",
+          "passed": true,
+          "details": "body text length: 8522"
+        },
+        {
+          "id": "horizontal-overflow",
+          "passed": true,
+          "details": "0px beyond 1440px viewport"
+        },
+        {
+          "id": "demo-tour-visible",
+          "passed": true,
+          "details": "tour panels: 1"
+        }
+      ],
+      "durationMs": 2024,
+      "timestamp": "2026-09-11T03:53:51.321Z",
+      "status": "PASS",
+      "failureReasons": []
+    }
+  ],
+  "artifacts": {
+    "manifestPath": "manifest.json",
+    "screenshotsDirectory": "screenshots",
+    "logPath": "logs/qa.log"
+  }
+}

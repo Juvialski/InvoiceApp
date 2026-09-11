@@ -8,6 +8,7 @@ Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
 Wave 4D contract: `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`  
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
+Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
@@ -226,6 +227,35 @@ exact-head Hosted QA artifact belongs only to SHA
 `ec51c29f2b1bdf6927f41746f38a4c967aeb5bff` and must not be generalized beyond
 the contracts it actually exercised. Wave 4D remains incomplete and Worker
 Registration remains paused.
+
+## Follow-up UI/UX and Gmail provider retest — 2026-09-11
+
+The connected QA deployment was retested after Gmail was manually reconnected.
+`GET /api/health` reported app SHA `2b48ea14b462c42577fc7ce9fd63ae2c6f34654b`,
+deployment `qa-hydroqualisense`, migration `20260910233915`, and the expected
+native-Node PDF finalization limitation. Gmail remained healthy after route
+navigation and reload. A real 30-day finance scan succeeded and incremental
+`Sync new` returned no new messages without provider authorization failure.
+
+Only controlled synthetic outbound tests were retained: an ordinary email to
+the connected QA account and one issued Client Invoice attachment send were
+accepted through Gmail and appeared as `SENT` in company delivery history. The
+attachment record returned to the authoritative Client Billing route. Actual
+mailbox arrival was not separately inspected, and inbound import/routing was
+not exercised because the scan returned non-controlled mailbox candidates that
+were deliberately not imported or preserved.
+
+The follow-up UI audit is recorded in `artifacts/ui-ux-audit/REPORT.md` and
+`findings.json`. It covers the authenticated major workspaces and the bounded
+local demo visual run: 76 scenarios across 34 routes and four viewport
+profiles, with zero console/page errors, failed requests, overflow failures,
+or failed scenarios. The branch fixes preserve the existing source, document,
+financial, permission, and delivery-history authorities.
+
+QA remains **NOT READY**. SMS is not configured, native high-fidelity PDF
+conversion is unavailable, inbound provider routing and separate mailbox
+arrival proof remain unexercised, and recovery/AI/provider readiness evidence
+is still outstanding. Worker Registration remains paused.
 
 QA certification, provider validation, recovery evidence, deployment identity, migration parity, and production separation remain a parallel release/readiness track.
 

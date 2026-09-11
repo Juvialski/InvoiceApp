@@ -138,7 +138,7 @@ Supplier invoice evidence linked to an Expense must not become duplicate payable
 
 **Classification:** `EXISTS — UX/mobile gap`  
 **Finding:** Expense mobile UI has min-width / dense-layout risk around 390px.  
-**Current status:** **PARTIALLY EVIDENCED, still open.** Wave 1A's new supplier/Expense/Cash target scenarios passed deterministic browser QA at approximately 390px with no horizontal overflow for those specific flows. That does not prove every Expense register/table state is fully mobile-optimized, so the broader finding remains open and bounded.
+**Current status:** **RESOLVED in the current UI/UX pass.** The Expense register now switches to readable cards below the desktop breakpoint, keeping project, payee, source links, amount, status, and correction actions visible without forcing a narrow table to scroll horizontally.
 
 ### UX-016 — P2
 
@@ -259,3 +259,20 @@ This audit does not authorize:
 Internal IDs (`UX-*`), waves, PR numbers, CI, migrations, SHAs, agent terminology, and engineering notes belong only in internal documentation. The client-facing `Hydroqualisense Features & Roadmap` must describe only actual usable behavior and approved future product direction.
 
 At the reviewed baseline, Wave 1A's material user-facing behavior is reflected in the Available Supplier Invoices/Expenses and Cash & Banking descriptions. Wave 1B's usable client-invoice collection continuation is reflected in the Available Client invoices and collections description; internal wave IDs and implementation details remain excluded.
+
+## Follow-up UI/UX and live provider pass — 2026-09-11
+
+The current full pass is recorded in `artifacts/ui-ux-audit/REPORT.md` and
+`artifacts/ui-ux-audit/findings.json`. It adds focused findings for incremental
+Gmail queue retention, zero-quantity receipt handling, mobile Expense and
+Procurement registers, mobile receipt entry, project-create wording, Cash page
+hierarchy, mobile issued-document preview, Gmail read-only wording, and
+client-facing Email/Documents roadmap truth. The branch contains targeted fixes
+for those findings and retains the financial, source, permission, document,
+delivery-history, and Assistant confirmation boundaries.
+
+Authenticated QA evidence from the connected Gmail retest is intentionally
+separate from the local demo visual evidence. Gmail read/sync and two controlled
+outbound sends passed; inbound import/routing and separate mailbox-arrival proof
+were not exercised because the available inbox candidates were not controlled
+synthetic content. SMS remains not configured.

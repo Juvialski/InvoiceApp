@@ -7,8 +7,10 @@ import { canAccessAppTab, PERMISSION_KEYS } from "../src/utils/accessControl.ts"
 import { getSmsProviderStatus, resolveSmsProvider } from "../src/server/messaging/smsProvider.ts";
 
 const workspace = readFileSync(new URL("../src/app/routes/EmailSmsRoute.tsx", import.meta.url), "utf8");
+const emailInbox = readFileSync(new URL("../src/components/EmailInbox.tsx", import.meta.url), "utf8");
 const documentsRoute = readFileSync(new URL("../src/app/routes/DocumentsRoute.tsx", import.meta.url), "utf8");
 const compose = readFileSync(new URL("../src/components/EmailComposePanel.tsx", import.meta.url), "utf8");
+const documentPreview = readFileSync(new URL("../src/components/DocumentPreviewModal.tsx", import.meta.url), "utf8");
 const history = readFileSync(new URL("../src/components/CommunicationHistoryPanel.tsx", import.meta.url), "utf8");
 const sms = readFileSync(new URL("../src/components/SmsProviderStatusPanel.tsx", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../supabase/migrations/20260910131014_email_sms_workspace_delivery.sql", import.meta.url), "utf8");
@@ -78,6 +80,13 @@ test("Compose requires the explicit review step before human send confirmation",
   assert.match(compose, /data-email-compose-review="true"/);
 });
 
+test("Email intake keeps pending candidates visible during incremental sync and explains read-only scope", () => {
+  assert.match(emailInbox, /Inbox access: read-only/);
+  assert.match(emailInbox, /onSyncGmail/);
+  assert.match(emailInbox, /mergeGmailCandidates\(current, discovered\)/);
+  assert.doesNotMatch(emailInbox, /syncConnectedMailbox\(historyId/);
+});
+
 test("Wave 4D workspace surfaces reuse existing intake, send, history, and template ownership", () => {
   assert.match(workspace, /<EmailInbox/);
   assert.match(workspace, /<EmailComposePanel/);
@@ -94,4 +103,12 @@ test("Wave 4D workspace surfaces reuse existing intake, send, history, and templ
   assert.match(migration, /can_read_general_delivery/);
   assert.match(migration, /message_body_sha256/);
   assert.match(migration, /document_send_intents_delivery_shape_check/);
+});
+
+test("financial document preview stacks mobile branding and document number without overlap", () => {
+  assert.match(documentPreview, /flex min-h-16 flex-col items-center justify-center gap-2 text-center sm:block/);
+  assert.match(documentPreview, /flex min-h-10 flex-col items-center justify-center gap-2 sm:block/);
+  assert.match(documentPreview, /sm:absolute sm:right-0 sm:top-1\/2 sm:-translate-y-1\/2/);
+  assert.match(documentPreview, /useDialogFocus\(\{ open: true, onClose, initialFocusRef: closeButtonRef \}\)/);
+  assert.match(documentPreview, /ref=\{closeButtonRef\} type="button"/);
 });

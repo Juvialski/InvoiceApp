@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createProjectDraft } from "../src/utils/projectDraft.ts";
 
@@ -8,4 +9,9 @@ test("project drafts have a valid identity before authenticated persistence", ()
   assert.equal(draft.projectCode, "");
   assert.equal(draft.createdAt, "2026-09-11T00:00:00.000Z");
   assert.equal(draft.updatedAt, "2026-09-11T00:00:00.000Z");
+});
+
+test("new project drafts are presented as creation rather than editing", () => {
+  const source = readFileSync("src/components/projects/ProjectsPage.tsx", "utf8");
+  assert.match(source, /editing\.id && editing\.projectCode\.trim\(\) \? `Edit \$\{editing\.projectCode\}` : "Create New Project"/);
 });

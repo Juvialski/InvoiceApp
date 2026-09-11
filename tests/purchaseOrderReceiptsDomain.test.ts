@@ -6,6 +6,7 @@ import {
   calculatePOReceiptProgress,
   hasOutstandingReceiptQuantity,
   getReceiptsForPO,
+  parseReceiptQuantity,
   validateReceiptLineInput,
 } from "../src/utils/purchaseOrderReceipts.ts";
 
@@ -193,6 +194,15 @@ test("validateReceiptLineInput: accepts valid remaining quantity and rejects inv
   ])];
   assert.equal(validateReceiptLineInput(line, 20, existing).valid, true);
   assert.equal(validateReceiptLineInput(line, 21, existing).valid, false);
+});
+
+test("parseReceiptQuantity: blank and zero UI values leave untouched lines out of a partial receipt", () => {
+  assert.deepEqual(parseReceiptQuantity(""), { kind: "skip" });
+  assert.deepEqual(parseReceiptQuantity("0"), { kind: "skip" });
+  assert.deepEqual(parseReceiptQuantity("0.0"), { kind: "skip" });
+  assert.deepEqual(parseReceiptQuantity("12.5"), { kind: "valid", quantity: 12.5 });
+  assert.deepEqual(parseReceiptQuantity("-1"), { kind: "invalid" });
+  assert.deepEqual(parseReceiptQuantity("not-a-number"), { kind: "invalid" });
 });
 
 test("getReceiptsForPO: filters by PO and sorts latest receipt first", () => {

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle, PackageCheck, Truck, X } from "lucide-react";
 import type { PurchaseOrder, PurchaseOrderReceipt } from "../../types.ts";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
-import { calculateLineReceiptProgress, calculatePOReceiptProgress, roundQuantity } from "../../utils/purchaseOrderReceipts.ts";
+import { calculateLineReceiptProgress, calculatePOReceiptProgress, parseReceiptQuantity, roundQuantity } from "../../utils/purchaseOrderReceipts.ts";
 
 export interface RecordReceiptModalProps {
   open: boolean;
@@ -109,13 +109,13 @@ export const RecordReceiptModal: React.FC<RecordReceiptModalProps> = ({
 
     for (const line of poLines) {
       const rawQty = lineQuantities[line.id]?.trim();
-      if (!rawQty) continue;
-
-      const qty = Number(rawQty);
-      if (isNaN(qty) || qty <= 0) {
-        setErrorMessage(`Invalid quantity for line "${line.description}". Must be a positive number.`);
+      const parsedQuantity = parseReceiptQuantity(rawQty);
+      if (parsedQuantity.kind === "skip") continue;
+      if (parsedQuantity.kind === "invalid") {
+        setErrorMessage(`Invalid quantity for line "${line.description}". Enter 0 or a positive number.`);
         return;
       }
+      const qty = parsedQuantity.quantity;
 
       const remaining = poProgress.lines[line.id]?.remainingQuantity ?? line.quantity;
       if (roundQuantity(qty) > roundQuantity(remaining)) {
@@ -273,9 +273,21 @@ export const RecordReceiptModal: React.FC<RecordReceiptModalProps> = ({
                 Receive All Remaining Items
               </button>
             </div>
+            <p className="text-[10px] leading-4 text-slate-500">Leave lines that were not delivered blank or enter 0. Only positive quantities are recorded in this receipt.</p>
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <div className="overflow-x-auto">
+              <div className="space-y-2 p-3 lg:hidden" aria-label="Receipt line cards">
+                {poLines.map((line, idx) => {
+                  const lineProg = poProgress.lines[line.id] || calculateLineReceiptProgress(line, existingReceipts);
+                  const isLineComplete = lineProg.remainingQuantity === 0;
+                  return <article key={line.id} className={`rounded-lg border p-3 ${isLineComplete ? "border-slate-200 bg-slate-50/70" : "border-slate-200 bg-white"}`}>
+                    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="break-words text-xs font-bold text-slate-800"><span className="mr-1.5 font-mono text-slate-400">{idx + 1}.</span>{line.description}</h3><p className="mt-0.5 text-[10px] text-slate-400">Unit: {line.unit}</p></div>{isLineComplete && <span className="shrink-0 text-[10px] font-semibold text-emerald-600">Fully received</span>}</div>
+                    <dl className="mt-3 grid grid-cols-3 gap-2 text-[10px]"><div><dt className="text-slate-400">Ordered</dt><dd className="mt-0.5 font-mono font-semibold text-slate-700">{lineProg.orderedQuantity} {line.unit}</dd></div><div><dt className="text-slate-400">Received</dt><dd className="mt-0.5 font-mono font-semibold text-slate-700">{lineProg.receivedQuantity} {line.unit}</dd></div><div><dt className="text-indigo-500">Remaining</dt><dd className="mt-0.5 font-mono font-bold text-indigo-700">{lineProg.remainingQuantity} {line.unit}</dd></div></dl>
+                    {!isLineComplete && <div className="mt-3"><label className="block text-[10px] font-bold uppercase tracking-wide text-slate-600">Qty receiving<input type="number" min="0" max={lineProg.remainingQuantity} step="any" value={lineQuantities[line.id] || ""} onChange={(e) => setLineQuantities((prev) => ({ ...prev, [line.id]: e.target.value }))} placeholder="0" className="mt-1 w-full font-mono font-bold rounded-lg border border-slate-300 px-2.5 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" /></label><button type="button" onClick={() => handleFillLineRemaining(line.id)} className="mt-2 min-h-10 w-full rounded-lg border border-indigo-200 px-2.5 py-2 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50">Receive remaining ({lineProg.remainingQuantity} {line.unit})</button></div>}
+                  </article>;
+                })}
+              </div>
+              <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                     <tr>
