@@ -12,7 +12,9 @@ import { execFile as execFileCallback } from "node:child_process";
 import { chromium } from "playwright";
 import { isPortInUse, isServerReady, terminateChildServer } from "./devServerLifecycle.ts";
 import { redactSensitiveText, normalizeErrorMessage } from "./structuredEvidence.ts";
+import { runLocalQaScenarios, type LocalQaScenarioEvidence, type LocalQaScenarioRunResult } from "./localQaScenarios.ts";
 import { assertLocalQaTarget, assertProductionTargetIsRefused, LOCAL_QA_DEPLOYMENT_ID, LOCAL_QA_PROJECT_REF, LOCAL_QA_PRODUCTION_PROJECT_REF } from "../../src/lib/localQaTarget.ts";
+import { ROUTE_DEFINITIONS } from "../../src/utils/routes.ts";
 
 const execFile = promisify(execFileCallback);
 const REPOSITORY_ROOT = path.resolve(process.cwd());
@@ -27,7 +29,7 @@ const PASSWORD = String(process.env.QA_E2E_PASSWORD || "");
 const QA_TIMEOUT_MS = 30_000;
 
 interface LocalQaEvidence {
-  schemaVersion: 1;
+  schemaVersion: 2;
   status: "PASS" | "FAIL";
   baseUrl: string;
   target: {
@@ -44,7 +46,7 @@ interface LocalQaEvidence {
     pdfFinalization: string | null;
   };
   authentication?: {
-    email: string;
+    userMatchesExpected: boolean;
     accessTokenPresent: boolean;
     refreshTokenPresent: boolean;
     reloadPersisted: boolean;
@@ -56,6 +58,8 @@ interface LocalQaEvidence {
   networkRequests?: string[];
   syntheticWrite?: { projectCode: string; created: boolean; persistedAfterReload: boolean };
   pdfChecks?: Array<{ kind: string; source: string; pageCount: number; previewHash: string; downloadHash: string; exactMatch: boolean; renderedPages: number }>;
+  scenarios?: readonly LocalQaScenarioEvidence[];
+  scenarioSummary?: LocalQaScenarioRunResult["summary"];
   failure?: string;
 }
 
@@ -70,6 +74,17 @@ function sha256(bytes: Uint8Array) {
 async function writeEvidence(evidence: LocalQaEvidence) {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   await fs.writeFile(path.join(OUTPUT_DIR, "evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+}
+
+async function cleanUnsafeScreenshotArtifacts() {
+  const screenshotDirectory = path.join(OUTPUT_DIR, "screenshots");
+  const entries = await fs.readdir(screenshotDirectory, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.isFile() || !/desktop|tablet/i.test(entry.name) || !entry.name.endsWith(".png")) continue;
+    const candidate = path.resolve(screenshotDirectory, entry.name);
+    if (path.dirname(candidate) !== path.resolve(screenshotDirectory)) continue;
+    await fs.unlink(candidate);
+  }
 }
 
 async function readLocalEnv() {
@@ -152,6 +167,15 @@ async function waitForApp(page: any) {
   await page.locator("[data-workspace-state='ready']").waitFor({ state: "attached", timeout: QA_TIMEOUT_MS });
 }
 
+async function waitForAuthenticationOrWorkspace(page: any): Promise<"authentication" | "workspace"> {
+  const authForm = page.locator("#auth-email");
+  const workspace = page.locator("[data-workspace-state='ready']");
+  return Promise.race([
+    authForm.waitFor({ state: "visible", timeout: QA_TIMEOUT_MS }).then(() => "authentication" as const),
+    workspace.waitFor({ state: "attached", timeout: QA_TIMEOUT_MS }).then(() => "workspace" as const),
+  ]);
+}
+
 async function authenticatedContext(browser: any) {
   let context = await browser.newContext(existsSync(STORAGE_STATE_PATH) ? { storageState: STORAGE_STATE_PATH } : {});
   let page = await context.newPage();
@@ -165,13 +189,10 @@ async function authenticatedContext(browser: any) {
     if (response.status() >= 400) networkFailures.push(item);
   });
   await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded", timeout: QA_TIMEOUT_MS });
-  let signInVisible = false;
-  try { await page.locator("#auth-email").waitFor({ state: "visible", timeout: 5_000 }); signInVisible = true; } catch { /* an existing session may already be bootstrapping */ }
-  if (signInVisible) {
-    await context.close();
-    context = await browser.newContext();
-    page = await context.newPage();
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded", timeout: QA_TIMEOUT_MS });
+  const initialState = await waitForAuthenticationOrWorkspace(page);
+  if (initialState === "authentication") {
+    await page.evaluate(() => localStorage.clear());
+    await page.locator("#auth-password").waitFor({ state: "visible", timeout: QA_TIMEOUT_MS });
     await page.locator("#auth-email").fill(EXPECTED_EMAIL);
     await page.locator("#auth-password").fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -194,7 +215,7 @@ async function authenticatedContext(browser: any) {
 }
 
 async function routeEvidence(page: any) {
-  const paths = ["/dashboard", "/projects", "/procurement", "/documents", "/email-sms", "/expenses", "/cash", "/payroll", "/reports", "/settings"];
+  const paths = ROUTE_DEFINITIONS.map((route) => route.path);
   const evidence: Array<{ path: string; loaded: boolean; pageLevelOverflow: boolean }> = [];
   for (const route of paths) {
     await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded", timeout: QA_TIMEOUT_MS });
@@ -322,8 +343,9 @@ async function pdfEvidence(page: any) {
 
 async function main() {
   const targetConfig = await readLocalEnv();
+  await cleanUnsafeScreenshotArtifacts();
   const evidence: LocalQaEvidence = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     status: "FAIL",
     baseUrl: BASE_URL,
     target: {
@@ -351,7 +373,7 @@ async function main() {
     const session = await authenticatedContext(browser);
     context = session.context;
     evidence.authentication = {
-      email: EXPECTED_EMAIL,
+      userMatchesExpected: session.first.userEmail === EXPECTED_EMAIL,
       accessTokenPresent: session.first.accessTokenPresent,
       refreshTokenPresent: session.first.refreshTokenPresent,
       reloadPersisted: session.afterReload.accessTokenPresent && session.afterReload.refreshTokenPresent,
@@ -362,6 +384,22 @@ async function main() {
     evidence.networkFailures = session.networkFailures;
     evidence.networkRequests = session.networkRequests.slice(-100);
     evidence.syntheticWrite = await boundedProjectWrite(session.page);
+    const scenarioRun = await runLocalQaScenarios({
+      page: session.page,
+      baseUrl: BASE_URL,
+      outputDir: OUTPUT_DIR,
+      waitForApp,
+      timeoutMs: QA_TIMEOUT_MS,
+    });
+    evidence.scenarios = scenarioRun.scenarios;
+    evidence.scenarioSummary = scenarioRun.summary;
+    const coverageGaps = scenarioRun.scenarios.filter((scenario) =>
+      scenario.status !== "PASS" || scenario.assertions.some((item) => item.id.endsWith("-available")),
+    );
+    if (coverageGaps.length > 0) {
+      const incompleteIds = coverageGaps.map((scenario) => `${scenario.id}:${scenario.status}`).slice(0, 8);
+      throw new Error(`Authenticated Local-QA coverage incomplete: ${incompleteIds.join(", ") || "unknown scenario"}.`);
+    }
     evidence.pdfChecks = await pdfEvidence(session.page);
     evidence.status = "PASS";
   } catch (error) {

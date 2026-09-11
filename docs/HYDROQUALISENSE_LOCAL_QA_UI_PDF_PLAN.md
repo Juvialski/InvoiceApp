@@ -1,6 +1,6 @@
 # HydroQualiSense Local QA, UI/UX, and PDF Quality Plan
 
-Status: **ACTIVE — FOUNDATION COMPLETE / COMPREHENSIVE QUALITY PHASES REMAIN**  
+Status: **ACTIVE — PHASE 1 COMPLETE / DEEP PDF VISUAL CERTIFICATION NEXT**
 Repository: `Juvialski/InvoiceApp`  
 Last corrected: **2026-09-11**
 
@@ -39,13 +39,11 @@ This foundation established:
 
 Exact preview/download SHA equality proves that Preview and Download use the same bytes. It does **not** prove that those bytes produce a visually correct document.
 
-## Phase 1 — Comprehensive authenticated Local-QA UI/UX redo — NEXT
+## Phase 1 — Comprehensive authenticated Local-QA UI/UX redo — COMPLETE in PR #150
 
-This is the next implementation phase.
+PR #150 completed the authenticated Local-QA UI/UX phase against the real isolated QA backend.
 
-Run the actual current feature branch locally against the real QA backend and inspect meaningful user workflows, not only route loading or generic overflow checks.
-
-Audit and immediately remediate, as applicable:
+The phase exercised meaningful authenticated workflows rather than only route loading, across:
 
 - Dashboard;
 - Projects;
@@ -64,21 +62,21 @@ Audit and immediately remediate, as applicable:
 - Reports;
 - Settings.
 
-For each applicable surface exercise real states such as:
+The scenario catalog covers all 16 canonical top-level routes at desktop, tablet, and narrow/mobile target viewports, plus legacy Email Intake aliases, project workspace tabs, safe owner/Compose handoffs, compose review without send, SMS provider status without send, and mobile Documents preview behavior.
 
-`create -> edit -> view/detail -> modal -> navigation/handoff -> preview -> download -> empty/error/long-content states`
+### Phase 1 outcome
 
-Validate desktop, tablet, and narrow/mobile layouts where applicable.
+The implementation evidence recorded 57/57 scenarios passing, with zero failed, blocked, not-tested, horizontal-overflow, dialog-overflow, or clipped-interactive-control scenarios.
 
-Use the local-QA loop continuously:
+The pass fixed and retested three concrete responsive defects: clipped mobile Project primary actions, clipped mobile Procurement tabs/filter controls, and desktop Equipment register actions exceeding the content frame.
 
-`observe -> diagnose -> fix -> reload local branch -> retest the same QA workflow -> add regression coverage when appropriate`
+The completion gate was then hardened so an overall Local-QA PASS is refused whenever a comprehensive scenario is failed, blocked, not tested, or an expected control is unavailable. This prevents future incomplete coverage from being represented as certification.
 
-Do not produce an audit-only findings list when a safe in-scope application fix can be made and retested immediately.
+No database contract, provider, SMS, production, or deep PDF visual-certification behavior changed in Phase 1.
 
-## Phase 2 — Deep PDF/export visual certification — REQUIRED P0 GATE
+## Phase 2 — Deep PDF/export visual certification — NEXT / REQUIRED P0 GATE
 
-After the broad UI/UX pass is stable, perform a dedicated document-quality phase.
+Perform a dedicated document-quality phase.
 
 The purpose is not merely to prove that Preview and Download share bytes. It is to prove that the actual rendered pages are visually correct.
 
@@ -128,7 +126,7 @@ Programmatic PDF fallback, company-template DOCX, and finalized company-template
 
 ## Phase 3 — Functional regression sweep using the local-QA loop
 
-After the visual/UI remediation phases, perform a focused end-to-end functional sweep across the workflows affected or touched during the audit.
+After the visual remediation phase, perform a focused end-to-end functional sweep across the workflows affected or touched during the UI/PDF audit.
 
 Examples include:
 

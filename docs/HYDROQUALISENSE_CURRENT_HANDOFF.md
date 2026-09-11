@@ -1,14 +1,18 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — COMPREHENSIVE LOCAL-QA UI/UX REDO NEXT / PDF VISUAL CERTIFICATION PENDING / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**  
+Status: **CURRENT — COMPREHENSIVE LOCAL-QA UI/UX REDO COMPLETE / DEEP PDF VISUAL CERTIFICATION NEXT / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
 Date: **2026-09-11**  
 Repository: `Juvialski/InvoiceApp`
 
-## Current merged application / QA-hardening baseline
+## Current application / QA-hardening baseline
+
+Phase 1 application and Local-QA harness work is integrated through PR #150.
+
+The preceding application / QA-hardening baseline was:
 
 `f1851b0c347da2ea29466d9748909889b67f03ed` (PR #148)
 
-Relevant integrated work through this application baseline:
+Relevant integrated work:
 
 - Wave 1A Supplier Payable Lifecycle UX — PR #126;
 - Wave 1B Client Receivable Lifecycle UX — PR #129;
@@ -22,7 +26,8 @@ Relevant integrated work through this application baseline:
 - focused UI/UX remediation + connected Gmail QA audit — PR #144;
 - local branch -> real QA development harness + canonical issued-PDF preview/download foundation + initial PDF renderer hardening — PR #146;
 - staged local-QA/UI/PDF quality plan — PR #147;
-- local-QA browser-key hardening, including rejection of privileged legacy Supabase `service_role` JWTs — PR #148.
+- local-QA browser-key hardening, including rejection of privileged legacy Supabase `service_role` JWTs — PR #148;
+- comprehensive authenticated Local-QA UI/UX redo and stricter completion gate — PR #150.
 
 Read with:
 
@@ -55,46 +60,25 @@ These are foundations, not the end of the quality program.
 
 **Preview/download hash equality proves byte identity only. It does not prove that title placement, logo separation, table geometry, page breaks, totals, signatures, or long content are visually correct.**
 
-## Immediate next phase — Comprehensive authenticated Local-QA UI/UX redo
+## Phase 1 result — Comprehensive authenticated Local-QA UI/UX redo complete
 
-This is the next Codex implementation phase.
+PR #150 completed the authenticated Local-QA UI/UX pass against the real isolated QA backend.
 
-Run the current feature branch locally against the real isolated QA backend and perform a comprehensive workflow-oriented UI/UX pass.
+Final implementation evidence recorded 57/57 scenarios passing across all 16 canonical top-level routes plus the mobile Documents check, project-workspace tabs, legacy Email Intake aliases, owner/Compose handoffs, safe dialogs, and the desktop/tablet/mobile target profiles. It recorded zero failed, blocked, not-tested, horizontal-overflow, dialog-overflow, or clipped-interactive-control scenarios.
 
-Priority surfaces:
+Concrete schema-compatible defects fixed and retested in the same loop:
 
-- Dashboard;
-- Projects;
-- Procurement / RFQ / quotations;
-- Purchase Orders / receipts;
-- Supplier invoices / linked Expenses;
-- Expenses;
-- Cash & Banking;
-- Client Billing / Collections;
-- Payroll;
-- Warehouse / Inventory;
-- Equipment;
-- Engineering Documents;
-- Email / SMS;
-- Documents;
-- Reports;
-- Settings.
+- mobile Project cards clipped the primary Open Project action;
+- mobile Procurement tabs and the project filter select exceeded the usable viewport;
+- desktop Equipment register actions exceeded the available content frame.
 
-Exercise meaningful states, as applicable:
+PR #150 also hardens the Local-QA completion gate so the harness cannot report overall PASS when a comprehensive scenario is failed, blocked, not tested, or an expected control is unavailable.
 
-`create -> edit -> view/detail -> modal -> navigation/handoff -> preview -> download -> empty/error/long-content`
+The Local-QA evidence proves the existing QA session recovery, route readiness, owner navigation, compose review gate, truthful SMS state, and issued-PDF preview/download byte identity for the exercised implementation. No database contract or provider implementation changed.
 
-Cover desktop, tablet, and narrow/mobile layouts where applicable.
+## Immediate next phase — Deep PDF/export visual certification
 
-For each safe schema-compatible application issue:
-
-`observe -> diagnose -> fix -> reload current local branch -> retest same QA workflow -> add regression coverage where appropriate`
-
-Do not stop at an audit-only report when the issue can be fixed and verified in the same phase.
-
-## Following phase — Deep PDF/export visual certification
-
-After the comprehensive UI/UX redo is stable, perform a dedicated PDF/export certification pass.
+Perform a dedicated PDF/export certification pass.
 
 Explicitly inspect actual rendered pages for both Purchase Orders and Client Invoices, including:
 
@@ -127,7 +111,7 @@ For representative cases, compare in-app preview with the exact downloaded PDF a
 
 ## Then — Functional regression sweep
 
-After UI and PDF remediation, perform a focused functional sweep over workflows touched during the audit/fixes.
+After PDF remediation, perform a focused functional sweep over workflows touched during the UI/PDF audit and fixes.
 
 Schema-compatible defects should be fixed immediately against local QA.
 
@@ -158,7 +142,7 @@ Current product surfaces include:
 
 No outbound SMS provider is currently approved/configured/runtime-tested. SMS must remain truthfully `Not configured` until a real provider is selected and proven in QA.
 
-Provider work is **not the next phase**. It follows the UI/UX redo, deep PDF visual certification, functional sweep, and hosted exact-SHA QA certification unless the user explicitly reprioritizes.
+Provider work is **not the next phase**. It follows deep PDF visual certification, the functional regression sweep, and hosted exact-SHA QA certification unless the user explicitly reprioritizes.
 
 ## Wave 4D completion gate
 
@@ -219,8 +203,8 @@ A green PR, merge, Render deployment, local-QA success, hosted-QA success, or do
 
 ## Required sequence from this handoff
 
-1. **Comprehensive authenticated Local-QA UI/UX redo — NEXT**
-2. **Deep PDF/export visual certification**
+1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE in PR #150**
+2. **Deep PDF/export visual certification — NEXT**
 3. **Functional regression sweep**
 4. **Hosted exact-SHA QA certification**
 5. **Wave 4D messaging-provider selection/integration**
@@ -230,7 +214,7 @@ A green PR, merge, Render deployment, local-QA success, hosted-QA success, or do
 9. Face-Recognition Attendance — design/privacy/security first
 10. Final pre-production security/data-integrity certification
 
-Do not skip from the PR #146 foundation directly to provider work.
+Do not skip from the completed Phase 1 pass directly to provider work.
 
 ## Implementation workflow
 
@@ -252,4 +236,4 @@ For the next Codex phase:
 
 ## Stop boundary
 
-Do not allow the next UI/UX quality phase to expand into SMS provider implementation, Worker Registration, Site Attendance, Face Recognition, broad CRM redesign, marketing/bulk messaging, new accounting semantics, or unrelated scope creep.
+Do not allow the next PDF/export quality phase to expand into SMS provider implementation, Worker Registration, Site Attendance, Face Recognition, broad CRM redesign, marketing/bulk messaging, new accounting semantics, or unrelated scope creep.
