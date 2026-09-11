@@ -35,7 +35,7 @@ function money(value: number, currency: string) {
 function roundMoney(value: number) { return Math.round((Number(value) || 0) * 100) / 100; }
 
 function vendorName(invoice: InvoiceData) {
-  return invoice.vendor?.name || invoice.vendor?.registeredName || invoice.vendor?.companyName || invoice.customer?.name || "Unknown party";
+  return invoice.vendor?.name || invoice.vendor?.registeredName || invoice.vendor?.companyName || "Unknown supplier";
 }
 
 function buildAssignment(

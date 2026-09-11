@@ -14,6 +14,7 @@ const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8
 const persistenceSource = readFileSync(new URL("../src/lib/persistence.ts", import.meta.url), "utf8");
 const r3Migration = readFileSync(new URL("../supabase/migrations/20260906010750_hydroqualisense_r3_unified_financial_documents.sql", import.meta.url), "utf8");
 const repairGuardMigration = readFileSync(new URL("../supabase/migrations/20260908024017_supplier_invoice_repair_guards.sql", import.meta.url), "utf8");
+const buyerSimplificationMigration = readFileSync(new URL("../supabase/migrations/20260911141452_supplier_invoice_buyer_simplification.sql", import.meta.url), "utf8");
 const configuredBuyerProfile = { legalName: "HydroQualiSense Solutions Corp.", vatTin: "777-823-517-000" };
 
 function invoice(overrides: Partial<InvoiceData> = {}): InvoiceData {
@@ -67,12 +68,12 @@ test("VERIFIED with a missing Expense description is not READY_TO_LINK", () => {
   assert.match(row.readiness.blockingReasons.join(" "), /Expense description/i);
 });
 
-test("an incomplete deployment buyer profile blocks posting even when the source omits buyer evidence", () => {
+test("an incomplete deployment buyer profile does not block a buyer-fixed supplier invoice", () => {
   const source = invoice({ customer: undefined });
   const readiness = getSupplierInvoiceExpenseReadiness(source, { buyerProfile: { legalName: "" } });
-  assert.equal(readiness.readyToLink, false);
-  assert.ok(readiness.issues.some((issue) => issue.code === "BUYER_PROFILE_UNAVAILABLE"));
-  assert.match(readiness.blockingReasons.join(" "), /document profile/i);
+  assert.equal(readiness.readyToLink, true);
+  assert.equal(readiness.issues.some((issue) => issue.field === "customer"), false);
+  assert.doesNotMatch(readiness.blockingReasons.join(" "), /buyer|document profile/i);
 });
 
 test("a complete VERIFIED invoice with no Expense is READY_TO_LINK", () => {
@@ -149,7 +150,18 @@ test("the posting boundary remains the guarded idempotent RPC and the linked Exp
   assert.match(persistenceSource, /const persistedReviewStatus = reopenOnly \? "NEEDS_REVIEW"/);
   assert.match(persistenceSource, /reviewStatus: persistedReviewStatus/);
   assert.match(persistenceSource, /verifiedAt: null/);
-  assert.match(persistenceSource, /if \(!reopenOnly\) await replaceLineItems\(updated\.id, updated\.items\)/);
+  assert.match(persistenceSource, /if \(!reopenOnly\) await replaceLineItems\(updated\.id, updated\.items, updated\.financialFieldStatus\)/);
+  assert.match(persistenceSource, /function sourceExtractionSnapshot/);
+  assert.match(persistenceSource, /replaceLineItems\(row\.id, invoice\.items, invoice\.financialFieldStatus\)/);
+  assert.match(persistenceSource, /line_total: financialFieldStatus\[`items\.\$\{index\}\.total`\] === "CALCULATED" \? null/);
+});
+
+test("buyer simplification keeps the guarded posting contract but removes buyer-profile enforcement", () => {
+  assert.match(buyerSimplificationMigration, /verify_supplier_invoice_and_create_expense/);
+  assert.match(buyerSimplificationMigration, /security definer/i);
+  assert.match(buyerSimplificationMigration, /for update/i);
+  assert.match(buyerSimplificationMigration, /expenses_company_supplier_invoice_unique|supplier_invoice_id/);
+  assert.doesNotMatch(buyerSimplificationMigration, /v_expected_buyer|Buyer mismatch|company_document_profiles/i);
 });
 
 test("the UI presents readiness reasons, exposes Expense posting facts, and routes legacy repairs into review", () => {

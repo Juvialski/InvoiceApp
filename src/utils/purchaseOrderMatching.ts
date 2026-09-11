@@ -9,6 +9,7 @@ import type {
   PurchaseOrderInvoiceMatchLine,
 } from "../types.ts";
 import { calculateLineReceiptProgress } from "./purchaseOrderReceipts.ts";
+import { invoiceLinePreTaxComparisonAmount, invoicePreTaxComparisonAmount } from "./invoiceMonetarySemantics.ts";
 
 export interface MatchCandidateOptions {
   vendors?: Array<{ id: string; name: string; taxId?: string }>;
@@ -21,6 +22,12 @@ export interface LineValidationInput {
   matchedQuantity?: number | null;
   matchedAmount?: number | null;
   notes?: string | null;
+}
+
+function sourceNumber(value: unknown) {
+  return value !== undefined && value !== null && !(typeof value === "string" && !value.trim()) && Number.isFinite(Number(value))
+    ? Number(value)
+    : undefined;
 }
 
 export function resolvedInvoiceVendorId(invoice: InvoiceData): string | undefined {
@@ -69,9 +76,12 @@ export function buildLineItemComparisons(
 
   return invoiceItems.map((invItem, idx) => {
     const invDescNorm = normalizeText(invItem.description);
-    const invQty = Math.max(0, Number(invItem.quantity) || 0);
-    const invPrice = Math.max(0, Number(invItem.unitPrice) || 0);
-    const invAmt = Math.max(0, Number(invItem.total) || invQty * invPrice);
+    const invQtyValue = sourceNumber(invItem.quantity);
+    const invPriceValue = sourceNumber(invItem.unitPrice);
+    const invQty = invQtyValue === undefined ? undefined : Math.max(0, invQtyValue);
+    const invPrice = invPriceValue === undefined ? undefined : Math.max(0, invPriceValue);
+    const invAmtValue = sourceNumber(invItem.total);
+    const invAmt = invAmtValue === undefined ? undefined : Math.max(0, invAmtValue);
 
     // 1. Attempt best match on PO lines:
     // Priority a: matching line number / item number
@@ -115,30 +125,33 @@ export function buildLineItemComparisons(
         invoiceLineId: invItem.id || `inv-line-${idx + 1}`,
         invoiceLineIndex: invItem.itemNumber ?? idx + 1,
         invoiceDescription: invItem.description || "",
-        invoiceQuantity: invQty,
-        invoiceUnitPrice: invPrice,
-        invoiceAmount: invAmt,
+        invoiceQuantity: invQtyValue === undefined ? null : invQty,
+        invoiceUnitPrice: invPriceValue === undefined ? null : invPrice,
+        invoiceAmount: invAmt === undefined ? null : invAmt,
         warnings: ["No matching purchase order line found"],
       };
     }
 
     const progress = calculateLineReceiptProgress(bestPoLine, receipts);
-    const poQty = Number(bestPoLine.quantity) || 0;
-    const poPrice = Number(bestPoLine.unitPrice) || 0;
-    const poAmt = Number(bestPoLine.amount) || poQty * poPrice;
+    const poQtyValue = sourceNumber(bestPoLine.quantity);
+    const poPriceValue = sourceNumber(bestPoLine.unitPrice);
+    const poQty = poQtyValue === undefined ? undefined : Math.max(0, poQtyValue);
+    const poPrice = poPriceValue === undefined ? undefined : Math.max(0, poPriceValue);
+    const poAmt = sourceNumber(bestPoLine.amount) ?? (poQtyValue !== undefined && poPriceValue !== undefined ? Math.max(0, poQtyValue * poPriceValue) : undefined);
 
     // Quantity vs receipt comparisons
-    if (invQty > progress.receivedQuantity) {
+    if (invQty !== undefined && invQty > progress.receivedQuantity) {
       warnings.push("Invoice quantity exceeds recorded receipts");
     }
 
     // Quantity vs PO ordered comparisons
-    if (invQty > poQty) {
+    if (invQty !== undefined && poQty !== undefined && invQty > poQty) {
       warnings.push("Invoice quantity exceeds PO ordered quantity");
     }
 
     // Amount vs PO amount comparisons
-    if (invAmt > poAmt) {
+    const comparableLineAmount = invoiceLinePreTaxComparisonAmount(invoice, invItem);
+    if (comparableLineAmount !== undefined && comparableLineAmount > poAmt + 0.02) {
       warnings.push("Invoice line amount exceeds PO line amount");
     }
 
@@ -155,9 +168,9 @@ export function buildLineItemComparisons(
       invoiceLineId: invItem.id || `inv-line-${idx + 1}`,
       invoiceLineIndex: invItem.itemNumber ?? idx + 1,
       invoiceDescription: invItem.description || "",
-      invoiceQuantity: invQty,
-      invoiceUnitPrice: invPrice,
-      invoiceAmount: invAmt,
+      invoiceQuantity: invQtyValue === undefined ? null : invQty,
+      invoiceUnitPrice: invPriceValue === undefined ? null : invPrice,
+      invoiceAmount: invAmt === undefined ? null : invAmt,
       purchaseOrderLineId: bestPoLine.id,
       purchaseOrderDescription: bestPoLine.description,
       purchaseOrderOrderedQuantity: poQty,
@@ -264,20 +277,23 @@ export function evaluatePurchaseOrderMatch(
   }
 
   // 5. Signal 4: Amount compatibility (+15 for exact, +10 for within total)
-  const invTotal = Number(invoice.grandTotal) || 0;
+  const invoiceComparison = invoicePreTaxComparisonAmount(invoice);
+  const invTotal = invoiceComparison.amount;
   const poTotal =
-    Number(po.totalAmount) ||
-    (po.lines || []).reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
+    sourceNumber(po.totalAmount) ?? (po.lines || []).reduce((sum, l) => {
+      const amount = sourceNumber(l.amount);
+      return sum + (amount === undefined ? 0 : amount);
+    }, 0);
 
-  if (poTotal > 0 && invTotal > 0) {
+  if (poTotal > 0 && invTotal !== undefined && invTotal > 0) {
     if (Math.abs(invTotal - poTotal) < 0.01) {
       score += 15;
-      matchReasons.push("Exact grand total amount match");
+      matchReasons.push(invoiceComparison.basis === "PRE_TAX" ? "Exact pre-tax comparison amount match (VAT excluded once)" : "Exact invoice amount match");
     } else if (invTotal <= poTotal) {
       score += 10;
-      matchReasons.push("Invoice amount is within purchase order total");
+      matchReasons.push(invoiceComparison.basis === "PRE_TAX" ? "Pre-tax invoice comparison amount is within purchase order total" : "Invoice amount is within purchase order total");
     } else {
-      warnings.push("Invoice grand total exceeds purchase order total");
+      warnings.push(invoiceComparison.basis === "PRE_TAX" ? "Pre-tax invoice comparison amount exceeds purchase order total" : "Invoice grand total exceeds purchase order total");
     }
   }
 
@@ -428,10 +444,10 @@ export function validateMatchLineAssociations(
     }
   });
 
-  const invoiceGrandTotal = Math.max(0, Number(invoice.grandTotal) || 0);
-  if (totalMatchedAmount > invoiceGrandTotal + 0.001) {
+  const invoiceGrandTotal = sourceNumber(invoice.grandTotal);
+  if (invoiceGrandTotal !== undefined && totalMatchedAmount > Math.max(0, invoiceGrandTotal) + 0.001) {
     errors.push(
-      `Total matched lines amount (${totalMatchedAmount.toFixed(2)}) exceeds invoice grand total (${invoiceGrandTotal.toFixed(2)})`,
+      `Total matched lines amount (${totalMatchedAmount.toFixed(2)}) exceeds invoice grand total (${Math.max(0, invoiceGrandTotal).toFixed(2)})`,
     );
   }
 

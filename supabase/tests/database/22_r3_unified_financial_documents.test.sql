@@ -9,6 +9,7 @@ select
   '20000000-0000-4000-8000-000000000601'::uuid as vendor_id,
   '30000000-0000-4000-8000-000000000601'::uuid as invoice_id,
   '30000000-0000-4000-8000-000000000602'::uuid as invoice_mismatch_id,
+  '30000000-0000-4000-8000-000000000603'::uuid as invoice_inclusive_id,
   '40000000-0000-4000-8000-000000000601'::uuid as po_id,
   '50000000-0000-4000-8000-000000000601'::uuid as po_line_id;
 grant select on r3_ids to authenticated, service_role;
@@ -69,7 +70,15 @@ reset role;
 insert into public.invoices (id, user_id, company_id, vendor_id, invoice_number, invoice_date, currency, grand_total, review_status, document_type, current_data)
 values ((select invoice_mismatch_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), (select vendor_id from r3_ids), 'R3-INV-MISMATCH', '2026-09-06', 'PHP', 10, 'NEEDS_REVIEW', 'INVOICE', jsonb_build_object('vendor', jsonb_build_object('name', 'R3 Supplier'), 'category', 'Materials', 'description', 'R3 mismatch invoice', 'customer', jsonb_build_object('name', 'Another Company Ltd.'), 'grandTotal', 10));
 set local role authenticated;
-select throws_ok($$select public.verify_supplier_invoice_and_create_expense((select invoice_mismatch_id from r3_ids))$$, '23514', null, 'buyer mismatch blocks supplier invoice posting');
+select lives_ok($$select public.verify_supplier_invoice_and_create_expense((select invoice_mismatch_id from r3_ids))$$, 'supplier invoice buyer evidence does not block deployment-bound posting');
+select is((select amount from public.expenses where supplier_invoice_id = (select invoice_mismatch_id from r3_ids)), 10::numeric, 'buyer evidence does not change the gross supplier Expense amount');
+
+reset role;
+insert into public.invoices (id, user_id, company_id, vendor_id, invoice_number, invoice_date, currency, grand_total, review_status, document_type, current_data)
+values ((select invoice_inclusive_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), (select vendor_id from r3_ids), 'R3-INV-INCLUSIVE', '2026-09-06', 'PHP', 112, 'NEEDS_REVIEW', 'INVOICE', jsonb_build_object('vendor', jsonb_build_object('name', 'R3 Supplier'), 'category', 'Materials', 'description', 'VAT-inclusive source invoice', 'grandTotal', 112, 'totalTax', 12, 'financialSemantics', jsonb_build_object('lineTotalBasis', 'TAX_INCLUSIVE', 'subtotalBasis', 'TAX_INCLUSIVE', 'taxInclusion', 'INCLUDED_IN_TOTAL')));
+set local role authenticated;
+select lives_ok($$select public.verify_supplier_invoice_and_create_expense((select invoice_inclusive_id from r3_ids))$$, 'supplier verification accepts a buyer-omitted VAT-inclusive source');
+select is((select amount from public.expenses where supplier_invoice_id = (select invoice_inclusive_id from r3_ids)), 112::numeric, 'VAT-inclusive verification carries the gross source total into the authoritative Expense exactly once');
 
 reset role;
 insert into public.purchase_orders (id, company_id, po_number, vendor_id, project_id, currency, status, created_by_user_id, updated_by_user_id)

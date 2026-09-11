@@ -11,16 +11,22 @@ import {
   evaluateInvoiceDuplicateEvidence,
   findExistingInvoiceForSourcePayload,
 } from "./invoiceDuplicateDetection.ts";
+import {
+  explicitInvoiceTaxAmount,
+  nearlyEqualInvoiceMoney,
+  reconcileInvoiceMonetarySemantics,
+  roundInvoiceMoney,
+} from "./invoiceMonetarySemantics.ts";
 
 export { evaluateInvoiceDuplicateEvidence, findExistingInvoiceForSourcePayload };
 
-const roundMoney = (value: number) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
-const nearlyEqual = (a: number, b: number, tolerance = 0.05) => Math.abs(roundMoney(a) - roundMoney(b)) <= tolerance;
+const roundMoney = (value: number) => roundInvoiceMoney(value);
+const nearlyEqual = (a: number, b: number, tolerance = 0.02) => nearlyEqualInvoiceMoney(a, b, tolerance);
 const presentNumber = (value: unknown) => value !== undefined && value !== null && !(typeof value === "string" && !value.trim()) && Number.isFinite(Number(value));
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 
 function hasPhilippineContext(invoice: InvoiceData) {
-  const country = [invoice.vendor?.country, invoice.customer?.country].filter(Boolean).join(" ").toLowerCase();
+  const country = String(invoice.vendor?.country || "").toLowerCase();
   return Boolean(
     invoice.currency?.toUpperCase() === "PHP" ||
     invoice.philippineTaxDetails ||
@@ -61,48 +67,36 @@ export function validatePhilippineVat(invoice: InvoiceData): {
 
   const details = invoice.philippineTaxDetails || {};
   const issues: ValidationIssue[] = [];
-  const hasVatableSales = presentNumber(details.vatableSales);
-  const vatableSales = numberOrZero(details.vatableSales);
-  const documentVat = presentNumber(details.vatAmount)
-    ? numberOrZero(details.vatAmount)
-    : presentNumber(invoice.totalTax)
-      ? numberOrZero(invoice.totalTax)
-      : undefined;
+  const documentVat = explicitInvoiceTaxAmount(invoice);
   // The VAT rate is intentionally not a product setting yet. Preserve the
   // source VAT amount and continue only with arithmetic checks that do not
   // require a legal/tax-rate assumption.
-  const hasVatAmount = presentNumber(details.vatAmount) || presentNumber(invoice.totalTax);
-  if (hasVatAmount) {
+  if (documentVat !== undefined) {
     issues.push({
       id: "ph-vat-rate-not-evaluated",
-      severity: "warning",
+      severity: "info",
       field: "philippineTaxDetails.vatAmount",
       message: "VAT rate consistency was not evaluated because no authoritative VAT rate is configured.",
     });
   }
 
-  const hasZeroRatedSales = presentNumber(details.zeroRatedSales);
-  const hasVatExemptSales = presentNumber(details.vatExemptSales);
+  const vatableSales = presentNumber(details.vatableSales) ? numberOrZero(details.vatableSales) : undefined;
+  const zeroRatedSales = presentNumber(details.zeroRatedSales) ? numberOrZero(details.zeroRatedSales) : undefined;
+  const vatExemptSales = presentNumber(details.vatExemptSales) ? numberOrZero(details.vatExemptSales) : undefined;
   const hasKnownCharges = presentNumber(invoice.totalDiscount) && presentNumber(invoice.shippingFee) && presentNumber(invoice.otherFees);
-  const canReconcileTaxBases = presentNumber(invoice.grandTotal) && Number(invoice.grandTotal) > 0 && documentVat !== undefined
-    && hasZeroRatedSales && hasVatExemptSales && hasKnownCharges
-    && (details.vatInclusive ? presentNumber(invoice.subtotal) : hasVatableSales);
-  if (canReconcileTaxBases) {
+  if (presentNumber(invoice.grandTotal) && Number(invoice.grandTotal) > 0 && documentVat !== undefined
+    && vatableSales !== undefined && zeroRatedSales !== undefined && vatExemptSales !== undefined && hasKnownCharges) {
     const zeroRated = numberOrZero(details.zeroRatedSales);
     const vatExempt = numberOrZero(details.vatExemptSales);
     const discount = numberOrZero(invoice.totalDiscount);
     const otherCharges = numberOrZero(invoice.shippingFee) + numberOrZero(invoice.otherFees);
-    const expectedTotal = details.vatInclusive
-      ? roundMoney(numberOrZero(invoice.subtotal) - discount + otherCharges)
-      : roundMoney(vatableSales + documentVat + zeroRated + vatExempt - discount + otherCharges);
+    const expectedTotal = roundMoney(vatableSales + documentVat + zeroRated + vatExempt - discount + otherCharges);
     if (!nearlyEqual(expectedTotal, numberOrZero(invoice.grandTotal))) {
       issues.push({
         id: "ph-tax-reconciliation-mismatch",
         severity: "warning",
         field: "grandTotal",
-        message: details.vatInclusive
-          ? "VAT-inclusive Philippine invoice total does not reconcile to the displayed subtotal and charges."
-          : "Philippine VATable, zero-rated and VAT-exempt amounts do not reconcile to the invoice total.",
+        message: "Philippine VATable, zero-rated and VAT-exempt amounts do not reconcile to the gross invoice total.",
         expected: expectedTotal,
         actual: numberOrZero(invoice.grandTotal),
       });
@@ -113,8 +107,8 @@ export function validatePhilippineVat(invoice: InvoiceData): {
     issues,
     result: {
       applicable: true,
-      status: issues.length ? "REVIEW" : "PASS",
-      documentVat: hasVatAmount ? documentVat : undefined,
+      status: issues.some((issue) => issue.severity === "warning" || issue.severity === "error") ? "REVIEW" : "PASS",
+      documentVat: documentVat,
     },
   };
 }
@@ -163,12 +157,11 @@ export function checkPhilippineInvoiceCompleteness(invoice: InvoiceData): Philip
     completenessItem("unit-price", "Unit price / cost", lineItems.some((item) => presentNumber(item.unitPrice)), "items.unitPrice", true),
     completenessItem("amount", "Amount", lineItems.some((item) => presentNumber(item.total)), "items.total", true),
     ...(vatInvoice ? [
-      completenessItem("vatable-sales", "VATable Sales", invoice.philippineTaxDetails?.vatableSales, "philippineTaxDetails.vatableSales"),
-      completenessItem("vat-amount", "VAT Amount", invoice.philippineTaxDetails?.vatAmount, "philippineTaxDetails.vatAmount"),
+      completenessItem("vatable-sales", "VATable Sales", invoice.philippineTaxDetails?.vatableSales ?? (invoice.financialSemantics?.subtotalBasis === "PRE_TAX" ? invoice.subtotal : undefined), "philippineTaxDetails.vatableSales"),
+      completenessItem("vat-amount", "VAT Amount", invoice.philippineTaxDetails?.vatAmount ?? invoice.totalTax, "philippineTaxDetails.vatAmount"),
       completenessItem("zero-rated-sales", "Zero-Rated Sales", invoice.philippineTaxDetails?.zeroRatedSales, "philippineTaxDetails.zeroRatedSales", false),
       completenessItem("vat-exempt-sales", "VAT-Exempt Sales", invoice.philippineTaxDetails?.vatExemptSales, "philippineTaxDetails.vatExemptSales", false),
     ] : []),
-    completenessItem("buyer-tin", "Buyer TIN", invoice.customer?.taxId, "customer.taxId", false),
     completenessItem("atp-ocn", "ATP / OCN", invoice.philippineTaxDetails?.authorityToPrintNumber || invoice.philippineTaxDetails?.outboundCorrespondenceNumber, "philippineTaxDetails.authorityToPrintNumber", false),
     completenessItem("permit", "Permit details", invoice.philippineTaxDetails?.permitToUseNumber || invoice.philippineTaxDetails?.birPermitDetailsRaw, "philippineTaxDetails.permitToUseNumber", false),
   ];
@@ -218,95 +211,45 @@ export function validateInvoice(invoice: InvoiceData): ValidationSummary {
   items.forEach((item, index) => {
     const quantity = presentNumber(item.quantity) ? Number(item.quantity) : undefined;
     const unitPrice = presentNumber(item.unitPrice) ? Number(item.unitPrice) : undefined;
-    const discount = presentNumber(item.discount) ? Number(item.discount) : undefined;
     const total = presentNumber(item.total) ? Number(item.total) : undefined;
     if (quantity === undefined) issues.push({ id: "missing-item-quantity-" + index, severity: "warning", field: "items." + index + ".quantity", message: "Line " + (index + 1) + " quantity is unresolved." });
     if (unitPrice === undefined) issues.push({ id: "missing-item-unit-price-" + index, severity: "warning", field: "items." + index + ".unitPrice", message: "Line " + (index + 1) + " unit price is unresolved." });
     if (total === undefined) issues.push({ id: "missing-item-total-" + index, severity: "warning", field: "items." + index + ".total", message: "Line " + (index + 1) + " amount is unresolved." });
-    const expected = quantity !== undefined && unitPrice !== undefined && discount !== undefined
-      ? roundMoney(quantity * unitPrice - discount)
-      : undefined;
-    if (expected !== undefined && total !== undefined && !nearlyEqual(expected, total)) {
-      issues.push({
-        id: "item-total-" + index,
-        severity: "warning",
-        field: "items." + index + ".total",
-        message: "Line " + (index + 1) + " total does not match quantity × unit price − discount.",
-        expected,
-        actual: total,
-      });
-    }
   });
 
-  const knownLineTotals = items.map((item) => presentNumber(item.total) ? Number(item.total) : undefined);
-  const calculatedSubtotal = items.length > 0 && knownLineTotals.every((value) => value !== undefined)
-    ? roundMoney(knownLineTotals.reduce((sum, value) => sum + (value || 0), 0))
-    : undefined;
-  if (items.length > 0 && calculatedSubtotal !== undefined && hasSubtotal && !nearlyEqual(calculatedSubtotal, Number(invoice.subtotal))) {
-    issues.push({
-      id: "subtotal-mismatch",
-      severity: "warning",
-      field: "subtotal",
-      message: "Extracted subtotal does not match the sum of line items.",
-      expected: calculatedSubtotal,
-      actual: Number(invoice.subtotal),
-    });
-  }
-
-  const totalDiscount = presentNumber(invoice.totalDiscount) ? Number(invoice.totalDiscount) : undefined;
-  const totalTax = presentNumber(invoice.totalTax) ? Number(invoice.totalTax) : undefined;
-  const shippingFee = presentNumber(invoice.shippingFee) ? Number(invoice.shippingFee) : undefined;
-  const otherFees = presentNumber(invoice.otherFees) ? Number(invoice.otherFees) : undefined;
-  const baseSubtotal = hasSubtotal ? Number(invoice.subtotal) : calculatedSubtotal;
-  const calculatedGrandTotal = baseSubtotal !== undefined && totalDiscount !== undefined && totalTax !== undefined && shippingFee !== undefined && otherFees !== undefined
-    ? roundMoney(baseSubtotal - totalDiscount + totalTax + shippingFee + otherFees)
-    : undefined;
-
-  if (calculatedGrandTotal !== undefined && hasGrandTotal && !nearlyEqual(calculatedGrandTotal, Number(invoice.grandTotal))) {
-    issues.push({
-      id: "grand-total-mismatch",
-      severity: "warning",
-      field: "grandTotal",
-      message: "Grand total does not reconcile with subtotal, discount, tax, shipping and fees.",
-      expected: calculatedGrandTotal,
-      actual: Number(invoice.grandTotal),
-    });
-  }
+  const monetary = reconcileInvoiceMonetarySemantics(invoice);
+  issues.push(...monetary.issues);
 
   const philippineVat = validatePhilippineVat(invoice);
   issues.push(...philippineVat.issues);
 
-  if (isPhilippineNonVatInvoice(invoice) && Number(invoice.totalTax) > 0.05) {
+  const explicitTax = explicitInvoiceTaxAmount(invoice);
+  if (isPhilippineNonVatInvoice(invoice) && explicitTax !== undefined && explicitTax > 0.05) {
     issues.push({ id: "ph-non-vat-tax-present", severity: "warning", field: "totalTax", message: "Non-VAT invoice shows a tax amount; confirm the source and classification." });
-  }
-
-  const amountPaid = presentNumber(invoice.amountPaid) ? Number(invoice.amountPaid) : undefined;
-  const calculatedBalanceDue = hasGrandTotal && amountPaid !== undefined ? roundMoney(Math.max(0, Number(invoice.grandTotal) - amountPaid)) : undefined;
-  if (calculatedBalanceDue !== undefined && presentNumber(invoice.balanceDue) && !nearlyEqual(calculatedBalanceDue, Number(invoice.balanceDue))) {
-    issues.push({
-      id: "balance-mismatch",
-      severity: "warning",
-      field: "balanceDue",
-      message: "Balance due does not reconcile with grand total minus amount paid.",
-      expected: calculatedBalanceDue,
-      actual: Number(invoice.balanceDue),
-    });
   }
 
   return {
     status: issues.some((issue) => issue.severity === "warning" || issue.severity === "error") ? "REVIEW" : "PASS",
     issues,
-    calculatedSubtotal,
-    calculatedGrandTotal,
-    calculatedBalanceDue,
+    calculatedSubtotal: monetary.calculatedSubtotal,
+    calculatedTax: monetary.calculatedTax,
+    calculatedGrandTotal: monetary.calculatedGrandTotal,
+    calculatedBalanceDue: monetary.calculatedBalanceDue,
     philippineVat: philippineVat.result,
+    monetarySemantics: monetary.semantics,
   };
 }
 
 export function derivePaymentStatus(invoice: Pick<InvoiceData, "grandTotal" | "amountPaid" | "balanceDue" | "dueDate">): string {
-  const total = Number(invoice.grandTotal) || 0;
-  const paid = Number(invoice.amountPaid) || 0;
-  const balance = invoice.balanceDue === undefined ? Math.max(0, total - paid) : Number(invoice.balanceDue) || 0;
+  const totalValue = Number(invoice.grandTotal);
+  const paidValue = Number(invoice.amountPaid);
+  const total = Number.isFinite(totalValue) ? totalValue : 0;
+  const paid = Number.isFinite(paidValue) ? paidValue : 0;
+  const balanceValue = Number(invoice.balanceDue);
+  const balance = invoice.balanceDue === undefined || invoice.balanceDue === null
+    ? Number.isFinite(totalValue) && Number.isFinite(paidValue) ? Math.max(0, total - paid) : undefined
+    : Number.isFinite(balanceValue) ? balanceValue : undefined;
+  if (balance === undefined) return paid > 0 ? "PARTIALLY_PAID" : "UNPAID";
   if (total > 0 && balance <= 0.01) return "PAID";
   if (paid > 0 && balance > 0.01) return "PARTIALLY_PAID";
   if (invoice.dueDate) {
@@ -342,17 +285,86 @@ export function applyLocalChecks(invoice: InvoiceData): InvoiceData {
   const completeness = checkPhilippineInvoiceCompleteness(normalizedInvoice);
   const humanVerified = normalizedInvoice.reviewStatus === "VERIFIED" && Boolean(normalizedInvoice.verifiedAt);
   const taxDetails = normalizedInvoice.philippineTaxDetails;
-  const withholdingTaxAmount = normalizedInvoice.withholdingTaxAmount ?? taxDetails?.withholdingTaxAmount;
-  const netAmountPayable = normalizedInvoice.netAmountPayable ?? taxDetails?.netAmountPayable ?? (
-    withholdingTaxAmount !== undefined && Number.isFinite(Number(withholdingTaxAmount)) && presentNumber(normalizedInvoice.grandTotal)
-      ? roundMoney(numberOrZero(normalizedInvoice.grandTotal) - numberOrZero(withholdingTaxAmount))
+  const withholdingTaxAmount = presentNumber(normalizedInvoice.withholdingTaxAmount)
+    ? Number(normalizedInvoice.withholdingTaxAmount)
+    : presentNumber(taxDetails?.withholdingTaxAmount)
+      ? Number(taxDetails?.withholdingTaxAmount)
+      : undefined;
+  const explicitNetAmountPayable = presentNumber(normalizedInvoice.netAmountPayable)
+    ? Number(normalizedInvoice.netAmountPayable)
+    : presentNumber(taxDetails?.netAmountPayable)
+      ? Number(taxDetails?.netAmountPayable)
+      : undefined;
+  const netAmountPayable = explicitNetAmountPayable ?? (
+    withholdingTaxAmount !== undefined && presentNumber(normalizedInvoice.grandTotal)
+      ? roundMoney(numberOrZero(normalizedInvoice.grandTotal) - withholdingTaxAmount)
       : undefined
   );
+  const persistedBalanceDue = normalizedInvoice.balanceDue === undefined || normalizedInvoice.balanceDue === null
+    || normalizedInvoice.financialFieldStatus?.balanceDue === "CALCULATED"
+    ? validation.calculatedBalanceDue ?? normalizedInvoice.balanceDue
+    : normalizedInvoice.balanceDue;
+  const paymentBalance = persistedBalanceDue ?? validation.calculatedBalanceDue;
+  const financialFieldStatus = { ...(normalizedInvoice.financialFieldStatus || {}) };
+  for (const field of ["subtotal", "totalDiscount", "totalTax", "shippingFee", "otherFees", "grandTotal", "amountPaid", "amountDue", "balanceDue"]) {
+    if (financialFieldStatus[field] === undefined && presentNumber((normalizedInvoice as any)[field])) financialFieldStatus[field] = "KNOWN";
+  }
+  for (const [index, item] of normalizedInvoice.items.entries()) {
+    for (const field of ["quantity", "unitPrice", "discount", "total"]) {
+      const key = `items.${index}.${field}`;
+      if (financialFieldStatus[key] === undefined && presentNumber((item as any)[field])) financialFieldStatus[key] = "KNOWN";
+    }
+  }
+  if ((normalizedInvoice.balanceDue === undefined || normalizedInvoice.balanceDue === null) && persistedBalanceDue !== undefined && persistedBalanceDue !== null) financialFieldStatus.balanceDue = "CALCULATED";
+  const sourceWithholding = withholdingTaxAmount;
+  if (sourceWithholding !== undefined && financialFieldStatus.withholdingTaxAmount === undefined) financialFieldStatus.withholdingTaxAmount = "KNOWN";
+  if (netAmountPayable !== undefined && financialFieldStatus.netAmountPayable === undefined) financialFieldStatus.netAmountPayable = explicitNetAmountPayable !== undefined ? "KNOWN" : "CALCULATED";
+  if (normalizedInvoice.aiSnapshot) {
+    const calculatedValues: Record<string, number | undefined> = {
+      subtotal: validation.calculatedSubtotal,
+      totalTax: validation.calculatedTax,
+      grandTotal: validation.calculatedGrandTotal,
+      balanceDue: validation.calculatedBalanceDue,
+      netAmountPayable,
+    };
+    const trackedFields = [
+      "subtotal", "totalDiscount", "totalTax", "shippingFee", "otherFees", "grandTotal",
+      "amountPaid", "amountDue", "balanceDue", "withholdingTaxAmount", "netAmountPayable",
+      "items", "financialSemantics",
+    ];
+    for (const field of trackedFields) {
+      const sourceValue = (normalizedInvoice.aiSnapshot as any)[field];
+      const currentValue = (normalizedInvoice as any)[field];
+      const isSourceOmittedCalculatedValue = (sourceValue === undefined || sourceValue === null)
+        && financialFieldStatus[field] === "CALCULATED"
+        && calculatedValues[field] !== undefined
+        && presentNumber(currentValue)
+        && nearlyEqualInvoiceMoney(Number(currentValue), calculatedValues[field]!);
+      if (!isSourceOmittedCalculatedValue && JSON.stringify(sourceValue ?? null) !== JSON.stringify(currentValue ?? null)) financialFieldStatus[field] = "MANUAL";
+    }
+    const sourceItems = Array.isArray((normalizedInvoice.aiSnapshot as any).items) ? (normalizedInvoice.aiSnapshot as any).items : [];
+    const currentItems = Array.isArray(normalizedInvoice.items) ? normalizedInvoice.items : [];
+    for (const [index, item] of currentItems.entries()) {
+      const sourceItem = sourceItems[index] || {};
+      for (const field of ["quantity", "unitPrice", "discount", "total"]) {
+        const fieldKey = `items.${index}.${field}`;
+        const sourceOmittedCalculatedTotal = field === "total"
+          && (sourceItem[field] === undefined || sourceItem[field] === null)
+          && financialFieldStatus[fieldKey] === "CALCULATED"
+          && presentNumber((item as any)[field])
+          && !validation.issues.some((issue) => issue.id === `item-total-${index}` && (issue.severity === "warning" || issue.severity === "error"));
+        if (!sourceOmittedCalculatedTotal && JSON.stringify(sourceItem[field] ?? null) !== JSON.stringify((item as any)[field] ?? null)) financialFieldStatus[fieldKey] = "MANUAL";
+      }
+    }
+  }
   return {
     ...normalizedInvoice,
-    status: derivePaymentStatus(normalizedInvoice),
+    balanceDue: persistedBalanceDue ?? normalizedInvoice.balanceDue,
+    status: derivePaymentStatus({ ...normalizedInvoice, balanceDue: paymentBalance }),
     validation,
     philippineInvoiceCompleteness: completeness,
+    financialSemantics: validation.monetarySemantics,
+    financialFieldStatus,
     ...(withholdingTaxAmount !== undefined ? { withholdingTaxAmount } : {}),
     ...(netAmountPayable !== undefined ? { netAmountPayable } : {}),
     reviewStatus: humanVerified ? "VERIFIED" : "NEEDS_REVIEW",

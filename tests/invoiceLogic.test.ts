@@ -37,18 +37,18 @@ test("foreign USD invoices remain USD", () => {
   assert.equal(result.validation?.philippineVat?.status, "NOT_APPLICABLE");
 });
 
-test("standard Philippine VAT preserves the source amount while rate evaluation remains unresolved", () => {
+test("standard Philippine VAT preserves the source amount while rate evaluation remains an informational advisory", () => {
   const result = applyLocalChecks(invoice({
     invoiceSubtype: "VAT_INVOICE",
     philippineTaxDetails: { invoiceKind: "VAT_INVOICE", sellerRegistration: "VAT", vatableSales: 100000, vatAmount: 12000, zeroRatedSales: 0, vatExemptSales: 0 },
   }));
-  assert.equal(result.validation?.status, "REVIEW");
-  assert.equal(result.validation?.philippineVat?.status, "REVIEW");
+  assert.equal(result.validation?.status, "PASS");
+  assert.equal(result.validation?.philippineVat?.status, "PASS");
   assert.equal(result.validation?.philippineVat?.documentVat, 12000);
   assert.equal(result.validation?.philippineVat?.expectedVat, undefined);
 });
 
-test("incorrect Philippine VAT is routed to review", () => {
+test("an explicit VAT amount is not rejected without an authoritative legal rate", () => {
   const result = applyLocalChecks(invoice({
     invoiceSubtype: "VAT_INVOICE",
     totalTax: 11500,
@@ -56,7 +56,7 @@ test("incorrect Philippine VAT is routed to review", () => {
     balanceDue: 111500,
     philippineTaxDetails: { invoiceKind: "VAT_INVOICE", sellerRegistration: "VAT", vatableSales: 100000, vatAmount: 11500 },
   }));
-  assert.equal(result.validation?.status, "REVIEW");
+  assert.equal(result.validation?.status, "PASS");
   assert.equal(result.validation?.philippineVat?.documentVat, 11500);
   assert.equal(result.validation?.philippineVat?.expectedVat, undefined);
   assert.equal(result.validation?.issues.some((issue) => issue.id === "ph-vat-rate-not-evaluated"), true);
@@ -96,7 +96,7 @@ test("non-VAT, zero-rated, and VAT-exempt cases do not receive an automatic VAT 
     grandTotal: 25000,
     balanceDue: 25000,
   }));
-  assert.equal(zeroRated.validation?.status, "REVIEW");
+  assert.equal(zeroRated.validation?.status, "PASS");
   assert.equal(zeroRated.validation?.philippineVat?.expectedVat, undefined);
 
   const exempt = applyLocalChecks(invoice({
@@ -107,7 +107,7 @@ test("non-VAT, zero-rated, and VAT-exempt cases do not receive an automatic VAT 
     grandTotal: 25000,
     balanceDue: 25000,
   }));
-  assert.equal(exempt.validation?.status, "REVIEW");
+  assert.equal(exempt.validation?.status, "PASS");
 });
 
 test("mixed PH tax treatment reconciles", () => {
@@ -122,8 +122,8 @@ test("mixed PH tax treatment reconciles", () => {
     grandTotal: 106000,
     balanceDue: 106000,
   }));
-  assert.equal(result.validation?.status, "REVIEW");
-  assert.equal(result.validation?.philippineVat?.status, "REVIEW");
+  assert.equal(result.validation?.status, "PASS");
+  assert.equal(result.validation?.philippineVat?.status, "PASS");
 });
 
 test("withholding remains separate from invoice total", () => {
@@ -168,7 +168,7 @@ test("PH completeness is a review aid and flags missing required fields", () => 
 
 test("all demo presets except the intentional validation fixture pass arithmetic checks", () => {
   const results = SAMPLE_INVOICES.map((preset) => applyLocalChecks(preset.previewData));
-  assert.deepEqual(results.slice(0, 4).map((result) => result.validation?.status), ["REVIEW", "REVIEW", "PASS", "REVIEW"]);
+  assert.deepEqual(results.slice(0, 4).map((result) => result.validation?.status), ["PASS", "PASS", "PASS", "PASS"]);
   assert.equal(results[4].validation?.status, "REVIEW");
   assert.equal(results[4].validation?.issues.some((issue) => issue.id === "grand-total-mismatch"), true);
 });

@@ -22,9 +22,9 @@ function reasonBadges(invoice: InvoiceData, financialFxSnapshots: readonly Finan
   if (!display.vendorKnown) add("Missing vendor");
   if (!display.currencyKnown) add("Missing currency");
   if (!display.amountKnown) add("Missing amount");
-  const criticalLabels: Record<string, string> = { "missing-document-type": "Missing document type", "missing-invoice-number": "Missing invoice number", "missing-invoice-date": "Missing invoice date", "missing-vendor": "Missing vendor", "missing-customer": "Missing customer", "missing-currency": "Missing currency", "missing-line-items": "Missing line items", "missing-grand-total": "Missing amount", "missing-vat-amount": "Missing VAT amount" };
+  const criticalLabels: Record<string, string> = { "missing-document-type": "Missing document type", "missing-invoice-number": "Missing invoice number", "missing-invoice-date": "Missing invoice date", "missing-vendor": "Missing vendor", "missing-currency": "Missing currency", "missing-line-items": "Missing line items", "missing-grand-total": "Missing amount", "missing-vat-amount": "Missing VAT amount" };
   criticalMissing.forEach((reason) => add(criticalLabels[reason] || "Extraction needs review"));
-  for (const issue of issues) {
+  for (const issue of issues.filter((item) => item.severity === "warning" || item.severity === "error")) {
     const message = `${issue.id} ${issue.field} ${issue.message}`.toLowerCase();
     if (message.includes("currency")) add("Missing currency");
     else if (message.includes("tin") || message.includes("taxid")) add("Missing TIN");

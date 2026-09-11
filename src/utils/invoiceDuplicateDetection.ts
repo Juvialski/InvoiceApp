@@ -109,7 +109,9 @@ export function evaluateInvoiceDuplicateEvidence(
     const sameVendor = Boolean(vendor && candidateVendor === vendor && (!taxId || !candidateTaxId || candidateTaxId === taxId));
     const sameNumber = Boolean(number && candidateNumber && candidateNumber === number);
     const sameCurrency = Boolean(invoice.currency && candidate.currency && (candidate.currency || "").toUpperCase() === (invoice.currency || "").toUpperCase());
-    const sameTotal = Math.abs((Number(candidate.grandTotal) || 0) - (Number(invoice.grandTotal) || 0)) <= 0.05;
+    const candidateTotal = Number(candidate.grandTotal);
+    const invoiceTotal = Number(invoice.grandTotal);
+    const sameTotal = Number.isFinite(candidateTotal) && Number.isFinite(invoiceTotal) && Math.abs(candidateTotal - invoiceTotal) <= 0.02;
     const sameDate = Boolean(invoice.invoiceDate && candidate.invoiceDate && candidate.invoiceDate === invoice.invoiceDate);
 
     if (sameNumber && sameVendor && sameCurrency && sameTotal) {

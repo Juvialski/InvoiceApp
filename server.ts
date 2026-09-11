@@ -33,6 +33,11 @@ import {
   shouldRunAutomaticRetry,
   type ExtractionQuality,
 } from "./src/utils/extractionQuality.ts";
+import {
+  explicitInvoiceTaxAmount,
+  reconcileInvoiceMonetarySemantics,
+  resolveInvoiceMonetarySemantics,
+} from "./src/utils/invoiceMonetarySemantics.ts";
 
 dotenv.config();
 
@@ -463,7 +468,9 @@ const invoiceSchema = {
     currencySymbol: { type: Type.STRING, nullable: true },
     paymentTerms: { type: Type.STRING, nullable: true },
     vendor: partySchema,
-    customer: partySchema,
+    // Buyer/customer is optional source evidence for supplier invoices. The
+    // deployment company is fixed and is not an extracted posting identity.
+    customer: { ...partySchema, nullable: true },
     shippingAddress: { ...partySchema, nullable: true },
     items: {
       type: Type.ARRAY,
@@ -503,6 +510,7 @@ const invoiceSchema = {
     otherFees: { type: Type.NUMBER, nullable: true },
     grandTotal: { type: Type.NUMBER, nullable: true },
     amountPaid: { type: Type.NUMBER, nullable: true },
+    amountDue: { type: Type.NUMBER, nullable: true, description: "Source-stated amount due; preserve separately from gross invoice total" },
     balanceDue: { type: Type.NUMBER, nullable: true },
     withholdingTaxRate: { type: Type.NUMBER, nullable: true, description: "Only when explicitly shown; do not infer a rate" },
     withholdingTaxAmount: { type: Type.NUMBER, nullable: true, description: "EWT/CWT/withholding amount when explicitly shown" },
@@ -531,6 +539,20 @@ const invoiceSchema = {
       required: ["invoiceKind", "sellerRegistration", "vatableSales", "vatAmount", "zeroRatedSales", "vatExemptSales", "salesSubjectToPercentageTax", "authorityToPrintNumber", "outboundCorrespondenceNumber", "permitToUseNumber", "approvedSerialFrom", "approvedSerialTo", "birPermitDetailsRaw", "withholdingTaxRate", "withholdingTaxAmount", "netAmountPayable", "vatInclusive"],
       nullable: true,
     },
+    monetarySemantics: {
+      type: Type.OBJECT,
+      properties: {
+        unitPriceBasis: { type: Type.STRING, nullable: true, description: "PRE_TAX, TAX_INCLUSIVE, or UNKNOWN for the source-displayed unit price" },
+        lineTotalBasis: { type: Type.STRING, nullable: true, description: "PRE_TAX, TAX_INCLUSIVE, or UNKNOWN for source-displayed line amounts" },
+        subtotalBasis: { type: Type.STRING, nullable: true, description: "PRE_TAX, TAX_INCLUSIVE, or UNKNOWN for the source subtotal" },
+        taxInclusion: { type: Type.STRING, nullable: true, description: "ADDED_TO_TOTAL, INCLUDED_IN_TOTAL, NOT_APPLICABLE, or UNKNOWN" },
+        discountIncludedInSubtotal: { type: Type.BOOLEAN, nullable: true, description: "True only when the source clearly includes the invoice discount in subtotal" },
+        payableBasis: { type: Type.STRING, nullable: true, description: "GROSS_INVOICE unless the source explicitly identifies a net-after-withholding payable" },
+        determination: { type: Type.STRING, nullable: true, description: "EXPLICIT, INFERRED, or UNKNOWN" },
+      },
+      required: ["unitPriceBasis", "lineTotalBasis", "subtotalBasis", "taxInclusion", "discountIncludedInSubtotal", "payableBasis", "determination"],
+      nullable: true,
+    },
     notes: { type: Type.STRING, nullable: true },
     termsAndConditions: { type: Type.STRING, nullable: true },
     category: { type: Type.STRING, nullable: true, description: "Short business/accounting category suggestion" },
@@ -543,19 +565,18 @@ const invoiceSchema = {
         dueDate: { type: Type.NUMBER, nullable: true },
         vendorName: { type: Type.NUMBER, nullable: true },
         vendorTin: { type: Type.NUMBER, nullable: true },
-        customerName: { type: Type.NUMBER, nullable: true },
-        customerTin: { type: Type.NUMBER, nullable: true },
         currency: { type: Type.NUMBER, nullable: true },
         lineItems: { type: Type.NUMBER, nullable: true },
         subtotal: { type: Type.NUMBER, nullable: true },
         vatAmount: { type: Type.NUMBER, nullable: true },
         grandTotal: { type: Type.NUMBER, nullable: true },
+        amountDue: { type: Type.NUMBER, nullable: true },
       },
-      required: ["invoiceNumber", "invoiceDate", "dueDate", "vendorName", "vendorTin", "customerName", "customerTin", "currency", "lineItems", "subtotal", "vatAmount", "grandTotal"],
+      required: ["invoiceNumber", "invoiceDate", "dueDate", "vendorName", "vendorTin", "currency", "lineItems", "subtotal", "vatAmount", "grandTotal", "amountDue"],
       nullable: true,
     },
   },
-  required: ["documentType", "invoiceSubtype", "invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "currency", "currencySymbol", "paymentTerms", "vendor", "customer", "shippingAddress", "items", "subtotal", "totalDiscount", "taxBreakdown", "totalTax", "shippingFee", "otherFees", "grandTotal", "amountPaid", "balanceDue", "withholdingTaxRate", "withholdingTaxAmount", "netAmountPayable", "philippineTaxDetails", "notes", "termsAndConditions", "category", "confidenceScore", "fieldConfidence"],
+  required: ["documentType", "invoiceSubtype", "invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "currency", "currencySymbol", "paymentTerms", "vendor", "shippingAddress", "items", "subtotal", "totalDiscount", "taxBreakdown", "totalTax", "shippingFee", "otherFees", "grandTotal", "amountPaid", "amountDue", "balanceDue", "withholdingTaxRate", "withholdingTaxAmount", "netAmountPayable", "philippineTaxDetails", "monetarySemantics", "notes", "termsAndConditions", "category", "confidenceScore", "fieldConfidence"],
 };
 
 const emailClassificationSchema = {
@@ -607,10 +628,10 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function deriveStatus(grandTotal: number, amountPaid: number, balanceDue: number, dueDate?: string) {
-  if (grandTotal > 0 && balanceDue <= 0.01) return "PAID";
-  if (amountPaid > 0 && balanceDue > 0.01) return "PARTIALLY_PAID";
-  if (dueDate) {
+function deriveStatus(grandTotal: number | undefined, amountPaid: number | undefined, balanceDue: number | undefined, dueDate?: string) {
+  if (grandTotal !== undefined && grandTotal > 0 && balanceDue !== undefined && balanceDue <= 0.01) return "PAID";
+  if (amountPaid !== undefined && amountPaid > 0 && balanceDue !== undefined && balanceDue > 0.01) return "PARTIALLY_PAID";
+  if (dueDate && balanceDue !== undefined) {
     const due = new Date(`${dueDate}T23:59:59+08:00`);
     if (!Number.isNaN(due.getTime()) && due.getTime() < Date.now() && balanceDue > 0.01) return "OVERDUE";
   }
@@ -619,54 +640,6 @@ function deriveStatus(grandTotal: number, amountPaid: number, balanceDue: number
 
 function validateExtractedInvoice(data: any, items: any[]) {
   const issues: any[] = [];
-  items.forEach((item, index) => {
-    const quantity = sourceNumeric(item.quantity);
-    const unitPrice = sourceNumeric(item.unitPrice);
-    const discount = sourceNumeric(item.discount);
-    const total = sourceNumeric(item.total);
-    if (quantity === undefined) issues.push({ id: "missing-item-quantity-" + index, severity: "warning", field: "items." + index + ".quantity", message: "Line " + (index + 1) + " quantity is unresolved." });
-    if (unitPrice === undefined) issues.push({ id: "missing-item-unit-price-" + index, severity: "warning", field: "items." + index + ".unitPrice", message: "Line " + (index + 1) + " unit price is unresolved." });
-    if (total === undefined) issues.push({ id: "missing-item-total-" + index, severity: "warning", field: "items." + index + ".total", message: "Line " + (index + 1) + " amount is unresolved." });
-    const expected = quantity !== undefined && unitPrice !== undefined && discount !== undefined
-      ? roundMoney(quantity * unitPrice - discount)
-      : undefined;
-    if (expected !== undefined && total !== undefined && Math.abs(expected - total) > 0.05) {
-      issues.push({
-        id: "item-total-" + index,
-        severity: "warning",
-        field: "items." + index + ".total",
-        message: "Line " + (index + 1) + " total does not match quantity × unit price − discount.",
-        expected,
-        actual: total,
-      });
-    }
-  });
-  const lineTotals = items.map((item) => sourceNumeric(item.total));
-  const calculatedSubtotal = items.length && lineTotals.every((value) => value !== undefined)
-    ? roundMoney(lineTotals.reduce((sum, value) => sum + (value || 0), 0))
-    : undefined;
-  const subtotal = sourceNumeric(data.subtotal);
-  if (calculatedSubtotal !== undefined && subtotal !== undefined && Math.abs(calculatedSubtotal - subtotal) > 0.05) {
-    issues.push({ id: "subtotal-mismatch", severity: "warning", field: "subtotal", message: "Subtotal does not match extracted line items.", expected: calculatedSubtotal, actual: subtotal });
-  }
-  const totalDiscount = sourceNumeric(data.totalDiscount);
-  const totalTax = sourceNumeric(data.totalTax) ?? sourceNumeric(data.philippineTaxDetails?.vatAmount);
-  const shippingFee = sourceNumeric(data.shippingFee);
-  const otherFees = sourceNumeric(data.otherFees);
-  const calculationSubtotal = subtotal ?? calculatedSubtotal;
-  const calculatedGrandTotal = calculationSubtotal !== undefined && totalDiscount !== undefined && totalTax !== undefined && shippingFee !== undefined && otherFees !== undefined
-    ? roundMoney(calculationSubtotal - totalDiscount + totalTax + shippingFee + otherFees)
-    : undefined;
-  const grandTotal = sourceNumeric(data.grandTotal);
-  if (calculatedGrandTotal !== undefined && grandTotal !== undefined && Math.abs(calculatedGrandTotal - grandTotal) > 0.05) {
-    issues.push({ id: "grand-total-mismatch", severity: "warning", field: "grandTotal", message: "Grand total does not reconcile with extracted components.", expected: calculatedGrandTotal, actual: grandTotal });
-  }
-  const amountPaid = sourceNumeric(data.amountPaid);
-  const calculatedBalanceDue = grandTotal !== undefined && amountPaid !== undefined ? roundMoney(Math.max(0, grandTotal - amountPaid)) : undefined;
-  const balanceDue = sourceNumeric(data.balanceDue);
-  if (calculatedBalanceDue !== undefined && balanceDue !== undefined && Math.abs(calculatedBalanceDue - balanceDue) > 0.05) {
-    issues.push({ id: "balance-mismatch", severity: "warning", field: "balanceDue", message: "Balance due does not match grand total minus amount paid.", expected: calculatedBalanceDue, actual: balanceDue });
-  }
   if (!data.invoiceNumber) issues.push({ id: "missing-invoice-number", severity: "warning", field: "invoiceNumber", message: "Invoice number is missing." });
   if (!data.invoiceDate) issues.push({ id: "missing-invoice-date", severity: "warning", field: "invoiceDate", message: "Invoice date is missing." });
   if (!data.vendor?.name) issues.push({ id: "missing-vendor", severity: "warning", field: "vendor.name", message: "Vendor name is missing." });
@@ -679,6 +652,15 @@ function validateExtractedInvoice(data: any, items: any[]) {
     issues.push({ id: "zero-value-line-items", severity: "warning", field: "items", message: "Extracted line items contain no usable quantities, prices, or amounts." });
   }
 
+  items.forEach((item, index) => {
+    if (sourceNumeric(item.quantity) === undefined) issues.push({ id: "missing-item-quantity-" + index, severity: "warning", field: "items." + index + ".quantity", message: "Line " + (index + 1) + " quantity is unresolved." });
+    if (sourceNumeric(item.unitPrice) === undefined) issues.push({ id: "missing-item-unit-price-" + index, severity: "warning", field: "items." + index + ".unitPrice", message: "Line " + (index + 1) + " unit price is unresolved." });
+    if (sourceNumeric(item.total) === undefined) issues.push({ id: "missing-item-total-" + index, severity: "warning", field: "items." + index + ".total", message: "Line " + (index + 1) + " amount is unresolved." });
+  });
+
+  const monetary = reconcileInvoiceMonetarySemantics({ ...data, items });
+  issues.push(...monetary.issues);
+
   const phTax = data.philippineTaxDetails || {};
   const phVatInvoice = Boolean(
     data.invoiceSubtype === "VAT_INVOICE" ||
@@ -686,16 +668,18 @@ function validateExtractedInvoice(data: any, items: any[]) {
     phTax.sellerRegistration === "VAT" ||
     data.vendor?.taxRegistration === "VAT"
   );
-  if (phVatInvoice && sourceNumeric(phTax.vatableSales) !== undefined && (sourceNumeric(phTax.vatAmount) !== undefined || sourceNumeric(data.totalTax) !== undefined)) {
-    issues.push({ id: "ph-vat-rate-not-evaluated", severity: "warning", field: "philippineTaxDetails.vatAmount", message: "VAT rate consistency was not evaluated because no authoritative VAT rate is configured." });
+  if (phVatInvoice && explicitInvoiceTaxAmount({ ...data, items }) !== undefined) {
+    issues.push({ id: "ph-vat-rate-not-evaluated", severity: "info", field: "philippineTaxDetails.vatAmount", message: "VAT rate consistency was not evaluated because no authoritative VAT rate is configured." });
   }
 
   return {
-    status: (issues.length ? "REVIEW" : "PASS") as "REVIEW" | "PASS",
+    status: (issues.some((issue) => issue.severity === "warning" || issue.severity === "error") ? "REVIEW" : "PASS") as "REVIEW" | "PASS",
     issues,
-    calculatedSubtotal,
-    calculatedGrandTotal,
-    calculatedBalanceDue,
+    calculatedSubtotal: monetary.calculatedSubtotal,
+    calculatedTax: monetary.calculatedTax,
+    calculatedGrandTotal: monetary.calculatedGrandTotal,
+    calculatedBalanceDue: monetary.calculatedBalanceDue,
+    monetarySemantics: monetary.semantics,
   };
 }
 
@@ -1265,12 +1249,19 @@ function normalizeTaxDetails(details: any) {
 function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: string, fileName: string | undefined, sourceType: string, emailContext: any, sourceText: string): InvoiceData {
   const rawItems = Array.isArray(extracted?.items) ? extracted.items : [];
   const financialFieldStatus: Record<string, "KNOWN" | "CALCULATED" | "UNKNOWN"> = {};
+  const phTax = normalizeTaxDetails(extracted?.philippineTaxDetails);
+  const extractedSemantics = extracted?.monetarySemantics || extracted?.financialSemantics;
+  const preliminary = { ...extracted, philippineTaxDetails: phTax, financialSemantics: extractedSemantics };
+  const preliminarySemantics = resolveInvoiceMonetarySemantics(preliminary);
   const items = rawItems.map((item: any, index: number) => {
     const quantity = sourceNumeric(item?.quantity);
     const unitPrice = sourceNumeric(item?.unitPrice);
     const discount = sourceNumeric(item?.discount);
     const sourceTotal = sourceNumeric(item?.total);
-    const deterministicTotal = quantity !== undefined && unitPrice !== undefined && discount !== undefined
+    // A missing line amount is derived only when the source basis is known.
+    // Otherwise preserve UNKNOWN: quantity × unit price can be incomparable
+    // with a displayed tax-inclusive or post-discount amount.
+    const deterministicTotal = quantity !== undefined && unitPrice !== undefined && discount !== undefined && preliminarySemantics.lineTotalBasis !== "UNKNOWN"
       ? roundMoney(quantity * unitPrice - discount)
       : undefined;
     const total = sourceTotal ?? deterministicTotal;
@@ -1293,28 +1284,52 @@ function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: 
       total: total ?? null,
     };
   });
-  const validation = validateExtractedInvoice(extracted || {}, items);
-  const phTax = normalizeTaxDetails(extracted?.philippineTaxDetails);
+  const validationInput = { ...preliminary, items };
+  const validation = validateExtractedInvoice(validationInput, items);
   const sourceSubtotal = sourceNumeric(extracted?.subtotal);
   const subtotal = sourceSubtotal ?? validation.calculatedSubtotal ?? null;
   const sourceTotalTax = sourceNumeric(extracted?.totalTax);
   const sourceVatAmount = sourceNumeric(phTax?.vatAmount);
-  const totalTax = sourceTotalTax ?? sourceVatAmount ?? null;
+  const totalTax = sourceTotalTax ?? sourceVatAmount ?? validation.calculatedTax ?? null;
   const sourceGrandTotal = sourceNumeric(extracted?.grandTotal);
   const grandTotal = sourceGrandTotal ?? validation.calculatedGrandTotal ?? null;
   const sourceAmountPaid = sourceNumeric(extracted?.amountPaid);
   const amountPaid = sourceAmountPaid ?? null;
+  const sourceAmountDue = sourceNumeric(extracted?.amountDue);
   const sourceBalanceDue = sourceNumeric(extracted?.balanceDue);
   const calculatedBalanceDue = grandTotal !== null && amountPaid !== null ? Math.max(0, grandTotal - amountPaid) : null;
   const balanceDue = sourceBalanceDue ?? calculatedBalanceDue;
+  const finalSemantics = resolveInvoiceMonetarySemantics({
+    ...validationInput,
+    subtotal,
+    totalTax,
+    grandTotal,
+    amountDue: sourceAmountDue,
+    balanceDue,
+    financialSemantics: validation.monetarySemantics || preliminarySemantics,
+  });
+  const finalValidation = validateExtractedInvoice({
+    ...validationInput,
+    subtotal,
+    totalTax,
+    grandTotal,
+    amountDue: sourceAmountDue,
+    balanceDue,
+    financialSemantics: finalSemantics,
+  }, items);
   financialFieldStatus.subtotal = sourceSubtotal !== undefined ? "KNOWN" : validation.calculatedSubtotal !== undefined ? "CALCULATED" : "UNKNOWN";
-  financialFieldStatus.totalTax = sourceTotalTax !== undefined || sourceVatAmount !== undefined ? "KNOWN" : "UNKNOWN";
+  financialFieldStatus.totalTax = sourceTotalTax !== undefined || sourceVatAmount !== undefined ? "KNOWN" : validation.calculatedTax !== undefined ? "CALCULATED" : "UNKNOWN";
   financialFieldStatus.grandTotal = sourceGrandTotal !== undefined ? "KNOWN" : validation.calculatedGrandTotal !== undefined ? "CALCULATED" : "UNKNOWN";
   financialFieldStatus.amountPaid = sourceAmountPaid !== undefined ? "KNOWN" : "UNKNOWN";
+  financialFieldStatus.amountDue = sourceAmountDue !== undefined ? "KNOWN" : "UNKNOWN";
   financialFieldStatus.balanceDue = sourceBalanceDue !== undefined ? "KNOWN" : calculatedBalanceDue !== null ? "CALCULATED" : "UNKNOWN";
   financialFieldStatus.totalDiscount = sourceNumeric(extracted?.totalDiscount) === undefined ? "UNKNOWN" : "KNOWN";
   financialFieldStatus.shippingFee = sourceNumeric(extracted?.shippingFee) === undefined ? "UNKNOWN" : "KNOWN";
   financialFieldStatus.otherFees = sourceNumeric(extracted?.otherFees) === undefined ? "UNKNOWN" : "KNOWN";
+  const sourceWithholdingTax = sourceNumeric(extracted?.withholdingTaxAmount) ?? sourceNumeric(phTax?.withholdingTaxAmount);
+  const sourceNetAmountPayable = sourceNumeric(extracted?.netAmountPayable) ?? sourceNumeric(phTax?.netAmountPayable);
+  financialFieldStatus.withholdingTaxAmount = sourceWithholdingTax === undefined ? "UNKNOWN" : "KNOWN";
+  financialFieldStatus.netAmountPayable = sourceNetAmountPayable !== undefined ? "KNOWN" : sourceWithholdingTax !== undefined && grandTotal !== null ? "CALCULATED" : "UNKNOWN";
   const sourceCurrency = explicitCurrencyFromText(sourceText);
   const currency = normalizeCurrency(extracted?.currency, extracted?.currencySymbol) || sourceCurrency;
   const currencySymbol = currencySymbolFor(currency) || extracted?.currencySymbol || "";
@@ -1353,9 +1368,9 @@ function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: 
     currency,
     currencySymbol,
     paymentTerms: extracted?.paymentTerms || "",
-    status: deriveStatus(numeric(grandTotal), numeric(amountPaid), numeric(balanceDue), extracted?.dueDate),
+    status: deriveStatus(grandTotal ?? undefined, amountPaid ?? undefined, balanceDue ?? undefined, extracted?.dueDate),
     vendor: compactParty(extracted?.vendor),
-    customer: compactParty(extracted?.customer),
+    customer: extracted?.customer ? compactParty(extracted.customer) : undefined,
     shippingAddress: extracted?.shippingAddress ? compactParty(extracted.shippingAddress) : undefined,
     items,
     subtotal,
@@ -1366,10 +1381,11 @@ function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: 
     otherFees: sourceNumeric(extracted?.otherFees) ?? null,
     grandTotal,
     amountPaid,
+    amountDue: sourceAmountDue ?? null,
     balanceDue,
     withholdingTaxRate: sourceNumeric(extracted?.withholdingTaxRate) ?? null,
-    withholdingTaxAmount: sourceNumeric(extracted?.withholdingTaxAmount) ?? null,
-    netAmountPayable: sourceNumeric(extracted?.netAmountPayable) ?? null,
+    withholdingTaxAmount: sourceWithholdingTax ?? null,
+    netAmountPayable: sourceNetAmountPayable ?? null,
     philippineTaxDetails: phTax,
     notes: extracted?.notes || "",
     termsAndConditions: extracted?.termsAndConditions || "",
@@ -1379,7 +1395,8 @@ function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: 
     confidenceScore,
     fieldConfidence: extracted?.fieldConfidence || {},
     financialFieldStatus,
-    validation,
+    financialSemantics: finalSemantics,
+    validation: finalValidation,
     rawJson: responseText,
   };
   invoiceData.extractionQuality = evaluateExtractionQuality(invoiceData, sourceText);
@@ -1398,8 +1415,8 @@ function enhancedRetryInstruction(quality: ExtractionQuality) {
   return `SECOND EXTRACTION PASS. Re-read the original source document that is attached or included above. Do not use a previous JSON result as evidence and do not invent corrections. Focus especially on: ${focus.join(", ")}.
 - For line-items, inspect the table row by row. Recognize headers such as Item, SKU, Code, Description, Qty, Quantity, Unit, UOM, Unit Price, Price, Amount, and Total. Preserve every visible row independently; do not summarize or merge rows. Preserve SKU, description, quantity, unit of measure, unit price, and amount.
 - For currency, inspect explicit labels and symbols such as Currency: PHP, PHP, Php, Philippine Peso, ₱, USD, US$, $, EUR, SGD, JPY, and preserve the source currency without inferring it from an address.
-- For parties, inspect FROM, BILL TO, SELLER, BUYER, CUSTOMER, and registered/trade-name sections.
-- For totals, inspect the financial summary near the bottom, including Subtotal, VATable Sales, VAT Amount, Zero-Rated Sales, VAT-Exempt Sales, Total Amount Due, Amount Paid, and Balance Due.
+- For supplier identity, inspect FROM, SELLER, registered/trade-name, and supplier TIN sections. Buyer/customer identity is optional source evidence and is not a retry target or posting blocker.
+- For totals, inspect the financial summary near the bottom, including Subtotal, VATable Sales, VAT Amount, Zero-Rated Sales, VAT-Exempt Sales, Discount, Total Amount, Amount Due, Amount Paid, and Balance Due. Preserve whether displayed line amounts/subtotal are pre-tax or VAT-inclusive.
 Return the complete invoice schema again. Unknown source values must remain null.`;
 }
 
@@ -1468,11 +1485,14 @@ Rules:
 9. category is only a short suggested classification (e.g. Software, Office Supplies, Professional Services, Utilities, Logistics).
 10. Preserve explicit Project / Reference, Reference, Job, Contract, and Work Order text as projectReference when visible. Do not create project-management data.
 11. For Philippine documents recognize INVOICE, VAT INVOICE, NON-VAT INVOICE, SALES INVOICE, SERVICE INVOICE, COMMERCIAL INVOICE, CASH INVOICE, CHARGE INVOICE, CREDIT INVOICE, and Official Receipt. Keep documentType=INVOICE for invoice documents and use invoiceSubtype for the more specific label. An Official Receipt is usually RECEIPT or SUPPLEMENTARY_DOCUMENT when the source does not clearly establish an invoice; do not invent a legal conclusion.
-12. For Philippine fields look for Registered Name, Business/Trade Name, VAT REG TIN, TIN, Branch Code, Registered Business Address, invoice/serial number, transaction date, buyer registered name/TIN/address, description/nature of service, quantity, unit, unit price/cost, amount, VATable Sales, VAT Amount, VAT on Local Sales, Zero-Rated Sales, VAT-Exempt Sales, Discount, Total Amount, Amount Paid, Balance Due, ATP, OCN, Permit to Use/BIR Permit, and approved invoice serial ranges. These are optional for foreign invoices.
-13. Recognize ₱, PHP, Php, PhP, and Philippine Peso as PHP. Preserve explicit USD, US$, $, EUR, SGD, JPY, and other foreign currencies. Never infer PHP only from a Philippine address. If currency is unclear, return null and lower confidence.
-14. Keep withholding tax/EWT/CWT separate from VAT. Never subtract withholding from grandTotal unless the source explicitly provides netAmountPayable; do not infer a withholding rate.
-15. For VAT-inclusive wording, set philippineTaxDetails.vatInclusive=true only when clearly stated; otherwise leave it null rather than guessing.
-16. Return every schema property, using null for an unknown scalar or object and [] for an unknown array. Return only JSON matching the schema.`;
+12. For Philippine fields look for Registered Name, Business/Trade Name, VAT REG TIN, TIN, Branch Code, Registered Business Address, invoice/serial number, transaction date, description/nature of service, quantity, unit, unit price/cost, amount, VATable Sales, VAT Amount, VAT on Local Sales, Zero-Rated Sales, VAT-Exempt Sales, Discount, Total Amount, Amount Paid, Amount Due, Balance Due, ATP, OCN, Permit to Use/BIR Permit, and approved invoice serial ranges. These are optional for foreign invoices. This supplier workflow is buyer-fixed to the deployment company: buyer/customer identity is optional source evidence only and must never be required for extraction or posting.
+13. Preserve each source-displayed line total exactly when visible. Do not replace it with quantity × unit price. A source line may include VAT, discounts, or source rounding. Capture quantity, unit price, line discount, tax amount, and source total independently.
+14. Recognize ₱, PHP, Php, PhP, and Philippine Peso as PHP. Preserve explicit USD, US$, $, EUR, SGD, JPY, and other foreign currencies. Never infer PHP only from a Philippine address. If currency is unclear, return null and lower confidence.
+15. Keep withholding tax/EWT/CWT separate from VAT. Never subtract withholding from grandTotal; capture a source-stated netAmountPayable or amountDue separately. Do not infer a withholding rate.
+16. Set monetarySemantics.unitPriceBasis, lineTotalBasis, and subtotalBasis to PRE_TAX or TAX_INCLUSIVE only when the source labels or unambiguous totals establish each basis. They may differ when a source shows a pre-tax unit price and a tax-inclusive line amount. Set taxInclusion to ADDED_TO_TOTAL only when tax is added to the subtotal/base, INCLUDED_IN_TOTAL when the gross total already includes it, NOT_APPLICABLE for explicit zero/non-VAT treatment, and UNKNOWN otherwise. Set discountIncludedInSubtotal only when the source makes that relationship clear. Do not invent a VAT rate or a tax policy.
+17. subtotal is the source-labeled subtotal in its recorded basis. Do not substitute VATable Sales, the sum of lines, or grandTotal for a missing source subtotal; the application may record a calculated value separately when it is deterministic. grandTotal is the source-stated gross invoice total. amountDue is source-stated due amount and may differ from gross because of payment or withholding.
+18. For VAT-inclusive wording, set philippineTaxDetails.vatInclusive=true only when clearly stated; otherwise leave it null rather than guessing.
+19. Return every schema property, using null for an unknown scalar or object and [] for an unknown array. Return only JSON matching the schema.`;
 
     const firstModel = selectModel(model);
     const attempts: Array<{ candidate: InvoiceData; quality: ExtractionQuality; modelUsed: string; attemptNumber: number }> = [];

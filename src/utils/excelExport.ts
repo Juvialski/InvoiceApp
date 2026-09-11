@@ -37,10 +37,14 @@ function invoiceRegisterRow(invoice: InvoiceData) {
     "Zero-Rated Sales": tax.zeroRatedSales ?? "",
     "VAT-Exempt Sales": tax.vatExemptSales ?? "",
     Subtotal: invoice.subtotal,
-    Discount: invoice.totalDiscount || 0,
+    Discount: invoice.totalDiscount ?? "",
     "Invoice Total": invoice.grandTotal,
+    "Amount Due": invoice.amountDue ?? "",
     "Withholding Tax": invoice.withholdingTaxAmount ?? tax.withholdingTaxAmount ?? "",
     "Net Payable": invoice.netAmountPayable ?? tax.netAmountPayable ?? "",
+    "Line Amount Basis": invoice.financialSemantics?.lineTotalBasis || "UNKNOWN",
+    "Subtotal Basis": invoice.financialSemantics?.subtotalBasis || "UNKNOWN",
+    "Tax Inclusion": invoice.financialSemantics?.taxInclusion || "UNKNOWN",
     "Payment Status": invoice.status || "UNPAID",
     "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
     Source: invoice.sourceType || "UPLOAD",
@@ -63,10 +67,10 @@ function lineItemRows(invoices: InvoiceData[]) {
     Quantity: item.quantity,
     "Unit / UOM": item.unitOfMeasure || "",
     "Unit Price": item.unitPrice,
-    Discount: item.discount || 0,
-    "Tax Rate %": item.taxRate || 0,
+    Discount: item.discount ?? "",
+    "Tax Rate %": item.taxRate ?? "",
     "Tax Treatment": item.taxTreatment || "",
-    "Tax Amount": item.taxAmount || 0,
+    "Tax Amount": item.taxAmount ?? "",
     Amount: item.total,
     Currency: invoice.currency || "",
   })));
@@ -111,7 +115,7 @@ function vendorRows(invoices: InvoiceData[]) {
     };
     row["Invoice Count"] += 1;
     if (invoice.currency === "PHP") row["Total PHP Spend"] += Number(invoice.grandTotal) || 0;
-    row["Review Issues"] += invoice.validation?.issues?.length || 0;
+    row["Review Issues"] += invoice.validation?.issues?.filter((issue) => issue.severity === "warning" || issue.severity === "error").length || 0;
     if ((invoice.invoiceDate || "") > row["Latest Invoice"]) row["Latest Invoice"] = invoice.invoiceDate || "";
     map.set(key, row);
   });

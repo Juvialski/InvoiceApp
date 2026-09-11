@@ -142,7 +142,6 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                   <th className="py-3 px-4">Invoice #</th>
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Vendor / Seller</th>
-                  <th className="py-3 px-4">Customer / Buyer</th>
                   <th className="py-3 px-4 text-center">Items</th>
                   <th className="py-3 px-4 text-right">Grand Total</th>
                   <th className="py-3 px-4 text-center">Status</th>
@@ -164,9 +163,6 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                     </td>
                     <td className="py-3.5 px-4 max-w-[180px] truncate text-slate-800 font-medium" title={inv.vendor?.name}>
                       {inv.vendor?.registeredName || inv.vendor?.companyName || inv.vendor?.name || "N/A"}
-                    </td>
-                    <td className="py-3.5 px-4 max-w-[180px] truncate text-slate-600" title={inv.customer?.name}>
-                      {inv.customer?.companyName || inv.customer?.name || "N/A"}
                     </td>
                     <td className="py-3.5 px-4 text-center font-mono">
                       <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold">

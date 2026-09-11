@@ -77,6 +77,11 @@ function amount(row: Row, key: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function optionalAmount(row: Record<string, unknown>, key: string) {
+  const value = Number(row[key]);
+  return Number.isFinite(value) ? value : null;
+}
+
 function bool(row: Row, key: string, fallback = false) {
   return row[key] === undefined || row[key] === null ? fallback : Boolean(row[key]);
 }
@@ -121,13 +126,25 @@ async function getRun(context: AssistantToolContext, runId: string) {
 }
 
 function invoiceView(row: Row) {
+  const currentData = row.current_data && typeof row.current_data === "object" && !Array.isArray(row.current_data)
+    ? row.current_data as Record<string, unknown>
+    : {};
   return {
     id: text(row, "id"),
     invoiceNumber: optionalText(row, "invoice_number"),
     invoiceDate: optionalText(row, "invoice_date"),
     dueDate: optionalText(row, "due_date"),
     currency: optionalText(row, "currency"),
-    grandTotal: amount(row, "grand_total"),
+    grandTotal: optionalAmount(row, "grand_total"),
+    subtotal: optionalAmount(currentData, "subtotal"),
+    totalDiscount: optionalAmount(currentData, "totalDiscount"),
+    totalTax: optionalAmount(currentData, "totalTax"),
+    amountPaid: optionalAmount(currentData, "amountPaid"),
+    amountDue: optionalAmount(currentData, "amountDue"),
+    balanceDue: optionalAmount(currentData, "balanceDue"),
+    withholdingTaxAmount: optionalAmount(currentData, "withholdingTaxAmount"),
+    netAmountPayable: optionalAmount(currentData, "netAmountPayable"),
+    financialSemantics: currentData.financialSemantics || undefined,
     paymentStatus: text(row, "payment_status"),
     reviewStatus: text(row, "review_status"),
     duplicateStatus: text(row, "duplicate_status"),

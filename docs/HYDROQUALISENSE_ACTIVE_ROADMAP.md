@@ -1,12 +1,13 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — DEEP PDF/EXPORT VISUAL CERTIFICATION COMPLETE FOR PROGRAMMATIC FALLBACK / PHASE 3 NEXT / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — SUPPLIER INVOICE SYSTEMIC CORRECTNESS SLICE COMPLETE / BROADER PHASE 3 IN PROGRESS / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-11**
+Last updated: **2026-09-12**
 
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
 Local-QA/UI/PDF staged plan: `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md`  
+Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md`
 Wave 4D contract: `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`  
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
@@ -72,10 +73,12 @@ The next work must follow this order unless the user explicitly reprioritizes it
    - Settings now provides an editable per-user document identity, so new issued documents use a human-readable Prepared by / Processed by name independent of the sign-in email; existing issued snapshots remain immutable;
    - company-template DOCX and finalized company-template PDF remain separate output paths. This phase does not claim high-fidelity template conversion where the supported converter is unavailable.
 
-3. **Functional regression sweep using local QA**
+3. **Functional regression sweep using local QA — Supplier Invoice systemic correctness slice complete; broader sweep remains**
    - retest the workflows changed or touched during the UI/PDF remediation;
    - fix schema-compatible defects immediately;
    - if a defect requires DB/RLS/RPC/migration changes, use local Docker/Supabase rather than applying unmerged schema work to shared QA.
+   - the Supplier Invoice slice now centralizes source monetary semantics, removes false VAT/subtotal comparisons, preserves unresolved values, simplifies buyer identity to optional source evidence, and keeps Vendor -> verification -> one authoritative Expense boundaries intact;
+   - focused Supplier Invoice regression, clean local Supabase replay/pgTAP, migration/upgrade validation, targeted authenticated/demo browser checks, and build/lint evidence are recorded on the current implementation branch; this does not certify the merged/hosted head.
 
 4. **Hosted exact-SHA QA certification after merge**
    - exact merged `main` SHA must be deployed to the intended Render QA service;
@@ -96,7 +99,7 @@ The next work must follow this order unless the user explicitly reprioritizes it
 
 10. Final pre-production security/data-integrity certification before broad rollout.
 
-Do not skip the remaining PDF, regression, and hosted quality phases merely because Phase 1 is complete.
+Do not skip the remaining broader regression and hosted exact-SHA quality phases merely because this Supplier Invoice slice is complete.
 
 ## Current Wave 4D product state — incomplete
 

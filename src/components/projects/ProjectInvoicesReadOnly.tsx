@@ -9,7 +9,7 @@ function money(value: number, currency: string) {
 }
 
 function partyName(invoice: InvoiceData) {
-  return invoice.vendor?.name || invoice.vendor?.registeredName || invoice.vendor?.companyName || invoice.customer?.name || "Unknown party";
+  return invoice.vendor?.name || invoice.vendor?.registeredName || invoice.vendor?.companyName || "Unknown supplier";
 }
 
 export function ProjectInvoicesReadOnly({ project, invoices, allocations, onOpenInvoice }: { project: Project; invoices: InvoiceData[]; allocations: InvoiceProjectAllocation[]; onOpenInvoice: (invoice: InvoiceData) => void }) {

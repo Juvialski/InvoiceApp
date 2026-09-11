@@ -42,7 +42,7 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
     const q = query.trim().toLowerCase();
     const haystack = [
       invoice.invoiceNumber, invoice.vendor?.name, invoice.vendor?.registeredName, invoice.vendor?.tradeName, invoice.vendor?.taxId,
-      invoice.customer?.name, invoice.customer?.registeredName, invoice.customer?.taxId, invoice.fileName, invoice.category,
+      invoice.fileName, invoice.category,
       invoice.currency, invoice.purchaseOrderNumber, invoice.sourceMetadata?.sender, invoice.sourceMetadata?.subject, invoice.projectReference,
       ...(allocationsByInvoice.get(invoice.id) || []).flatMap((allocation) => { const project = projectById.get(allocation.projectId); return [project?.projectCode, project?.projectName]; }), invoice.grandTotal,
     ].join(" ").toLowerCase();
