@@ -5,6 +5,7 @@ import { companyApiRequest } from "./companyApi.ts";
 import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity.ts";
 import { parseFinancialCorrectionPreview, parseFinancialCorrectionResult, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./financialLifecycle.ts";
 import { expenseFromRow } from "./expenses.ts";
+import { supplierInvoiceDuplicateTotalsMatch } from "../utils/invoiceDuplicateDetection.ts";
 
 const INVOICE_BUCKET = "invoice-originals";
 const EMAIL_BUCKET = "email-originals";
@@ -742,9 +743,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     const sameNumber = Boolean(invoice.invoiceNumber && candidate.invoice_number && String(candidate.invoice_number).trim().toLowerCase() === invoice.invoiceNumber.trim().toLowerCase());
     const sameDate = Boolean(invoice.invoiceDate && candidate.invoice_date && String(candidate.invoice_date).slice(0, 10) === invoice.invoiceDate);
     const sameCurrency = Boolean(invoice.currency && candidate.currency && String(candidate.currency).toUpperCase() === invoice.currency.toUpperCase());
-    const candidateTotal = Number(candidate.grand_total);
-    const invoiceTotal = Number(invoice.grandTotal);
-    const sameTotal = Number.isFinite(candidateTotal) && Number.isFinite(invoiceTotal) && Math.abs(candidateTotal - invoiceTotal) <= 0.02;
+    const sameTotal = supplierInvoiceDuplicateTotalsMatch(candidate.grand_total, invoice.grandTotal);
     const sameFile = Boolean(invoice.sourceSha256 && candidateData.sourceSha256 && invoice.sourceSha256 === candidateData.sourceSha256);
     return sameFile || (sameVendor && sameNumber && sameCurrency && sameTotal) || (sameVendor && sameDate && sameCurrency && sameTotal);
   });

@@ -21,6 +21,12 @@ const sourceMoney = (value: unknown) => {
   return Number.isFinite(numeric) ? numeric : undefined;
 };
 
+export function supplierInvoiceDuplicateTotalsMatch(left: unknown, right: unknown): boolean {
+  const leftTotal = sourceMoney(left);
+  const rightTotal = sourceMoney(right);
+  return leftTotal !== undefined && rightTotal !== undefined && Math.abs(leftTotal - rightTotal) <= 0.02;
+}
+
 /**
  * Checks whether an incoming source attachment / payload has already been processed into an Invoice.
  * Designed to short-circuit before expensive Gemini extraction calls.
@@ -116,7 +122,7 @@ export function evaluateInvoiceDuplicateEvidence(
     const sameNumber = Boolean(number && candidateNumber && candidateNumber === number);
     const sameCurrency = Boolean(invoice.currency && candidate.currency && (candidate.currency || "").toUpperCase() === (invoice.currency || "").toUpperCase());
     const candidateTotal = sourceMoney(candidate.grandTotal);
-    const sameTotal = candidateTotal !== undefined && invoiceTotal !== undefined && Math.abs(candidateTotal - invoiceTotal) <= 0.02;
+    const sameTotal = supplierInvoiceDuplicateTotalsMatch(candidateTotal, invoiceTotal);
     const sameDate = Boolean(invoice.invoiceDate && candidate.invoiceDate && candidate.invoiceDate === invoice.invoiceDate);
 
     if (sameNumber && sameVendor && sameCurrency && sameTotal) {

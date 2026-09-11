@@ -78,7 +78,9 @@ function amount(row: Row, key: string) {
 }
 
 function optionalAmount(row: Record<string, unknown>, key: string) {
-  const value = Number(row[key]);
+  const source = row[key];
+  if (source === null || source === undefined || (typeof source === "string" && !source.trim())) return null;
+  const value = Number(source);
   return Number.isFinite(value) ? value : null;
 }
 
@@ -125,7 +127,7 @@ async function getRun(context: AssistantToolContext, runId: string) {
   return requireFound(await getOne(userCompanyQuery(context, "payroll_runs", RUN_SELECT).eq("id", runId).maybeSingle(), "Payroll run"), "Payroll run was not found in this company.");
 }
 
-function invoiceView(row: Row) {
+export function invoiceView(row: Row) {
   const currentData = row.current_data && typeof row.current_data === "object" && !Array.isArray(row.current_data)
     ? row.current_data as Record<string, unknown>
     : {};
