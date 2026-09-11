@@ -393,9 +393,12 @@ async function main() {
     });
     evidence.scenarios = scenarioRun.scenarios;
     evidence.scenarioSummary = scenarioRun.summary;
-    if (scenarioRun.summary.fail > 0) {
-      const failedIds = scenarioRun.scenarios.filter((scenario) => scenario.status === "FAIL").map((scenario) => scenario.id).slice(0, 8);
-      throw new Error(`Authenticated Local-QA scenarios failed: ${failedIds.join(", ") || "unknown scenario"}.`);
+    const coverageGaps = scenarioRun.scenarios.filter((scenario) =>
+      scenario.status !== "PASS" || scenario.assertions.some((item) => item.id.endsWith("-available")),
+    );
+    if (coverageGaps.length > 0) {
+      const incompleteIds = coverageGaps.map((scenario) => `${scenario.id}:${scenario.status}`).slice(0, 8);
+      throw new Error(`Authenticated Local-QA coverage incomplete: ${incompleteIds.join(", ") || "unknown scenario"}.`);
     }
     evidence.pdfChecks = await pdfEvidence(session.page);
     evidence.status = "PASS";
