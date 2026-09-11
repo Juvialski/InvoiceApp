@@ -6,9 +6,9 @@ Repository: `Juvialski/InvoiceApp`
 
 ## Exact current product baseline
 
-Current merged application baseline:
+Current merged application and QA-hardening baseline:
 
-`41fff7149c88bbadba6e40d3e5e2da7bcdb24d4a` (PR #138; this release-infrastructure fix does not change product behavior)
+`ec51c29f2b1bdf6927f41746f38a4c967aeb5bff` (PR #140)
 
 Completed product work through that baseline:
 
@@ -19,7 +19,8 @@ Completed product work through that baseline:
 - Wave 4A Company Document Templates / Mail Merge Foundation — complete through PR #134;
 - Wave 4B High-Fidelity PDF Finalization — complete through PR #135;
 - Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History — complete through PR #136;
-- Wave 4D Email/SMS + Documents workspace implementation — integrated through PR #138, with SMS provider activation/runtime QA still blocking phase completion.
+- Wave 4D Email/SMS + Documents workspace implementation — integrated through PR #138, with SMS provider activation/runtime QA still blocking phase completion;
+- Full live-QA company simulation harness and observed-flow hardening — integrated through PR #140, including fixes for project-create identity, RFQ quotation payload persistence, mixed-unit receipt continuation, payroll-run persistence, and hosted Documents semantic-text verification.
 
 The detailed current priority is `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
@@ -119,15 +120,14 @@ Modern `sb_secret_` server keys are accepted only by protected server-side
 operations. Legacy JWT `service_role` keys are not exposed to browser code.
 Missing or unavailable AI metadata remains distinct from the legitimate
 `NOT_CONFIGURED` company state, and database migration promotion remains
-separate from application deployment. Migration promotion remains separate.
-Production remains read-only unless
+separate from application deployment. Production remains read-only unless
 explicitly authorized.
 
 ## Gmail provider state
 
 Inbound Gmail intake currently uses read-only Gmail access. Outbound email requires the existing OAuth connection to include Gmail send authorization. The current code already requests `gmail.readonly` plus `gmail.send` during explicit reconnect/re-consent; do not create a second Google-account system.
 
-Real Gmail send/provider behavior still requires live authorized QA proof and is not established by unit/CI tests alone.
+The full live company simulation on the prior exact QA baseline observed an expired Gmail authorization. The exact-head protected Hosted QA after PR #140 proved application authentication, route, Storage, and release contracts, but it did not convert that provider result into a successful Gmail send. Treat Gmail provider-backed send as requiring explicit reconnect/re-consent and live QA proof.
 
 ## Financial / security invariants
 
@@ -164,34 +164,43 @@ Site Attendance and Face-Recognition Attendance remain later phases in that orde
 
 ### Full live QA company simulation — 2026-09-11
 
-The current hosted QA app was tested at exact SHA
+The original full live company simulation tested exact QA SHA
 `36c0736a6f3d8703b1c6d0ab47519123a79a1acb` with QA migration level
 `20260910131014` and deployment identity `qa-hydroqualisense`. Synthetic run
-`QA-E2E-7F4K` was created in the isolated QA company; production remained
-strictly read-only.
+`QA-E2E-7F4K` remains in the isolated QA company; production remained strictly
+read-only.
 
-The run exercised the cross-module project, procurement/RFQ/PO, warehouse,
+That run exercised the cross-module project, procurement/RFQ/PO, warehouse,
 equipment, engineering-document revision, client billing/collection/cash
 linkage, manual Expense, worker setup, Documents, Reports, Dashboard, and
-Email/SMS review surfaces. QA is **NOT READY** because Gmail authorization is
-expired, SMS is not configured, high-fidelity PDF finalization is unavailable,
-template starter creation and AI blueprint generation are blocked safely, and
-the live app exposed project-create, RFQ quotation-payload, mixed-unit receipt,
-and payroll-run calculation defects. The hosted Documents failure was a stale
-case-sensitive test contract, not missing live wording. Fixes and regression
-coverage are prepared in the current unmerged change and require a new exact
-QA deployment before certification claims can change.
+Email/SMS review surfaces. It also exposed project-create identity, RFQ
+quotation-payload, mixed-unit receipt, and payroll-run persistence defects. The
+hosted Documents failure was a stale case-sensitive test contract rather than
+missing live wording.
 
-Keep the synthetic records and evidence for audit/retest; do not bypass
-financial, document, lifecycle, or provider guards to clean them up.
+PR #140 merged regression-covered fixes for those four business-flow defects
+and the hosted Documents assertion. Protected QA Release run `34551019443`
+then deployed exact SHA `ec51c29f2b1bdf6927f41746f38a4c967aeb5bff`, promoted
+canonical migration `20260910233915`, independently verified post-promotion
+migration parity and production separation, and ran authenticated Hosted QA on
+the exact deployed state. That exact-head Hosted QA reported deployment
+readiness/authentication/reload/fresh-navigation PASS, `9/9` hosted routes,
+Storage PASS, and `0` contract failures.
 
-QA certification remains separate and parallel. Prior hosted QA evidence belongs only to the exact application-bearing SHA it certified and does not certify the newer Wave 1A-4C application changes.
+QA remains **NOT READY**. The original provider/runtime blockers still apply:
+Gmail authorization was expired during the full simulation, SMS is not
+configured, the optional high-fidelity PDF converter is unavailable on the
+native Node/Render deployment, and the template/AI provider path did not produce
+an acceptable live blueprint. The exact-head Hosted QA is valid evidence for
+release/auth/route/Storage contracts only; it does not replace a direct live UI
+retest of the four repaired business workflows. Keep the `QA-E2E-7F4K` records
+and original `artifacts/live-qa` evidence for that retest and downstream audit.
 
 The normal release sequence for current application/migration-bearing work remains:
 
 `exact intended app SHA -> intended QA deployment live -> inspect/promote canonical QA migration history when required -> verify parity -> hosted authenticated QA / provider / runtime checks`
 
-Remaining readiness work continues under `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`, including current-main hosted evidence, approved QA AI/provider validation, and required recovery/Storage evidence.
+Remaining readiness work continues under `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`, including exact-head full live regression of the repaired flows, approved QA AI/provider validation, SMS provider-backed validation if/when configured, and required recovery evidence.
 
 Production remains read-only unless the user explicitly authorizes promotion for the intended deployment/client. A green PR, merge, Render deploy, or QA success does not imply production-write permission.
 
