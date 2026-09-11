@@ -15,6 +15,30 @@ Before implementation, PR review, migration/release work, or preparing a Codex p
 
 Live repository state overrides remembered chat summaries and old prompts.
 
+## Codex implementation handoff fast-start — explicit 2026-09-11 override
+
+This section overrides the preserved baseline and efficiency-guide startup language **for a fresh Codex implementation handoff only**. It does not weaken the stricter live-repository, exact-head CI, migration, release, or merge checks required when ChatGPT is reviewing/fixing a PR or performing QA/release work.
+
+The normal manual workflow is:
+
+`ChatGPT prepares prompt -> Codex implements and opens PR -> ChatGPT reviews/fixes/merges -> ChatGPT prepares next prompt`
+
+Because ChatGPT may merge or correct the repository remotely between Codex runs, Codex must assume its local checkout may be stale. Do not spend startup time proving whether the old local checkout is current.
+
+For a new Codex implementation task:
+
+1. **First repository action: synchronize to the latest remote `main`.** Prefer `git fetch origin main`, switch to `main`, then `git pull --ff-only origin main`, and create the task branch from that updated `main`.
+2. If the local worktree contains uncommitted work or local-only commits, do **not** discard or overwrite them. Preserve them and use a clean worktree/branch based on current `origin/main` instead.
+3. After synchronization, record the resulting exact `main` SHA **once** (for example `git rev-parse HEAD`) and proceed. The successful pull/fetch is the normal freshness confirmation.
+4. Do **not** inspect open PRs, old CI runs, historical merge state, remote branch history, or the previous prompt SHA during implementation startup unless the task itself is PR review/release work or the prompt explicitly requires that evidence.
+5. Read `AGENTS.md`, then only the roadmap/handoff/phase/runbook documents materially needed for the assigned task. Do not re-read unrelated repository documentation by ritual.
+6. Generate at most one bounded `agent:context` packet when useful, inspect only the task-relevant implementation, and begin implementation immediately.
+7. Do not run a baseline full suite or broad repository audit merely to reconfirm a just-pulled `main`. Follow focused -> affected validation after changes are made.
+
+Prompt creators should put the pull-first instruction at the top of every normal Codex implementation prompt. Avoid wording that tells Codex to spend time independently establishing the latest green remote baseline before pulling; **pull latest `main`, record the SHA once, then work**.
+
+The ChatGPT PR-review/fix/merge side remains unchanged: inspect the live PR and exact current head, review the complete relevant diff, verify exact-head CI and blockers, fix concrete issues, and merge automatically when safe.
+
 ## Current product sequence — explicit 2026-09-10 reprioritization
 
 The user has explicitly clarified that the broad `Email/SMS + Documents` phase is **not complete** merely because document templates, PDF generation, Gmail delivery, or delivery history exist inside individual record workflows.
