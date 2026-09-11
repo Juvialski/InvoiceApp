@@ -8,7 +8,7 @@ Repository: `Juvialski/InvoiceApp`
 
 Current merged application and QA-hardening baseline:
 
-`ec51c29f2b1bdf6927f41746f38a4c967aeb5bff` (PR #140)
+`46e0af036b7a66e6a6f86e0a4557bea576b605bf` (PR #144)
 
 Completed product work through that baseline:
 
@@ -20,7 +20,8 @@ Completed product work through that baseline:
 - Wave 4B High-Fidelity PDF Finalization — complete through PR #135;
 - Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History — complete through PR #136;
 - Wave 4D Email/SMS + Documents workspace implementation — integrated through PR #138, with SMS provider activation/runtime QA still blocking phase completion;
-- Full live-QA company simulation harness and observed-flow hardening — integrated through PR #140, including fixes for project-create identity, RFQ quotation payload persistence, mixed-unit receipt continuation, payroll-run persistence, and hosted Documents semantic-text verification.
+- Full live-QA company simulation harness and observed-flow hardening — integrated through PR #140, including fixes for project-create identity, RFQ quotation payload persistence, mixed-unit receipt continuation, payroll-run persistence, and hosted Documents semantic-text verification;
+- Focused UI/UX remediation and connected Gmail QA audit — integrated through PR #144, including responsive Expense/PO/RFQ/receipt surfaces, Gmail incremental-queue retention, project dialog wording, Cash page hierarchy, mobile document-preview hardening, and programmatic PDF separator safety. The broader preview-versus-downloaded-PDF fidelity gap remains unresolved and is the next targeted UI/document-quality phase.
 
 The detailed current priority is `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
