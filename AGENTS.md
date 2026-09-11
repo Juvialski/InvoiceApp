@@ -17,7 +17,7 @@ Live repository state overrides remembered chat summaries and old prompts.
 
 ## Codex implementation handoff fast-start — explicit 2026-09-11 override
 
-This section overrides the preserved baseline and efficiency-guide startup language **for a fresh Codex implementation handoff only**. It does not weaken the stricter live-repository, exact-head CI, migration, release, or merge checks required when ChatGPT is reviewing/fixing a PR or performing QA/release work.
+This section overrides the preserved baseline and efficiency-guide startup language **for a fresh Codex implementation handoff only**. It does not weaken migration, release, security, data-integrity, or merge safety requirements. ChatGPT PR review uses the proportional validation override later in this file.
 
 The normal manual workflow is:
 
@@ -36,8 +36,6 @@ For a new Codex implementation task:
 7. Do not run a baseline full suite or broad repository audit merely to reconfirm a just-pulled `main`. Follow focused -> affected validation after changes are made.
 
 Prompt creators should put the pull-first instruction at the top of every normal Codex implementation prompt. Avoid wording that tells Codex to spend time independently establishing the latest green remote baseline before pulling; **pull latest `main`, record the SHA once, then work**.
-
-The ChatGPT PR-review/fix/merge side remains unchanged: inspect the live PR and exact current head, review the complete relevant diff, verify exact-head CI and blockers, fix concrete issues, and merge automatically when safe.
 
 ## Current product sequence — explicit 2026-09-10 reprioritization
 
@@ -125,7 +123,7 @@ The lead Codex agent must continue implementation and must not block waiting for
 
 The lead owns architecture/source-of-truth decisions, shared files and integration, financial semantics, migrations/RLS/RPC interpretation, security, App/router/provider integration, final diff review, validation, commit/push/PR delivery, and must not merge its own implementation PR.
 
-When ChatGPT is performing the repository-native PR review/fix/finalization role, it must inspect exact current head and exact-head CI, fix concrete issues, and merge automatically if safe as defined by the baseline rules.
+When ChatGPT is performing the repository-native PR review/fix/finalization role, it follows the proportional PR-review/CI policy later in this file. Exact-head means the current PR head, but only checks applicable to the changed risk domains require manual verification.
 
 ## Mandatory roadmap and handoff synchronization gate
 
@@ -164,6 +162,53 @@ For applicable product feature work, the `HydroQualiSense Features & Roadmap` se
 - During final diff review ask: `Does this implementation require a Settings Features & Roadmap status or description update?` Applicable synchronization is part of Definition of Done.
 - Never copy internal engineering information into the client-facing roadmap, including PRs, migration names, CI/workflow status, QA certification terminology, Git SHAs, Codex/agent/subagent terminology, test commands, implementation notes, or internal security mechanics.
 
+## ChatGPT proportional PR review / CI fast-path — explicit 2026-09-11 override
+
+This section supersedes the preserved baseline and any earlier wording in this file that can be read as requiring manual inspection, waiting, or repeated polling of every protected CI check for every PR.
+
+Start every ChatGPT PR review with the exact current PR head plus a **diff-first risk classification**. Validation must be proportional to what changed.
+
+### A. Documentation / agent-policy only
+
+Examples: Markdown documentation, `AGENTS.md`, roadmap/handoff text, comments or other non-executable policy text, with no executable configuration, workflow, package, test, migration, schema, source, or generated runtime artifact changes.
+
+For a true documentation/policy-only PR:
+
+1. inspect the exact changed-file list and complete relevant diff once;
+2. confirm the classification is genuinely non-executable and does not alter CI, deployment, migration, security, financial, generated-source, or runtime contracts;
+3. check the changed documentation for contradictions with current source-of-truth policy;
+4. do **not** run or manually inspect application tests, builds, browser QA, Docker/Supabase, migration replay, pgTAP, hosted QA, Render state, provider state, or production state;
+5. do **not** wait for or repeatedly poll protected CI merely because branch protection requires statuses;
+6. when repository auto-merge is available, enable auto-merge after the diff review and immediately continue to the next requested task; GitHub branch protection may finish the required lightweight checks asynchronously;
+7. when auto-merge is unavailable, check mergeability/status only when necessary to perform the merge, not as a ritual validation loop.
+
+Documentation synchronization should normally be included in the implementation PR that made it necessary. A separate documentation-only follow-up PR is an exception for stale truth discovered after merge, not a default extra CI cycle.
+
+### B. Application / UI / ordinary test changes
+
+Review the exact diff and verify the exact-head checks applicable to application behavior. Do not manually investigate database, hosted-QA, provider, deployment, or production evidence unless the diff or a concrete failure crosses those domains.
+
+### C. Database / security / financial / inventory integrity changes
+
+Use the stricter exact-head database/security validation required by the preserved baseline: relevant focused tests plus applicable clean replay, pgTAP, upgrade-path, runtime/RLS/RPC/concurrency evidence. Never trade data-integrity or authorization safety for speed.
+
+### D. CI / workflow / release-orchestration changes
+
+Review the changed workflow/configuration itself and obtain enough exact-head evidence to prove the changed validation/release contract works. Do not rerun unrelated product QA merely because CI plumbing changed. Release/promotion changes still follow the migration/release operator policy where applicable.
+
+### Protected-check fast-pass contract
+
+The protected check names remain stable for branch protection, but their workflows may fast-pass when the PR does not touch their risk domain. An irrelevant fast-passed protected check does not require manual ChatGPT inspection. Manual exact-head verification is for the checks that actually executed material validation for the changed domains, plus any concrete failure or blocker.
+
+The intended protected PR behavior is:
+
+- `Application Validation & Build`: heavy only for application/test/script/public/package/TypeScript inputs;
+- `Database Migrations & Upgrade Suite`: heavy only for migration/database-invariant/package inputs;
+- `chromium-demo-qa`: heavy only for UI/demo/browser-QA inputs;
+- `Graph and Source Contract Consistency`: heavy only for workflow-map/source-contract inputs.
+
+For irrelevant PRs, each required job should report success after lightweight scope classification without `npm ci`, build, Supabase startup, migration replay, or Playwright/Chromium installation.
+
 ## Definition of done
 
-A substantial task is done only when repository state is current, scope remains disciplined, applicable security/data-integrity/history invariants are preserved, relevant runtime evidence is obtained, exact-head CI is checked when applicable, **the mandatory roadmap/handoff synchronization gate has been completed**, and the final handoff says clearly what passed, what was skipped, what remains blocked, and what the reconciled next phase actually is.
+A substantial task is done only when repository state is current, scope remains disciplined, applicable security/data-integrity/history invariants are preserved, relevant runtime evidence is obtained, exact-head CI is checked **when applicable to the changed risk domain**, **the mandatory roadmap/handoff synchronization gate has been completed**, and the final handoff says clearly what passed, what was skipped, what remains blocked, and what the reconciled next phase actually is.

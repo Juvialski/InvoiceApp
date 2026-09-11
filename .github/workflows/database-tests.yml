@@ -24,30 +24,69 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   database-migrations:
     name: Database Migrations & Upgrade Suite
     runs-on: ubuntu-latest
     steps:
+      - name: Determine validation scope
+        id: scope
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('run', 'true');
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const relevant = files.some(({ filename }) =>
+              filename.startsWith('supabase/') ||
+              /^tests\/migration/.test(filename) ||
+              /^scripts\/test-migration/.test(filename) ||
+              filename === 'scripts/test-migrations.ts' ||
+              filename === 'tests/cashBankingMigration.test.ts' ||
+              filename === 'tests/coreHardeningWave2B2.test.ts' ||
+              filename === 'tests/coreHardeningWave2C.test.ts' ||
+              filename === 'tests/clientProgressBillingMigration.test.ts' ||
+              filename === '.github/workflows/database-tests.yml' ||
+              /^package.*\.json$/.test(filename)
+            );
+            core.setOutput('run', relevant ? 'true' : 'false');
+            if (!relevant) {
+              core.notice('Fast-pass: no database migration or invariant inputs changed.');
+            }
+
       - name: Checkout repository
+        if: steps.scope.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
+        if: steps.scope.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.scope.outputs.run == 'true'
         run: npm ci
 
       - name: Step 1 - Static Migration Invariants & Naming Safety
+        if: steps.scope.outputs.run == 'true'
         run: node --test --experimental-strip-types tests/migrationInvariants.test.ts tests/cashBankingMigration.test.ts tests/coreHardeningWave2B2.test.ts tests/coreHardeningWave2C.test.ts tests/clientProgressBillingMigration.test.ts
 
       - name: Setup Supabase CLI
+        if: steps.scope.outputs.run == 'true'
         uses: supabase/setup-cli@v1
         with:
           # Pin the CLI so protected CI does not depend on an unauthenticated
@@ -55,19 +94,23 @@ jobs:
           version: 2.116.0
 
       - name: Start isolated local Supabase
+        if: steps.scope.outputs.run == 'true'
         run: supabase start
 
       - name: Step 2 - Clean Database Migration Replay (Reset)
+        if: steps.scope.outputs.run == 'true'
         run: supabase db reset
 
       - name: Step 3 - Database Schema Assertions (pgTAP)
+        if: steps.scope.outputs.run == 'true'
         run: supabase test db
 
       - name: Step 4 - Upgrade-Path Migration Suite with Historical Data
+        if: steps.scope.outputs.run == 'true'
         run: npx tsx scripts/test-migration-upgrade.ts --require-db
 
       - name: Stop Supabase containers
-        if: always()
+        if: always() && steps.scope.outputs.run == 'true'
         run: |
           if command -v supabase >/dev/null 2>&1; then
             supabase stop
