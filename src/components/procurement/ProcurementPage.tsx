@@ -188,6 +188,81 @@ export interface ProcurementPageProps {
   onDeleteSubcontractVariation?: (id: string) => Promise<void>;
 }
 
+interface PurchaseOrderRegisterCardProps {
+  po: PurchaseOrder;
+  vendor?: Vendor;
+  project?: Project;
+  progress?: ReturnType<typeof calculatePOReceiptProgress>;
+  onPreview: () => void;
+  onOpen: () => void;
+}
+
+function PurchaseOrderRegisterCard({ po, vendor, project, progress, onPreview, onOpen }: PurchaseOrderRegisterCardProps) {
+  const deliveryLabel = po.status === "ISSUED" || po.status === "CLOSED"
+    ? progress?.deliveryStatus === "FULLY_RECEIVED"
+      ? "Fully delivered"
+      : progress?.deliveryStatus === "PARTIALLY_RECEIVED"
+        ? `${progress.overallProgressPercent}% received`
+        : "0% delivered"
+    : po.status === "DRAFT" ? "Draft" : po.status === "APPROVED" ? "Not issued" : "—";
+
+  return <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm" data-purchase-order-register-card={po.id}>
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h3 className="break-words font-mono text-sm font-black text-slate-950">{po.poNumber}</h3>
+        {po.description && <p className="mt-1 break-words text-xs text-slate-600">{po.description}</p>}
+      </div>
+      <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${po.status === "ISSUED" ? "bg-purple-100 text-purple-800" : po.status === "CLOSED" ? "bg-emerald-100 text-emerald-800" : po.status === "CANCELLED" ? "bg-rose-100 text-rose-800" : po.status === "APPROVED" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>{po.status}</span>
+    </div>
+
+    <dl className="mt-3 grid gap-2 text-xs">
+      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Supplier</dt><dd className="mt-0.5 break-words font-semibold text-slate-800">{vendor?.name || "Unknown vendor"}</dd></div>
+      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Project</dt><dd className="mt-0.5 break-words font-semibold text-indigo-700">{project?.projectCode || "—"}<span className="block text-[10px] font-normal text-slate-500">{project?.projectName || "Unscoped"}</span></dd></div>
+      <div className="grid grid-cols-2 gap-3"><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Delivery</dt><dd className="mt-0.5 font-semibold text-slate-800">{deliveryLabel}{progress && progress.totalOrderedQuantity > 0 && <span className="block text-[10px] font-normal text-slate-500">{progress.totalReceivedQuantity} / {progress.totalOrderedQuantity} units</span>}</dd></div><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Committed amount</dt><dd className="mt-0.5 font-mono font-black tabular-nums text-slate-950">{formatMoney(po.totalAmount || 0, po.currency || "PHP")}</dd></div></div>
+      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Issue date · items</dt><dd className="mt-0.5 text-slate-700">{po.issueDate ? formatDate(po.issueDate, "short") : "Not issued"} · {po.lines?.length || 0} item{po.lines?.length === 1 ? "" : "s"}</dd></div>
+    </dl>
+
+    <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" onClick={onPreview} className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 py-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"><FileText className="h-3.5 w-3.5" />Preview</button><button type="button" onClick={onOpen} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-50">View / Edit</button></div>
+  </article>;
+}
+
+interface RfqRegisterCardProps {
+  rfq: RFQ;
+  project?: Project;
+  quotes: readonly SupplierQuotation[];
+  selectedQuote?: SupplierQuotation;
+  selectedVendor?: Vendor;
+  invitedCount: number;
+  canManage: boolean;
+  onCompare: () => void;
+  onAddQuote: () => void;
+  onEdit: () => void;
+  onIssue: () => void;
+  onCancel: () => void;
+}
+
+function RfqRegisterCard({ rfq, project, quotes, selectedQuote, selectedVendor, invitedCount, canManage, onCompare, onAddQuote, onEdit, onIssue, onCancel }: RfqRegisterCardProps) {
+  return <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm" data-rfq-register-card={rfq.id}>
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h3 className="break-words font-mono text-sm font-black text-slate-950">{rfq.rfqNumber}</h3>
+        <p className="mt-1 break-words text-xs font-semibold text-slate-800">{rfq.title}</p>
+        {rfq.description && <p className="mt-1 break-words text-[10px] leading-4 text-slate-500">{rfq.description}</p>}
+      </div>
+      <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${rfq.status === "ISSUED" ? "bg-purple-100 text-purple-800" : rfq.status === "CLOSED" ? "bg-emerald-100 text-emerald-800" : rfq.status === "CANCELLED" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>{rfq.status === "ISSUED" ? "OUT FOR QUOTE" : rfq.status}</span>
+    </div>
+
+    <dl className="mt-3 grid gap-2 text-xs">
+      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Project</dt><dd className="mt-0.5 break-words font-semibold text-indigo-700">{project?.projectCode || "General"}<span className="block text-[10px] font-normal text-slate-500">{project?.projectName || "Unscoped"}</span></dd></div>
+      <div className="grid grid-cols-3 gap-2"><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Lines</dt><dd className="mt-0.5 font-semibold text-slate-800">{rfq.lines?.length || 0}</dd></div><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Invited</dt><dd className="mt-0.5 font-semibold text-slate-800">{invitedCount}</dd></div><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Quotes</dt><dd className="mt-0.5 font-semibold text-indigo-700">{quotes.length}</dd></div></div>
+      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Dates</dt><dd className="mt-0.5 text-slate-700">{rfq.issueDate ? `Issued ${formatDate(rfq.issueDate, "short")}` : "Not issued"}{rfq.dueDate ? ` · Due ${formatDate(rfq.dueDate, "short")}` : ""}</dd></div>
+      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Decision</dt><dd className="mt-0.5 break-words text-slate-700">{selectedQuote ? `Selected: ${selectedVendor?.name || "Supplier"} · ${formatMoney(selectedQuote.totalAmount, selectedQuote.currency)}` : "Pending decision"}</dd></div>
+    </dl>
+
+    <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" onClick={onCompare} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-50">{quotes.length > 0 ? "View & Compare" : "Compare"}</button>{canManage && rfq.status !== "CANCELLED" && <button type="button" onClick={onAddQuote} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-black text-purple-700 hover:bg-purple-50">+ Quote</button>}{canManage && rfq.status === "DRAFT" && <><button type="button" onClick={onEdit} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Edit</button><button type="button" onClick={onIssue} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50">Issue</button></>}{canManage && rfq.status !== "CLOSED" && rfq.status !== "CANCELLED" && <button type="button" onClick={onCancel} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-semibold text-rose-700 hover:bg-rose-50">Cancel</button>}</div>
+  </article>;
+}
+
 export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   purchaseOrders,
   receipts = [],
@@ -1333,7 +1408,10 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           {/* PO Register Table */}
           {filteredOrders.length > 0 ? (
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="overflow-x-auto">
+              <div className="space-y-2 p-3 lg:hidden" aria-label="Purchase order register cards">
+                {filteredOrders.map((po) => <PurchaseOrderRegisterCard key={po.id} po={po} vendor={vendorMap.get(po.vendorId)} project={projectMap.get(po.projectId)} progress={poProgressMap.get(po.id)} onPreview={() => setPreviewPo(po)} onOpen={() => setActivePo(po)} />)}
+              </div>
+              <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                     <tr>
@@ -1557,7 +1635,17 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           {/* RFQ Register Table */}
           {filteredRfqs.length > 0 ? (
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="overflow-x-auto">
+              <div className="space-y-2 p-3 lg:hidden" aria-label="RFQ register cards">
+                {filteredRfqs.map((rfq) => {
+                  const proj = rfq.projectId ? projectMap.get(rfq.projectId) : undefined;
+                  const quotes = quotationsByRfqId.get(rfq.id) || [];
+                  const selectedQuoteItem = quotes.find((q) => q.id === rfq.selectedQuotationId || q.status === "SELECTED");
+                  const selectedVendor = selectedQuoteItem ? vendorMap.get(selectedQuoteItem.vendorId) : undefined;
+                  const invitedCount = rfq.invitedVendorIds?.length || rfq.invitedVendors?.length || 0;
+                  return <RfqRegisterCard key={rfq.id} rfq={rfq} project={proj} quotes={quotes} selectedQuote={selectedQuoteItem} selectedVendor={selectedVendor} invitedCount={invitedCount} canManage={canManage} onCompare={() => setActiveComparisonRfq(rfq)} onAddQuote={() => { setActiveQuotationRfq(rfq); setEditingQuotation(null); }} onEdit={() => setActiveRfqModal(rfq)} onIssue={() => void handleTransitionRFQInternal(rfq.id, "ISSUED")} onCancel={() => { setCancellationRfq(rfq); setCancellationReason(""); }} />;
+                })}
+              </div>
+              <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                     <tr>

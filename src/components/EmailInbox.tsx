@@ -44,6 +44,7 @@ import {
 import { formatDateTime } from "../config/regional.ts";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay.ts";
 import { appPathForTab } from "../utils/appRouting.ts";
+import { mergeGmailCandidates } from "../utils/gmailCandidates.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
 import type { FinancialAccount } from "../lib/cashBanking.ts";
 import {
@@ -55,8 +56,6 @@ import {
   prepareGmailExpenseReview,
   prepareGmailStatementReview,
   resolveGmailConnectionStatus,
-  scanConnectedMailbox,
-  syncConnectedMailbox,
   type EmailIntakeClassification,
   type EmailIntakeDestination,
 } from "../lib/emailIntake.ts";
@@ -127,6 +126,8 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   isProcessing,
   connection,
   onConnectGmail,
+  onScanGmail,
+  onSyncGmail,
   onImportGmailMessage,
   onProcessEmail,
   onOpenInvoice,
@@ -145,7 +146,6 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   const [connectBusy, setConnectBusy] = useState(false);
   const [gmailError, setGmailError] = useState<string | null>(null);
   const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
-  const [historyId, setHistoryId] = useState(connection.lastHistoryId || "");
   const [lastSyncedAt, setLastSyncedAt] = useState(connection.lastSyncedAt || "");
   const [statementAttachmentSelection, setStatementAttachmentSelection] = useState<Record<string, string>>({});
   const [expenseAttachmentSelection, setExpenseAttachmentSelection] = useState<Record<string, string>>({});
@@ -215,6 +215,10 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       setGmailError(null);
     }
   }, [connection.hasGmailToken, gmailError]);
+
+  useEffect(() => {
+    setLastSyncedAt(connection.lastSyncedAt || "");
+  }, [connection.lastSyncedAt]);
 
   const handleSaveProfile = async (input: EmailIntakeProfileInput) => {
     await saveEmailIntakeProfile(input);
@@ -341,13 +345,16 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         throw new Error("Choose a valid custom Gmail date range.");
       }
       const scanWindow: GmailScanWindow = scanMode === "custom" ? { after: customAfter, before: customBefore } : { days };
-      const result = incremental && historyId ? await syncConnectedMailbox(historyId, profiles) : await scanConnectedMailbox(scanWindow, profiles);
-      setCandidates(result.messages);
-      if (result.complete !== false && result.historyId) setHistoryId(result.historyId);
-      if (result.complete !== false && result.lastSyncedAt) setLastSyncedAt(result.lastSyncedAt);
-      if (result.complete === false) setGmailError(result.resyncRequired
-        ? "Gmail incremental sync reached its safety budget. The cursor was not advanced; run a full scan to resynchronize safely."
-        : "Gmail incremental sync returned an incomplete page. The cursor was not advanced; retry or run a full scan.");
+      const discovered = incremental ? await onSyncGmail() : await onScanGmail(scanWindow);
+      setCandidates((current) => {
+        if (!incremental) return discovered;
+
+        // Incremental sync returns only new or changed messages. Keep the
+        // existing review queue visible when Gmail is already up to date, and
+        // merge by provider message id so a refresh cannot duplicate work or
+        // make an uncommitted candidate disappear from the employee's queue.
+        return mergeGmailCandidates(current, discovered);
+      });
     } catch (error: any) {
       setGmailError(error?.message || "Connected mailbox scan failed.");
     } finally {
@@ -563,7 +570,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
               <p><strong>Reviewable source records.</strong> Choose which messages or attachments to preserve and route for invoice, statement, or expense review.</p>
               <p><strong>Forwarded-email fallback.</strong> Paste a supplier invoice email or attach its source file when a connected mailbox is not available.</p>
             </div>
-            <p className="mt-3 border-t border-indigo-200/70 pt-3 text-[10px] leading-4 text-indigo-800">Gmail is read-only on this screen. Outbound messages use the Email / SMS compose and delivery-history contract; no SMS provider is configured here.</p>
+            <p className="mt-3 border-t border-indigo-200/70 pt-3 text-[10px] leading-4 text-indigo-800"><strong>Inbox access: read-only.</strong> Outbound email is sent from Compose and recorded in Delivery History; SMS is not configured here.</p>
           </div>
         </div>
       </section>
@@ -608,7 +615,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                   }
                 >
                   {connectionStatus === "HEALTHY"
-                    ? "Read-only"
+                    ? "Inbox access: read-only"
                     : connectionStatus === "RECONNECT_REQUIRED"
                       ? "Authorization expired or revoked"
                       : "Setup required"}

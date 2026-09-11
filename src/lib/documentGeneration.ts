@@ -547,7 +547,7 @@ function drawClientPage(snapshot: ClientInvoiceDocumentSnapshot, rows: DocumentL
   if (!continuation) {
     page.text(`Invoice date: ${formatDate(snapshot.invoiceDate)}`, 72, 194, 9, true);
     page.text(`Due date: ${formatDate(snapshot.dueDate)}`, 72, 212, 9, false);
-    page.text(`Project: ${snapshot.project.projectCode || ""} ${snapshot.project.projectName || ""} · Tax: ${snapshot.taxTreatment || "Unclassified"}`, 72, 230, 9, false);
+    page.text(`Project: ${snapshot.project.projectCode || ""} ${snapshot.project.projectName || ""} - Tax: ${snapshot.taxTreatment || "Unclassified"}`, 72, 230, 9, false);
     page.text("Bill To", 72, 258, 10, true);
     page.text(snapshot.billTo.name || "", 72, 275, 9, true);
     page.text(snapshot.billTo.contactName || "", 72, 291, 8.5, false);

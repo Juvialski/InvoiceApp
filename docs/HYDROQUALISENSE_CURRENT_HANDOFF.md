@@ -67,6 +67,9 @@ The active implementation now provides:
 
 No SMS provider is approved or configured in the current deployment. SMS remains visibly not configured, and provider-backed delivery/status QA has not been performed. Wave 4D is **NOT COMPLETE**. Worker Registration remains **PAUSED**.
 
+The focused UI/UX remediation and live-provider evidence are recorded in
+`artifacts/ui-ux-audit/REPORT.md` and `artifacts/ui-ux-audit/findings.json`.
+
 ## Current product phase — Wave 4D
 
 **Wave 4D — Email/SMS Workspace + Documents Workspace** remains the active blocking product phase.
@@ -129,6 +132,16 @@ Inbound Gmail intake currently uses read-only Gmail access. Outbound email requi
 
 The full live company simulation on the prior exact QA baseline observed an expired Gmail authorization. The exact-head protected Hosted QA after PR #140 proved application authentication, route, Storage, and release contracts, but it did not convert that provider result into a successful Gmail send. Treat Gmail provider-backed send as requiring explicit reconnect/re-consent and live QA proof.
 
+Follow-up live QA on 2026-09-11 proved the current connected state: the QA
+mailbox remained healthy after navigation and reload; a bounded 30-day finance
+scan succeeded; incremental `Sync new` returned no new messages; one ordinary
+synthetic email and one synthetic issued Client Invoice attachment were
+accepted through Gmail and recorded as `SENT` in company delivery history. The
+attachment history opened the exact authoritative Client Billing record. No
+unrelated mailbox content was imported or retained. Actual mailbox arrival and
+inbound routing were not separately exercised because no controlled synthetic
+inbound candidate was available.
+
 ## Financial / security invariants
 
 Wave 4D must preserve all existing source-of-truth and history contracts, including:
@@ -187,14 +200,17 @@ the exact deployed state. That exact-head Hosted QA reported deployment
 readiness/authentication/reload/fresh-navigation PASS, `9/9` hosted routes,
 Storage PASS, and `0` contract failures.
 
-QA remains **NOT READY**. The original provider/runtime blockers still apply:
-Gmail authorization was expired during the full simulation, SMS is not
-configured, the optional high-fidelity PDF converter is unavailable on the
-native Node/Render deployment, and the template/AI provider path did not produce
-an acceptable live blueprint. The exact-head Hosted QA is valid evidence for
+QA remains **NOT READY**. The expired Gmail authorization from the original
+simulation has been resolved; the follow-up provider-backed Gmail read/send
+checks passed as recorded above. SMS is not configured, the optional
+high-fidelity PDF converter is unavailable on the native Node/Render
+deployment, and the template/AI provider path did not produce an acceptable
+live blueprint. The exact-head Hosted QA is valid evidence for
 release/auth/route/Storage contracts only; it does not replace a direct live UI
-retest of the four repaired business workflows. Keep the `QA-E2E-7F4K` records
-and original `artifacts/live-qa` evidence for that retest and downstream audit.
+retest of the four repaired business workflows. The current live retest covered
+all four repaired flows; inbound import/routing and separate mailbox-arrival
+proof remain unexercised. Keep the `QA-E2E-7F4K` records and original
+`artifacts/live-qa` evidence for downstream audit.
 
 The normal release sequence for current application/migration-bearing work remains:
 

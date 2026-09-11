@@ -7,6 +7,7 @@ export type CashBankingRouteProps = CashBankingPageProps;
 
 export const CashBankingRoute: React.FC<CashBankingRouteProps> = (props) => {
   return <div className="space-y-5">
+    <CashBankingPage {...props} />
     <ConnectedStatementReview
       data={props.data}
       canImport={props.canImport}
@@ -25,7 +26,6 @@ export const CashBankingRoute: React.FC<CashBankingRouteProps> = (props) => {
       onReverseMatch={props.onReverseMatch}
       canReverseMatch={props.canReverseMatch}
     />
-    <CashBankingPage {...props} />
   </div>;
 };
 

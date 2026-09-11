@@ -390,6 +390,12 @@ test("PDF capability endpoint reports unavailable without claiming availability"
   }
 });
 
+test("programmatic financial PDFs use renderer-safe ASCII separators", () => {
+  const generation = readFileSync(new URL("../src/lib/documentGeneration.ts", import.meta.url), "utf8");
+  assert.match(generation, / - Tax:/);
+  assert.doesNotMatch(generation, /· Tax:/);
+});
+
 test("PDF route uses the trusted server evidence boundary and keeps delivery separate", () => {
   const router = readFileSync(new URL("../src/server/documentTemplates/documentTemplateRouter.ts", import.meta.url), "utf8");
   const preview = readFileSync(new URL("../src/components/DocumentPreviewModal.tsx", import.meta.url), "utf8");

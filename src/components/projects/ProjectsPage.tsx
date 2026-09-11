@@ -1069,7 +1069,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Project Register</p>
                 <h2 id="project-dialog-title" className="text-lg font-black text-slate-950">
-                  {editing.id ? `Edit ${editing.projectCode}` : "Create New Project"}
+                  {editing.id && editing.projectCode.trim() ? `Edit ${editing.projectCode}` : "Create New Project"}
                 </h2>
               </div>
               <button
