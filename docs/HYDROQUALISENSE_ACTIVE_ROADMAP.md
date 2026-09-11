@@ -14,9 +14,11 @@ Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
 
-## Current merged application / QA-hardening baseline
+## Current application / QA-hardening baseline
 
-Application and QA-hardening work is integrated through:
+Phase 1 application and QA-harness work is integrated through PR #150.
+
+The preceding application / QA-hardening baseline was:
 
 `f1851b0c347da2ea29466d9748909889b67f03ed` (PR #148)
 
@@ -34,8 +36,8 @@ Relevant completed product work:
 - focused UI/UX remediation and connected Gmail QA audit — PR #144;
 - local branch -> real QA development harness plus canonical PDF preview/download-byte foundation and initial PDF renderer hardening — PR #146;
 - staged local-QA/UI/PDF quality plan — PR #147;
-- local-QA browser-key hardening, including rejection of privileged legacy `service_role` JWTs — PR #148.
-- comprehensive authenticated Local-QA UI/UX redo — completed on the current feature branch with 57 authenticated scenarios covering all 16 canonical top-level routes plus the mobile Documents check, three target viewport profiles, and responsive/action fixes for Projects, Procurement, and Equipment.
+- local-QA browser-key hardening, including rejection of privileged legacy `service_role` JWTs — PR #148;
+- comprehensive authenticated Local-QA UI/UX redo — PR #150, with 57 authenticated scenarios covering all 16 canonical top-level routes plus the mobile Documents check, three target viewport profiles, and responsive/action fixes for Projects, Procurement, and Equipment.
 
 ## Important correction — PR #146 did not finish the UI/UX and PDF quality program
 
@@ -58,9 +60,10 @@ The authoritative staged sequence is `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.
 
 The next work must follow this order unless the user explicitly reprioritizes it:
 
-1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE on the current feature branch**
+1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE in PR #150**
    - final authenticated Local-QA evidence covers all canonical routes, responsive states, dialogs, project tabs, owner handoffs, and safe compose review;
-   - the final run recorded zero failed, blocked, not-tested, page-overflow, dialog-overflow, or clipped-interactive-control scenarios.
+   - the final run recorded zero failed, blocked, not-tested, page-overflow, dialog-overflow, or clipped-interactive-control scenarios;
+   - the Local-QA completion gate now refuses blocked, not-tested, or explicitly unavailable expected scenario coverage.
 
 2. **Deep PDF/export visual certification — NEXT / REQUIRED P0 GATE**
    - visually inspect rendered Purchase Order and Client Invoice PDFs, not only byte/hash identity;
@@ -91,7 +94,7 @@ The next work must follow this order unless the user explicitly reprioritizes it
 
 10. Final pre-production security/data-integrity certification before broad rollout.
 
-Do not skip the remaining UI/UX/PDF quality phases merely because PR #146 merged.
+Do not skip the remaining PDF, regression, and hosted quality phases merely because Phase 1 is complete.
 
 ## Current Wave 4D product state — incomplete
 
@@ -106,7 +109,7 @@ The current implementation provides:
 
 Wave 4D remains incomplete because no outbound SMS provider is currently approved/configured/runtime-tested. The authoritative completion criteria remain in `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
-Provider work must not preempt the immediate Local-QA UI/UX + PDF certification sequence above.
+Provider work must not preempt the remaining PDF, regression, and hosted-certification sequence above.
 
 ## Local-QA development boundary
 
