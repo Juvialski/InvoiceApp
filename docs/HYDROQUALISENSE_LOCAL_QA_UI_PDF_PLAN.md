@@ -1,55 +1,58 @@
 # HydroQualiSense Local QA, UI/UX, and PDF Quality Plan
 
-Status: **ACTIVE QUALITY / DEVELOPMENT WORKFLOW PLAN**  
+Status: **ACTIVE — FOUNDATION COMPLETE / COMPREHENSIVE QUALITY PHASES REMAIN**  
 Repository: `Juvialski/InvoiceApp`  
-Created: **2026-09-11**  
-Baseline when created: `a40147c13e197e5986f47292885ab86e0c3a5fc7` (merged PR #146)
+Last corrected: **2026-09-11**
 
-This document records the staged development plan agreed after the first broad UI/UX audit. It is intentionally separate from release certification. Live `AGENTS.md`, the active roadmap, and the current handoff remain authoritative if repository state later changes.
+This document is the authoritative staged quality plan for the local-QA, UI/UX, PDF/export, functional-regression, and hosted-QA work that must be completed before the project moves on to provider completion and later Worker Registration.
+
+Live `AGENTS.md`, the active roadmap, and the current handoff remain authoritative if repository state changes.
 
 ## Core development model
 
-HydroQualiSense now uses two distinct QA layers:
+HydroQualiSense uses two distinct QA layers:
 
-1. **Pre-merge branch validation:** current local feature/fix branch -> local HydroQualiSense server -> real isolated QA Supabase/Auth/Postgres/Storage -> synthetic QA company data.
+1. **Pre-merge branch validation:** current feature/fix branch -> local HydroQualiSense server -> real isolated QA Supabase/Auth/Postgres/Storage -> synthetic QA company data.
 2. **Post-merge release validation:** exact merged `main` SHA -> hosted Render QA -> migration parity when required -> hosted authenticated/provider/runtime certification.
 
-The local QA path exists so Codex can fix and retest schema-compatible UI/application defects immediately without merging merely to discover whether a fix works. Hosted QA remains the final deployed exact-SHA release gate.
+The local QA path exists so Codex can fix and retest schema-compatible application defects immediately without first merging them. Hosted QA remains the deployed exact-SHA release gate.
 
 Production remains read-only unless separately and explicitly authorized under the migration/operator policy.
 
-## Phase 0 — Local QA development harness and canonical PDF preview — COMPLETE through PR #146
+## Phase 0 — Local QA harness + canonical PDF preview foundation — COMPLETE
 
-PR #146 established:
+Completed through PR #146, with browser-key safety hardened by PR #148.
 
-- ignored `.env.qa.local` configuration for the approved QA project;
-- existing QA user authentication rather than a second synthetic login account;
-- fail-closed target verification for QA project `vrpuznofrntyqsbugrib`;
-- explicit refusal of production project `qijjshdwiylojvqojxyz`;
-- persisted authenticated browser state only under ignored `.qa-e2e/`;
+This foundation established:
+
+- ignored local QA configuration and persisted browser state;
+- exact approved-QA project targeting and explicit production-project refusal;
+- normal QA-user authentication through existing RLS/RBAC rather than privileged browser access;
 - bounded synthetic QA writes and sanitized local evidence;
-- issued Purchase Order / Client Invoice preview using the exact generated PDF bytes used by download;
+- issued Purchase Order and Client Invoice preview using the same generated PDF bytes used by download;
 - PDF.js rendering of those bytes in the application preview;
-- shared programmatic-PDF title centering, logo handling, wrapping, pagination, long notes/terms handling, and long-document-number containment;
-- deliberate Purchase Order and Client Invoice torture-case generation/render checks.
+- initial programmatic-PDF hardening for title centering, logo handling, width-aware wrapping, pagination, long notes/terms, and long document numbers;
+- synthetic Purchase Order and Client Invoice torture-case generation/rendering;
+- explicit rejection of privileged modern Supabase secret keys and legacy `service_role` JWTs from the browser/local-QA path.
 
-This completion does **not** mean all UI/UX work is complete and does **not** complete Wave 4D.
+**Phase 0 is infrastructure and an initial remediation pass. It is not comprehensive UI/UX certification and it is not deep PDF visual certification.**
 
-## Phase 1 — Continuous branch-local UI/UX and functional remediation — ACTIVE
+Exact preview/download SHA equality proves that Preview and Download use the same bytes. It does **not** prove that those bytes produce a visually correct document.
 
-Use the local branch + real QA backend as the default fast feedback loop for schema-compatible application work.
+## Phase 1 — Comprehensive authenticated Local-QA UI/UX redo — NEXT
 
-For each defect:
+This is the next implementation phase.
 
-`observe -> diagnose -> fix -> reload local branch -> retest the same QA workflow -> add regression coverage when appropriate`
+Run the actual current feature branch locally against the real QA backend and inspect meaningful user workflows, not only route loading or generic overflow checks.
 
-Priority surfaces include:
+Audit and immediately remediate, as applicable:
 
 - Dashboard;
 - Projects;
-- Procurement / RFQ / quotations;
+- Procurement / RFQs / quotations;
 - Purchase Orders and receipts;
 - Supplier invoices and authoritative linked Expenses;
+- Expenses;
 - Cash & Banking;
 - Client Billing and Collections;
 - Payroll;
@@ -61,95 +64,150 @@ Priority surfaces include:
 - Reports;
 - Settings.
 
-Validate meaningful create/edit/view/detail/modal/preview/download/navigation/error/empty/long-content states on desktop, tablet, and narrow/mobile layouts where applicable.
+For each applicable surface exercise real states such as:
 
-Do not weaken authorization, lifecycle, financial, document-history, or company-isolation rules to make local testing easier.
+`create -> edit -> view/detail -> modal -> navigation/handoff -> preview -> download -> empty/error/long-content states`
 
-## Phase 2 — PDF/export visual fidelity maintenance — ACTIVE / P0 QUALITY GATE
+Validate desktop, tablet, and narrow/mobile layouts where applicable.
 
-PDF quality remains a standing acceptance gate, not a one-time cleanup.
+Use the local-QA loop continuously:
 
-For supported issued documents:
+`observe -> diagnose -> fix -> reload local branch -> retest the same QA workflow -> add regression coverage when appropriate`
 
-- Preview should represent the same PDF artifact/bytes used for download whenever available.
-- Test with and without logos.
-- Test long legal/company names, addresses, counterparty names, project names/codes, document numbers, descriptions, notes, terms, and large currency values.
-- Test one-line, many-line, and multi-page documents.
-- Render downloaded PDFs to images and inspect first, continuation, and final pages.
+Do not produce an audit-only findings list when a safe in-scope application fix can be made and retested immediately.
 
-A PDF is not acceptable if any of these remain:
+## Phase 2 — Deep PDF/export visual certification — REQUIRED P0 GATE
 
-- visibly off-center title;
-- logo/title/company-name collision;
+After the broad UI/UX pass is stable, perform a dedicated document-quality phase.
+
+The purpose is not merely to prove that Preview and Download share bytes. It is to prove that the actual rendered pages are visually correct.
+
+For supported Purchase Orders and Client Invoices, exercise representative and deliberate edge cases including:
+
+- with and without a logo;
+- wide, tall, and transparent logos;
+- short and very long legal/company names;
+- long addresses/contact details;
+- long supplier/client names and addresses;
+- long project names/codes;
+- long document numbers;
+- one line item, many line items, and multi-page tables;
+- extremely long descriptions;
+- long units/labels;
+- large currency values;
+- supported non-PHP currency where relevant;
+- long notes, terms, payment instructions, delivery information, and amount-in-words content;
+- missing optional values.
+
+For representative cases:
+
+1. open the in-app preview;
+2. capture sanitized preview evidence;
+3. download the exact PDF;
+4. render every PDF page to images;
+5. visually inspect first, continuation, and final pages;
+6. fix defects;
+7. regenerate and repeat until the acceptance gates pass.
+
+A document fails this phase if any of the following remain:
+
+- visibly incorrect title centering;
+- title/logo/company-name collision;
 - document-number/title collision;
-- text escaping boxes or table cells;
-- clipped totals or amounts;
-- content crossing page boundaries;
+- text leaving a bordered box or table cell;
+- amounts/totals clipping or overlapping;
+- long descriptions crossing boundaries;
+- content touching or crossing page edges;
 - missing content between pages;
-- unreadable continuation pages;
-- material preview-versus-download mismatch.
+- broken or unreadable continuation pages;
+- bad page breaks that split important sections incorrectly;
+- footer/signature overlap;
+- material preview-versus-download disagreement.
 
-Programmatic PDF fallback, company-template DOCX, and finalized company-template PDF remain separate output paths and must be labeled truthfully. Native Render must not claim high-fidelity conversion when the optional converter is unavailable.
+Programmatic PDF fallback, company-template DOCX, and finalized company-template PDF are separate output paths and must remain labeled truthfully. Do not claim high-fidelity conversion on a runtime where the supported converter is unavailable.
 
-## Phase 3 — Post-merge exact-SHA hosted QA for application-bearing changes — REQUIRED RELEASE GATE
+## Phase 3 — Functional regression sweep using the local-QA loop
 
-After an application/runtime-bearing PR merges:
+After the visual/UI remediation phases, perform a focused end-to-end functional sweep across the workflows affected or touched during the audit.
 
-1. identify exact merged `main` SHA;
-2. wait for the intended QA Render deployment to serve that SHA;
-3. verify QA deployment identity;
-4. verify canonical QA migration parity and promote committed migrations only when required;
-5. run the applicable hosted authenticated QA/provider/runtime checks;
-6. retain exact-SHA evidence.
+Examples include:
+
+- project create/edit;
+- RFQ quotation entry/comparison;
+- Purchase Order issue/receipt/continuation/close flows;
+- supplier-invoice and linked-Expense navigation/correction rules;
+- Cash & Banking interactions;
+- client billing/collection navigation;
+- document-owner routing;
+- document -> Email compose handoff;
+- permission-aware behavior.
+
+Schema-compatible application defects should be fixed on the current branch and immediately retested against QA.
+
+If a discovered defect requires migration/RLS/RPC/trigger/financial-guard/company-integrity/concurrency changes, do **not** push an unmerged migration to shared QA. Use local Docker/Supabase runtime validation for that DB-bearing work, then allow the normal post-merge QA migration-promotion path to handle shared QA.
+
+## Phase 4 — Hosted exact-SHA QA certification — REQUIRED AFTER MERGE
+
+Once the quality/regression implementation PR is merged:
+
+1. identify the exact merged `main` SHA;
+2. verify the intended Render QA deployment serves that exact SHA;
+3. verify deployment identity;
+4. inspect/promote canonical QA migrations only when required;
+5. verify migration parity and production separation;
+6. run applicable hosted authenticated/provider/runtime checks;
+7. retain exact-SHA evidence.
 
 Local QA evidence does not replace this release gate.
 
-Unmerged migrations must never be applied to shared QA merely to make a local branch work. Migration/RLS/RPC/trigger/financial-guard/company-integrity/concurrency changes use local Docker/Supabase runtime validation before merge.
+Do not call the UI/PDF quality work complete until the relevant hosted exact-SHA checks are clean.
 
-## Phase 4 — Wave 4D messaging-provider decision and integration — BLOCKED ON PROVIDER CHOICE
+## Phase 5 — Wave 4D messaging-provider decision and integration
 
-The Email / SMS and Documents workspaces exist, but Wave 4D remains incomplete because no real SMS provider is approved/configured/runtime-tested.
+Only after Phases 1-4 are complete should provider work become the next implementation priority.
 
-Provider evaluation may consider:
+The Email / SMS and Documents workspaces exist, but Wave 4D remains incomplete because no real SMS provider is currently approved/configured/runtime-tested.
 
-- low-cost Philippine SMS routes;
-- Android phone / SIM gateway approaches;
-- self-hosted SMS APIs;
-- official WhatsApp Business Platform as a complementary opted-in channel;
-- Viber Business Messages where economics fit;
-- a managed Philippine SMS fallback.
+Do not activate a provider merely because an adapter can be written. A selected provider must preserve:
 
-Do not activate a provider merely because an adapter exists. The chosen provider must preserve server-side credentials, permission-aware sending, human review for consequential messages, idempotency, bounded retry/reconciliation, normalized status/failure handling, and delivery webhooks/status where available.
+- server-side credentials only;
+- permission-aware send authority;
+- human review/confirmation for consequential messages;
+- idempotency;
+- bounded retry/reconciliation;
+- normalized delivery/failure status;
+- delivery webhooks/status where supported;
+- company isolation and append-only delivery history.
 
 No bulk unsolicited marketing is in scope.
 
-## Phase 5 — Wave 4D completion and remaining QA readiness
+## Phase 6 — Wave 4D completion + remaining readiness evidence
 
-After an approved messaging provider is integrated and QA-proven:
+After an approved provider is integrated and QA-proven:
 
-- finish provider-backed delivery/status validation;
-- close remaining inbound-provider evidence gaps where safe synthetic messages are available;
-- complete remaining AI/provider and recovery/readiness evidence required by the deployment runbook;
-- reconcile roadmap/handoff/client-facing Settings truth;
-- declare Wave 4D complete only when its authoritative contract is actually satisfied.
+- close remaining provider-backed delivery/status evidence;
+- close safe synthetic inbound-provider evidence gaps where possible;
+- finish remaining AI/provider and recovery/readiness evidence required by the deployment runbook;
+- synchronize roadmap/handoff/client-facing Settings truth;
+- declare Wave 4D complete only when the authoritative Wave 4D contract is actually satisfied.
 
 Worker Registration remains paused until Wave 4D is genuinely complete **and the user explicitly resumes it**.
 
-## Phase 6 — Worker Registration — PAUSED
+## Phase 7 — Worker Registration — PAUSED
 
-When explicitly resumed, implement worker registration before attendance automation. Preserve data minimization, company/project boundaries, role/permission controls, auditability, and safe correction/offboarding semantics.
+When explicitly resumed, implement worker registration before attendance automation. Preserve data minimization, company/project boundaries, permission controls, auditability, correction, and offboarding semantics.
 
-## Phase 7 — Site Attendance
+## Phase 8 — Site Attendance
 
 After Worker Registration, implement the attendance state machine and registered site/device workflow. Preserve explicit time-in/time-out history and correction/audit semantics.
 
-## Phase 8 — Face-Recognition Attendance — FUTURE / DESIGN-FIRST
+## Phase 9 — Face-Recognition Attendance — FUTURE / DESIGN-FIRST
 
 Do not implement production biometric attendance until privacy/security design explicitly covers consent, identity proofing, retention/deletion, access, liveness/confidence thresholds, fallback/manual correction, device trust, audit history, and deployment constraints.
 
 ## Permanent boundaries
 
-Across all phases preserve:
+Across every phase preserve:
 
 - one deployment -> one client company;
 - RLS/RBAC/company isolation;
@@ -161,7 +219,7 @@ Across all phases preserve:
 - Purchase Order lifecycle/receipt/close rules;
 - immutable issued/finalized document snapshots and artifact provenance;
 - append-only delivery history and deliberate retry/reconciliation;
-- Assistant prepare/review/human-confirm/execute boundaries;
+- Assistant `prepare -> review -> human confirm -> execute` boundaries;
 - production read-only unless explicitly authorized.
 
 ## Validation policy
@@ -172,8 +230,8 @@ Use the smallest applicable ladder:
 2. focused domain tests;
 3. `npm.cmd run test:affected:agent`;
 4. lint/build/browser/Workflow Map only when relevant;
-5. Docker/local Supabase when database/security/integrity contracts change;
+5. Docker/local Supabase only when database/security/integrity contracts change;
 6. exact final diff review;
-7. PR creation without Codex self-merging.
+7. feature branch + PR; Codex does not merge its own PR.
 
-Do not run the historical full suite by ritual. Do not treat generic browser overflow success as proof that PDF visual output is correct.
+Do not run the historical full suite by ritual. Do not treat generic browser-overflow success, route-loading success, or preview/download hash equality as proof that PDF visual output is correct.
