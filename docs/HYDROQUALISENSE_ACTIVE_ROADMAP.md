@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — LOCAL-QA UI/UX + PDF QUALITY CERTIFICATION NEXT / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**  
+Status: **ACTIVE — DEEP PDF/EXPORT VISUAL CERTIFICATION NEXT / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-11**
 
@@ -35,6 +35,7 @@ Relevant completed product work:
 - local branch -> real QA development harness plus canonical PDF preview/download-byte foundation and initial PDF renderer hardening — PR #146;
 - staged local-QA/UI/PDF quality plan — PR #147;
 - local-QA browser-key hardening, including rejection of privileged legacy `service_role` JWTs — PR #148.
+- comprehensive authenticated Local-QA UI/UX redo — completed on the current feature branch with 57 authenticated scenarios covering all 16 canonical top-level routes plus the mobile Documents check, three target viewport profiles, and responsive/action fixes for Projects, Procurement, and Equipment.
 
 ## Important correction — PR #146 did not finish the UI/UX and PDF quality program
 
@@ -57,13 +58,11 @@ The authoritative staged sequence is `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.
 
 The next work must follow this order unless the user explicitly reprioritizes it:
 
-1. **Comprehensive authenticated Local-QA UI/UX redo — NEXT**
-   - run the current feature branch locally against the real isolated QA backend;
-   - exercise meaningful create/edit/view/detail/modal/navigation/handoff/preview/download states;
-   - cover desktop, tablet, and narrow/mobile layouts where applicable;
-   - fix safe schema-compatible application defects immediately and retest them in the same local-QA loop.
+1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE on the current feature branch**
+   - final authenticated Local-QA evidence covers all canonical routes, responsive states, dialogs, project tabs, owner handoffs, and safe compose review;
+   - the final run recorded zero failed, blocked, not-tested, page-overflow, dialog-overflow, or clipped-interactive-control scenarios.
 
-2. **Deep PDF/export visual certification — REQUIRED P0 GATE**
+2. **Deep PDF/export visual certification — NEXT / REQUIRED P0 GATE**
    - visually inspect rendered Purchase Order and Client Invoice PDFs, not only byte/hash identity;
    - cover with/without logos, long branding/counterparties/projects/document numbers, long table content, long terms/notes, large amounts, multi-page output, and representative currencies;
    - fail the phase for title-centering errors, logo/title collisions, text outside boxes/cells, clipping, bad page breaks, unreadable continuation pages, or footer/signature overlap.

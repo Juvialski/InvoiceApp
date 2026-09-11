@@ -922,7 +922,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               const topAttention = topProjectAttentionSignal(view);
 
               return (
-                <Card key={project.id} className="p-4 shadow-sm space-y-3" elevation="low">
+                <Card key={project.id} data-project-id={project.id} className="min-w-0 w-full p-4 shadow-sm space-y-3" elevation="low">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <span className="text-[10px] font-black uppercase tracking-wide text-indigo-600">
@@ -1015,8 +1015,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   )}
 
                   {/* Action Bar */}
-                  <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
-                    <div className="flex gap-1">
+                  <div className="flex min-w-0 flex-col gap-2 border-t border-slate-100 pt-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 flex-wrap gap-1">
                       {canManage && (
                         <Button
                           variant="secondary"
@@ -1037,6 +1037,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                     <Button
                       variant="primary"
                       label="Open Project →"
+                      className="w-full sm:w-auto"
                       onClick={() => onOpenProject(project)}
                     />
                   </div>

@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — COMPREHENSIVE LOCAL-QA UI/UX REDO NEXT / PDF VISUAL CERTIFICATION PENDING / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**  
+Status: **CURRENT — COMPREHENSIVE LOCAL-QA UI/UX REDO COMPLETE / DEEP PDF VISUAL CERTIFICATION NEXT / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
 Date: **2026-09-11**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -55,46 +55,23 @@ These are foundations, not the end of the quality program.
 
 **Preview/download hash equality proves byte identity only. It does not prove that title placement, logo separation, table geometry, page breaks, totals, signatures, or long content are visually correct.**
 
-## Immediate next phase — Comprehensive authenticated Local-QA UI/UX redo
+## Phase 1 result — Comprehensive authenticated Local-QA UI/UX redo complete
 
-This is the next Codex implementation phase.
+The current feature branch completed the authenticated Local-QA UI/UX pass against the real isolated QA backend.
 
-Run the current feature branch locally against the real isolated QA backend and perform a comprehensive workflow-oriented UI/UX pass.
+Final evidence recorded 57/57 scenarios passing across all 16 canonical top-level routes plus the mobile Documents check, project-workspace tabs, legacy Email Intake aliases, owner/Compose handoffs, safe dialogs, and the desktop/tablet/mobile target profiles. It recorded zero failed, blocked, not-tested, horizontal-overflow, dialog-overflow, or clipped-interactive-control scenarios.
 
-Priority surfaces:
+Concrete schema-compatible defects fixed and retested in the same loop:
 
-- Dashboard;
-- Projects;
-- Procurement / RFQ / quotations;
-- Purchase Orders / receipts;
-- Supplier invoices / linked Expenses;
-- Expenses;
-- Cash & Banking;
-- Client Billing / Collections;
-- Payroll;
-- Warehouse / Inventory;
-- Equipment;
-- Engineering Documents;
-- Email / SMS;
-- Documents;
-- Reports;
-- Settings.
+- mobile Project cards clipped the primary Open Project action;
+- mobile Procurement tabs and the project filter select exceeded the usable viewport;
+- desktop Equipment register actions exceeded the available content frame.
 
-Exercise meaningful states, as applicable:
-
-`create -> edit -> view/detail -> modal -> navigation/handoff -> preview -> download -> empty/error/long-content`
-
-Cover desktop, tablet, and narrow/mobile layouts where applicable.
-
-For each safe schema-compatible application issue:
-
-`observe -> diagnose -> fix -> reload current local branch -> retest same QA workflow -> add regression coverage where appropriate`
-
-Do not stop at an audit-only report when the issue can be fixed and verified in the same phase.
+The final Local-QA evidence also proves the existing QA session recovery, route readiness, owner navigation, compose review gate, truthful SMS state, and issued-PDF preview/download byte identity. No database contract or provider implementation changed.
 
 ## Following phase — Deep PDF/export visual certification
 
-After the comprehensive UI/UX redo is stable, perform a dedicated PDF/export certification pass.
+After the completed UI/UX redo, perform a dedicated PDF/export certification pass.
 
 Explicitly inspect actual rendered pages for both Purchase Orders and Client Invoices, including:
 
@@ -219,8 +196,8 @@ A green PR, merge, Render deployment, local-QA success, hosted-QA success, or do
 
 ## Required sequence from this handoff
 
-1. **Comprehensive authenticated Local-QA UI/UX redo — NEXT**
-2. **Deep PDF/export visual certification**
+1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE on the current feature branch**
+2. **Deep PDF/export visual certification — NEXT**
 3. **Functional regression sweep**
 4. **Hosted exact-SHA QA certification**
 5. **Wave 4D messaging-provider selection/integration**
