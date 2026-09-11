@@ -230,7 +230,6 @@ import {
 } from "./lib/entityResolution.ts";
 import { useProjectController } from "./features/projects/useProjectController.ts";
 import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "./lib/documentSnapshots.ts";
-import { DEFAULT_COMPANY_DOCUMENT_PROFILE, supplierInvoiceBuyerMismatch } from "./lib/companyDocumentProfile.ts";
 import { createLocalFinancialFxSnapshot, loadFinancialFxSnapshotsFromSupabase, readFinancialFxSnapshotsFromLocal, saveFinancialFxSnapshotToSupabase, writeFinancialFxSnapshotsToLocal, type FinancialFxSnapshotInput } from "./lib/financialFx.ts";
 
 function revisePayrollSourcePeriods(
@@ -4207,8 +4206,6 @@ function InvoiceWorkspace() {
       return result;
     }
 
-    const buyerError = supplierInvoiceBuyerMismatch(invoice, DEFAULT_COMPANY_DOCUMENT_PROFILE);
-    if (buyerError) throw new Error(`Buyer mismatch — ${buyerError} Resolve the buyer before verification.`);
     const existingExpense = expenses.find((item) => item.supplierInvoiceId === invoice.id && item.status !== "VOID");
     const supplierAllocations = invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id);
     const singleAllocation = supplierAllocations.length === 1 ? supplierAllocations[0] : undefined;

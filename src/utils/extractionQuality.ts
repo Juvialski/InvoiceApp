@@ -1,6 +1,5 @@
 import type { InvoiceData, LineItem } from "../types.ts";
-
-const MONEY_TOLERANCE = 0.05;
+import { reconcileInvoiceMonetarySemantics } from "./invoiceMonetarySemantics.ts";
 
 export interface ExtractionAttemptSummary {
   attemptNumber: number;
@@ -41,10 +40,6 @@ export interface ScoredExtractionCandidate<T> {
   quality: ExtractionQuality;
 }
 
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
 function numeric(value: unknown) {
   const result = Number(value);
   return Number.isFinite(result) ? result : 0;
@@ -52,10 +47,6 @@ function numeric(value: unknown) {
 
 function presentNumber(value: unknown) {
   return value !== undefined && value !== null && !(typeof value === "string" && !value.trim()) && Number.isFinite(Number(value));
-}
-
-function nearlyEqual(left: number, right: number) {
-  return Math.abs(roundMoney(left) - roundMoney(right)) <= MONEY_TOLERANCE;
 }
 
 function hasText(value: unknown) {
@@ -108,12 +99,6 @@ function itemIsMeaningful(item: LineItem) {
   return hasText(item.description) && (numeric(item.quantity) > 0 || numeric(item.unitPrice) > 0 || numeric(item.total) > 0);
 }
 
-function lineItemReconciles(item: LineItem) {
-  if (!presentNumber(item.quantity) || !presentNumber(item.unitPrice) || !presentNumber(item.discount) || !presentNumber(item.total)) return false;
-  const expected = roundMoney(numeric(item.quantity) * numeric(item.unitPrice) - numeric(item.discount));
-  return nearlyEqual(expected, numeric(item.total));
-}
-
 function sourceHasVatSummary(sourceText?: string) {
   return sourceHas(sourceText, /VAT(?:ABLE)?\s+SALES|VAT\s+AMOUNT|ZERO[- ]?RATED|VAT[- ]?EXEMPT/i);
 }
@@ -125,9 +110,9 @@ function addReason(reasons: string[], reason: string) {
 export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceText?: string): ExtractionQuality {
   const items = Array.isArray(invoice.items) ? invoice.items : [];
   const { invoiceLike, tableEvidence, sourceShowsInvoice } = invoiceLooksLikeItemizedDocument(invoice, sourceText);
-  const sourceShowsCustomer = sourceHas(sourceText, /\b(?:BILL\s*TO|SOLD\s*TO|BUYER|CUSTOMER|CLIENT)\b/i);
   const sourceShowsCurrency = sourceHas(sourceText, /₱|\bPHP\b|PHILIPPINE\s+PESO|\bUSD\b|US\$|\bEUR\b|\bSGD\b|\bJPY\b|\bGBP\b|\$/i);
   const sourceShowsMoney = sourceHas(sourceText, /₱|\b(?:PHP|USD|EUR|SGD|JPY|GBP)\b|\d[\d,]*\.\d{2}/i);
+  const monetary = reconcileInvoiceMonetarySemantics(invoice);
   const phTax = invoice.philippineTaxDetails || {};
   const phVat = normalizedText(invoice.invoiceSubtype) === "VAT_INVOICE"
     || normalizedText(phTax.invoiceKind) === "VAT_INVOICE"
@@ -141,10 +126,10 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
   let expectedFields = 0;
   let populatedFields = 0;
   const reconciliation: ExtractionQuality["reconciliation"] = {
-    lineItems: items.length ? "PASS" : "NOT_APPLICABLE",
-    subtotal: "NOT_APPLICABLE",
-    grandTotal: "NOT_APPLICABLE",
-    balance: "NOT_APPLICABLE",
+    lineItems: items.length ? monetary.statuses.lineItems : "NOT_APPLICABLE",
+    subtotal: monetary.statuses.subtotal,
+    grandTotal: monetary.statuses.grandTotal,
+    balance: monetary.statuses.balance,
     philippineVat: "NOT_APPLICABLE",
   };
 
@@ -171,7 +156,6 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
   field(invoice.invoiceNumber, 12, "Invoice number", "missing-invoice-number");
   field(invoice.invoiceDate, 8, "Invoice date", "missing-invoice-date");
   field(invoice.vendor?.name || invoice.vendor?.registeredName || invoice.vendor?.companyName, 14, "Vendor identity", "missing-vendor");
-  if (sourceShowsCustomer) field(invoice.customer?.name || invoice.customer?.registeredName || invoice.customer?.companyName, 8, "Customer identity", "missing-customer");
   field(normalizeCurrency(invoice.currency, invoice.currencySymbol), 10, "Currency", "missing-currency");
   if (!normalizeCurrency(invoice.currency, invoice.currencySymbol) && sourceShowsCurrency) {
     addReason(reasons, "The source contains an explicit currency marker but the extraction did not preserve it.");
@@ -185,11 +169,10 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
     score += Math.round(18 * rowCompleteness);
     if (meaningful === items.length) addReason(reasons, `${items.length} line item${items.length === 1 ? "" : "s"} contain usable description and amounts.`);
     else addReason(reasons, "Some extracted line items are missing usable quantities, prices, or amounts.");
-    const mismatches = items.filter((item) => !lineItemReconciles(item)).length;
-    if (mismatches) {
-      reconciliation.lineItems = "REVIEW";
-      score -= Math.min(12, mismatches * 5);
-      addReason(reasons, `${mismatches} line item${mismatches === 1 ? "" : "s"} do not reconcile quantity × unit price − discount to amount.`);
+    const lineWarnings = monetary.issues.filter((issue) => issue.severity === "warning" && issue.field.startsWith("items."));
+    if (lineWarnings.length) {
+      score -= Math.min(12, lineWarnings.length * 5);
+      addReason(reasons, lineWarnings[0]?.message || `${lineWarnings.length} line items do not reconcile.`);
     }
   } else if (invoiceLike && (numeric(invoice.subtotal) > 0 || numeric(invoice.grandTotal) > 0 || tableEvidence || sourceShowsMoney)) {
     criticalMissing.push("missing-line-items");
@@ -204,26 +187,19 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
     addReason(reasons, "No itemized rows were found; confirm that the document is not itemized.");
   }
 
-  const knownLineTotals = items.map((item) => presentNumber(item.total) ? numeric(item.total) : undefined);
-  const calculatedSubtotal = items.length > 0 && knownLineTotals.every((value) => value !== undefined)
-    ? roundMoney(knownLineTotals.reduce((sum, value) => sum + (value || 0), 0))
-    : undefined;
   expectedFields += 1;
   if (presentNumber(invoice.subtotal)) {
     populatedFields += 1;
     score += 8;
-    if (items.length && calculatedSubtotal !== undefined) {
-      reconciliation.subtotal = nearlyEqual(calculatedSubtotal, numeric(invoice.subtotal)) ? "PASS" : "REVIEW";
-      if (reconciliation.subtotal === "REVIEW") {
+    if (monetary.statuses.subtotal === "REVIEW") {
+      const mismatch = monetary.issues.find((issue) => issue.id === "subtotal-mismatch");
+      if (mismatch) {
         score -= 8;
-        addReason(reasons, "Subtotal does not reconcile with the extracted line-item amounts.");
-      }
-    } else if (items.length) {
-      reconciliation.subtotal = "REVIEW";
-      addReason(reasons, "Subtotal reconciliation was not evaluated because one or more line-item amounts are unresolved.");
+        addReason(reasons, mismatch.message);
+      } else addReason(reasons, "Subtotal reconciliation was not evaluated because one or more source values are unresolved.");
     }
-  } else if (items.length && calculatedSubtotal !== undefined && calculatedSubtotal > 0) {
-    addReason(reasons, "Subtotal is missing even though line items contain amounts.");
+  } else if (monetary.lineTotalSum !== undefined) {
+    addReason(reasons, "Subtotal is missing even though source line amounts provide a calculated subtotal.");
   } else if (sourceShowsMoney || invoiceLike) {
     reconciliation.subtotal = "REVIEW";
     addReason(reasons, "Subtotal is missing or zero.");
@@ -233,23 +209,12 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
   if (presentNumber(invoice.grandTotal)) {
     populatedFields += 1;
     score += 14;
-    const baseSubtotal = presentNumber(invoice.subtotal) ? numeric(invoice.subtotal) : calculatedSubtotal;
-    const totalDiscount = presentNumber(invoice.totalDiscount) ? numeric(invoice.totalDiscount) : undefined;
-    const totalTax = presentNumber(invoice.totalTax) ? numeric(invoice.totalTax) : undefined;
-    const shippingFee = presentNumber(invoice.shippingFee) ? numeric(invoice.shippingFee) : undefined;
-    const otherFees = presentNumber(invoice.otherFees) ? numeric(invoice.otherFees) : undefined;
-    const calculatedGrandTotal = baseSubtotal !== undefined && totalDiscount !== undefined && totalTax !== undefined && shippingFee !== undefined && otherFees !== undefined
-      ? roundMoney(baseSubtotal - totalDiscount + totalTax + shippingFee + otherFees)
-      : undefined;
-    if (calculatedGrandTotal === undefined) {
-      reconciliation.grandTotal = "REVIEW";
-      addReason(reasons, "Grand-total arithmetic was not evaluated because one or more source values are unresolved.");
-    } else {
-      reconciliation.grandTotal = nearlyEqual(calculatedGrandTotal, numeric(invoice.grandTotal)) ? "PASS" : "REVIEW";
-      if (reconciliation.grandTotal === "REVIEW") {
+    if (monetary.statuses.grandTotal === "REVIEW") {
+      const mismatch = monetary.issues.find((issue) => issue.id === "grand-total-mismatch");
+      if (mismatch) {
         score -= 8;
-        addReason(reasons, "Grand total does not reconcile with subtotal, tax, discount, and charges.");
-      }
+        addReason(reasons, mismatch.message);
+      } else addReason(reasons, "Grand-total arithmetic was not evaluated because one or more source values are unresolved.");
     }
   } else if (sourceShowsMoney || invoiceLike) {
     reconciliation.grandTotal = "REVIEW";
@@ -259,19 +224,15 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
   }
 
   expectedFields += 1;
-  if (presentNumber(invoice.amountPaid) || presentNumber(invoice.balanceDue)) {
+  if (presentNumber(invoice.amountPaid) || presentNumber(invoice.balanceDue) || presentNumber(invoice.amountDue)) {
     populatedFields += 1;
     score += 3;
-    if (presentNumber(invoice.balanceDue) && presentNumber(invoice.grandTotal) && presentNumber(invoice.amountPaid)) {
-      const expectedBalance = roundMoney(Math.max(0, numeric(invoice.grandTotal) - numeric(invoice.amountPaid)));
-      reconciliation.balance = nearlyEqual(expectedBalance, numeric(invoice.balanceDue)) ? "PASS" : "REVIEW";
-      if (reconciliation.balance === "REVIEW") {
+    if (monetary.statuses.balance === "REVIEW") {
+      const mismatch = monetary.issues.find((issue) => issue.id === "balance-mismatch");
+      if (mismatch) {
         score -= 3;
-        addReason(reasons, "Balance does not reconcile with grand total minus amount paid.");
-      }
-    } else if (presentNumber(invoice.balanceDue)) {
-      reconciliation.balance = "REVIEW";
-      addReason(reasons, "Balance reconciliation was not evaluated because grand total or amount paid is unresolved.");
+        addReason(reasons, mismatch.message);
+      } else addReason(reasons, "Balance reconciliation was not evaluated because gross total or payment evidence is unresolved.");
     }
   }
 
@@ -303,6 +264,7 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
   const completeness = expectedFields ? Math.round((populatedFields / expectedFields) * 100) : 0;
   const qualityScore = Math.max(0, Math.min(100, Math.round(score)));
   const dedupedCriticalMissing = Array.from(new Set(criticalMissing));
+  for (const issue of monetary.issues.filter((item) => item.severity === "info")) addReason(reasons, issue.message);
   const requiresRetry = dedupedCriticalMissing.length > 0 || qualityScore < 70 || completeness < 60 || Object.values(reconciliation).filter((value) => value === "REVIEW").length >= 2;
   if (!reasons.length) addReason(reasons, "Core invoice fields and arithmetic are internally consistent.");
 
@@ -343,7 +305,7 @@ export function retryFocusForQuality(quality: ExtractionQuality) {
   const focus: string[] = [];
   if (quality.criticalMissing.includes("missing-line-items")) focus.push("line-items");
   if (quality.criticalMissing.includes("missing-currency")) focus.push("currency");
-  if (quality.criticalMissing.includes("missing-vendor") || quality.criticalMissing.includes("missing-customer")) focus.push("parties");
+  if (quality.criticalMissing.includes("missing-vendor")) focus.push("vendor");
   if (quality.criticalMissing.includes("missing-grand-total") || quality.criticalMissing.includes("missing-vat-amount")) focus.push("totals");
   return focus.length ? focus : ["full"];
 }

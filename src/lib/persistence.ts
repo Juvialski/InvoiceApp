@@ -5,6 +5,7 @@ import { companyApiRequest } from "./companyApi.ts";
 import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity.ts";
 import { parseFinancialCorrectionPreview, parseFinancialCorrectionResult, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./financialLifecycle.ts";
 import { expenseFromRow } from "./expenses.ts";
+import { supplierInvoiceDuplicateTotalsMatch } from "../utils/invoiceDuplicateDetection.ts";
 
 const INVOICE_BUCKET = "invoice-originals";
 const EMAIL_BUCKET = "email-originals";
@@ -16,6 +17,32 @@ function requireSupabase() {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
+}
+
+/**
+ * Keep the immutable extraction snapshot source-shaped. Current data may carry
+ * a deterministic value for review, but a CALCULATED field must not be
+ * mistaken for an amount the supplier actually printed.
+ */
+function sourceExtractionSnapshot(invoice: InvoiceData): Partial<InvoiceData> {
+  const snapshot = clone(invoice) as Partial<InvoiceData> & { items?: Array<Record<string, unknown>> };
+  delete (snapshot as any).aiSnapshot;
+  const calculatedFields = Object.entries(invoice.financialFieldStatus || {})
+    .filter(([, status]) => status === "CALCULATED")
+    .map(([field]) => field);
+  for (const field of ["subtotal", "totalTax", "grandTotal", "balanceDue", "netAmountPayable"]) {
+    if (calculatedFields.includes(field)) delete (snapshot as any)[field];
+  }
+  if (Array.isArray(snapshot.items)) {
+    snapshot.items = snapshot.items.map((item, index) => {
+      const next = { ...item };
+      for (const field of ["quantity", "unitPrice", "discount", "total"]) {
+        if (calculatedFields.includes(`items.${index}.${field}`)) delete next[field];
+      }
+      return next;
+    });
+  }
+  return snapshot;
 }
 
 function compareHistoryIds(left?: string | null, right?: string | null) {
@@ -685,8 +712,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
   }
 
   const vendorId = await findExistingVendorId(invoice);
-  const aiSnapshot = clone(invoice);
-  delete (aiSnapshot as any).aiSnapshot;
+  const aiSnapshot = sourceExtractionSnapshot(invoice);
   const persistedInvoice: InvoiceData = {
     ...invoice,
     reviewStatus: "NEEDS_REVIEW",
@@ -717,7 +743,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     const sameNumber = Boolean(invoice.invoiceNumber && candidate.invoice_number && String(candidate.invoice_number).trim().toLowerCase() === invoice.invoiceNumber.trim().toLowerCase());
     const sameDate = Boolean(invoice.invoiceDate && candidate.invoice_date && String(candidate.invoice_date).slice(0, 10) === invoice.invoiceDate);
     const sameCurrency = Boolean(invoice.currency && candidate.currency && String(candidate.currency).toUpperCase() === invoice.currency.toUpperCase());
-    const sameTotal = Math.abs(Number(candidate.grand_total || 0) - Number(invoice.grandTotal || 0)) <= 0.05;
+    const sameTotal = supplierInvoiceDuplicateTotalsMatch(candidate.grand_total, invoice.grandTotal);
     const sameFile = Boolean(invoice.sourceSha256 && candidateData.sourceSha256 && invoice.sourceSha256 === candidateData.sourceSha256);
     return sameFile || (sameVendor && sameNumber && sameCurrency && sameTotal) || (sameVendor && sameDate && sameCurrency && sameTotal);
   });
@@ -753,7 +779,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     .single();
   if (error) throw error;
 
-  await replaceLineItems(row.id, invoice.items);
+  await replaceLineItems(row.id, invoice.items, invoice.financialFieldStatus);
 
   const { data: extraction, error: extractionError } = await client
     .from("invoice_extractions")
@@ -846,8 +872,7 @@ export async function persistExtractionAttempt(
     voidedByUserId: existingRow.voided_by_user_id ?? undefined,
     voidReason: existingRow.void_reason ?? undefined,
   };
-  const aiSnapshot = clone({ ...candidate, ...preservedSource, id: existingRow.id });
-  delete (aiSnapshot as any).aiSnapshot;
+  const aiSnapshot = sourceExtractionSnapshot({ ...candidate, ...preservedSource, id: existingRow.id } as InvoiceData);
   const activeCandidate: InvoiceData = {
     ...currentData,
     ...candidate,
@@ -919,28 +944,34 @@ export async function persistExtractionAttempt(
   }).eq("id", existingRow.id).eq("company_id", requireActiveCompanyId()).eq("updated_at", existingRow.updated_at).select("updated_at").maybeSingle();
   if (updateError) throw updateError;
   if (!savedRow) throw new Error("This invoice changed in another session. Refresh it before retrying the extraction.");
-  await replaceLineItems(existingRow.id, saved.items);
+  await replaceLineItems(existingRow.id, saved.items, saved.financialFieldStatus);
   return { ...saved, updatedAt: String(savedRow.updated_at || new Date().toISOString()) };
 }
 
-async function replaceLineItems(invoiceId: string, items: InvoiceData["items"]) {
+async function replaceLineItems(invoiceId: string, items: InvoiceData["items"], financialFieldStatus: InvoiceData["financialFieldStatus"] = {}) {
   const client = requireSupabase();
   const userId = await requireUserId();
   const { error: deleteError } = await client.from("invoice_line_items").delete().eq("invoice_id", invoiceId).eq("company_id", requireActiveCompanyId());
   if (deleteError) throw deleteError;
   if (!items.length) return;
-  const rows = items.map((item, index) => ({
-    user_id: userId,
-    company_id: requireActiveCompanyId(),
+  const rows = items.map((item, index) => {
+    const sourceItem = clone(item) as unknown as Record<string, unknown>;
+    for (const field of ["quantity", "unitPrice", "discount", "total"]) {
+      if (financialFieldStatus[`items.${index}.${field}`] === "CALCULATED") delete sourceItem[field];
+    }
+    return {
+      user_id: userId,
+      company_id: requireActiveCompanyId(),
       invoice_id: invoiceId,
-    item_index: index,
-    description: item.description,
-    sku: item.sku || null,
-    quantity: item.quantity ?? null,
-    unit_price: item.unitPrice ?? null,
-    line_total: item.total ?? null,
-    item_data: item,
-  }));
+      item_index: index,
+      description: item.description,
+      sku: item.sku || null,
+      quantity: financialFieldStatus[`items.${index}.quantity`] === "CALCULATED" ? null : item.quantity ?? null,
+      unit_price: financialFieldStatus[`items.${index}.unitPrice`] === "CALCULATED" ? null : item.unitPrice ?? null,
+      line_total: financialFieldStatus[`items.${index}.total`] === "CALCULATED" ? null : item.total ?? null,
+      item_data: sourceItem,
+    };
+  });
   const { error } = await client.from("invoice_line_items").insert(rows);
   if (error) throw error;
 }
@@ -965,12 +996,14 @@ function comparableSnapshot(invoice: InvoiceData) {
     otherFees: invoice.otherFees,
     grandTotal: invoice.grandTotal,
     amountPaid: invoice.amountPaid,
+    amountDue: invoice.amountDue,
     balanceDue: invoice.balanceDue,
     invoiceSubtype: invoice.invoiceSubtype,
     philippineTaxDetails: invoice.philippineTaxDetails,
     withholdingTaxRate: invoice.withholdingTaxRate,
     withholdingTaxAmount: invoice.withholdingTaxAmount,
     netAmountPayable: invoice.netAmountPayable,
+    financialSemantics: invoice.financialSemantics,
     philippineInvoiceCompleteness: invoice.philippineInvoiceCompleteness,
     description: invoice.description,
     category: invoice.category,
@@ -1042,7 +1075,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   if (!savedRow) throw new Error("This invoice changed in another session. Refresh it before saving.");
   // Reopening is a review-state transition, not a line-item edit. Do not
   // replace source line items while entering the repair workflow.
-  if (!reopenOnly) await replaceLineItems(updated.id, updated.items);
+  if (!reopenOnly) await replaceLineItems(updated.id, updated.items, updated.financialFieldStatus);
 
   // The database row is the final source of truth. The caller normally passes
   // the serialized queue's previous snapshot, but reading the row here also

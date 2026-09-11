@@ -9,7 +9,6 @@ import {
   Trash2,
   Edit2,
   Building2,
-  User,
   Calendar,
   DollarSign,
   Receipt,
@@ -128,9 +127,9 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   const changedPaths = useMemo(() => {
     if (!invoice.aiSnapshot) return new Set<string>();
     const paths = [
-      "invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "vendor.name", "vendor.taxId", "customer.name", "customer.taxId",
-      "subtotal", "totalTax", "grandTotal", "balanceDue", "philippineTaxDetails.vatableSales", "philippineTaxDetails.vatAmount",
-      "philippineTaxDetails.zeroRatedSales", "philippineTaxDetails.vatExemptSales", "withholdingTaxAmount", "items",
+      "invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "vendor.name", "vendor.taxId",
+      "subtotal", "totalDiscount", "totalTax", "shippingFee", "otherFees", "grandTotal", "amountPaid", "amountDue", "balanceDue", "withholdingTaxAmount", "netAmountPayable", "financialSemantics", "philippineTaxDetails.vatableSales", "philippineTaxDetails.vatAmount",
+      "philippineTaxDetails.zeroRatedSales", "philippineTaxDetails.vatExemptSales", "items",
     ];
     return new Set(paths.filter((path) => JSON.stringify(valueAtPath(invoice.aiSnapshot, path) ?? null) !== JSON.stringify(valueAtPath(invoice, path) ?? null)));
   }, [invoice]);
@@ -158,7 +157,10 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
 
   const edited = (path: string) => changedPaths.has(path);
   const phpAmount = (amount: unknown) => displayFinancialAmountInPhp(amount, invoice.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots);
-  const formatMoney = (amount: unknown, _sourceCurrency?: string) => phpAmount(amount).baseLabel;
+  const formatMoney = (amount: unknown, _sourceCurrency?: string) => {
+    if (amount === undefined || amount === null || (typeof amount === "string" && !amount.trim()) || !Number.isFinite(Number(amount))) return "Amount unresolved";
+    return phpAmount(amount).baseLabel;
+  };
 
   const handleExportExcel = () => {
     exportSingleInvoiceToExcel(invoice);
@@ -191,32 +193,14 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
     const updatedItems = invoice.items.map((item) => {
       if (item.id === itemId) {
         const newItem = { ...item, [field]: value };
-        if (field === "quantity" || field === "unitPrice" || field === "discount") {
-          const qty = Number(field === "quantity" ? value : newItem.quantity) || 0;
-          const price = Number(field === "unitPrice" ? value : newItem.unitPrice) || 0;
-          const disc = Number(field === "discount" ? value : (newItem.discount || 0)) || 0;
-          newItem.total = Math.max(0, qty * price - disc);
-        }
         return newItem;
       }
       return item;
     });
 
-    // Recalculate totals
-    const newSubtotal = updatedItems.reduce((sum, it) => sum + (it.total || 0), 0);
-    const newGrandTotal =
-      newSubtotal +
-      (invoice.totalTax || 0) +
-      (invoice.shippingFee || 0) +
-      (invoice.otherFees || 0) -
-      (invoice.totalDiscount || 0);
-
     onUpdateInvoice({
       ...invoice,
       items: updatedItems,
-      subtotal: newSubtotal,
-      grandTotal: Math.max(0, newGrandTotal),
-      balanceDue: Math.max(0, newGrandTotal - (invoice.amountPaid || 0)),
     });
   };
 
@@ -244,48 +228,29 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   const handleDeleteLineItem = (itemId: string) => {
     if (readOnly) return;
     const updatedItems = invoice.items.filter((it) => it.id !== itemId);
-    const newSubtotal = updatedItems.reduce((sum, it) => sum + (it.total || 0), 0);
-    const newGrandTotal =
-      newSubtotal +
-      (invoice.totalTax || 0) +
-      (invoice.shippingFee || 0) +
-      (invoice.otherFees || 0) -
-      (invoice.totalDiscount || 0);
-
     onUpdateInvoice({
       ...invoice,
       items: updatedItems,
-      subtotal: newSubtotal,
-      grandTotal: Math.max(0, newGrandTotal),
-      balanceDue: Math.max(0, newGrandTotal - (invoice.amountPaid || 0)),
     });
   };
 
-  const handlePartyUpdate = (party: "vendor" | "customer", field: string, value: string) => {
+  const handlePartyUpdate = (partyOrField: string, fieldOrValue: string, valueArg?: string) => {
     if (readOnly) return;
+    const party = valueArg === undefined ? "vendor" : partyOrField;
+    const field = valueArg === undefined ? partyOrField : fieldOrValue;
+    const value = valueArg === undefined ? fieldOrValue : valueArg;
     onUpdateInvoice({
       ...invoice,
       [party]: {
-        ...invoice[party],
+        ...((invoice as any)[party] || {}),
         [field]: value,
       },
     });
   };
 
-  const handleFinancialUpdate = (field: string, value: number) => {
+  const handleFinancialUpdate = (field: string, value: number | null) => {
     if (readOnly) return;
-    const updated = { ...invoice, [field]: value };
-    if (field === "subtotal" || field === "totalTax" || field === "shippingFee" || field === "otherFees" || field === "totalDiscount" || field === "amountPaid") {
-      const gTotal =
-        (updated.subtotal || 0) +
-        (updated.totalTax || 0) +
-        (updated.shippingFee || 0) +
-        (updated.otherFees || 0) -
-        (updated.totalDiscount || 0);
-      updated.grandTotal = Math.max(0, gTotal);
-      updated.balanceDue = Math.max(0, gTotal - (updated.amountPaid || 0));
-    }
-    onUpdateInvoice(updated);
+    onUpdateInvoice({ ...invoice, [field]: value });
   };
 
   const handlePhilippineTaxUpdate = (field: string, value: string | number | boolean | undefined) => {
@@ -295,7 +260,10 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
     if (field === "invoiceKind") updated.invoiceSubtype = value === "NON_VAT_INVOICE" ? "NON_VAT_INVOICE" : value === "VAT_INVOICE" ? "VAT_INVOICE" : invoice.invoiceSubtype;
     if (field === "withholdingTaxAmount") {
       updated.withholdingTaxAmount = value === undefined ? undefined : Number(value);
-      updated.netAmountPayable = value === undefined ? undefined : Math.round((Number(invoice.grandTotal || 0) - Number(value || 0)) * 100) / 100;
+      const grossTotal = Number(invoice.grandTotal);
+      updated.netAmountPayable = value === undefined || !Number.isFinite(grossTotal)
+        ? undefined
+        : Math.round((grossTotal - Number(value || 0)) * 100) / 100;
     }
     onUpdateInvoice(updated);
   };
@@ -466,9 +434,9 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
         </div>
       </div>
 
-      {/* Main Content Layout: Seller/Buyer & Extracted Data Points */}
+      {/* Main Content Layout: Seller/source evidence & Extracted Data Points */}
       <div className={compact ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 lg:grid-cols-12 gap-6"}>
-        {/* Left Column: Vendor & Customer Party Cards (4 cols) */}
+        {/* Left Column: Vendor & preserved source evidence (4 cols) */}
         <div className={compact ? "space-y-4" : "lg:col-span-4 space-y-4"}>
           {/* Vendor Card */}
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
@@ -621,70 +589,15 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
             </div>
           </div>
 
-          {/* Customer Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center space-x-2 pb-3 border-b border-slate-100 text-slate-800">
-              <div className="w-6 h-6 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-                <User className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-xs font-bold uppercase tracking-wider">Customer (Buyer)</h3>
-            </div>
-            <div className="mt-3 space-y-2.5 text-xs">
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase block font-bold">Client / Company Name</label>
-                <input
-                  type="text"
-                  data-field-path="customer.name"
-                  value={invoice.customer?.name || ""}
-                  onChange={(e) => handlePartyUpdate("customer", "name", e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5 transition font-medium"
-                />
-              </div>
-              <div><label className="text-[10px] text-slate-400 uppercase block font-bold">Buyer Registered Name</label><input value={invoice.customer?.registeredName || ""} onChange={(e) => handlePartyUpdate("customer", "registeredName", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div>
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase block font-bold">Buyer TIN {edited("customer.taxId") && <span className="text-sky-700 normal-case">• Edited</span>}</label>
-                <input
-                  type="text"
-                  data-field-path="customer.taxId"
-                  value={invoice.customer?.taxId || ""}
-                  onChange={(e) => handlePartyUpdate("customer", "taxId", e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 font-mono mt-0.5 transition text-xs"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2"><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Barangay</label><input value={invoice.customer?.barangay || ""} onChange={(e) => handlePartyUpdate("customer", "barangay", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div><div><label className="text-[10px] text-slate-400 uppercase block font-bold">City / Municipality</label><input value={invoice.customer?.cityMunicipality || invoice.customer?.city || ""} onChange={(e) => handlePartyUpdate("customer", "cityMunicipality", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div></div>
-              <div className="grid grid-cols-2 gap-2"><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Province</label><input value={invoice.customer?.province || invoice.customer?.state || ""} onChange={(e) => handlePartyUpdate("customer", "province", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Country</label><input value={invoice.customer?.country || ""} onChange={(e) => handlePartyUpdate("customer", "country", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div></div>
-              <div>
-                <label className="text-[10px] text-slate-400 uppercase block font-bold">Billing Address</label>
-                <input
-                  type="text"
-                  value={invoice.customer?.address || ""}
-                  onChange={(e) => handlePartyUpdate("customer", "address", e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5 transition text-xs"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase block font-bold">PO Number</label>
-                  <input
-                    type="text"
-                    value={invoice.purchaseOrderNumber || ""}
-                    onChange={(e) => updateInvoice({ ...invoice, purchaseOrderNumber: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 font-mono mt-0.5 transition text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase block font-bold">Email</label>
-                  <input
-                    type="text"
-                    value={invoice.customer?.email || ""}
-                    onChange={(e) => handlePartyUpdate("customer", "email", e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5 transition text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
+          {readOnly && invoice.customer && <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm" data-testid="historical-buyer-evidence">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Source buyer evidence</h3>
+            <p className="mt-1 text-[10px] leading-4 text-slate-500">Preserved from the original document for historical reference; it is not used as a supplier posting identity.</p>
+            <dl className="mt-3 space-y-2 text-xs">
+              {(invoice.customer.registeredName || invoice.customer.companyName || invoice.customer.name) && <div><dt className="text-[10px] text-slate-400">Name</dt><dd className="font-bold text-slate-800">{invoice.customer.registeredName || invoice.customer.companyName || invoice.customer.name}</dd></div>}
+              {invoice.customer.taxId && <div><dt className="text-[10px] text-slate-400">TIN</dt><dd className="font-mono text-slate-700">{invoice.customer.taxId}</dd></div>}
+              {invoice.customer.address && <div><dt className="text-[10px] text-slate-400">Address</dt><dd className="text-slate-700">{invoice.customer.address}</dd></div>}
+            </dl>
+          </div>}
           {(invoice.currency === "PHP" || invoice.philippineTaxDetails || invoice.vendor?.country?.toLowerCase().includes("philippines")) && <div className="bg-white border border-violet-200 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between gap-2 pb-3 border-b border-violet-100"><div><h3 className="text-xs font-bold uppercase tracking-wider text-violet-900">Philippine Tax Details</h3><p className="text-[10px] text-violet-700 mt-1">Review aid only — not a legal certification.</p></div><select data-field-path="philippineTaxDetails.invoiceKind" value={invoice.philippineTaxDetails?.invoiceKind || "UNKNOWN"} onChange={(e) => handlePhilippineTaxUpdate("invoiceKind", e.target.value)} className="rounded-lg border border-violet-200 px-2 py-1 text-[10px] font-bold bg-white"><option value="VAT_INVOICE">VAT Invoice</option><option value="NON_VAT_INVOICE">Non-VAT Invoice</option><option value="UNKNOWN">Unknown</option></select></div>
             <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
@@ -750,6 +663,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                     <th className="py-3 px-3 text-[11px] font-bold text-slate-500 uppercase text-center w-20">Qty</th>
                     <th className="py-3 px-3 text-[11px] font-bold text-slate-500 uppercase w-20">Unit</th>
                     <th className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase text-right w-28">Unit Price</th>
+                    <th className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase text-right w-24">Discount</th>
                     <th className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase text-right w-28">Amount</th>
                     {!readOnly && <th className="py-3 px-2 w-10 text-center"></th>}
                   </tr>
@@ -783,8 +697,8 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                           type="number"
                           step="any"
                           data-field-path={`items.${idx}.quantity`}
-                          value={item.quantity}
-                          onChange={(e) => handleUpdateLineItem(item.id, "quantity", Number(e.target.value))}
+                          value={item.quantity ?? ""}
+                          onChange={(e) => handleUpdateLineItem(item.id, "quantity", e.target.value === "" ? null : Number(e.target.value))}
                           className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-1.5 py-1 text-center text-slate-700 font-sans tabular-nums transition"
                         />
                       </td>
@@ -803,13 +717,16 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                           type="number"
                           step="any"
                           data-field-path={`items.${idx}.unitPrice`}
-                          value={item.unitPrice}
-                          onChange={(e) => handleUpdateLineItem(item.id, "unitPrice", Number(e.target.value))}
+                          value={item.unitPrice ?? ""}
+                          onChange={(e) => handleUpdateLineItem(item.id, "unitPrice", e.target.value === "" ? null : Number(e.target.value))}
                           className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-2 py-1 text-right text-slate-700 font-sans tabular-nums transition"
                         />
                       </td>
+                      <td className="py-3 px-4 text-right">
+                        {!readOnly ? <input type="number" step="0.01" data-field-path={`items.${idx}.discount`} value={item.discount ?? ""} onChange={(e) => handleUpdateLineItem(item.id, "discount", e.target.value === "" ? null : Number(e.target.value))} className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-2 py-1 text-right text-slate-700 font-sans tabular-nums transition" /> : <span className="font-sans tabular-nums">{item.discount === undefined || item.discount === null ? "—" : invoice.currency ? formatMoney(item.discount, invoice.currency) : "—"}</span>}
+                      </td>
                       <td className="py-3 px-4 text-right font-sans tabular-nums font-bold text-slate-900">
-                        {invoice.currency ? formatMoney(item.total, invoice.currency) : "—"}
+                        {!readOnly ? <input type="number" step="0.01" data-field-path={`items.${idx}.total`} value={item.total ?? ""} onChange={(e) => handleUpdateLineItem(item.id, "total", e.target.value === "" ? null : Number(e.target.value))} className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-2 py-1 text-right text-slate-700 font-sans tabular-nums transition" /> : invoice.currency ? formatMoney(item.total, invoice.currency) : "—"}
                       </td>
                       {!readOnly && <td className="py-3 px-2 text-center">
                         <button
@@ -826,7 +743,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
 
                   {invoice.items.length === 0 && (
                     <tr>
-                      <td colSpan={readOnly ? 7 : 8} className="text-center py-8 text-slate-400 text-xs">
+                      <td colSpan={readOnly ? 8 : 9} className="text-center py-8 text-slate-400 text-xs">
                         No line items found. {!readOnly && "Click \"Add Item\" above to add one."}
                       </td>
                     </tr>
@@ -840,7 +757,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Discount:</span>
-                  <input type="number" step="any" value={invoice.totalDiscount || 0} onChange={(e) => handleFinancialUpdate("totalDiscount", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
+                  <input type="number" step="any" value={invoice.totalDiscount ?? ""} onChange={(e) => handleFinancialUpdate("totalDiscount", e.target.value === "" ? null : Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Tax/VAT:</span>
@@ -848,8 +765,8 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                     type="number"
                     step="any"
                     data-field-path="totalTax"
-                    value={invoice.totalTax || 0}
-                    onChange={(e) => handleFinancialUpdate("totalTax", Number(e.target.value))}
+                    value={invoice.totalTax ?? ""}
+                    onChange={(e) => handleFinancialUpdate("totalTax", e.target.value === "" ? null : Number(e.target.value))}
                     className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800"
                   />
                 </div>
@@ -859,18 +776,18 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                       type="number"
                       step="any"
                       data-field-path="shippingFee"
-                      value={invoice.shippingFee || 0}
-                    onChange={(e) => handleFinancialUpdate("shippingFee", Number(e.target.value))}
+                      value={invoice.shippingFee ?? ""}
+                    onChange={(e) => handleFinancialUpdate("shippingFee", e.target.value === "" ? null : Number(e.target.value))}
                     className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800"
                   />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Other fees:</span>
-                  <input data-field-path="otherFees" type="number" step="any" value={invoice.otherFees || 0} onChange={(e) => handleFinancialUpdate("otherFees", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
+                  <input data-field-path="otherFees" type="number" step="any" value={invoice.otherFees ?? ""} onChange={(e) => handleFinancialUpdate("otherFees", e.target.value === "" ? null : Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Paid:</span>
-                  <input data-field-path="amountPaid" type="number" step="any" value={invoice.amountPaid || 0} onChange={(e) => handleFinancialUpdate("amountPaid", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
+                  <input data-field-path="amountPaid" type="number" step="any" value={invoice.amountPaid ?? ""} onChange={(e) => handleFinancialUpdate("amountPaid", e.target.value === "" ? null : Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
                 </div>
               </div>
 

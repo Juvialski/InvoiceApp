@@ -15,6 +15,17 @@ export interface SourcePayloadCriteria {
 }
 
 const normalize = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const sourceMoney = (value: unknown) => {
+  if (value === undefined || value === null || (typeof value === "string" && !value.trim())) return undefined;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+};
+
+export function supplierInvoiceDuplicateTotalsMatch(left: unknown, right: unknown): boolean {
+  const leftTotal = sourceMoney(left);
+  const rightTotal = sourceMoney(right);
+  return leftTotal !== undefined && rightTotal !== undefined && Math.abs(leftTotal - rightTotal) <= 0.02;
+}
 
 /**
  * Checks whether an incoming source attachment / payload has already been processed into an Invoice.
@@ -74,7 +85,8 @@ export function evaluateInvoiceDuplicateEvidence(
   const sourceAttachment = invoice.sourceMetadata?.gmailAttachmentId || "";
   const sourceSha = invoice.sourceSha256 || invoice.sourceMetadata?.sourceSha256;
   const sourceDocId = invoice.sourceDocumentId || invoice.sourceMetadata?.sourceDocumentId;
-  const hasFinancialFingerprint = Boolean(vendor && invoice.invoiceDate && invoice.currency && Number(invoice.grandTotal) > 0);
+  const invoiceTotal = sourceMoney(invoice.grandTotal);
+  const hasFinancialFingerprint = Boolean(vendor && invoice.invoiceDate && invoice.currency && invoiceTotal !== undefined && invoiceTotal > 0);
 
   for (const candidate of existingInvoices) {
     if (invoice.id && candidate.id === invoice.id) continue;
@@ -109,7 +121,8 @@ export function evaluateInvoiceDuplicateEvidence(
     const sameVendor = Boolean(vendor && candidateVendor === vendor && (!taxId || !candidateTaxId || candidateTaxId === taxId));
     const sameNumber = Boolean(number && candidateNumber && candidateNumber === number);
     const sameCurrency = Boolean(invoice.currency && candidate.currency && (candidate.currency || "").toUpperCase() === (invoice.currency || "").toUpperCase());
-    const sameTotal = Math.abs((Number(candidate.grandTotal) || 0) - (Number(invoice.grandTotal) || 0)) <= 0.05;
+    const candidateTotal = sourceMoney(candidate.grandTotal);
+    const sameTotal = supplierInvoiceDuplicateTotalsMatch(candidateTotal, invoiceTotal);
     const sameDate = Boolean(invoice.invoiceDate && candidate.invoiceDate && candidate.invoiceDate === invoice.invoiceDate);
 
     if (sameNumber && sameVendor && sameCurrency && sameTotal) {
@@ -151,4 +164,3 @@ export function findPossibleDuplicate(
   }
   return null;
 }
-

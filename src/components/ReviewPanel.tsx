@@ -46,17 +46,22 @@ const comparisonFields: Array<{ path: string; label: string }> = [
   { path: "projectReference", label: "Project / reference" },
   { path: "vendor.name", label: "Vendor" },
   { path: "vendor.taxId", label: "Vendor TIN" },
-  { path: "customer.name", label: "Customer" },
-  { path: "customer.taxId", label: "Customer TIN" },
   { path: "subtotal", label: "Subtotal" },
+  { path: "totalDiscount", label: "Invoice discount" },
   { path: "totalTax", label: "Tax" },
+  { path: "shippingFee", label: "Shipping" },
+  { path: "otherFees", label: "Other fees" },
   { path: "grandTotal", label: "Grand total" },
+  { path: "amountPaid", label: "Amount paid" },
+  { path: "amountDue", label: "Source amount due" },
   { path: "balanceDue", label: "Balance due" },
   { path: "philippineTaxDetails.vatableSales", label: "VATable Sales" },
   { path: "philippineTaxDetails.vatAmount", label: "VAT Amount" },
   { path: "philippineTaxDetails.zeroRatedSales", label: "Zero-Rated Sales" },
   { path: "philippineTaxDetails.vatExemptSales", label: "VAT-Exempt Sales" },
   { path: "withholdingTaxAmount", label: "Withholding Tax" },
+  { path: "netAmountPayable", label: "Net payable" },
+  { path: "financialSemantics", label: "Monetary basis" },
   { path: "items", label: "Line items" },
 ];
 
@@ -71,7 +76,7 @@ function shortValue(value: unknown) {
 }
 
 function displayValue(path: string, value: unknown, currency: string) {
-  if (typeof value === "number" && (path.includes("Tax") || path.includes("Sales") || ["subtotal", "totalTax", "grandTotal", "balanceDue"].includes(path))) {
+  if (typeof value === "number" && (path.includes("Tax") || path.includes("Sales") || ["subtotal", "totalDiscount", "totalTax", "shippingFee", "otherFees", "grandTotal", "amountPaid", "amountDue", "balanceDue", "withholdingTaxAmount", "netAmountPayable"].includes(path))) {
     return currency ? formatMoney(value, currency) : "Currency unclear";
   }
   return shortValue(value);

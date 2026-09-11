@@ -32,6 +32,12 @@ export function documentPartyNameKey(value: unknown) {
     .trim();
 }
 
+/**
+ * Legacy document-profile comparison retained for older non-posting callers.
+ * The active Supplier Invoice workflow deliberately does not call this: a
+ * supplier invoice is for the deployment company and only the Vendor is an
+ * external posting identity.
+ */
 export function supplierInvoiceBuyerMismatch(invoice: Pick<InvoiceData, "customer">, profile: CompanyDocumentProfile) {
   const buyer = invoice.customer;
   const buyerName = buyer?.registeredName || buyer?.companyName || buyer?.name;

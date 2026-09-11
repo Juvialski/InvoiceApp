@@ -112,6 +112,35 @@ export interface PhilippineTaxDetails {
   vatInclusive?: boolean;
 }
 
+/**
+ * Monetary basis is source evidence, not a tax-policy decision. A supplier
+ * invoice may display line amounts and a subtotal on different bases (for
+ * example, VAT-inclusive line prices alongside a pre-tax VATable Sales
+ * subtotal), so each basis is retained explicitly.
+ */
+export type InvoiceAmountBasis = "PRE_TAX" | "TAX_INCLUSIVE" | "UNKNOWN";
+export type InvoiceTaxInclusion = "ADDED_TO_TOTAL" | "INCLUDED_IN_TOTAL" | "NOT_APPLICABLE" | "UNKNOWN";
+export type InvoicePayableBasis = "GROSS_INVOICE" | "NET_AFTER_WITHHOLDING" | "UNKNOWN";
+export type InvoiceMonetaryDetermination = "EXPLICIT" | "INFERRED" | "UNKNOWN";
+
+export interface InvoiceMonetarySemantics {
+  /** Basis of the source-displayed unit price, when it is independently stated. */
+  unitPriceBasis?: InvoiceAmountBasis;
+  /** Basis of the source-displayed line amount / selling price. */
+  lineTotalBasis: InvoiceAmountBasis;
+  /** Basis of the source-stated subtotal, when present. */
+  subtotalBasis: InvoiceAmountBasis;
+  /** Whether explicit tax is already included in the gross total. */
+  taxInclusion: InvoiceTaxInclusion;
+  /** True when the invoice-level discount is already included in subtotal. */
+  discountIncludedInSubtotal: boolean | null;
+  /** Supplier Expense/settlement remains gross unless explicitly overridden by the financial model. */
+  payableBasis: InvoicePayableBasis;
+  determination: InvoiceMonetaryDetermination;
+}
+
+export type InvoiceFinancialFieldStatus = "KNOWN" | "MANUAL" | "CALCULATED" | "UNKNOWN";
+
 export type CompletenessItemStatus = "COMPLETE" | "REVIEW" | "MISSING_INFORMATION" | "NOT_APPLICABLE";
 
 export interface PhilippineInvoiceCompletenessItem {
@@ -158,6 +187,7 @@ export interface FieldConfidence {
   subtotal?: number;
   vatAmount?: number;
   grandTotal?: number;
+  amountDue?: number;
 }
 
 export interface ExtractionAttemptSummary {
@@ -207,6 +237,7 @@ export interface ValidationSummary {
   status: "PASS" | "REVIEW";
   issues: ValidationIssue[];
   calculatedSubtotal?: number;
+  calculatedTax?: number;
   calculatedGrandTotal?: number;
   calculatedBalanceDue?: number;
   philippineVat?: {
@@ -216,6 +247,7 @@ export interface ValidationSummary {
     documentVat?: number;
     difference?: number;
   };
+  monetarySemantics?: InvoiceMonetarySemantics;
 }
 
 export interface InvoiceData {
@@ -253,7 +285,8 @@ export interface InvoiceData {
   status?: "PAID" | "PARTIALLY_PAID" | "UNPAID" | "OVERDUE" | "DRAFT" | "PENDING" | string;
 
   vendor: PartyDetails;
-  customer: PartyDetails;
+  /** Optional legacy/source evidence only; supplier posting is deployment-bound. */
+  customer?: PartyDetails;
   shippingAddress?: PartyDetails;
   items: LineItem[];
   purchasedMaterialIntake?: PurchasedMaterialIntake;
@@ -266,6 +299,8 @@ export interface InvoiceData {
   otherFees?: number | null;
   grandTotal: number | null;
   amountPaid?: number | null;
+  /** Source-stated amount due. It may be net of withholding and is not a replacement for grossTotal. */
+  amountDue?: number | null;
   balanceDue?: number | null;
   withholdingTaxRate?: number | null;
   withholdingTaxAmount?: number | null;
@@ -288,8 +323,10 @@ export interface InvoiceData {
   fieldConfidence?: FieldConfidence;
   extractionQuality?: ExtractionQuality;
   validation?: ValidationSummary;
-  /** Per-field source truth; UNKNOWN is never equivalent to numeric zero. */
-  financialFieldStatus?: Record<string, "KNOWN" | "CALCULATED" | "UNKNOWN">;
+  /** Per-field source truth; MANUAL and CALCULATED are distinct from source KNOWN, and UNKNOWN is never numeric zero. */
+  financialFieldStatus?: Record<string, InvoiceFinancialFieldStatus>;
+  /** Explicit/inferred source monetary basis used for all reconciliation. */
+  financialSemantics?: InvoiceMonetarySemantics;
   rawJson?: string;
   verifiedAt?: string;
   archivedAt?: string;
@@ -1311,9 +1348,9 @@ export interface LineItemComparison {
   invoiceLineId: string;
   invoiceLineIndex?: number;
   invoiceDescription: string;
-  invoiceQuantity: number;
-  invoiceUnitPrice: number;
-  invoiceAmount: number;
+  invoiceQuantity: number | null;
+  invoiceUnitPrice: number | null;
+  invoiceAmount: number | null;
   purchaseOrderLineId?: string;
   purchaseOrderDescription?: string;
   purchaseOrderOrderedQuantity?: number;

@@ -35,6 +35,7 @@ import { applyLocalEquipmentAssignment, applyLocalEquipmentReturn, applyLocalEqu
 import { calculateLineReceiptProgress } from "../utils/purchaseOrderReceipts.ts";
 import { supplierExpenseProjectProjection } from "../utils/supplierInvoiceCostOwnership.ts";
 import { invoiceCashPayableBasis } from "../lib/financialSettlement.ts";
+import { applyLocalChecks } from "../utils/invoiceLogic.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "documents", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -673,7 +674,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             reviewIndex={selectedInvoice ? reviewQueue.findIndex((invoice) => invoice.id === selectedInvoice.id) : -1}
             saveState="saved"
             workspaceOriginLabel="Demo Workspace"
-            onUpdateInvoice={(invoice) => dispatch({ type: "SAVE_INVOICE", value: invoice })}
+            onUpdateInvoice={(invoice) => dispatch({ type: "SAVE_INVOICE", value: applyLocalChecks(invoice) })}
             onInvoiceBack={() => onNavigate(demoPathForTab("invoices"))}
             onReviewSave={async () => true}
             onVerifyAndNext={verifySelected}

@@ -1,5 +1,4 @@
 import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ValidationIssue } from "../types.ts";
-import { DEFAULT_COMPANY_DOCUMENT_PROFILE, supplierInvoiceBuyerMismatch, type CompanyDocumentProfile } from "../lib/companyDocumentProfile.ts";
 import { convertFinancialAmountWithFallback, normalizeFinancialCurrency } from "./financialCurrency.ts";
 import { validateInvoiceProjectAllocationSet } from "./projectAllocations.ts";
 import { supplierInvoiceAllocationSummaries } from "./supplierInvoiceCostOwnership.ts";
@@ -15,8 +14,6 @@ export type SupplierInvoiceReadinessIssueCode =
   | "POSITIVE_TOTAL"
   | "EXPENSE_CATEGORY"
   | "EXPENSE_DESCRIPTION"
-  | "BUYER_MISMATCH"
-  | "BUYER_PROFILE_UNAVAILABLE"
   | "PROJECT_ALLOCATION";
 
 export interface SupplierInvoiceReadinessIssue {
@@ -109,8 +106,8 @@ export function getSupplierInvoiceExpenseReadiness(
   options: {
     allocations?: readonly InvoiceProjectAllocation[];
     projects?: readonly Project[];
-    /** null means the deployment buyer profile is not available yet. */
-    buyerProfile?: CompanyDocumentProfile | null;
+    /** Deprecated compatibility input. Supplier invoices are deployment-bound and ignore buyer identity. */
+    buyerProfile?: unknown;
   } = {},
 ): SupplierInvoiceExpenseReadiness {
   const issues: SupplierInvoiceReadinessIssue[] = [];
@@ -127,20 +124,6 @@ export function getSupplierInvoiceExpenseReadiness(
   if (!Number.isFinite(total) || total <= 0) add("POSITIVE_TOTAL", "grandTotal", "Confirm a positive, known invoice total before linking the Expense.");
   if (!text(invoice.category)) add("EXPENSE_CATEGORY", "category", "Confirm the Expense category before linking the Expense.");
   if (!text(invoice.description)) add("EXPENSE_DESCRIPTION", "description", "Confirm the Expense description before linking the Expense.");
-
-  const buyerProfile = options.buyerProfile === undefined ? DEFAULT_COMPANY_DOCUMENT_PROFILE : options.buyerProfile;
-  const buyerEvidence = [invoice.customer?.name, invoice.customer?.registeredName, invoice.customer?.companyName, invoice.customer?.taxId].some((value) => text(value));
-  if (buyerProfile === null || !text(buyerProfile.legalName)) {
-    // The authoritative DB posting RPC requires the deployment legal name even
-    // when the source document omits buyer fields. Keep UI readiness aligned
-    // with that fail-closed boundary instead of advertising READY_TO_LINK.
-    add("BUYER_PROFILE_UNAVAILABLE", "customer", "Complete the deployment company document profile before linking the Expense.");
-  } else if (buyerEvidence) {
-    const buyerIssue = supplierInvoiceBuyerMismatch(invoice, buyerProfile);
-    if (buyerIssue) {
-      add(buyerIssue.includes("profile is incomplete") ? "BUYER_PROFILE_UNAVAILABLE" : "BUYER_MISMATCH", "customer", buyerIssue);
-    }
-  }
 
   const scopedAllocations = invoiceAllocations(invoice, options.allocations);
   if (scopedAllocations !== undefined && scopedAllocations.length > 0) {
@@ -169,7 +152,8 @@ export function classifySupplierDocuments(
   expenses: readonly Expense[],
   projectAllocations?: readonly InvoiceProjectAllocation[],
   projects: readonly Project[] = [],
-  buyerProfile?: CompanyDocumentProfile | null,
+  /** Deprecated compatibility input; ignored because buyer identity is not a supplier posting variable. */
+  _legacyBuyerProfile?: unknown,
 ): SupplierDocumentWorkspaceRow[] {
   const linkedByInvoice = new Map<string, Expense>();
   for (const expense of expenses) {
@@ -193,7 +177,7 @@ export function classifySupplierDocuments(
             ? `${allocationSummaries[0].projectCode} · ${allocationSummaries[0].projectName}`
             : "Allocated to 1 project"
           : `Allocated across ${allocationSummaries.length} projects`;
-      const readiness = getSupplierInvoiceExpenseReadiness(invoice, { allocations: projectAllocations, projects, buyerProfile });
+      const readiness = getSupplierInvoiceExpenseReadiness(invoice, { allocations: projectAllocations, projects });
       return {
         invoice,
         linkedExpense,

@@ -35,6 +35,7 @@ import {
   validateMatchLineAssociations,
 } from "../../utils/purchaseOrderMatching.ts";
 import { calculatePOReceiptProgress } from "../../utils/purchaseOrderReceipts.ts";
+import { invoiceLinePreTaxComparisonAmount } from "../../utils/invoiceMonetarySemantics.ts";
 
 export interface PurchaseOrderMatchSectionProps {
   invoice: InvoiceData;
@@ -61,8 +62,19 @@ export interface PurchaseOrderMatchSectionProps {
 
 interface LineDraftState {
   purchaseOrderLineId: string;
-  matchedQuantity: number;
-  matchedAmount: number;
+  matchedQuantity?: number;
+  matchedAmount?: number;
+}
+
+function sourceNumber(value: unknown) {
+  return value !== undefined && value !== null && !(typeof value === "string" && !value.trim()) && Number.isFinite(Number(value))
+    ? Number(value)
+    : undefined;
+}
+
+function displaySourceMoney(value: unknown, currency: string | undefined) {
+  const numeric = sourceNumber(value);
+  return numeric === undefined ? "—" : formatMoney(numeric, currency);
 }
 
 export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps> = ({
@@ -164,8 +176,8 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
       const comparison = activeCandidate.lineComparisons.find((c) => c.invoiceLineId === invLineId);
 
       const preselectedPoLineId = comparison?.purchaseOrderLineId || "";
-      const itemQty = Math.max(0, Number(item.quantity) || 0);
-      const itemAmt = Math.max(0, Number(item.total) || itemQty * (Number(item.unitPrice) || 0));
+      const itemQty = Number.isFinite(Number(item.quantity)) ? Math.max(0, Number(item.quantity)) : undefined;
+      const itemAmt = Number.isFinite(Number(item.total)) ? Math.max(0, Number(item.total)) : undefined;
 
       initialDrafts[invLineId] = {
         purchaseOrderLineId: preselectedPoLineId,
@@ -342,7 +354,7 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                 <div>
                   PO Total:{" "}
                   <strong className="font-mono text-slate-900">
-                    {formatMoney(matchedPo.totalAmount, matchedPo.currency)}
+                    {displaySourceMoney(matchedPo.totalAmount, matchedPo.currency)}
                   </strong>
                 </div>
                 <div>
@@ -476,19 +488,24 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                     const poLine = (matchedPo.lines || []).find((l) => l.id === mLine.purchaseOrderLineId);
                     const lineProg = poLine && poReceiptProgress?.lines[poLine.id];
 
-                    const invQty = Number(invItem?.quantity) || 0;
-                    const invAmt = Number(invItem?.total) || invQty * (Number(invItem?.unitPrice) || 0);
-                    const poQty = Number(poLine?.quantity) || 0;
+                    const invQtyValue = sourceNumber(invItem?.quantity);
+                    const invQty = invQtyValue === undefined ? undefined : Math.max(0, invQtyValue);
+                    const invAmtValue = sourceNumber(invItem?.total);
+                    const invAmt = invAmtValue === undefined ? undefined : Math.max(0, invAmtValue);
+                    const poQtyValue = sourceNumber(poLine?.quantity);
+                    const poQty = poQtyValue === undefined ? undefined : Math.max(0, poQtyValue);
+                    const poAmountValue = sourceNumber(poLine?.amount);
+                    const comparableLineAmount = invItem ? invoiceLinePreTaxComparisonAmount(invoice, invItem) : undefined;
                     const recQty = lineProg?.receivedQuantity ?? 0;
 
                     const lineWarnings: string[] = [];
-                    if (recQty > 0 && invQty > recQty) {
+                    if (invQty !== undefined && recQty > 0 && invQty > recQty) {
                       lineWarnings.push("Invoice quantity exceeds recorded receipts");
                     }
-                    if (poQty > 0 && invQty > poQty) {
+                    if (invQty !== undefined && poQtyValue !== undefined && invQty > poQty) {
                       lineWarnings.push("Invoice quantity exceeds PO ordered quantity");
                     }
-                    if (poLine && invAmt > (Number(poLine.amount) || 0)) {
+                    if (poLine && comparableLineAmount !== undefined && poAmountValue !== undefined && comparableLineAmount > poAmountValue + 0.02) {
                       lineWarnings.push("Invoice line amount exceeds PO line amount");
                     }
 
@@ -504,11 +521,11 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                         </td>
 
                         <td className="px-3 py-2.5 text-right font-mono tabular-nums font-semibold text-slate-700">
-                          {invQty} {invItem?.unitOfMeasure || ""}
+                          {invQty === undefined ? "—" : `${invQty} ${invItem?.unitOfMeasure || ""}`}
                         </td>
 
                         <td className="px-3 py-2.5 text-right font-mono tabular-nums font-bold text-slate-900">
-                          {formatMoney(invAmt, invoice.currency)}
+                          {displaySourceMoney(invAmt, invoice.currency)}
                         </td>
 
                         <td className="px-3 py-2.5 max-w-[200px]">
@@ -527,7 +544,7 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                         </td>
 
                         <td className="px-3 py-2.5 text-right font-mono tabular-nums text-slate-600">
-                          {poLine ? `${poQty} ${poLine.unit}` : "-"}
+                          {poLine ? poQty === undefined ? "—" : `${poQty} ${poLine.unit}` : "-"}
                         </td>
 
                         <td className="px-3 py-2.5 text-right font-mono tabular-nums font-semibold text-emerald-700">
@@ -680,7 +697,7 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                           </div>
 
                           <div className="text-[11px] font-mono font-semibold text-slate-800">
-                            {formatMoney(cand.purchaseOrder.totalAmount, cand.purchaseOrder.currency)}
+                            {displaySourceMoney(cand.purchaseOrder.totalAmount, cand.purchaseOrder.currency)}
                           </div>
                         </div>
 
@@ -784,8 +801,8 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                             const invLineId = item.id || `inv-line-${idx + 1}`;
                             const draft = lineDrafts[invLineId] || {
                               purchaseOrderLineId: "",
-                              matchedQuantity: Number(item.quantity) || 0,
-                              matchedAmount: Number(item.total) || 0,
+                              matchedQuantity: Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : undefined,
+                              matchedAmount: Number.isFinite(Number(item.total)) ? Number(item.total) : undefined,
                             };
 
                             const selectedPoLine = (activeCandidate.purchaseOrder.lines || []).find(
@@ -799,12 +816,12 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                                     {item.description || `Line #${idx + 1}`}
                                   </div>
                                   <div className="text-[10px] text-slate-500">
-                                    Qty: {item.quantity} {item.unitOfMeasure || ""} • Unit: {formatMoney(item.unitPrice, invoice.currency)}
+                                    Qty: {sourceNumber(item.quantity) === undefined ? "—" : sourceNumber(item.quantity)} {item.unitOfMeasure || ""} • Unit: {displaySourceMoney(item.unitPrice, invoice.currency)}
                                   </div>
                                 </td>
 
                                 <td className="px-3 py-2.5 text-right font-mono tabular-nums font-bold text-slate-800">
-                                  {formatMoney(item.total, invoice.currency)}
+                                  {displaySourceMoney(item.total, invoice.currency)}
                                 </td>
 
                                 <td className="px-3 py-2.5 min-w-[220px]">
@@ -819,8 +836,8 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                                         [invLineId]: {
                                           ...draft,
                                           purchaseOrderLineId: nextPoLineId,
-                                          matchedQuantity: targetPoLine ? Number(item.quantity) || 0 : 0,
-                                          matchedAmount: targetPoLine ? Number(item.total) || 0 : 0,
+                                          matchedQuantity: targetPoLine && Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : undefined,
+                                          matchedAmount: targetPoLine && Number.isFinite(Number(item.total)) ? Number(item.total) : undefined,
                                         },
                                       }));
                                     }}
@@ -829,7 +846,7 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                                     <option value="">-- Do not match this line --</option>
                                     {(activeCandidate.purchaseOrder.lines || []).map((pol) => (
                                       <option key={pol.id} value={pol.id}>
-                                        #{pol.lineNumber}: {pol.description} ({pol.quantity} {pol.unit} • {formatMoney(pol.amount, activeCandidate.purchaseOrder.currency)})
+                                        #{pol.lineNumber}: {pol.description} ({sourceNumber(pol.quantity) === undefined ? "—" : pol.quantity} {pol.unit} • {displaySourceMoney(pol.amount, activeCandidate.purchaseOrder.currency)})
                                       </option>
                                     ))}
                                   </select>
@@ -841,9 +858,9 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                                     min="0"
                                     step="any"
                                     disabled={!draft.purchaseOrderLineId}
-                                    value={draft.matchedQuantity}
+                                    value={draft.matchedQuantity ?? ""}
                                     onChange={(e) => {
-                                      const val = parseFloat(e.target.value) || 0;
+                                      const val = e.target.value === "" ? undefined : parseFloat(e.target.value);
                                       setLineDrafts((current) => ({
                                         ...current,
                                         [invLineId]: {
@@ -862,9 +879,9 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                                     min="0"
                                     step="0.01"
                                     disabled={!draft.purchaseOrderLineId}
-                                    value={draft.matchedAmount}
+                                    value={draft.matchedAmount ?? ""}
                                     onChange={(e) => {
-                                      const val = parseFloat(e.target.value) || 0;
+                                      const val = e.target.value === "" ? undefined : parseFloat(e.target.value);
                                       setLineDrafts((current) => ({
                                         ...current,
                                         [invLineId]: {

@@ -1,8 +1,8 @@
 # HydroQualiSense Local QA, UI/UX, and PDF Quality Plan
 
-Status: **ACTIVE — PHASE 1 COMPLETE / PHASE 2 PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / PHASE 3 NEXT**
+Status: **ACTIVE — PHASE 1 COMPLETE / PHASE 2 PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / PHASE 3 IN PROGRESS — SUPPLIER INVOICE SLICE COMPLETE**
 Repository: `Juvialski/InvoiceApp`  
-Last corrected: **2026-09-11**
+Last corrected: **2026-09-12**
 
 This document is the authoritative staged quality plan for the local-QA, UI/UX, PDF/export, functional-regression, and hosted-QA work that must be completed before the project moves on to provider completion and later Worker Registration.
 
@@ -136,6 +136,14 @@ Programmatic PDF fallback, company-template DOCX, and finalized company-template
 ## Phase 3 — Functional regression sweep using the local-QA loop
 
 After the visual remediation phase, perform a focused end-to-end functional sweep across the workflows affected or touched during the UI/PDF audit.
+
+The Supplier Invoice systemic correctness slice is complete on the current
+implementation branch. It centralizes source monetary-basis reconciliation,
+keeps VAT-inclusive and VAT-exclusive arithmetic distinct, preserves unknown
+values and source line totals, removes buyer identity from supplier posting
+readiness, and retains the Vendor -> guarded verification -> one authoritative
+Expense and correction/history boundaries. The focused evidence does not close
+the broader regression sweep or hosted exact-SHA certification.
 
 Examples include:
 

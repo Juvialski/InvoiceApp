@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — LOCAL-QA UI/UX REDO COMPLETE / PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / FUNCTIONAL REGRESSION NEXT / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
-Date: **2026-09-11**  
+Status: **CURRENT — LOCAL-QA UI/UX REDO COMPLETE / PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / SUPPLIER INVOICE CORRECTNESS SLICE COMPLETE / BROADER FUNCTIONAL REGRESSION IN PROGRESS / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
+Date: **2026-09-12**
 Repository: `Juvialski/InvoiceApp`
 
 ## Current application / QA-hardening baseline
@@ -35,6 +35,7 @@ Read with:
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md`;
+- `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md`;
 - `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`;
 - deployment/migration runbooks only when release/DB/provider work actually requires them.
 
@@ -113,6 +114,56 @@ Settings now provides an editable per-user document identity. New issued documen
 The overall Local-QA command remains fail-closed because the QA account does not expose `New RFQ` for the three Procurement viewport scenarios. That is a separate coverage blocker and must not be described as PDF failure or overall QA certification.
 
 This result does not certify company-template DOCX or finalized company-template PDF output. The supported high-fidelity converter remains truthfully unavailable where it is not operational.
+
+## Phase 3 result — Supplier Invoice systemic correctness slice
+
+The Supplier Invoice correctness investigation is complete on the current
+implementation branch, while the broader functional regression sweep and
+hosted exact-SHA certification remain open.
+
+The implementation now uses one shared monetary reconciliation contract for
+direct upload, Gmail/email intake, review, exports, and PO comparison:
+
+- source-displayed line amounts are preserved rather than replaced by a
+  quantity x unit-price assumption;
+- unit-price, line-total, and subtotal bases are explicit or remain UNKNOWN;
+- VAT-exclusive, VAT-inclusive, zero-tax, invoice-level/line-level discount,
+  centavo rounding, explicit tax without a rate, amount-due, and withholding
+  evidence are reconciled without adding VAT twice;
+- known incompatible values remain warnings, while missing or ambiguous
+  components are bounded informational advisories;
+- `grandTotal` remains the gross source amount carried into the single linked
+  authoritative Expense, and withholding/net payable remains separate; and
+- manual edits preserve source evidence and visibly distinguish source,
+  calculated, manually corrected, and unresolved values.
+
+Buyer/customer identity is no longer a Supplier Invoice readiness or posting
+requirement. It remains optional legacy/source evidence only. Vendor resolution,
+company isolation, permission checks, the guarded verification RPC, the active
+Expense link, correction boundary, and immutable history remain in force.
+
+The slice includes the forward buyer-gate migration
+`20260911141452_supplier_invoice_buyer_simplification.sql`, focused monetary
+regression coverage, updated review/PO/export surfaces, and the documented
+model in `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md`.
+
+Validation evidence for this slice:
+
+- focused unit/domain tests and the affected-test selector passed;
+- clean local migration replay, 1,476 pgTAP assertions, migration static
+  checks, and both upgrade-path fixtures passed;
+- the local database query confirmed the guarded verification function remains
+  SECURITY DEFINER, executable by `authenticated`, company-projection aware,
+  and free of buyer-gate enforcement;
+- authenticated local-QA route/session checks passed, and targeted demo
+  browser checks showed a VAT-inclusive basis with no false subtotal or
+  grand-total mismatch plus a genuine mismatch warning after an explicit
+  source inconsistency; and
+- the general Local-QA harness still reports its known unrelated `New RFQ`
+  coverage blocker, so it is not release certification.
+
+This is pre-merge evidence. It does not certify the merged head, hosted QA,
+provider state, or production, and production remains read-only.
 
 ## Then — Functional regression sweep
 
@@ -210,7 +261,7 @@ A green PR, merge, Render deployment, local-QA success, hosted-QA success, or do
 
 1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE in PR #150**
 2. **Deep PDF/export visual certification — COMPLETE for programmatic fallback**
-3. **Functional regression sweep**
+3. **Functional regression sweep — Supplier Invoice systemic correctness slice complete; broader workflow sweep remains**
 4. **Hosted exact-SHA QA certification**
 5. **Wave 4D messaging-provider selection/integration**
 6. **Wave 4D remaining readiness/completion evidence**
@@ -241,4 +292,8 @@ For the next Codex phase:
 
 ## Stop boundary
 
-Do not allow the next PDF/export quality phase to expand into SMS provider implementation, Worker Registration, Site Attendance, Face Recognition, broad CRM redesign, marketing/bulk messaging, new accounting semantics, or unrelated scope creep.
+Do not allow this Supplier Invoice correctness phase to expand into SMS provider
+implementation, Worker Registration, Site Attendance, Face Recognition, broad
+CRM redesign, marketing/bulk messaging, or unrelated scope creep. The next
+release/readiness step remains the broader regression completion followed by
+hosted exact-SHA QA certification.
