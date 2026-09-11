@@ -55,6 +55,7 @@ import {
   type ProjectSortField,
 } from "../../utils/projectManagementViewModel.ts";
 import type { ProjectFinancialMetric } from "../../utils/projectFinancialSummary.ts";
+import { createProjectDraft } from "../../utils/projectDraft.ts";
 
 const PROJECT_STATUSES: readonly ProjectStatus[] = [
   "PLANNING",
@@ -90,27 +91,7 @@ interface ProjectsPageProps {
 }
 
 function blankProject(): Project {
-  return {
-    id: "",
-    projectCode: "",
-    projectName: "",
-    clientName: "",
-    billingContactName: "",
-    billingEmail: "",
-    billingAddress: "",
-    location: "",
-    siteAddress: "",
-    projectManager: "",
-    status: "ACTIVE",
-    contractValue: 0,
-    projectBudget: 0,
-    currency: "PHP",
-    taxTreatment: undefined,
-    description: "",
-    notes: "",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  return createProjectDraft();
 }
 
 function money(value: number | null | undefined, currency: string) {

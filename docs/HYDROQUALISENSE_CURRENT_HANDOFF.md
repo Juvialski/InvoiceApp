@@ -162,6 +162,29 @@ Site Attendance and Face-Recognition Attendance remain later phases in that orde
 
 `QA CERTIFICATION: NOT READY`
 
+### Full live QA company simulation — 2026-09-11
+
+The current hosted QA app was tested at exact SHA
+`36c0736a6f3d8703b1c6d0ab47519123a79a1acb` with QA migration level
+`20260910131014` and deployment identity `qa-hydroqualisense`. Synthetic run
+`QA-E2E-7F4K` was created in the isolated QA company; production remained
+strictly read-only.
+
+The run exercised the cross-module project, procurement/RFQ/PO, warehouse,
+equipment, engineering-document revision, client billing/collection/cash
+linkage, manual Expense, worker setup, Documents, Reports, Dashboard, and
+Email/SMS review surfaces. QA is **NOT READY** because Gmail authorization is
+expired, SMS is not configured, high-fidelity PDF finalization is unavailable,
+template starter creation and AI blueprint generation are blocked safely, and
+the live app exposed project-create, RFQ quotation-payload, mixed-unit receipt,
+and payroll-run calculation defects. The hosted Documents failure was a stale
+case-sensitive test contract, not missing live wording. Fixes and regression
+coverage are prepared in the current unmerged change and require a new exact
+QA deployment before certification claims can change.
+
+Keep the synthetic records and evidence for audit/retest; do not bypass
+financial, document, lifecycle, or provider guards to clean them up.
+
 QA certification remains separate and parallel. Prior hosted QA evidence belongs only to the exact application-bearing SHA it certified and does not certify the newer Wave 1A-4C application changes.
 
 The normal release sequence for current application/migration-bearing work remains:

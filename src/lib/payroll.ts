@@ -811,7 +811,49 @@ export async function savePayrollRunToSupabase(run: PayrollRun) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before creating payroll runs.");
   const companyId = requireActiveCompanyId();
-  const { data, error } = await supabase.from("payroll_runs").upsert({ id: persistedId(run.id, "run"), user_id: userId, company_id: companyId, period_id: run.periodId, import_batch_id: run.importBatchId || null, status: run.status, calculated_at: run.calculatedAt || null, calculated_source_revision: run.calculatedSourceRevision ?? null, source_fingerprint: run.sourceFingerprint || null, approved_at: run.approvedAt || null, paid_at: run.paidAt || null, notes: run.notes || null }).select("*").single();
+  const runId = persistedId(run.id, "run");
+  const row = {
+    id: runId,
+    user_id: userId,
+    company_id: companyId,
+    period_id: run.periodId,
+    import_batch_id: run.importBatchId || null,
+    status: run.status,
+    calculated_at: run.calculatedAt || null,
+    calculated_source_revision: run.calculatedSourceRevision ?? null,
+    source_fingerprint: run.sourceFingerprint || null,
+    approved_at: run.approvedAt || null,
+    paid_at: run.paidAt || null,
+    notes: run.notes || null,
+  };
+
+  // A status transition must update the existing authoritative row. An
+  // upsert can fall through to INSERT when the row is hidden from the
+  // conflict check, which then trips the database's "new runs start in
+  // DRAFT" guard while calculating an existing DRAFT run.
+  const { data: existing, error: existingError } = await supabase
+    .from("payroll_runs")
+    .select("id")
+    .eq("id", runId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  if (existing) {
+    const { id: _id, ...updateRow } = row;
+    const { data, error } = await supabase
+      .from("payroll_runs")
+      .update(updateRow)
+      .eq("id", runId)
+      .eq("company_id", companyId)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return runFromRow(data as Record<string, unknown>);
+  }
+
+  if (run.status !== "DRAFT") throw new Error("A new payroll run must start in DRAFT status.");
+  const { data, error } = await supabase.from("payroll_runs").insert(row).select("*").single();
   if (error) throw error;
   return runFromRow(data as Record<string, unknown>);
 }

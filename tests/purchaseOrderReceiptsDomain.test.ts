@@ -4,6 +4,7 @@ import type { PurchaseOrder, PurchaseOrderReceipt } from "../src/types.ts";
 import {
   calculateLineReceiptProgress,
   calculatePOReceiptProgress,
+  hasOutstandingReceiptQuantity,
   getReceiptsForPO,
   validateReceiptLineInput,
 } from "../src/utils/purchaseOrderReceipts.ts";
@@ -123,6 +124,7 @@ test("calculatePOReceiptProgress: never adds unlike units and uses average line 
   assert.equal(empty.totalOrderedQuantity, 0);
   assert.equal(empty.totalReceivedQuantity, 0);
   assert.equal(empty.totalRemainingQuantity, 0);
+  assert.equal(hasOutstandingReceiptQuantity(empty), true);
   assert.equal(empty.overallProgressPercent, 0);
   assert.equal(empty.deliveryStatus, "NOT_RECEIVED");
 
@@ -136,6 +138,7 @@ test("calculatePOReceiptProgress: never adds unlike units and uses average line 
   assert.equal(partial.totalOrderedQuantity, 0);
   assert.equal(partial.totalReceivedQuantity, 0);
   assert.equal(partial.totalRemainingQuantity, 0);
+  assert.equal(hasOutstandingReceiptQuantity(partial), true);
   assert.equal(partial.overallProgressPercent, 60);
   assert.equal(partial.deliveryStatus, "PARTIALLY_RECEIVED");
 
@@ -144,6 +147,7 @@ test("calculatePOReceiptProgress: never adds unlike units and uses average line 
     { purchaseOrderLineId: "line-2", receivedQuantity: 5 },
   ])]);
   assert.equal(complete.quantitiesComparable, false);
+  assert.equal(hasOutstandingReceiptQuantity(complete), false);
   assert.equal(complete.overallProgressPercent, 100);
   assert.equal(complete.deliveryStatus, "FULLY_RECEIVED");
 });
