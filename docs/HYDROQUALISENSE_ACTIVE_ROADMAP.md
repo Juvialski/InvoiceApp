@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HOSTED EXACT-SHA QA CERTIFICATION COMPLETE / COMPANY DOCX CONVERTER RUNTIME CERTIFICATION BLOCKED / WAVE 4D MESSAGING-PROVIDER WORK NEXT / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — HOSTED EXACT-SHA QA CERTIFICATION COMPLETE / COMPANY DOCX CONVERTER RUNTIME CERTIFICATION BLOCKED / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-12**
 
@@ -95,9 +95,10 @@ The next work must follow this order unless the user explicitly reprioritizes it
    - QA currently displays Gmail authorization as expired/revoked and no SMS provider configured. No uncontrolled email or SMS was sent. SMS remains truthfully unavailable until provider-backed QA exists;
    - company-template PDF conversion remains `UNAVAILABLE` on the native runtime when the supported converter is absent. Server-authority safe-link template upload and subcontract settlement retain their previously documented environment/fixture limitations.
 
-5. **Wave 4D messaging-provider selection/integration — NEXT**
-   - only after the quality/certification sequence above is complete;
-   - real SMS remains `Not configured` until an approved provider is selected, configured with server-side credentials, and runtime-tested in QA.
+5. **Wave 4D messaging-provider selection/integration — IN PROGRESS**
+   - the approved paths are Company SIM Gateway (primary/recommended) and PhilSMS (optional hosted fallback);
+   - both paths use the shared server-side adapter and durable delivery intent/audit contract;
+   - real SMS remains `Not configured` or `Configured / awaiting verification` until a provider/device check succeeds, and remains unavailable for roadmap completion until controlled runtime QA is performed.
 
 6. **Wave 4D completion/readiness evidence**
    - close remaining provider/AI/recovery/readiness evidence and synchronize client-facing product truth.
@@ -123,9 +124,9 @@ The current implementation provides:
 - company document-template administration through the existing Settings/template flow;
 - Assistant-assisted drafting with human review/confirmation boundaries.
 
-Wave 4D remains incomplete because no outbound SMS provider is currently approved/configured/runtime-tested. The authoritative completion criteria remain in `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
+Wave 4D remains incomplete because the approved SMS paths are not yet configured and provider-backed runtime-tested in QA. The authoritative completion criteria remain in `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
-Provider selection/integration is now the next implementation phase. Worker Registration remains paused.
+Provider selection/integration is the active implementation phase. The two approved choices are Company SIM Gateway (primary/recommended) and PhilSMS (optional hosted fallback). Worker Registration remains paused.
 
 ## Local-QA development boundary
 

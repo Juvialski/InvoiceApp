@@ -79,6 +79,51 @@ test("unknown or incomplete delivery states remain locked from blind resend", ()
   assert.match(history[0]?.safeMessage || "", /reconciliation/i);
 });
 
+test("SMS history maps provider lifecycle states without treating an accepted queue as delivered", () => {
+  const history = mapDocumentDeliveryHistory([
+    {
+      id: "sms-accepted",
+      delivery_channel: "SMS",
+      delivery_kind: "GENERAL_SMS",
+      document_type: "GENERAL_SMS",
+      sender_user_id: "user-1",
+      recipients: ["+639171234567"],
+      cc: [],
+      subject: "SMS",
+      destination: "+639171234567",
+      provider_id: "PHILSMS",
+      provider_message_id: "ph-1",
+      provider_status: "queued",
+      message_body_sha256: HASH,
+      status: "ACCEPTED",
+      attempt_count: 1,
+      updated_at: "2026-09-10T10:00:00Z",
+    },
+    {
+      id: "sms-unknown",
+      delivery_channel: "SMS",
+      delivery_kind: "GENERAL_SMS",
+      document_type: "GENERAL_SMS",
+      sender_user_id: "user-1",
+      recipients: ["+639171234567"],
+      cc: [],
+      subject: "SMS",
+      destination: "+639171234567",
+      provider_id: "PHILSMS",
+      message_body_sha256: HASH,
+      status: "UNKNOWN",
+      attempt_count: 1,
+      updated_at: "2026-09-10T09:00:00Z",
+    },
+  ], [], "user-1");
+  assert.equal(history[0]?.channel, "SMS");
+  assert.equal(history[0]?.status, "ACCEPTED");
+  assert.equal(history[0]?.reconciliationRequired, false);
+  assert.equal(history[0]?.providerMessageId, "ph-1");
+  assert.equal(history[1]?.status, "UNKNOWN");
+  assert.equal(history[1]?.reconciliationRequired, true);
+});
+
 test("pre-intent immutable audit rows remain visible as legacy delivery history", () => {
   const history = mapDocumentDeliveryHistory([], [
     {

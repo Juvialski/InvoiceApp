@@ -3,19 +3,18 @@ import { requireActiveCompanyId } from "./companyContext.ts";
 import type { FinancialDocumentSnapshot } from "./documentGeneration.ts";
 
 /**
- * Provider-neutral document delivery vocabulary. Gmail is the only configured
- * channel in this phase; future channels must use the same attempt/history
- * contract instead of creating a parallel document sender.
+ * Provider-neutral delivery vocabulary. Gmail and the approved SMS paths use
+ * the same attempt/history contract instead of creating parallel senders.
  */
 export type DocumentDeliveryChannel = "GMAIL" | "SMS";
-export type DocumentDeliveryStatus = "PENDING" | "SENT" | "FAILED" | "UNKNOWN";
+export type DocumentDeliveryStatus = "PENDING" | "ACCEPTED" | "SENT" | "DELIVERED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 export type DocumentDeliveryAttachmentSource =
   | "COMPANY_TEMPLATE_PDF"
   | "PROGRAMMATIC_PDF_FALLBACK"
   | "LEGACY_PDF"
   | "NONE";
 
-export type DocumentDeliveryKind = "ISSUED_DOCUMENT" | "GENERAL_EMAIL";
+export type DocumentDeliveryKind = "ISSUED_DOCUMENT" | "GENERAL_EMAIL" | "GENERAL_SMS";
 
 export interface DocumentDeliveryHistoryEntry {
   readonly id: string;
@@ -39,6 +38,9 @@ export interface DocumentDeliveryHistoryEntry {
   readonly reconciliationRequired: boolean;
   readonly resendAllowed: boolean;
   readonly attemptCount: number;
+  readonly providerId?: string;
+  readonly providerMessageId?: string;
+  readonly providerStatus?: string;
 }
 
 export function documentDeliveryAttachmentLabel(source: DocumentDeliveryAttachmentSource): string {
@@ -64,20 +66,23 @@ function safeHistoryEntry(value: unknown): DocumentDeliveryHistoryEntry | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
   const status = String(row.status || "UNKNOWN").toUpperCase();
-  if (!(status === "PENDING" || status === "SENT" || status === "FAILED" || status === "UNKNOWN")) return null;
+  if (!(status === "PENDING" || status === "ACCEPTED" || status === "SENT" || status === "DELIVERED" || status === "FAILED" || status === "CANCELLED" || status === "UNKNOWN")) return null;
   const source = String(row.attachmentSource || "LEGACY_PDF").toUpperCase();
   const attachmentSource: DocumentDeliveryAttachmentSource = source === "COMPANY_TEMPLATE_PDF"
     ? "COMPANY_TEMPLATE_PDF"
     : source === "PROGRAMMATIC_PDF_FALLBACK" ? "PROGRAMMATIC_PDF_FALLBACK" : source === "NONE" ? "NONE" : "LEGACY_PDF";
-  const deliveryKind: DocumentDeliveryKind = String(row.deliveryKind || "ISSUED_DOCUMENT").toUpperCase() === "GENERAL_EMAIL" ? "GENERAL_EMAIL" : "ISSUED_DOCUMENT";
+  const deliveryKindValue = String(row.deliveryKind || "ISSUED_DOCUMENT").toUpperCase();
+  const deliveryKind: DocumentDeliveryKind = deliveryKindValue === "GENERAL_EMAIL" ? "GENERAL_EMAIL" : deliveryKindValue === "GENERAL_SMS" ? "GENERAL_SMS" : "ISSUED_DOCUMENT";
+  const channel = deliveryKind === "GENERAL_SMS" || String(row.channel || "").toUpperCase() === "SMS" ? "SMS" : "GMAIL";
   const documentType = String(row.documentType || "").toUpperCase();
   const documentId = String(row.documentId || "").trim();
   const attachmentSize = Number(row.attachmentSize);
   const attemptCount = Number(row.attemptCount);
-  const reconciliationRequired = row.reconciliationRequired === true || status === "UNKNOWN" || status === "PENDING";
+  const providerMessageId = typeof row.providerMessageId === "string" ? row.providerMessageId.trim().slice(0, 200) : "";
+  const reconciliationRequired = row.reconciliationRequired === true || status === "UNKNOWN" || status === "PENDING" || (deliveryKind === "GENERAL_SMS" && status === "ACCEPTED" && !providerMessageId);
   return {
     id: String(row.id || ""),
-    channel: "GMAIL",
+    channel,
     recipients: safeHistoryArray(row.recipients),
     cc: safeHistoryArray(row.cc),
     subject: String(row.subject || "").slice(0, 500),
@@ -97,6 +102,9 @@ function safeHistoryEntry(value: unknown): DocumentDeliveryHistoryEntry | null {
     reconciliationRequired,
     resendAllowed: row.resendAllowed === true && !reconciliationRequired && (status === "SENT" || status === "FAILED"),
     attemptCount: Number.isFinite(attemptCount) && attemptCount > 0 ? Math.trunc(attemptCount) : 1,
+    ...(typeof row.providerId === "string" && row.providerId.trim() ? { providerId: row.providerId.trim().slice(0, 80) } : {}),
+    ...(providerMessageId ? { providerMessageId } : {}),
+    ...(typeof row.providerStatus === "string" && row.providerStatus.trim() ? { providerStatus: row.providerStatus.trim().slice(0, 80) } : {}),
   };
 }
 

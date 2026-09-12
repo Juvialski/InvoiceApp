@@ -294,11 +294,32 @@ const verifyDocumentsToEmailHandoff: QaScenarioAction = async (page) => {
 };
 
 const verifySmsNotConfigured: QaScenarioAction = async (page) => {
-  await waitForHeading(page, "SMS provider status");
+  await waitForHeading(page, "SMS setup");
   const status = await page.locator('[data-sms-provider-status="NOT_CONFIGURED"]').count();
   const notConfigured = await page.locator("text=SMS · Not configured").count();
   return [
     { id: "sms-not-configured-visible", passed: status === 1 && notConfigured === 1, details: `SMS not-configured panels/text: ${status}/${notConfigured}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifySmsComposeWorkspace: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "New SMS");
+  const compose = await page.locator('[data-sms-compose]').count();
+  const recipient = await page.locator('[data-sms-compose] input[type="tel"]').count();
+  const message = await page.locator('[data-sms-compose] textarea').count();
+  const review = await page.getByRole("button", { name: "Preview / Review", exact: true }).count();
+  if (recipient === 1 && message === 1) {
+    await page.locator('[data-sms-compose] input[type="tel"]').fill("09171234567");
+    await page.locator('[data-sms-compose] textarea').fill("Synthetic SMS draft prepared for review only.");
+    if (review === 1) await page.getByRole("button", { name: "Preview / Review", exact: true }).click();
+  }
+  const reviewSurface = await page.locator('[data-sms-compose-review="true"]').count();
+  const confirm = await page.getByRole("button", { name: "Confirm & Send SMS", exact: true }).count();
+  return [
+    { id: "sms-compose-visible", passed: compose === 1, details: `SMS compose panels: ${compose}` },
+    { id: "sms-compose-fields-visible", passed: recipient === 1 && message === 1, details: `recipient/message fields: ${recipient}/${message}` },
+    { id: "sms-compose-review-visible", passed: reviewSurface === 1, details: `SMS review surfaces: ${reviewSurface}` },
+    { id: "sms-compose-confirm-visible", passed: confirm === 1, details: `SMS confirm controls: ${confirm}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -529,6 +550,8 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms", interactionState: "Email / SMS workspace rendered with disconnected Gmail", viewport: QA_VIEWPORTS.mobile, action: verifyEmailSmsWorkspace }),
   defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "Email compose review surface rendered", viewport: QA_VIEWPORTS.desktop, action: verifyEmailComposeWorkspace }),
   defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "Email compose review surface rendered", viewport: QA_VIEWPORTS.mobile, action: verifyEmailComposeWorkspace }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose&channel=sms", interactionState: "SMS compose review surface rendered", viewport: QA_VIEWPORTS.desktop, action: verifySmsComposeWorkspace }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose&channel=sms", interactionState: "SMS compose review surface rendered", viewport: QA_VIEWPORTS.mobile, action: verifySmsComposeWorkspace }),
   defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=sent", interactionState: "sent delivery history surface rendered", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=sms", interactionState: "SMS not-configured surface rendered", viewport: QA_VIEWPORTS.desktop, action: verifySmsNotConfigured }),
   defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=sms", interactionState: "SMS not-configured surface rendered", viewport: QA_VIEWPORTS.mobile, action: verifySmsNotConfigured }),

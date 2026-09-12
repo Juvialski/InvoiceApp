@@ -20,6 +20,7 @@ interface EmailComposePanelProps {
   readonly canSend: boolean;
   readonly onConnectGmail?: () => Promise<void> | void;
   readonly onOpenDocuments: () => void;
+  readonly onOpenSmsCompose?: () => void;
   readonly onNavigatePath?: (path: string, replace?: boolean) => void;
   readonly returnPath?: string;
   readonly buildSnapshot: (entry: DocumentRegisterEntry) => FinancialDocumentSnapshot;
@@ -46,6 +47,7 @@ export function EmailComposePanel({
   canSend,
   onConnectGmail,
   onOpenDocuments,
+  onOpenSmsCompose,
   onNavigatePath,
   returnPath,
   buildSnapshot,
@@ -182,7 +184,7 @@ export function EmailComposePanel({
             <p className="mt-1 max-w-2xl text-xs leading-5 text-indigo-950">Prepare an ordinary email or attach one eligible issued document. Sending always uses the shared Gmail delivery intent and immutable history.</p>
           </div>
         </div>
-        <button type="button" onClick={onOpenDocuments} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 hover:bg-indigo-50"><FileText className="h-3.5 w-3.5" />Browse Documents</button>
+        <div className="flex flex-wrap gap-2"><button type="button" onClick={onOpenDocuments} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 hover:bg-indigo-50"><FileText className="h-3.5 w-3.5" />Browse Documents</button>{onOpenSmsCompose && <button type="button" onClick={onOpenSmsCompose} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-50"><MessageSquareText className="h-3.5 w-3.5" />Compose SMS</button>}</div>
       </div>
 
       <section className={`rounded-2xl border p-4 sm:p-5 ${connectionStatus === "HEALTHY" ? "border-emerald-200 bg-emerald-50/50" : connectionStatus === "RECONNECT_REQUIRED" ? "border-amber-200 bg-amber-50/60" : "border-slate-200 bg-white"}`} aria-label="Gmail connection for compose">

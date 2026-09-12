@@ -1722,13 +1722,14 @@
         "pathPattern": "/email-sms",
         "queryKeys": [
           "view",
+          "channel",
           "documentType",
           "documentId",
           "from"
         ],
         "scope": "production-and-demo"
       },
-      "description": "Company communications route for preserved Gmail intake, outbound compose, delivery history, and truthful SMS provider status; legacy /email-intake and /inbox paths remain compatible aliases.",
+      "description": "Company communications route for preserved Gmail intake, reviewable email/SMS compose, delivery history, and truthful provider status; legacy /email-intake and /inbox paths remain compatible aliases.",
       "fileRefs": [
         "src/utils/routes.ts",
         "src/utils/appRouting.ts",
@@ -1777,18 +1778,21 @@
       "domain": "finance",
       "type": "screen",
       "scope": "company",
-      "description": "One responsive communications center for preserved Gmail intake, reviewable outbound compose, company-scoped delivery history, and provider-neutral SMS status.",
+      "description": "One responsive communications center for preserved Gmail intake, reviewable outbound email/SMS compose, company-scoped delivery history, and two provider-backed SMS paths behind a server-only adapter.",
       "fileRefs": [
         "src/app/routes/EmailSmsRoute.tsx",
         "src/components/EmailInbox.tsx",
         "src/components/EmailComposePanel.tsx",
+        "src/components/SmsComposePanel.tsx",
         "src/components/CommunicationHistoryPanel.tsx",
         "src/components/SmsProviderStatusPanel.tsx"
       ],
       "testRefs": [
         "tests/emailIntakePhase1.test.ts",
         "tests/documentDelivery.test.ts",
-        "tests/emailSmsDocumentsWorkspace.test.ts"
+        "tests/emailSmsDocumentsWorkspace.test.ts",
+        "tests/smsProvider.test.ts",
+        "tests/smsDeliveryContract.test.ts"
       ],
       "permissionKeys": [
         "gmail.read",
@@ -1839,14 +1843,16 @@
       "domain": "finance",
       "type": "external-boundary",
       "scope": "company",
-      "description": "Server-only provider interface for normalized SMS destination, message, idempotency, delivery result, retry, reconciliation, and future status callbacks; no provider is configured in the current deployment.",
+      "description": "Server-only adapter boundary for Company SIM Gateway and PhilSMS, normalized Philippine SMS destination/message/idempotency/delivery state, provider health, status lookup, and reconciliation; deployment credentials remain server-only and QA activation remains gated.",
       "fileRefs": [
         "src/server/messaging/smsProvider.ts",
         "src/lib/messaging.ts",
         "server.ts"
       ],
       "testRefs": [
-        "tests/emailSmsDocumentsWorkspace.test.ts"
+        "tests/emailSmsDocumentsWorkspace.test.ts",
+        "tests/smsProvider.test.ts",
+        "tests/smsDeliveryContract.test.ts"
       ],
       "permissionKeys": [
         "documents.send"
@@ -1856,7 +1862,9 @@
       ],
       "tags": [
         "provider-neutral",
-        "not-configured"
+        "company-sim-gateway",
+        "philsms",
+        "not-configured-until-qa"
       ]
     },
     {
@@ -9309,7 +9317,7 @@
       "target": "sms-provider-boundary",
       "type": "external",
       "kind": "external-boundary",
-      "label": "provider status and future delivery",
+      "label": "provider status, send, and reconciliation",
       "permissionKeys": [
         "documents.send"
       ]

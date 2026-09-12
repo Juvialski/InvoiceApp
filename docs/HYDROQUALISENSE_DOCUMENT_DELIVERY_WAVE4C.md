@@ -29,7 +29,7 @@ One idempotency key represents one delivery attempt. Network retries and double-
 
 ## SMS boundary
 
-No approved, configured SMS provider exists for outbound delivery in this repository. Existing Auth configuration and future provider references are not an operational SMS provider. Wave 4D keeps the channel model provider-neutral and does not add credentials, hard-coded vendor behavior, delivery guarantees, campaigns, bulk messaging, or an Available SMS claim. A future provider must use the same company-scoped attempt/history and permission boundaries.
+No SMS provider is configured for outbound delivery in the current deployment. Wave 4D approves only Company SIM Gateway as the recommended private-server path and PhilSMS as the optional hosted Philippine fallback. Their adapters extend this same company-scoped attempt/history and permission boundary without adding credentials to the repository, browser, or delivery tables. Provider-backed runtime QA remains required before an Available SMS claim.
 
 ## Readiness boundary
 

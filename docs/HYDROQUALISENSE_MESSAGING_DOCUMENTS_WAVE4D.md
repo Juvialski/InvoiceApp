@@ -1,7 +1,7 @@
 # HydroQualiSense Wave 4D — Email/SMS Workspace + Documents Workspace
 
-Status: **ACTIVE — WORKSPACE IMPLEMENTATION IN PROGRESS / SMS NOT CONFIGURED / BLOCKING BEFORE WORKER REGISTRATION**
-Date: **2026-09-10**  
+Status: **ACTIVE — SMS PROVIDER IMPLEMENTATION IN PROGRESS / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / BLOCKING BEFORE WORKER REGISTRATION**
+Date: **2026-09-12**
 Repository: `Juvialski/InvoiceApp`  
 Starting product baseline: merged `main` at `3fd73039afd018b1bb630bfee2a68a38c6d37fcc` (PR #136)
 
@@ -147,20 +147,27 @@ Do not create competing send/history paths for the same channel/document combina
 
 ## SMS provider boundary
 
-No SMS provider is approved/configured at the start of this wave. Do not hard-code Brevo, Twilio, Vonage, Semaphore, or another provider as product truth without an explicit user/provider decision.
+The approved SMS choices for this phase are deliberately limited to:
 
-A provider integration should use a narrow server-side adapter/interface so provider credentials and provider-specific behavior do not leak through the rest of the application. Until credentials exist, implementation may complete the UI/provider contract and truthful `Not configured` state, but the broader Email/SMS + Documents phase remains **incomplete** for roadmap purposes.
+1. **Company SIM Gateway — primary/recommended.** A maintained `capcom6/android-sms-gateway` Android app uses the client's own SIM through a configurable private HTTPS server. HydroQualiSense calls the server-side `/api/3rdparty/v1/messages` contract; it never calls the phone directly or requires port forwarding. The Android app can be minimized or the phone locked while normal phone use continues, subject to Android/OEM battery management and network/SIM availability.
+2. **PhilSMS — optional hosted fallback.** The server-side adapter uses the current official PhilSMS REST API, Bearer token, configured Sender ID, one canonical Philippine recipient, and provider status lookup. It is a credit-based hosted service; current account pricing, route availability, and Sender ID approval remain provider-side facts.
 
-When the user supplies a provider account later, the same wave must be finished with:
+No Twilio, Vonage, Semaphore, Viber, WhatsApp, Brevo, m360, iTexMo, or other provider is exposed in this phase. Both choices use a narrow server-side adapter/interface so credentials and provider-specific behavior do not leak through the rest of the application. The provider configuration is intentionally server/deployment-owned; the product remains visibly `Not configured` or `Configured / awaiting verification` until a real health/configuration check succeeds, and it remains unavailable for roadmap completion until controlled QA runtime proof exists.
+
+The implementation must provide:
 
 - server-side credential configuration;
-- sender/originator rules applicable to the selected provider/country;
-- bounded send endpoint;
-- provider response normalization;
-- idempotency/retry/reconciliation rules;
-- delivery status/webhook handling when supported;
-- safe failure wording;
-- QA runtime proof using synthetic/test recipients and no production customer data.
+- provider/country sender rules;
+- bounded one-recipient send endpoint;
+- Philippine mobile normalization;
+- provider response/status normalization;
+- idempotency and duplicate-send protection;
+- reconciliation-locked ambiguous outcomes;
+- delivery status lookup where supported;
+- safe failure wording and no provider secrets in history/logs/browser state;
+- controlled QA runtime proof using synthetic/test recipients and no production customer data.
+
+Outbound SMS is the required scope for this implementation. Android incoming-SMS webhooks/reply ingestion are deferred to a separate bounded enhancement so authenticated event deduplication, message retention, and company-scoped inbox semantics can receive their own security review.
 
 ## Permissions and security
 

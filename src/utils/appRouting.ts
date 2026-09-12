@@ -33,10 +33,12 @@ export interface WarehouseContext {
 export type ProjectWorkspaceView = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "materials-equipment" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 export type EmailWorkspaceView = "inbox" | "compose" | "sent" | "sms";
+export type EmailWorkspaceChannel = "email" | "sms";
 export type EmailWorkspaceDocumentType = "PURCHASE_ORDER" | "CLIENT_INVOICE";
 
 export interface EmailWorkspaceContext {
   view: EmailWorkspaceView;
+  channel?: EmailWorkspaceChannel;
   documentType?: EmailWorkspaceDocumentType;
   documentId?: string;
   returnTo?: string;
@@ -172,10 +174,11 @@ export function appPathForTab(tab: AppTab) {
 
 export function appPathForEmailWorkspace(
   view: EmailWorkspaceView = "inbox",
-  options: { documentType?: EmailWorkspaceDocumentType; documentId?: string; returnTo?: string } = {},
+  options: { channel?: EmailWorkspaceChannel; documentType?: EmailWorkspaceDocumentType; documentId?: string; returnTo?: string } = {},
 ) {
   const query = new URLSearchParams();
   if (view !== "inbox") setRouteQueryValue(query, "inbox", "view", view, true);
+  if (view === "compose") setRouteQueryValue(query, "inbox", "channel", options.channel);
   setRouteQueryValue(query, "inbox", "documentType", options.documentType);
   setRouteQueryValue(query, "inbox", "documentId", options.documentId);
   setRouteQueryValue(query, "inbox", "from", safeReturnPath(options.returnTo));
@@ -387,8 +390,11 @@ export function emailWorkspaceContextFromSearch(search: string): EmailWorkspaceC
     : undefined;
   const documentId = routeQueryValue(query, "inbox", "documentId")?.trim() || undefined;
   const returnTo = safeReturnPath(routeQueryValue(query, "inbox", "from") || undefined);
+  const rawChannel = (routeQueryValue(query, "inbox", "channel") || "").trim().toLowerCase();
+  const channel: EmailWorkspaceChannel | undefined = view === "compose" && (rawChannel === "email" || rawChannel === "sms") ? rawChannel : undefined;
   return {
     view,
+    ...(channel ? { channel } : {}),
     ...(documentType ? { documentType } : {}),
     ...(documentId ? { documentId } : {}),
     ...(returnTo ? { returnTo } : {}),

@@ -154,14 +154,19 @@ Hosted evidence:
 7. The authenticated engineering-document Storage probe uploaded a small synthetic PDF object, read it back with an identical SHA-256, and cleaned it up successfully without metadata rows.
 8. The first hosted route attempt recorded transient Supabase CORS failures only on `/dashboard`; the same exact SHA then passed on a single-job retry without deployment, migration, configuration, or code changes. This transient evidence remains recorded rather than being hidden.
 9. PR #155 changed Local-QA harness/scenarios, Payroll freshness code/tests, and phase-status documentation only; it did not change the programmatic PDF renderer, document delivery, SMS provider implementation, or template conversion implementation. Phase 3 functional evidence for RFQ, Payroll, programmatic PO/Client Invoice Preview/Download, and Documents -> Compose therefore remains applicable to the exact deployed code tree, while the route-focused hosted harness is not misrepresented as re-clicking all of those flows.
-10. The exact hosted Email/SMS surface reports no SMS provider configured. Gmail currently reports authorization expired/revoked, so live Gmail sync/send was not certified and no uncontrolled message was sent.
+10. The exact hosted Email/SMS surface reports no SMS provider configured. Gmail currently reports authorization expired/revoked, so live Gmail sync/send was not certified and no uncontrolled message was sent. The approved SMS implementation paths are Company SIM Gateway (recommended) and PhilSMS (hosted fallback), but neither has runtime QA evidence in this record.
 11. Optional company-template PDF conversion remains truthfully `UNAVAILABLE` when the supported converter runtime is absent. Safe-link server-authority template upload and subcontract settlement retain their documented environment/fixture limitations rather than being converted into PASS.
 
 Production remained read-only throughout Phase 4. No production database, Auth, Storage, secret, environment, or migration write was performed.
 
-## Phase 5 — Wave 4D messaging-provider decision and integration — NEXT
+## Phase 5 — Wave 4D messaging-provider decision and integration — IN PROGRESS
 
-The Email / SMS and Documents workspaces exist, but Wave 4D remains incomplete because no real SMS provider is currently approved/configured/runtime-tested.
+The Email / SMS and Documents workspaces exist, and the two approved SMS adapters are being integrated. Wave 4D remains incomplete because no real SMS provider is currently configured and runtime-tested in QA.
+
+The supported paths are:
+
+- Company SIM Gateway — recommended private server path using the client's own Android phone and company SIM;
+- PhilSMS — optional low-cost hosted Philippine SMS fallback with account credits and Sender ID approval requirements.
 
 Do not activate a provider merely because an adapter can be written. A selected provider must preserve:
 
