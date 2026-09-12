@@ -42,6 +42,12 @@ These waves are valuable foundations, but they do not complete the broader Email
 
 Wave 4C did **not** implement a unified communications workspace or a real SMS provider.
 
+## Current release/readiness checkpoint — 2026-09-12
+
+The supplier-payables settlement correction is merged on current `main` at `e4ee4ebde489629ee74429b4e37abb511943a51e`. The exact-SHA hosted QA recovery passed after a same-SHA authentication retry, and the canonical QA migration `20260912082656_supplier_payables_settlement_consistency` is promoted with independent parity verification. Authenticated QA supplier-payables certification passed 12/12 assertions, including linked `DRAFT` Expense authority, cash-only payment truth, partial/full/reversed settlement, legacy invoice-match projection, generic-DRAFT and cross-company denials, and permission grants.
+
+This evidence does not complete Wave 4D. SMS remains `Not configured`/unavailable because no approved provider credentials or device runtime are available for QA, Gmail currently needs reauthorization, and Worker Registration remains paused. The production migration was separately promoted under explicit authorization; this checkpoint performed no production write.
+
 ## Target top-level navigation
 
 The intended authenticated product navigation must expose distinct primary areas:
