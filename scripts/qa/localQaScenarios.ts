@@ -537,6 +537,27 @@ async function verifySms(page: any, _viewport: QaViewport): Promise<ScenarioActi
   };
 }
 
+async function verifySmsCompose(page: any, _viewport: QaViewport): Promise<ScenarioActionResult> {
+  const compose = page.locator("[data-sms-compose]");
+  const recipient = compose.locator('input[type="tel"]');
+  const message = compose.locator("textarea");
+  if (await recipient.count() === 0 || await message.count() === 0) {
+    return { status: "BLOCKED", assertions: [assertion("sms-compose-fields", true, "SMS compose is not exposed in the current permission/provider state.")] };
+  }
+  await recipient.fill("09171234567");
+  await message.fill("Synthetic SMS draft prepared for review only.");
+  const review = page.getByRole("button", { name: "Preview / Review", exact: true });
+  if (await review.count() > 0) await review.click();
+  return {
+    assertions: [
+      assertion("sms-compose-review-fields", true, "One Philippine recipient and a bounded SMS body accepted synthetic review input."),
+      assertion("sms-compose-review-gate", await page.locator("[data-sms-compose-review='true']").count() > 0, "SMS review-before-send state is visible."),
+      assertion("sms-compose-send-not-automatic", await page.getByRole("button", { name: "Confirm & Send SMS", exact: true }).count() > 0, "Confirm & Send SMS remains an explicit action."),
+    ],
+    details: "No send action is triggered; the recipient and body are synthetic review data.",
+  };
+}
+
 async function verifyPayroll(page: any, _viewport: QaViewport): Promise<ScenarioActionResult> {
   const nav = page.getByRole("navigation", { name: "Payroll workspace sections" });
   const assertions = [assertion("payroll-surface", await page.getByRole("heading", { name: /Payroll|Payroll & labor/i }).count() > 0 || await page.getByText(/Set up payroll schedule|No period yet/i).count() > 0, "Payroll landing or explicit schedule state is visible.")];
@@ -836,6 +857,15 @@ export async function runLocalQaScenarios(options: LocalQaScenarioRunOptions): P
       viewport,
       captureScreenshot: viewport.name === "mobile-390",
       action: verifySms,
+    }));
+    scenarios.push(await runScenario(options, {
+      id: `sms-compose-review-${viewport.name}`,
+      surface: "Email / SMS",
+      path: "/email-sms?view=compose&channel=sms",
+      interactionState: "SMS compose draft reviewed without send",
+      viewport,
+      captureScreenshot: viewport.name === "mobile-390",
+      action: verifySmsCompose,
     }));
   }
 

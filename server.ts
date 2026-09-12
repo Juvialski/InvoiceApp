@@ -24,7 +24,8 @@ import { validatePublicProspectSubmission } from "./src/lib/publicProspect.ts";
 import { releaseMetadataFromEnv } from "./src/server/releaseMetadata.ts";
 import { loadServerPdfLogo } from "./src/server/documentPdfLogo.ts";
 import { DOCUMENT_PDF_UNAVAILABLE_MESSAGE, getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
-import { getSmsProviderStatus } from "./src/server/messaging/smsProvider.ts";
+import { checkSmsProviderOverview, getSmsProviderStatus, resolveSmsProvider } from "./src/server/messaging/smsProvider.ts";
+import { normalizePhilippineMobileNumber, SMS_MAX_MESSAGE_LENGTH } from "./src/lib/smsNumber.ts";
 import {
   chooseBestExtractionCandidate,
   evaluateExtractionQuality,
@@ -1004,20 +1005,40 @@ app.use("/api/assistant", (req, res, next) => {
 app.use("/api/assistant", createAssistantRouter());
 app.use("/api/document-templates", createDocumentTemplateRouter());
 app.use("/api/documents", createStorageRouter());
+
+const smsSendRateLimit = new Map<string, { windowStartedAt: number; count: number }>();
+const SMS_RATE_WINDOW_MS = 60_000;
+const SMS_RATE_LIMIT = 10;
+app.use("/api/messaging/sms/send", (req, res, next) => {
+  if (req.method !== "POST") return next();
+  const now = Date.now();
+  if (smsSendRateLimit.size > 10_000) {
+    for (const [key, value] of smsSendRateLimit) if (now - value.windowStartedAt >= SMS_RATE_WINDOW_MS) smsSendRateLimit.delete(key);
+  }
+  const company = firstHeaderValue(req.headers["x-company-id"]).trim();
+  const key = `${String(req.ip || req.socket.remoteAddress || "unknown")}:${company}`;
+  const current = smsSendRateLimit.get(key);
+  const windowStartedAt = current && now - current.windowStartedAt < SMS_RATE_WINDOW_MS ? current.windowStartedAt : now;
+  const count = current && windowStartedAt === current.windowStartedAt ? current.count + 1 : 1;
+  smsSendRateLimit.set(key, { windowStartedAt, count });
+  if (count > SMS_RATE_LIMIT) return res.status(429).json({ success: false, code: "SMS_RATE_LIMITED", error: "SMS sending is temporarily rate limited. Try again later." });
+  return next();
+});
 app.get("/api/document-delivery-history", async (req, res) => {
   try {
     const requestedType = String(req.query.documentType || "").trim().toUpperCase();
     const documentType = issuedDocumentType(requestedType);
     const isGeneralEmail = requestedType === "GENERAL_EMAIL";
+    const isGeneralSms = requestedType === "GENERAL_SMS";
     const documentId = String(req.query.documentId || "").trim();
-    if ((!documentType && !isGeneralEmail && requestedType) || (documentType && !UUID_PATTERN.test(documentId)) || (isGeneralEmail && documentId)) {
+    if ((!documentType && !isGeneralEmail && !isGeneralSms && requestedType) || (documentType && !UUID_PATTERN.test(documentId)) || ((isGeneralEmail || isGeneralSms) && documentId)) {
       return res.status(400).json({ success: false, error: "A supported document type and valid document are required." });
     }
     const auth = documentType
       ? await authorizeCompanyRequest(req, documentReadPermission(documentType))
       : await authorizeCompanyRequest(req, "documents.send");
-    const intentSelect = "id,delivery_kind,document_type,document_id,sender_user_id,recipients,cc,subject,attachment_name,trusted_sha256,message_body_sha256,status,attempt_count,created_at,updated_at,attachment_source,attachment_size,template_version";
-    const auditSelect = "id,send_intent_id,delivery_kind,document_type,document_id,sender_user_id,recipients,cc,subject,attachment_name,status,created_at,attachment_source,attachment_size,template_version,attachment_sha256,message_body_sha256";
+    const intentSelect = "id,delivery_channel,delivery_kind,document_type,document_id,sender_user_id,recipients,cc,subject,attachment_name,trusted_sha256,message_body_sha256,status,attempt_count,created_at,updated_at,attachment_source,attachment_size,template_version,destination,provider_id,provider_message_id,provider_status,reconciliation_required";
+    const auditSelect = "id,send_intent_id,delivery_channel,delivery_kind,document_type,document_id,sender_user_id,recipients,cc,subject,attachment_name,status,created_at,attachment_source,attachment_size,template_version,attachment_sha256,message_body_sha256,destination,provider_id,provider_message_id,provider_status,reconciliation_required";
     let intentsQuery = auth.supabase
       .from("document_send_intents")
       .select(intentSelect)
@@ -1036,6 +1057,9 @@ app.get("/api/document-delivery-history", async (req, res) => {
     } else if (isGeneralEmail) {
       intentsQuery = intentsQuery.eq("document_type", "GENERAL_EMAIL");
       auditsQuery = auditsQuery.eq("document_type", "GENERAL_EMAIL");
+    } else if (isGeneralSms) {
+      intentsQuery = intentsQuery.eq("document_type", "GENERAL_SMS");
+      auditsQuery = auditsQuery.eq("document_type", "GENERAL_SMS");
     }
     const [intentsResult, auditsResult] = await Promise.all([
       intentsQuery,
@@ -1057,10 +1081,128 @@ app.get("/api/document-delivery-history", async (req, res) => {
 app.get("/api/messaging/status", async (req, res) => {
   try {
     const auth = await authorizeCompanyRequest(req, "documents.send");
-    return res.json({ success: true, data: { companyId: auth.companyId, sms: getSmsProviderStatus(process.env) } });
+    let sms;
+    try { sms = await checkSmsProviderOverview(process.env); }
+    catch { sms = getSmsProviderStatus(process.env); }
+    return res.json({ success: true, data: { companyId: auth.companyId, sms } });
   } catch (error) {
     const status = error instanceof ApiAuthorizationError ? error.status : 503;
     return res.status(status).json({ success: false, error: error instanceof Error ? error.message : "Messaging provider status is unavailable." });
+  }
+});
+
+function smsIntentResponse(intent: Record<string, any>, result: { providerId?: string; providerMessageId?: string; providerStatus?: string; status?: string; reconciliationRequired?: boolean }, extras: Record<string, unknown> = {}) {
+  return {
+    intentId: String(intent.id || ""),
+    status: String(result.status || intent.status || "UNKNOWN").toUpperCase(),
+    ...(String(result.providerId || intent.provider_id || "") ? { providerId: String(result.providerId || intent.provider_id) } : {}),
+    ...(String(result.providerMessageId || intent.provider_message_id || "") ? { providerMessageId: String(result.providerMessageId || intent.provider_message_id) } : {}),
+    ...(String(result.providerStatus || intent.provider_status || "") ? { providerStatus: String(result.providerStatus || intent.provider_status) } : {}),
+    reconciliationRequired: result.reconciliationRequired === true || intent.reconciliation_required === true || String(result.status || intent.status || "").toUpperCase() === "UNKNOWN",
+    ...extras,
+  };
+}
+
+function smsRouteError(error: unknown, fallback: string) {
+  if (error instanceof ApiAuthorizationError) return { status: error.status, code: error.code, message: error.message };
+  const providerCode = error && typeof error === "object" && "code" in error ? String((error as Record<string, unknown>).code || "") : "";
+  if (providerCode === "23514" || providerCode === "22023" || providerCode === "22P02") return { status: 400, code: "SMS_REQUEST_INVALID", message: "The SMS request is invalid." };
+  if (providerCode === "42501") return { status: 403, code: "FORBIDDEN", message: "You do not have permission for this company messaging operation." };
+  return { status: 503, code: "SMS_SEND_RECONCILE_REQUIRED", message: fallback };
+}
+
+app.post("/api/messaging/sms/send", async (req, res) => {
+  let auth: CompanyRequestAuthorization | null = null;
+  let sendIntentId = "";
+  try {
+    auth = await authorizeCompanyRequest(req, "documents.send");
+    const contentLength = Number(req.headers["content-length"] || 0);
+    if (Number.isFinite(contentLength) && contentLength > 32 * 1024) return res.status(413).json({ success: false, code: "SMS_REQUEST_TOO_LARGE", error: "The SMS request is too large." });
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) return res.status(400).json({ success: false, code: "SMS_REQUEST_INVALID", error: "The SMS request payload is invalid." });
+    if (JSON.stringify(req.body).length > 32 * 1024) return res.status(413).json({ success: false, code: "SMS_REQUEST_TOO_LARGE", error: "The SMS request is too large." });
+    if (req.body?.confirmed !== true) return res.status(400).json({ success: false, code: "SMS_HUMAN_CONFIRMATION_REQUIRED", error: "Review the SMS and confirm it before sending." });
+    let destination: string;
+    try { destination = normalizePhilippineMobileNumber(req.body?.destination); }
+    catch (error) { return res.status(400).json({ success: false, code: "SMS_DESTINATION_INVALID", error: error instanceof Error ? error.message : "A valid Philippine mobile recipient is required." }); }
+    const message = typeof req.body?.message === "string" ? req.body.message.replace(/[\u0000]/g, "").trim() : "";
+    if (!message) return res.status(400).json({ success: false, code: "SMS_MESSAGE_REQUIRED", error: "A non-empty SMS message is required." });
+    if (message.length > SMS_MAX_MESSAGE_LENGTH) return res.status(413).json({ success: false, code: "SMS_MESSAGE_TOO_LONG", error: `SMS messages are limited to ${SMS_MAX_MESSAGE_LENGTH} characters.` });
+    const idempotencyKey = typeof req.body?.idempotencyKey === "string" ? req.body.idempotencyKey.trim() : "";
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(idempotencyKey)) return res.status(400).json({ success: false, code: "SMS_IDEMPOTENCY_REQUIRED", error: "A valid SMS send identity is required." });
+    const provider = resolveSmsProvider(process.env);
+    if (!provider) return res.status(503).json({ success: false, code: "SMS_NOT_CONFIGURED", error: "No complete SMS provider configuration is available on this deployment." });
+    const messageBodySha256 = createHash("sha256").update(message, "utf8").digest("hex");
+    const claimResult = await auth.supabase.rpc("claim_sms_send_intent", {
+      p_provider_id: provider.id,
+      p_destination: destination,
+      p_idempotency_key: idempotencyKey,
+      p_message_body_sha256: messageBodySha256,
+    });
+    if (claimResult.error) throw claimResult.error;
+    const claim = rpcRow(claimResult.data);
+    const intent = claim?.intent && typeof claim.intent === "object" ? claim.intent as Record<string, any> : null;
+    if (!intent?.id) throw new Error("The SMS delivery intent was not returned.");
+    sendIntentId = String(intent.id);
+    if (claim?.idempotent === true) return res.json({ success: true, data: smsIntentResponse(intent, { status: intent.status }, { idempotent: true }) });
+    if (claim?.claimed !== true) return res.status(409).json({ success: false, code: "SMS_SEND_RECONCILE_REQUIRED", error: "This SMS send is already in progress or requires reconciliation. Check Sent / Delivery History before retrying." });
+
+    const providerResult = await provider.send({ destination, message, idempotencyKey });
+    const completion = await auth.supabase.rpc("complete_sms_delivery_intent", {
+      p_intent_id: sendIntentId,
+      p_status: providerResult.status,
+      p_provider_message_id: providerResult.providerMessageId || null,
+      p_provider_status: providerResult.providerStatus || null,
+      p_error_message: providerResult.status === "FAILED" ? providerResult.safeMessage : null,
+      p_reconciliation_required: providerResult.reconciliationRequired,
+    });
+    if (completion.error) return res.status(503).json({ success: false, code: "SMS_SEND_RECONCILE_REQUIRED", error: "The provider response was received, but durable SMS history could not be completed. Do not resend until history is reconciled." });
+    const completionRow = rpcRow(completion.data);
+    const completedIntent = completionRow?.intent && typeof completionRow.intent === "object" ? completionRow.intent as Record<string, any> : intent;
+    const data = smsIntentResponse(completedIntent, providerResult);
+    if (providerResult.reconciliationRequired || providerResult.status === "UNKNOWN") return res.status(503).json({ success: false, code: "SMS_SEND_RECONCILE_REQUIRED", error: providerResult.safeMessage, data });
+    if (providerResult.status === "FAILED") return res.status(502).json({ success: false, code: "SMS_SEND_FAILED", error: providerResult.safeMessage, data });
+    return res.status(providerResult.status === "ACCEPTED" || providerResult.status === "PENDING" ? 202 : 200).json({ success: true, data });
+  } catch (error) {
+    const mapped = smsRouteError(error, sendIntentId ? "The SMS send could not be completed safely. Check Sent / Delivery History before retrying." : "The SMS could not be sent safely.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
+  }
+});
+
+app.post("/api/messaging/sms/reconcile", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "documents.send");
+    const intentId = String(req.body?.intentId || "").trim();
+    if (!UUID_PATTERN.test(intentId)) return res.status(400).json({ success: false, code: "SMS_INTENT_INVALID", error: "A valid SMS delivery intent is required." });
+    const { data: intent, error: intentError } = await auth.supabase
+      .from("document_send_intents")
+      .select("id,delivery_channel,delivery_kind,provider_id,provider_message_id,status")
+      .eq("company_id", auth.companyId)
+      .eq("id", intentId)
+      .maybeSingle();
+    if (intentError) throw intentError;
+    if (!intent || intent.delivery_channel !== "SMS" || intent.delivery_kind !== "GENERAL_SMS") return res.status(404).json({ success: false, code: "SMS_INTENT_NOT_FOUND", error: "The SMS delivery history entry was not found." });
+    const provider = resolveSmsProvider(process.env);
+    if (!provider || String(intent.provider_id || "") !== provider.id) return res.status(503).json({ success: false, code: "SMS_SEND_RECONCILE_REQUIRED", error: "The original SMS provider configuration is not available for reconciliation." });
+    const providerMessageId = String(intent.provider_message_id || "").trim();
+    if (!providerMessageId) return res.status(409).json({ success: false, code: "SMS_SEND_RECONCILE_REQUIRED", error: "This SMS has no provider reference to reconcile safely." });
+    const providerResult = await provider.lookupStatus(providerMessageId);
+    const completion = await auth.supabase.rpc("complete_sms_delivery_intent", {
+      p_intent_id: intentId,
+      p_status: providerResult.status,
+      p_provider_message_id: providerResult.providerMessageId || providerMessageId,
+      p_provider_status: providerResult.providerStatus || null,
+      p_error_message: providerResult.status === "FAILED" ? providerResult.safeMessage : null,
+      p_reconciliation_required: providerResult.reconciliationRequired,
+    });
+    if (completion.error) return res.status(503).json({ success: false, code: "SMS_SEND_RECONCILE_REQUIRED", error: "The provider status was received, but durable SMS history could not be updated safely." });
+    const completionRow = rpcRow(completion.data);
+    const updatedIntent = completionRow?.intent && typeof completionRow.intent === "object" ? completionRow.intent as Record<string, any> : intent as Record<string, any>;
+    const data = smsIntentResponse(updatedIntent, providerResult);
+    if (providerResult.reconciliationRequired || providerResult.status === "UNKNOWN") return res.status(503).json({ success: false, code: "SMS_SEND_RECONCILE_REQUIRED", error: providerResult.safeMessage, data });
+    return res.json({ success: true, data });
+  } catch (error) {
+    const mapped = smsRouteError(error, "SMS status could not be reconciled safely.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
   }
 });
 app.get("/api/storage/health", async (req, res) => {

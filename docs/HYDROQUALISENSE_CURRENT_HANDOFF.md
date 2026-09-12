@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — PHASE 4 HOSTED EXACT-SHA QA CERTIFICATION COMPLETE / WAVE 4D MESSAGING-PROVIDER WORK NEXT / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — PHASE 4 HOSTED EXACT-SHA QA CERTIFICATION COMPLETE / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Date: **2026-09-12**
 Repository: `Juvialski/InvoiceApp`
 
@@ -142,7 +142,7 @@ The exact hosted QA UI currently reports that Gmail authorization is expired or 
 
 ### SMS
 
-No outbound SMS provider is configured. The UI truthfully reports SMS as unavailable / not configured. No SMS was sent.
+The approved outbound choices are Company SIM Gateway (primary/recommended) and PhilSMS (optional hosted fallback). This implementation has no live gateway device or PhilSMS credentials available for runtime certification, so the UI remains truthful: SMS is not configured or not verified and no SMS was sent.
 
 ### Company-template upload / conversion
 
@@ -160,8 +160,8 @@ No safe subcontract/claim fixture exists in the QA company. This remains `NOT TE
 
 Phase 4 hosted exact-SHA certification is complete for the current application baseline, but overall QA readiness is intentionally still not `READY` because:
 
-- Wave 4D messaging-provider selection/integration is incomplete;
-- SMS has no approved/configured/runtime-tested provider;
+- Wave 4D messaging-provider implementation and runtime evidence are incomplete;
+- SMS has approved paths but no configured/provider-backed runtime-tested deployment;
 - Gmail currently requires reauthorization for exact-state runtime proof;
 - subcontract settlement remains fixture-blocked;
 - optional server-authority template upload / high-fidelity company-template conversion retain documented environment limitations.
@@ -196,18 +196,22 @@ Do not weaken these boundaries to simplify provider work or QA.
 3. **Company-template compatibility implementation — COMPLETE; converter runtime certification remains environment-limited**
 4. **Functional regression sweep — COMPLETE for supported/fixture-backed Local-QA workflows**
 5. **Hosted exact-SHA QA certification — COMPLETE for `32e5faf3666095391e7df09244ac0f0bb4479c81`**
-6. **Wave 4D messaging-provider selection/integration — NEXT**
+6. **Wave 4D messaging-provider selection/integration — IN PROGRESS**
 7. **Wave 4D remaining readiness/completion evidence**
 8. **Worker Registration — PAUSED until Wave 4D is genuinely complete and the user explicitly resumes it**
 9. Site Attendance
 10. Face-Recognition Attendance — design/privacy/security first
 11. Final pre-production security/data-integrity certification
 
-## Next implementation phase — Wave 4D messaging-provider selection/integration
+## Active implementation phase — Wave 4D messaging-provider selection/integration
 
 Do not start Worker Registration.
 
-The next phase must select and integrate an approved practical messaging provider under the authoritative Wave 4D contract. Preserve:
+The active implementation integrates the two approved practical SMS paths under the authoritative Wave 4D contract. It preserves:
+
+- Company SIM Gateway as the primary/recommended private-server path;
+- PhilSMS as the optional hosted Philippine fallback;
+- the shared delivery intent/audit history rather than a competing SMS table;
 
 - server-side provider credentials only;
 - permission-aware send authority;
@@ -220,11 +224,13 @@ The next phase must select and integrate an approved practical messaging provide
 - truthful UI states when provider capability is unavailable;
 - no bulk unsolicited marketing scope.
 
-Use current live provider availability/cost/Philippines support evidence when selecting the provider; do not assume historical provider terms remain current.
+The live official upstream contracts were checked for the implementation: Android private-server API paths/authentication/device status and PhilSMS API/Bearer/send/status/balance behavior. Provider account pricing, Sender ID approval, gateway/device health, and controlled QA delivery still require live deployment evidence; do not infer them from configuration or mocks.
+
+Inbound Android SMS/reply ingestion is intentionally deferred to a separate bounded enhancement. Outbound SMS, safe status lookup, and the human-confirmed send boundary are the priority in this phase.
 
 ## Implementation workflow
 
-For the next Codex phase:
+For the active provider implementation and its QA follow-up:
 
 - fetch and fast-forward current `main` and record the exact SHA once;
 - read live `AGENTS.md`, baseline, efficiency guide, roadmap, this handoff, Wave 4D contract, and deployment/provider guidance;

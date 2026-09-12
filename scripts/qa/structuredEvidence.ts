@@ -44,6 +44,7 @@ export interface QaAssertion {
 export interface QaBrowserLocator {
   first(): QaBrowserLocator;
   click(): Promise<void>;
+  fill(value: string): Promise<void>;
   selectOption(value: string): Promise<void>;
   count(): Promise<number>;
   waitFor(options?: { state?: "attached" | "detached" | "visible" | "hidden"; timeout?: number }): Promise<void>;
