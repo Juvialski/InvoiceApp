@@ -37,49 +37,57 @@ For a new Codex implementation task:
 
 Prompt creators should put the pull-first instruction at the top of every normal Codex implementation prompt. Avoid wording that tells Codex to spend time independently establishing the latest green remote baseline before pulling; **pull latest `main`, record the SHA once, then work**.
 
-## Current product sequence — explicit 2026-09-10 reprioritization
+## Current product sequence — explicit 2026-09-12 reprioritization
 
-The user has explicitly clarified that the broad `Email/SMS + Documents` phase is **not complete** merely because document templates, PDF generation, Gmail delivery, or delivery history exist inside individual record workflows.
+The broad `Email/SMS + Documents` phase remains incomplete, but the user has explicitly inserted a second app-wide UI/UX simplification round before the remaining Wave 4D provider/readiness work.
 
-Current state through merged PR #138:
+Current sequence:
 
 1. Wave 1A — Supplier Payable Lifecycle UX — complete on merged `main`.
 2. Wave 1B — Client Receivable Lifecycle UX — complete on merged `main`.
 3. Wave 2 — cross-module routing and handoffs — complete on merged `main`.
 4. Wave 3 — deliberate payroll/subcontract/PO workflow decisions — complete on merged `main`.
 5. Wave 4A — company document templates / mail merge foundation — complete.
-6. Wave 4B — high-fidelity PDF finalization foundation — complete.
-7. Wave 4C — issued-document Gmail delivery/history foundation — complete through merged PR #136.
-8. **Wave 4D — Email/SMS Workspace + Documents Workspace — ACTIVE and BLOCKING.**
-9. Worker Registration — **PAUSED by explicit user instruction** until Wave 4D and the broader Email/SMS + Documents product experience are complete and the user explicitly resumes Worker Registration.
-10. Site Attendance follows Worker Registration.
-11. Face-Recognition Attendance follows only after explicit privacy/security design.
-12. Final pre-production certification follows the major product domains.
+6. Wave 4B — high-fidelity PDF finalization foundation — complete for the programmatic fallback; converter-backed company-template capability remains separately constrained/certified.
+7. Wave 4C — issued-document Gmail delivery/history foundation — complete.
+8. Wave 4D — Email/SMS Workspace + Documents Workspace — partially implemented but **not complete**.
+9. **UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture — NEXT / ACTIVE.** This phase temporarily preempts the remaining Wave 4D provider implementation/readiness work.
+10. Resume **Wave 4D messaging-provider integration/completion** after UI/UX Round 2 is safely merged and stabilized, unless the user explicitly reprioritizes again.
+11. Worker Registration — **PAUSED by explicit user instruction** until Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
+12. Site Attendance follows Worker Registration.
+13. Face-Recognition Attendance follows only after explicit privacy/security design.
+14. Final pre-production certification follows the major product domains.
 
-The detailed Wave 4D contract is `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` and is authoritative for this reprioritization. Where older priority wording in product-direction, handoff, or audit documents conflicts with this explicit sequence, this section plus the active roadmap and Wave 4D contract control the next-phase decision. Older documents remain authoritative for permanent product, financial, security, history, and architecture invariants unless specifically superseded.
+The authoritative UI/UX Round 2 design is:
 
-The current Wave 4D implementation adds the top-level Email / SMS and Documents
-surfaces, preserves the Gmail intake path, reuses the audited delivery intent
-for ordinary email and eligible issued-document attachments, and keeps SMS
-truthfully not configured until an approved provider is runtime-tested in QA.
-This implementation progress does not satisfy the broader completion gate.
+`docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`
+
+For any implementation handoff while that phase is active, read that document in full. It is intentionally independent of the original screenshots and records the known defects, approved information-architecture direction, module scope, validation strategy, and stop boundary.
+
+This reprioritization does **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved for later resumption.
+
+The user explicitly permits UI navigation/tab restructuring when it improves and simplifies the product, provided important features, deep links where practical, permission boundaries, financial/source semantics, audit history, and workflow correctness are preserved.
+
+The current UI/UX Round 2 standard is stronger than a no-overflow pass: major screens must make it apparent what the page is for, what needs attention, and what the user can do next without requiring knowledge of HydroQualiSense internals.
 
 ### Email/SMS + Documents completion gate
 
 Do **not** suggest, prepare, or start Worker Registration as the next product phase while any of the following remain unfinished:
 
-- the current top-level `Email Intake` experience has not been evolved into the intended top-level **Email / SMS** communications workspace while preserving inbound Gmail intake;
-- a separate top-level **Documents** workspace has not been implemented for unified, permission-aware access to document-bearing records/artifacts without duplicating canonical source ownership;
-- outbound email composition/history is still limited to scattered record-local controls rather than being usable from the Email/SMS communications experience;
-- SMS is only provider-neutral scaffolding and no approved provider-backed sending path has been configured and runtime-tested in QA;
+- the top-level **Email / SMS** communications workspace is not genuinely usable while preserving inbound Gmail intake;
+- the separate top-level **Documents** workspace is not genuinely usable as permission-aware access to document-bearing records/artifacts without duplicating canonical source ownership;
+- outbound email composition/history is still effectively limited to scattered record-local controls rather than being usable from the Email/SMS communications experience;
+- SMS remains only scaffolding and no approved provider-backed sending path has been configured and runtime-tested in QA;
 - Assistant-assisted message drafting/attachment selection does not preserve human review/confirmation before sending;
-- existing Wave 4A/4B/4C template, PDF, Gmail delivery, idempotency, reconciliation, lifecycle, and immutable-history foundations have not been integrated into the new workspaces.
+- existing Wave 4A/4B/4C template, PDF, Gmail delivery, idempotency, reconciliation, lifecycle, and immutable-history foundations are not integrated into the broader workspaces.
 
 Wave 4A-4C are supporting foundations for the broader Email/SMS + Documents product phase. They must not be represented as satisfying this completion gate by themselves.
 
+UI/UX Round 2 now executes before the remaining provider/readiness work, but it must preserve the incomplete Wave 4D contract so that provider work can resume immediately afterward.
+
 QA certification/recovery/provider/deployment work remains a **parallel release/readiness track**. Do not represent unfinished QA certification as complete merely because product development continues, and do not infer production authorization from QA or merge success.
 
-Read the active roadmap and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` before preparing the next implementation phase.
+Read the active roadmap, current handoff, UI/UX Round 2 design, and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` before preparing later provider work.
 
 All permanent financial, audit, RLS, company-isolation, inventory-history, document-history, payroll/privacy, AI confirmation, and migration-forward-only invariants in the preserved baseline remain in force.
 

@@ -1,284 +1,431 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — PR #158 MERGED / CURRENT MAIN HOSTED EXACT-SHA QA CERTIFIED / SUPPLIER PAYABLES CERTIFIED IN ISOLATED QA / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
-Date: **2026-09-12**
+Status: **CURRENT — UI/UX ROUND 2 APPROVED AS NEXT IMPLEMENTATION PHASE / LAST APPLICATION-BEARING MAIN HOSTED-QA CERTIFIED / SUPPLIER PAYABLES CERTIFIED / WAVE 4D INCOMPLETE AND TEMPORARILY SEQUENCED AFTER UI/UX ROUND 2 / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**  
+Date: **2026-09-12**  
 Repository: `Juvialski/InvoiceApp`
 
 ## Authoritative current baseline
 
-The exact current application-bearing `main` SHA is:
+The documentation reprioritization in this handoff was prepared from `main` at:
+
+`28f063c365fea287b5aa07c3ea7d94af05f3651c`
+
+The last application-bearing SHA currently covered by the successful hosted application certification remains:
 
 `e4ee4ebde489629ee74429b4e37abb511943a51e`
 
-That commit is merged PR #158, **fix supplier payable settlement truth**. It is the exact SHA currently served by the QA Render deployment and certified by the recovered Hosted QA run.
-
-Relevant integrated work includes:
-
-- Wave 1A Supplier Payable Lifecycle UX — PR #126;
-- Wave 1B Client Receivable Lifecycle UX — PR #129;
-- Wave 2 Cross-module Routing and Handoffs — PR #131;
-- Wave 3 Payroll/Subcontract/PO Workflow Decisions — PRs #132 and #133;
-- Wave 4A Company Document Templates / Mail Merge Foundation — PR #134;
-- Wave 4B High-Fidelity PDF Finalization Foundation — PR #135;
-- Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History — PR #136;
-- Wave 4D Email/SMS + Documents workspaces — integrated through PR #138 but still incomplete;
-- full live-QA simulation harness and observed-flow hardening — PR #140;
-- focused UI/UX remediation + connected Gmail QA audit — PR #144;
-- Local-QA + canonical issued-PDF preview/download foundation — PR #146;
-- staged Local-QA/UI/PDF quality plan — PR #147;
-- Local-QA browser-key hardening — PR #148;
-- comprehensive authenticated Local-QA UI/UX redo — PR #150;
-- deep programmatic-PDF visual certification — PR #151 and subsequent document-quality work;
-- Supplier Invoice monetary correction + buyer simplification work through PRs #152/#155;
-- Phase 3 supported/fixture-backed Local-QA functional regression sweep — PR #155;
-- Supplier Payables Settlement Truth & Consistency corrective phase, including migration `20260912082656_supplier_payables_settlement_consistency` — merged PR #158.
+That application SHA is merged PR #158, **fix supplier payable settlement truth**. The later `28f063c...` commit is documentation-only and does not itself change the deployed application contract.
 
 Read this handoff with:
 
 - `AGENTS.md`;
 - `docs/AGENTS_BASELINE_20260909.md`;
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
-- `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` when release/migration operations matter;
+- **`docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md` — authoritative design for the immediate next phase**;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-- `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md`;
-- `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`;
-- `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` for release/provider operations.
+- `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
+- `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` for the incomplete Wave 4D contract;
+- `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and deployment runbook when release/migration operations matter.
 
 Live repository state and `AGENTS.md` override remembered chat summaries.
 
-## Completed quality sequence
+---
 
-### Phase 1 — Comprehensive authenticated Local-QA UI/UX redo — COMPLETE
+## Explicit user reprioritization — 2026-09-12
 
-PR #150 completed the authenticated Local-QA UI/UX pass against the isolated QA backend. The final evidence covered all canonical routes, responsive targets, dialogs, owner handoffs, project workspaces, and safe Compose review with a fail-closed coverage gate.
+The user reviewed several authenticated HydroQualiSense screens and determined that the application still contains too many confusing, technical, oversized, cramped, or weakly prioritized interfaces despite the earlier UI/UX pass.
 
-### Phase 2 — Programmatic PDF visual certification — COMPLETE
+The user explicitly approved a second, broader UI/UX phase and explicitly allowed navigation/tab restructuring when that improves and simplifies the experience.
 
-Purchase Order and Client Invoice programmatic PDF fallback output was visually remediated and certified across deliberate edge cases including logo geometry, long company/project/document values, large currency values, long terms/notes, narrow cells, and multi-page content.
+### New immediate phase
 
-Authenticated Local-QA evidence confirmed both issued document types use `PROGRAMMATIC_PDF_FALLBACK`, with Preview and Download using identical bytes for the exercised records. This does not certify company-template high-fidelity PDF conversion when the optional converter is unavailable.
+**UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture**
 
-### Phase 3 — Functional regression sweep — COMPLETE for supported/fixture-backed workflows
+Authoritative phase design:
 
-The integrated Local-QA rerun recorded 57/57 authenticated route scenarios and 7/7 functional workflows passing:
+`docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`
 
-- RFQ creation/quotation comparison;
-- partial Purchase Order receipt, remaining quantity, close guard, and Warehouse continuation;
-- Supplier Invoice -> authoritative Expense -> Cash routing;
-- Client Invoice -> Collection -> Cash routing;
-- Payroll freshness/recalculation/approval;
-- Documents -> Compose review without send;
-- stale-record/deep-link recovery.
+This phase now comes **before continuing the remaining Wave 4D messaging-provider integration/readiness work**.
 
-The RFQ coverage defect was a stale harness-tab assumption and was corrected without weakening the fail-closed gate. The Payroll defect was fixed by sharing one reduced payroll-period identity between calculation and approval fingerprints, preventing a fresh recalculation from falsely invalidating itself as stale.
+Wave 4D is not cancelled. After UI/UX Round 2 is completed and merged, return to Wave 4D unless the user explicitly reprioritizes again.
 
-The QA company still has no safe subcontract/claim fixture, so subcontract settlement remains `NOT TESTED`/fixture-blocked rather than a pass.
+Worker Registration remains paused and must not be suggested as the next phase.
 
-## Corrective phase — Supplier Payables Settlement Truth & Consistency Audit
+---
 
-This corrective implementation is complete on merged PR #158 and is certified against the exact current QA deployment.
+## UI/UX Round 2 purpose
 
-The observed supplier-payables inconsistency had three related causes:
+The app should continue to expose its large feature set, but it must become much easier to understand and operate.
 
-- verification intentionally created the linked supplier `Expense` as `DRAFT`, but the generic Expense settlement gate rejected every DRAFT Expense;
-- linked-invoice summaries treated the invoice as transferred with a zero payable, so the Supplier Invoice overview and downstream open-payable counts dropped the record;
-- directory badges, overdue counts, correction previews, and several project/report helpers read persisted extraction/document payment fields instead of one current cash-backed settlement projection.
+This is not a theme/color/spacing-only cleanup. It is a **workflow-first information-architecture and usability restructuring pass**.
 
-The corrected contract is:
+The approved product rules are:
 
-- the verified linked Expense is the one supplier payable/settlement authority, including when it remains DRAFT; generic direct DRAFT Expenses retain their existing ineligible behavior;
-- payment state is derived from confirmed Cash & Banking matches only. OCR/document `amountPaid` is preserved as separate evidence and cannot make an obligation paid or reduce its outstanding balance;
-- both canonical Expense matches and legacy invoice-target matches are aggregated once for the linked supplier relationship. Reversal is history-preserving and restores outstanding balance;
-- date-only overdue means positive outstanding with `due_date <` the company business date. The due date itself is current;
-- verified project cost and source-document provenance do not change when settlement evidence is created or reversed.
+- task first, system architecture second;
+- keep important functionality, reduce cognitive load;
+- one obvious primary action per context;
+- actual working content/register before long explanations or oversized summary regions;
+- progressive disclosure for provenance, audit metadata, raw IDs, and advanced/rare actions;
+- business-facing wording instead of engineering/source-of-truth jargon in ordinary UI;
+- compact, useful summaries instead of card walls and dead space;
+- common filters visible and compact, advanced filters progressively disclosed where appropriate;
+- consistent page/action/filter/table/form/navigation grammar across modules;
+- navigation/tabs may be renamed, regrouped, reordered, or restructured if that genuinely simplifies the user journey;
+- preserve established routes/deep links wherever practical, with deliberate compatibility handling when views move;
+- responsive layouts may reorganize workflows instead of merely shrinking desktop layouts;
+- simplification must never weaken permissions, financial truth, audit history, source ownership, company isolation, or Assistant confirmation boundaries.
 
-The shared projection now feeds Supplier Invoices, linked Expense detail, Cash & Banking candidate/target context, Dashboard, Projects, Reports, Assistant, correction previews, and invoice/project exports. Local evidence on this branch is clean Supabase replay/pgTAP (45 files, 1,531 tests), focused TypeScript/domain tests, build/lint, and demo browser QA (78 scenarios, 34 routes, 4 viewports, 59 interactions, zero console/page/network/overflow failures). These results are local/pre-merge evidence; they do not certify the hosted QA deployment.
+### Primary usability acceptance test
 
-The forward migration `20260912082656_supplier_payables_settlement_consistency` is present on current `main`. The protected QA release promoted that exact canonical migration to QA after the exact application SHA was live and independently verified migration parity afterward. Production migration was separately promoted under explicit authorization before this final handoff; this phase performed no production write.
+For every major authenticated screen, a first-time company user should be able to determine within a few seconds:
 
-### Supplier-payables QA certification evidence
+1. What is this page for?
+2. What needs my attention?
+3. What can I do next?
 
-The authenticated QA financial certification passed 12/12 assertions using a transaction-scoped synthetic fixture and the committed verification/settlement RPCs. It proved:
+A screen is not complete merely because it loads cleanly or has no horizontal overflow.
 
-- document/OCR `amountPaid` remained evidence only and did not produce an operationally paid obligation;
-- verification created exactly one linked `DRAFT` Expense, and repeated verification was idempotent;
-- the linked Expense was the settlement authority, while generic direct `DRAFT` Expenses remained ineligible;
-- legacy invoice-target evidence remained visible through the linked Expense projection;
-- confirmed Cash & Banking evidence produced correct partial and full paid/outstanding values, and reversal restored outstanding balance while preserving history;
-- the active linked invoice target was denied, project allocation/source linkage remained intact, cross-company summary access was denied, and RPC execution grants remained restricted to `authenticated` where intended.
+---
 
-The synthetic certification transaction rolled back its fixture rows after the assertions, so it left no additional supplier-payables records in QA.
+## Mandatory known regression examples
 
-## Phase 4 — Hosted exact-SHA QA certification — COMPLETE for current main
+These user-observed classes must be explicitly rechecked during implementation.
+
+### Project Allocation
+
+Current/observed dense allocation presentation can compress project, large values, units, balance, allocation semantics, and action into a difficult strip. Redesign the flow so the user's decision sequence is obvious and large values remain readable at normal laptop widths.
+
+### Documents
+
+The document list/workspace should be the primary working experience. Oversized summary/registry framing must not push common find/open/preview/handoff tasks far down the screen without a strong reason. Canonical ownership remains in source domains; Documents remains an index/workspace, not a competing source of truth.
+
+### Expenses
+
+The Expense register should behave as the main Expense workspace. Supplier Invoice evidence remains linked supporting context. Technical language such as record ownership/authority should not dominate the normal view, though the actual financial/source semantics must remain intact.
+
+### Payroll
+
+The current long flat navigation must be reviewed and reorganized around a clearer user mental model. A likely direction is higher-level grouping around overview, people, attendance/time, payroll runs, and imports/admin, but final grouping must come from live route responsibilities rather than blindly copying proposed labels.
+
+These examples seed the audit. Fixing only these examples is insufficient.
+
+---
+
+## Required app-wide scope
+
+Codex must inspect and simplify the authenticated application as a coherent product, not as isolated screenshots.
+
+Coverage includes at minimum:
+
+- Dashboard/Home;
+- Projects and project sub-workspaces;
+- Procurement/RFQ/Purchase Orders;
+- Supplier Invoices;
+- Expenses/payables;
+- Client Billing/Client Invoices;
+- Collections;
+- Cash & Banking;
+- Inventory/Warehouse/project allocation;
+- Payroll/Workers/Attendance/Time/Runs/Imports;
+- Documents;
+- Email/SMS;
+- Engineering;
+- Equipment;
+- Reports where they share affected layout/navigation patterns;
+- Settings/Admin where advanced configuration properly belongs;
+- other authenticated top-level routes and important child/detail/modal/drawer states derived from the live router.
+
+Do not trust an old hardcoded route count. Derive the route inventory from current source.
+
+---
+
+## Shared UI grammar to enforce
+
+Major operational pages should generally converge on:
+
+1. page title + concise context;
+2. primary action/next step;
+3. only decision-relevant summary/state;
+4. main working surface;
+5. supporting context;
+6. advanced/provenance/audit details.
+
+Shared patterns should be reviewed centrally where possible:
+
+- page headers;
+- section headers;
+- cards/stat tiles;
+- buttons and action hierarchy;
+- badges/status chips;
+- filters/search;
+- tables/registers;
+- form groups;
+- local navigation/tabs;
+- dialogs/drawers;
+- helper text;
+- empty/loading/error/unavailable states;
+- pagination;
+- responsive action patterns.
+
+Do not patch each route independently when a reusable component is the root cause.
+
+---
+
+## Terminology / formatting direction
+
+Audit the app for technical or awkward user-facing language including:
+
+- UUID/hash-first identity;
+- raw enums;
+- source-of-truth/authority jargon;
+- `owns cost`-style wording;
+- `preserved source evidence`-style wording;
+- ambiguous `Uncoded`-style labels;
+- inconsistent money/quantity/unit formatting;
+- verbose explanatory copy placed ahead of the work itself.
+
+Use human-readable business identity first and technical IDs/details second.
+
+Money should be presented in readable currency-aware formatting while preserving original currency and without inventing FX.
+
+---
+
+## Local-QA implementation loop
+
+This phase should heavily use the existing authenticated Local-QA harness because it allows a branch to be exercised against the isolated QA backend before merge.
+
+Intended development loop:
+
+`fresh branch from current main -> local app -> isolated QA backend -> authenticated workflow -> inspect rendered behavior -> fix -> focused regression`
+
+Use the already approved QA environment/account configuration via local environment/test configuration. Never hardcode passwords, service-role credentials, or browser-unsafe privileged keys in repository files.
+
+Local-QA is pre-merge functional evidence. It is not permission to modify production.
+
+### Primarily application/UI scope
+
+Do not add DB migrations/RLS/RPC/financial-guard changes simply to make the redesign easier.
+
+If a genuine backend defect is exposed, identify it explicitly and use the repository's DB validation rules if it must be corrected. Do not silently redefine business truth inside UI code.
+
+---
+
+## Required workflow regression coverage
+
+Do not limit validation to route loading and screenshots.
+
+Exercise the workflows materially touched by the restructure, including applicable existing coverage for:
+
+- supplier document -> verification -> linked Expense -> Cash & Banking;
+- procurement/RFQ -> PO -> receipt -> Warehouse;
+- Client Invoice -> Collection -> Cash & Banking;
+- Payroll people/time/attendance -> run/calculation -> approval navigation and freshness;
+- Documents -> preview/open -> Compose/review without uncontrolled sending;
+- Project allocation and project-context handoffs;
+- Inventory/project allocation and receiving handoffs;
+- deep-link/stale-record recovery where navigation changes affect them.
+
+If fixture/provider limitations prevent a workflow, report it as blocked/not-tested rather than as pass.
+
+---
+
+## Responsive / accessibility expectations
+
+Deliberately exercise at least:
+
+- normal desktop;
+- laptop / constrained-height desktop;
+- tablet width;
+- phone/mobile width.
+
+Check more than page overflow:
+
+- no clipped critical controls;
+- no unusably compressed money/quantity/select fields;
+- primary actions remain discoverable;
+- navigation remains understandable;
+- actual working content is not buried beneath oversized header/card regions;
+- dialogs/drawers remain operable;
+- keyboard/focus/labels/touch targets remain reasonable;
+- do not replace understandable text actions with ambiguous icon-only controls merely to save space.
+
+---
+
+## Validation ladder for this phase
+
+Use the repository's proportional implementation workflow:
+
+1. new/edited tests;
+2. focused UI/domain tests;
+3. `npm.cmd run test:affected:agent`;
+4. production build because broad UI/application integration changes are expected;
+5. targeted authenticated Local-QA/browser coverage for affected routes/workflows;
+6. Workflow Map only when mapped/generated contracts change;
+7. Docker/local Supabase only if DB/security/integrity contracts change;
+8. `test:full` only if impact fallback, broad shared-contract risk, failures, release/deep-regression need, or explicit request justifies it;
+9. exact integrated diff review for accidental feature loss, financial/security drift, broken routes, and scope creep.
+
+Codex must not self-merge its implementation PR.
+
+---
+
+## Completed quality/application context that remains valid
+
+### First comprehensive Local-QA UI/UX pass — complete
+
+PR #150 previously established broad authenticated route/responsive coverage and fixed concrete UI issues. That pass remains valid evidence for what it tested, but it did not prove the app was optimally understandable. UI/UX Round 2 intentionally raises the bar from structural correctness to usability/information hierarchy.
+
+### Programmatic PDF visual certification — complete
+
+Programmatic Purchase Order / Client Invoice fallback output received deliberate visual certification, including centering, logos, long values, multi-page behavior, totals, signatures, and preview/download byte identity for exercised records.
+
+Company-template high-fidelity conversion remains a separate capability and must not be falsely represented as certified when converter support is unavailable.
+
+### Functional Local-QA sweep — complete for supported/fixture-backed workflows
+
+The earlier integrated Local-QA sweep exercised key RFQ/PO/Warehouse, supplier payable, client receivable, payroll, Documents->Compose, and stale-record flows. Subcontract settlement remained fixture-blocked where no safe fixture existed.
+
+### Supplier Payables Settlement Truth & Consistency — complete
+
+Merged PR #158 established and certified the corrected supplier settlement model:
+
+- the verified linked Expense is the supplier payable/settlement authority even when intentionally `DRAFT`;
+- generic direct DRAFT Expense settlement remains ineligible;
+- payment state comes from confirmed Cash & Banking evidence, not OCR/document-reported `amountPaid`;
+- legacy invoice-target evidence projects through the linked Expense relationship;
+- reversal restores outstanding while preserving history;
+- project/source linkage and cost truth remain intact.
+
+Do not weaken those semantics during UI simplification.
+
+---
+
+## Hosted exact-SHA QA evidence
 
 Certified application SHA:
 
 `e4ee4ebde489629ee74429b4e37abb511943a51e`
 
-### Exact QA identities
+At certification:
 
-- Render QA service: `srv-dafno1id0e5s73d6e3b0`
-- Render deployment at certification: `dep-daidc37qj5pc73ac6ta0`
-- QA URL: `https://hydroqualisense-qa.onrender.com`
-- logical deployment ID from health: `qa-hydroqualisense`
-- QA Supabase project: `vrpuznofrntyqsbugrib`
-- production Supabase project: `qijjshdwiylojvqojxyz`
+- Render QA served the exact intended SHA;
+- QA deployment identity/environment matched expectations;
+- QA Supabase was independently distinct from production;
+- repository and QA migration parity matched `20260912082656_supplier_payables_settlement_consistency`;
+- email/password authentication persisted;
+- protected route contracts passed;
+- zero console/page/network failures were recorded on the successful hosted attempt;
+- authenticated engineering-document Storage upload/read/hash/cleanup passed;
+- separate supplier-payables QA assertions passed;
+- synthetic financial certification fixtures were rolled back/cleaned;
+- no uncontrolled email or SMS was sent.
 
-The QA and production project identities were independently inspected and are distinct. Production remained read-only.
+This evidence belongs to that application SHA and must not be generalized blindly to the future UI/UX Round 2 head.
 
-### Migration parity
+---
 
-Canonical repository migration head:
-
-`20260912082656_supplier_payables_settlement_consistency`
-
-The protected release found QA one migration behind, promoted only the missing canonical `20260912082656_supplier_payables_settlement_consistency` migration through the guarded QA path, and independently verified parity afterward. The connected QA inspection now ends at the exact same version/name as the repository.
-
-The production migration was separately promoted under explicit authorization. This phase performed no production database, Auth, Storage, secret, or environment write; production was read-only for identity/parity verification.
-
-### Exact hosted runtime evidence
-
-`/api/health` matched:
-
-- environment `qa`;
-- deployment ID `qa-hydroqualisense`;
-- repository SHA `e4ee4ebde489629ee74429b4e37abb511943a51e`;
-- migration level `20260912082656`.
-
-The protected hosted certification established:
-
-- email/password QA authentication succeeded and persisted;
-- unauthenticated `/settings` returned the sign-in boundary;
-- all 9 hosted route contracts passed on the same exact SHA;
-- zero console errors, page errors, and failed network requests on the successful attempt;
-- the QA banner and synthetic deployment company identity were visible across hosted routes;
-- the authenticated engineering-document Storage probe uploaded a small synthetic PDF object, read it back with an identical SHA-256, and removed it successfully;
-- the Storage probe created zero metadata rows.
-
-The first Hosted QA attempt in Protected QA Release run `34689351709` failed only in authentication preflight: no persisted Supabase session was established and the browser surfaced provider response `Failed to fetch`. Health/deployment identity had already passed. The failed Hosted QA job was retried against the **same SHA**, with no deployment, migration, configuration, or code change, and passed cleanly. The initial transient failure remains part of the evidence rather than being hidden.
-
-### Current-tree scope and limitations
-
-The Hosted QA harness proves exact deployment/identity/auth/route/Storage certification of the current merged application tree. It does not falsely claim to have re-clicked every earlier functional workflow; the supplier-payables behavior is covered separately by the 12/12 authenticated QA RPC certification recorded above.
-
-PR #158 does not weaken the existing RFQ, Payroll, programmatic-PDF, document-delivery, or Documents -> Compose boundaries. Documents -> Compose retains the explicit `Preview / Review` -> `Confirm & Send` human boundary and no uncontrolled email or SMS was sent.
-
-## Current provider and optional-capability truth
+## Current provider / optional capability truth
 
 ### Gmail
 
-The exact hosted QA UI currently reports that Gmail authorization is expired or revoked and needs reconnection. Compose/review remains available, but live Gmail sync/send is **not certified for this exact state**. No uncontrolled external email was sent during Phase 4.
+Exact-state hosted provider proof may require reauthorization. Compose/review remains conceptually separate from uncontrolled send. UI work must preserve the human review/confirmation boundary.
 
 ### SMS
 
-The approved outbound choices are Company SIM Gateway (primary/recommended) and PhilSMS (optional hosted fallback). This implementation has no live gateway device or PhilSMS credentials available for runtime certification, so the UI remains truthful: SMS is not configured or not verified and no SMS was sent.
+Approved provider direction remains:
 
-### Company-template upload / conversion
+- Company SIM Gateway — primary/recommended;
+- PhilSMS — optional hosted fallback.
 
-- server-authority safe-link template upload remains environment-limited where the required server-only Supabase Storage credential is absent;
-- the native QA runtime does not expose the supported LibreOffice/`soffice` converter, so high-fidelity company-template PDF conversion remains `UNAVAILABLE`;
-- programmatic PDF fallback remains separate and certified; do not represent converter scaffolding as converter runtime certification.
+The provider work is **temporarily sequenced after UI/UX Round 2**, not cancelled. Real SMS remains unavailable/unverified until controlled provider-backed QA succeeds.
+
+### Company-template upload/conversion
+
+Programmatic PDF fallback is separate from company-template DOCX/finalized converter-backed PDF. Do not represent converter scaffolding as runtime certification where the supported converter/server authority is unavailable.
 
 ### Subcontract settlement
 
-No safe subcontract/claim fixture exists in the QA company. This remains `NOT TESTED`/fixture-blocked.
+Remains fixture-limited/not-tested where no safe subcontract/claim fixture exists.
+
+---
 
 ## QA / production boundary
 
 `QA CERTIFICATION: NOT READY`
 
-Hosted exact-SHA certification and supplier-payables certification are complete for current `main`, but overall QA readiness is intentionally still not `READY` because:
+The hosted application and supplier-payables evidence are strong but narrower than full readiness.
 
-- Wave 4D messaging-provider implementation and runtime evidence are incomplete;
-- SMS has approved paths but no configured/provider-backed runtime-tested deployment;
-- Gmail currently requires reauthorization for exact-state runtime proof;
-- subcontract settlement remains fixture-blocked;
-- optional server-authority template upload / high-fidelity company-template conversion retain documented environment limitations.
+Overall QA remains not ready because remaining provider/readiness limitations still exist and because the upcoming UI/UX Round 2 will produce a new application-bearing head requiring appropriate new evidence.
 
-Do not weaken this gate merely because the core hosted exact-SHA release check is green.
+Production is read-only unless the user separately and explicitly authorizes a production operation under the migration/operator policy.
 
-Production remains read-only unless the user separately and explicitly authorizes a production operation under the migration/operator policy. The production migration promotion was a separate explicitly authorized operation; this final QA recovery/certification phase performed no production database, Auth, Storage, migration, secret, or environment write.
+Never infer production authorization from:
 
-## Financial / security / history invariants
+- a green PR;
+- a merge;
+- a Render deployment;
+- local QA success;
+- hosted QA success;
+- documentation changes.
 
-Preserve throughout all remaining work:
+---
+
+## Permanent financial / security / history invariants
+
+Preserve throughout UI/UX Round 2 and subsequent work:
 
 - one deployment -> one client company;
-- active company membership / RLS / RBAC isolation;
+- active membership, RLS, RBAC, capability-based authorization, and company isolation;
 - Supplier Invoice evidence remains distinct from authoritative linked Expense payable/cost truth;
-- Client Invoice/Collection receivable truth remains distinct from Cash settlement evidence;
+- Client Invoice/Collection receivable truth remains distinct from Cash & Banking settlement evidence;
 - Actual Cost remains distinct from Committed Cost;
-- original-currency and explicit FX semantics remain intact;
-- payroll settlement history and authority remain intact;
-- Purchase Order receipt/close rules remain intact;
-- immutable issued/finalized snapshots and artifact provenance remain intact;
-- send/delivery history remains append-only and company-bound;
-- permissions remain capability-based;
-- Assistant consequential actions retain `prepare -> review -> human confirm -> execute`.
+- `projects.contract_value` remains distinct from `projects.project_budget`;
+- original currency remains explicit and mixed currencies are not silently summed;
+- payroll privacy, calculation freshness, approval authority, and settlement history remain intact;
+- Purchase Order receiving/close rules remain intact;
+- inventory movement/allocation history remains authoritative/explainable;
+- immutable issued/finalized document snapshots and provenance remain intact;
+- delivery history remains append-only/company-bound;
+- Assistant consequential actions retain `prepare -> review -> human confirm -> execute`;
+- navigation simplification is never authorization simplification.
 
-Do not weaken these boundaries to simplify provider work or QA.
+---
 
 ## Required sequence from this handoff
 
-1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE**
-2. **Deep PDF/export visual certification — COMPLETE for programmatic fallback**
-3. **Company-template compatibility implementation — COMPLETE; converter runtime certification remains environment-limited**
-4. **Functional regression sweep — COMPLETE for supported/fixture-backed Local-QA workflows**
-5. **Supplier Payables Settlement Truth & Consistency Audit — COMPLETE in merged PR #158; 12/12 authenticated QA assertions passed**
-6. **Hosted exact-SHA QA certification — COMPLETE for current `main` at `e4ee4ebde489629ee74429b4e37abb511943a51e`**
-7. **Wave 4D messaging-provider selection/integration — IN PROGRESS**
-8. **Wave 4D remaining readiness/completion evidence**
-9. **Worker Registration — PAUSED until Wave 4D is genuinely complete and the user explicitly resumes it**
-10. Site Attendance
-11. Face-Recognition Attendance — design/privacy/security first
-12. Final pre-production security/data-integrity certification
+1. **UI/UX Round 2 — NEXT / ACTIVE**
+2. **Resume Wave 4D messaging-provider integration/completion**
+3. **Wave 4D remaining readiness/completion evidence**
+4. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
+5. Site Attendance
+6. Face Recognition only after design/privacy/security work
+7. Final pre-production security/data-integrity certification
 
-## Active implementation phase — Wave 4D messaging-provider selection/integration
+Do not skip directly to Worker Registration.
 
-Do not start Worker Registration.
+---
 
-The active implementation integrates the two approved practical SMS paths under the authoritative Wave 4D contract. It preserves:
+## Fresh implementation handoff instructions
 
-- Company SIM Gateway as the primary/recommended private-server path;
-- PhilSMS as the optional hosted Philippine fallback;
-- the shared delivery intent/audit history rather than a competing SMS table;
+For UI/UX Round 2, Codex should:
 
-- server-side provider credentials only;
-- permission-aware send authority;
-- explicit human review/confirmation before consequential sends;
-- idempotency and duplicate-send protection;
-- bounded retry/reconciliation;
-- normalized delivery/failure state;
-- delivery webhook/status handling where supported;
-- company isolation and append-only delivery history;
-- truthful UI states when provider capability is unavailable;
-- no bulk unsolicited marketing scope.
-
-The live official upstream contracts were checked for the implementation: Android private-server API paths/authentication/device status and PhilSMS API/Bearer/send/status/balance behavior. Provider account pricing, Sender ID approval, gateway/device health, and controlled QA delivery still require live deployment evidence; do not infer them from configuration or mocks.
-
-Inbound Android SMS/reply ingestion is intentionally deferred to a separate bounded enhancement. Outbound SMS, safe status lookup, and the human-confirmed send boundary are the priority in this phase.
-
-## Implementation workflow
-
-For the active provider implementation and its QA follow-up:
-
-- fetch and fast-forward current `main` and record the exact SHA once;
-- read live `AGENTS.md`, baseline, efficiency guide, roadmap, this handoff, Wave 4D contract, and deployment/provider guidance;
-- default to zero subagents; hard maximum two independent bounded subagents;
-- generate at most one bounded context packet when useful;
-- inspect existing provider adapter/delivery-history implementation before designing;
-- keep credentials server-side and preserve the review/confirm boundary;
-- run new/edited tests -> focused tests -> `npm.cmd run test:affected:agent` -> only relevant lint/build/browser/Workflow Map checks;
-- use Docker/local Supabase only if DB/security/integrity contracts change;
-- do not run `test:full` by ritual;
+- first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
+- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, and `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`;
+- default to zero subagents, hard maximum two concurrent bounded Codex subagents;
+- use at most one bounded context packet when useful;
+- inspect the live router/application shell/shared primitives before deciding navigation changes;
+- derive the current authenticated route/workflow inventory from source;
+- use authenticated Local-QA repeatedly while implementing;
+- fix shared UI causes centrally where appropriate;
+- preserve all business/security/history invariants;
+- run focused -> affected -> relevant build/browser validation;
+- use Docker/Supabase only if the change genuinely crosses DB/security/integrity contracts;
 - review the complete final diff;
-- push a feature branch and open a PR;
-- Codex must not merge its own PR.
+- update roadmap/handoff/design/client-facing roadmap truth only to match actual final capability;
+- push/open PR and stop; Codex must not merge its own PR.
 
 ## Stop boundary
 
-Do not let Wave 4D provider work expand into Worker Registration, Site Attendance, Face Recognition, broad CRM redesign, marketing/bulk messaging, unrelated AI redesign, or a new DB domain without validated scope.
+Do not let UI/UX Round 2 expand into provider deployment, Worker Registration, Site Attendance, Face Recognition, broad CRM, new accounting policy, or unrelated DB redesign.
 
-Worker Registration remains paused until Wave 4D is genuinely complete and the user explicitly resumes it.
-
-This final phase stopped after Hosted QA recovery, supplier-payables certification, and documentation synchronization. No SMS runtime certification and no Worker Registration were started.
+When the UI/UX implementation is safely merged, return to Wave 4D provider integration unless the user explicitly changes priorities again.
