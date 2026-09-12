@@ -4,6 +4,7 @@ import test from "node:test";
 import { appPathForEmailWorkspace, emailWorkspaceContextFromSearch } from "../src/utils/appRouting.ts";
 
 const migration = readFileSync(new URL("../supabase/migrations/20260912061500_wave4d_sms_providers.sql", import.meta.url), "utf8");
+const androidReconciliationMigration = readFileSync(new URL("../supabase/migrations/20260912073000_android_sms_reconciliation_reference.sql", import.meta.url), "utf8");
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 const workspace = readFileSync(new URL("../src/app/routes/EmailSmsRoute.tsx", import.meta.url), "utf8");
 const compose = readFileSync(new URL("../src/components/SmsComposePanel.tsx", import.meta.url), "utf8");
@@ -31,7 +32,10 @@ test("the two approved SMS paths stay behind one server-only provider boundary",
   assert.match(server, /claim_sms_send_intent/);
   assert.match(server, /complete_sms_delivery_intent/);
   assert.match(server, /SMS_SEND_RECONCILE_REQUIRED/);
+  assert.match(clientMessaging, /payload\.data\?\.reconciliationRequired === true/);
+  assert.match(clientMessaging, /!code && response\.status >= 500/);
   assert.match(clientMessaging, /response\.ok && payload\.success !== true/);
+  assert.doesNotMatch(clientMessaging, /code === "SMS_SEND_RECONCILE_REQUIRED" \|\| response\.status >= 500/);
   assert.doesNotMatch(clientMessaging, /PHILSMS_API_TOKEN|SMS_GATEWAY_PASSWORD|SMS_GATEWAY_USERNAME/);
 });
 
@@ -48,4 +52,7 @@ test("SMS database contract reuses delivery intent/audit history with safe chann
   assert.doesNotMatch(migration, /create table[^;]+sms_(history|messages)/i);
   assert.match(migration, /documents\.send/);
   assert.match(migration, /jsonb_array_length\(new\.recipients\) <> 1/);
+  assert.match(androidReconciliationMigration, /ensure_android_sms_reconciliation_reference/);
+  assert.match(androidReconciliationMigration, /extensions\.digest/);
+  assert.match(androidReconciliationMigration, /'hs_' \|\| left/);
 });
