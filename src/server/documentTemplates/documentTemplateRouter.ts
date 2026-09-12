@@ -43,9 +43,11 @@ import {
   mergeDocxTemplate,
   generatedTemplateFileName,
   sha256Hex,
+  validateDocxTemplateBytes,
 } from "./documentTemplateEngine.ts";
 import {
   createDocumentPdfConverter,
+  DOCUMENT_PDF_UNAVAILABLE_MESSAGE,
   finalizeMergedDocxToPdf,
   getDocumentPdfFinalizationHealth,
   MAX_FINALIZED_PDF_BYTES,
@@ -277,6 +279,7 @@ async function readTemplateBytes(auth: StorageAuthContext, options: DocumentTemp
   const { bytes } = await provider.getObject({ companyId: auth.companyId, bucket: version.storageBucket, key: version.contentStoragePath });
   const hash = await calculateSha256Hex(bytes);
   if (hash.toLowerCase() !== version.contentSha256.toLowerCase()) throw new StorageIntegrityError("The document template failed its stored integrity check.");
+  validateDocxTemplateBytes(bytes, version.sourceFilename || "template.docx", version.mimeType || DOCX_MIME_TYPE);
   return { bytes, provider };
 }
 
@@ -472,7 +475,7 @@ async function pdfConverter(options: DocumentTemplateRouterOptions): Promise<Doc
     || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(converter.id)
     || !/^[A-Za-z0-9][A-Za-z0-9._+() -]{0,119}$/.test(converter.version)
     || typeof converter.convert !== "function") {
-    throw new DocumentPdfFinalizationError("PDF_CONVERTER_UNAVAILABLE", "High-fidelity PDF conversion is unavailable on this deployment. Use the existing PDF fallback.");
+    throw new DocumentPdfFinalizationError("PDF_CONVERTER_UNAVAILABLE", DOCUMENT_PDF_UNAVAILABLE_MESSAGE);
   }
   return converter;
 }
@@ -607,6 +610,7 @@ async function persistVersion(
   const resolvedTemplateId = templateId;
   const versionId = input.versionId || randomUUID();
   const sourceFilename = input.sourceFilename ? sanitizeStorageFileName(input.sourceFilename, generatedTemplateFileName(input.documentType, input.displayName)) : generatedTemplateFileName(input.documentType, input.displayName);
+  validateDocxTemplateBytes(input.bytes, sourceFilename, DOCX_MIME_TYPE);
   const path = templateObjectPath(auth.companyId, resolvedTemplateId, input.documentType, versionId, sourceFilename);
   const hash = sha256Hex(input.bytes);
   const provider = primaryProvider(auth, options);
@@ -954,6 +958,8 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
     try {
       const auth = await authorizer(req, "company.settings.manage");
       const versionId = requestedUuid(req.params.versionId, "Template version ID");
+      const { version } = await readTemplateVersion(auth, options, versionId);
+      await readTemplateBytes(auth, options, version);
       const mutationClient = serverSupabase(options);
       const { data, error } = await mutationClient.rpc("server_activate_document_template_version", { p_version_id: versionId, p_actor_user_id: auth.user.id });
       if (error || !data) throw new StorageApiError(apiStatus(error), "TEMPLATE_ACTIVATION_FAILED", apiMessage(error, "The document template could not be activated safely."));

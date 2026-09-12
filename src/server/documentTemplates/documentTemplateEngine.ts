@@ -69,6 +69,220 @@ export class DocumentTemplateValidationError extends Error {
   }
 }
 
+/**
+ * Safe clickable hyperlinks are inert document content. They are preserved in
+ * the OOXML package and are never resolved by the application or converter.
+ * Everything else that points outside the package is treated as a resource
+ * and is rejected without exposing the target to the caller.
+ */
+export const DOCX_EXTERNAL_RESOURCE_MESSAGE = "This Word template contains a linked external, local, or network resource. Ordinary mailto: and http(s): hyperlinks are allowed; linked images/media, files, templates, objects, data, and other resources are not.";
+
+const HYPERLINK_RELATIONSHIP_TYPES = new Set([
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+  "http://purl.oclc.org/ooxml/officeDocument/relationships/hyperlink",
+].map((value) => value.toLowerCase()));
+
+const BLOCKED_RESOURCE_RELATIONSHIP_TYPES = new Set([
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedtemplate",
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/externallink",
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/externallinkpath",
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleobject",
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package",
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/control",
+  "http://purl.oclc.org/ooxml/officeDocument/relationships/attachedtemplate",
+  "http://purl.oclc.org/ooxml/officeDocument/relationships/externallink",
+  "http://purl.oclc.org/ooxml/officeDocument/relationships/externallinkpath",
+  "http://purl.oclc.org/ooxml/officeDocument/relationships/oleobject",
+  "http://purl.oclc.org/ooxml/officeDocument/relationships/package",
+  "http://purl.oclc.org/ooxml/officeDocument/relationships/control",
+].map((value) => value.toLowerCase()));
+
+type SafeHyperlinkScheme = "http" | "https" | "mailto";
+
+type ExternalTargetClassification =
+  | { readonly kind: "SAFE_HYPERLINK"; readonly scheme: SafeHyperlinkScheme }
+  | { readonly kind: "INTERNAL" }
+  | { readonly kind: "BLOCKED"; readonly reason: string };
+
+export type DocumentTemplateRelationshipClassification =
+  | { readonly kind: "INTERNAL"; readonly reason: "package-target" }
+  | { readonly kind: "INERT_HYPERLINK"; readonly scheme: SafeHyperlinkScheme }
+  | { readonly kind: "BLOCKED_EXTERNAL_RESOURCE"; readonly reason: string };
+
+function decodeXmlText(value: string): string {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_match, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#([0-9]+);/g, (_match, number) => String.fromCodePoint(Number(number)))
+    .replace(/&amp;/g, "&");
+}
+
+function classifyExternalTarget(value: string): ExternalTargetClassification {
+  const target = decodeXmlText(String(value || "")).trim();
+  if (!target) return { kind: "BLOCKED", reason: "the target is empty" };
+  if (/[\u0000-\u001f\u007f]/.test(target)) return { kind: "BLOCKED", reason: "the target contains control characters" };
+  if (/^https?:\/\/[^\s]+$/i.test(target)) {
+    return { kind: "SAFE_HYPERLINK", scheme: target.slice(0, target.indexOf(":")).toLowerCase() as "http" | "https" };
+  }
+  if (/^mailto:[^\s]+$/i.test(target)) return { kind: "SAFE_HYPERLINK", scheme: "mailto" };
+  if (/^file:/i.test(target)) return { kind: "BLOCKED", reason: "the target is a local file URI" };
+  if (/^ftp:/i.test(target)) return { kind: "BLOCKED", reason: "the target is an FTP resource" };
+  if (/^\/\//.test(target)) return { kind: "BLOCKED", reason: "the target is protocol-relative" };
+  if (/^\\\\/.test(target)) return { kind: "BLOCKED", reason: "the target is a UNC/network path" };
+  if (/^[A-Za-z]:[\\/]/.test(target) || /^[\\/]/.test(target) || target.includes("\\")) {
+    return { kind: "BLOCKED", reason: "the target is a local or network path" };
+  }
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(target)) return { kind: "BLOCKED", reason: "the target uses an unsupported resource scheme" };
+  return { kind: "INTERNAL" };
+}
+
+/**
+ * Classify a package relationship without resolving or dereferencing its
+ * target. Only official OOXML hyperlink relationships with an explicit
+ * mailto/http/https target are inert and permitted.
+ */
+export function classifyExternalRelationship(input: {
+  readonly type?: unknown;
+  readonly target?: unknown;
+  readonly targetMode?: unknown;
+}): DocumentTemplateRelationshipClassification {
+  const type = decodeXmlText(String(input.type || "")).trim().toLowerCase();
+  const target = decodeXmlText(String(input.target || "")).trim();
+  const targetMode = String(input.targetMode || "").trim().toLowerCase();
+  if (!type) return { kind: "BLOCKED_EXTERNAL_RESOURCE", reason: "the relationship type is missing" };
+
+  const targetClassification = classifyExternalTarget(target);
+  if (HYPERLINK_RELATIONSHIP_TYPES.has(type)) {
+    if (targetClassification.kind === "SAFE_HYPERLINK") return { kind: "INERT_HYPERLINK", scheme: targetClassification.scheme };
+    return {
+      kind: "BLOCKED_EXTERNAL_RESOURCE",
+      reason: targetClassification.kind === "BLOCKED" ? targetClassification.reason : "the hyperlink target is not an explicit mailto/http/https URI",
+    };
+  }
+  if (BLOCKED_RESOURCE_RELATIONSHIP_TYPES.has(type)) {
+    return { kind: "BLOCKED_EXTERNAL_RESOURCE", reason: "the relationship type is an external template, object, data, or resource relationship" };
+  }
+  if (targetMode === "external") return { kind: "BLOCKED_EXTERNAL_RESOURCE", reason: "an unknown external relationship type is not allowlisted" };
+  if (targetClassification.kind === "SAFE_HYPERLINK") {
+    return { kind: "BLOCKED_EXTERNAL_RESOURCE", reason: "a non-hyperlink relationship points to an external URI" };
+  }
+  if (targetClassification.kind === "BLOCKED") return { kind: "BLOCKED_EXTERNAL_RESOURCE", reason: targetClassification.reason };
+  return { kind: "INTERNAL", reason: "package-target" };
+}
+
+function xmlAttributes(tag: string): ReadonlyMap<string, string> {
+  const attributes = new Map<string, string>();
+  for (const match of tag.matchAll(/([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*(["'])([\s\S]*?)\2/g)) {
+    const name = String(match[1] || "").toLowerCase();
+    if (!name || attributes.has(name)) throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+    attributes.set(name, decodeXmlText(match[3] || ""));
+  }
+  return attributes;
+}
+
+function relationshipElements(xml: string): readonly string[] {
+  const elements: string[] = [];
+  for (const match of xml.matchAll(/<Relationship\b/gi)) {
+    const start = match.index ?? -1;
+    if (start < 0) continue;
+    let quote = "";
+    let end = -1;
+    for (let index = start + match[0].length; index < xml.length; index += 1) {
+      const character = xml[index];
+      if (quote) {
+        if (character === quote) quote = "";
+      } else if (character === "\"" || character === "'") {
+        quote = character;
+      } else if (character === ">") {
+        end = index;
+        break;
+      }
+    }
+    if (end < 0 || quote) throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+    elements.push(xml.slice(start, end + 1));
+  }
+  return elements;
+}
+
+function hasExternalTargetSyntax(value: string): boolean {
+  return /(?:\b(?:https?|mailto|file|ftp|ftps|data|javascript|vbscript|ms-[A-Za-z0-9+.-]+):|\/\/|\\\\|(?:^|\s)[A-Za-z]:[\\/]|(?:^|\s)\/)/i.test(value);
+}
+
+interface ParsedFieldTarget {
+  readonly target?: string;
+  readonly internal: boolean;
+  readonly start: number;
+  readonly end: number;
+}
+
+function parseHyperlinkFieldTarget(rest: string): ParsedFieldTarget {
+  const leading = rest.search(/\S/);
+  if (leading < 0) return { internal: false, start: 0, end: 0 };
+  const value = rest.slice(leading);
+  if (/^\\l(?:\s|$)/i.test(value)) return { internal: true, start: leading, end: leading + 2 };
+  const quoted = /^"((?:""|[^"])*)"/.exec(value);
+  if (quoted) return { target: quoted[1].replace(/""/g, '"'), internal: false, start: leading + 1, end: leading + 1 + quoted[1].length };
+  const unquoted = /^([^\s]+)/.exec(value);
+  if (unquoted) return { target: unquoted[1], internal: false, start: leading, end: leading + unquoted[1].length };
+  return { internal: false, start: leading, end: leading };
+}
+
+const BLOCKED_FIELD_RESOURCE_CODES = /\b(?:INCLUDEPICTURE|INCLUDETEXT|LINK|DDE|DDEAUTO|DATABASE|EMBED|IMPORT)\b/i;
+
+function fieldInstructions(xml: string): readonly string[] {
+  const instructions: string[] = [];
+  const paragraphs = [...xml.matchAll(/<w:p\b[\s\S]*?<\/w:p>/gi)].map((match) => match[0] || "");
+  const containers = paragraphs.length ? paragraphs : [xml];
+  for (const container of containers) {
+    const pieces = [...container.matchAll(/<w:instrText\b[^>]*>([\s\S]*?)<\/w:instrText>/gi)].map((match) => decodeXmlText(match[1] || ""));
+    if (pieces.length) instructions.push(pieces.join(""));
+  }
+  for (const match of xml.matchAll(/<w:fldSimple\b[^>]*>/gi)) {
+    const attributes = xmlAttributes(match[0] || "");
+    const instruction = attributes.get("w:instr") || attributes.get("instr");
+    if (instruction) instructions.push(instruction);
+  }
+  return instructions;
+}
+
+function assertSafeFieldInstructions(xml: string): void {
+  for (const instruction of fieldInstructions(xml)) {
+    const fieldCode = decodeXmlText(instruction);
+    const safeTargetRanges: Array<readonly [number, number]> = [];
+    for (const match of fieldCode.matchAll(/\bHYPERLINK\b/gi)) {
+      const fieldStart = (match.index ?? 0) + match[0].length;
+      const parsed = parseHyperlinkFieldTarget(fieldCode.slice(fieldStart));
+      if (parsed.internal) continue;
+      if (!parsed.target) throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+      const targetClassification = classifyExternalTarget(parsed.target);
+      if (targetClassification.kind !== "SAFE_HYPERLINK") {
+        throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+      }
+      safeTargetRanges.push([fieldStart + parsed.start, fieldStart + parsed.end]);
+    }
+    if (BLOCKED_FIELD_RESOURCE_CODES.test(fieldCode)) throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+    let remainder = fieldCode;
+    for (const [start, end] of [...safeTargetRanges].sort((left, right) => right[0] - left[0])) {
+      remainder = `${remainder.slice(0, start)}${remainder.slice(end)}`;
+    }
+    if (hasExternalTargetSyntax(remainder)) throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+  }
+}
+
+function assertNoDirectExternalReferences(xml: string): void {
+  for (const match of xml.matchAll(/<[^!?/][^>]*\b(target|href|src)\s*=\s*(["'])([\s\S]*?)\2[^>]*>/gi)) {
+    const attribute = String(match[1] || "").toLowerCase();
+    const value = match[3] || "";
+    if ((attribute === "href" || attribute === "src") && value.trim()) throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+    const target = classifyExternalTarget(value);
+    if (target.kind !== "INTERNAL") throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+  }
+  assertSafeFieldInstructions(xml);
+}
+
 function fileExtension(fileName: string): string {
   return /\.([A-Za-z0-9]+)$/.exec(String(fileName || "").trim())?.[1]?.toLowerCase() || "";
 }
@@ -99,21 +313,24 @@ function assertSafeArchiveName(name: string): void {
   }
 }
 
-function assertNoExternalRelationships(zip: PizZip, entries: readonly DocumentTemplateZipEntry[]): void {
+function assertNoBlockedExternalReferences(zip: PizZip, entries: readonly DocumentTemplateZipEntry[]): void {
   if (entries.some((entry) => /^word\/externalLinks\//i.test(entry.name))) {
-    throw new DocumentTemplateValidationError("Word templates with external links are not supported.");
+    throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
   }
   for (const entry of entries) {
     const xml = zip.file(entry.name)?.asText() || "";
-    if (/^word\/.*\.xml$/i.test(entry.name) && (
-      /\b(?:target|href|src)\s*=\s*["'](?:https?|file|ftp):\/\//i.test(xml)
-      || /<w:instrText\b[^>]*>[\s\S]*?(?:https?|file|ftp):\/\//i.test(xml)
-    )) {
-      throw new DocumentTemplateValidationError("Word templates with external links or network resources are not supported.");
-    }
+    if (/^word\/.*\.xml$/i.test(entry.name)) assertNoDirectExternalReferences(xml);
     if (!/(?:^|\/)_[Rr]els\/[^/]+\.rels$|^_rels\/\.rels$/i.test(entry.name)) continue;
-    if (/<Relationship\b[^>]*(?:TargetMode\s*=\s*["']External["']|Target\s*=\s*["'](?:https?:|file:|ftp:|\\\\|\/\/))/i.test(xml)) {
-      throw new DocumentTemplateValidationError("Word templates with external links or network resources are not supported.");
+    for (const relationship of relationshipElements(xml)) {
+      const attributes = xmlAttributes(relationship);
+      const classification = classifyExternalRelationship({
+        type: attributes.get("type"),
+        target: attributes.get("target"),
+        targetMode: attributes.get("targetmode"),
+      });
+      if (classification.kind === "BLOCKED_EXTERNAL_RESOURCE") {
+        throw new DocumentTemplateValidationError(DOCX_EXTERNAL_RESOURCE_MESSAGE);
+      }
     }
   }
 }
@@ -200,7 +417,7 @@ export function validateDocxTemplateBytes(bytes: Uint8Array, fileName: string, m
   try {
     // checkCRC32 verifies the package after the central-directory safety pass.
     const zip = new PizZip(bytes, { checkCRC32: true });
-    assertNoExternalRelationships(zip, entries);
+    assertNoBlockedExternalReferences(zip, entries);
     const contentTypes = zip.file("[Content_Types].xml")?.asText() || "";
     const documentXml = zip.file("word/document.xml")?.asText() || "";
     if (!/application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document\.main\+xml/i.test(contentTypes)
@@ -213,17 +430,6 @@ export function validateDocxTemplateBytes(bytes: Uint8Array, fileName: string, m
     throw new DocumentTemplateValidationError("The uploaded file is not a readable Word document.");
   }
   return entries;
-}
-
-function decodeXmlText(value: string): string {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#x([0-9a-f]+);/gi, (_match, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
-    .replace(/&#([0-9]+);/g, (_match, number) => String.fromCodePoint(Number(number)))
-    .replace(/&amp;/g, "&");
 }
 
 function textFromWordXml(fragment: string): string {

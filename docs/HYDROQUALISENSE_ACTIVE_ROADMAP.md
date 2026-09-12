@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — SUPPLIER INVOICE SYSTEMIC CORRECTNESS SLICE COMPLETE / BROADER PHASE 3 IN PROGRESS / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — COMPANY DOCX COMPATIBILITY IMPLEMENTATION COMPLETE / CONVERTER RUNTIME CERTIFICATION BLOCKED / SUPPLIER INVOICE SLICE COMPLETE / BROADER PHASE 3 IN PROGRESS / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-12**
 
@@ -146,6 +146,12 @@ However, byte equality does not certify layout quality. Deep visual certificatio
 The certification remains scoped to the programmatic fallback path. Company-template DOCX and finalized company-template PDF require their own converter-backed evidence when that capability is operational.
 
 Programmatic PDF fallback, company-template DOCX, and finalized company-template PDF remain distinct output paths and must be represented truthfully. The current native Node/Render deployment must not claim high-fidelity conversion when the optional supported converter is unavailable.
+
+## Company-template compatibility slice — implementation complete, runtime certification incomplete
+
+The shared DOCX security boundary now classifies external OOXML references instead of rejecting every `TargetMode="External"` relationship. Official inert Word `mailto:` and `http(s):` hyperlinks, including equivalent `w:instrText` / `w:fldSimple` HYPERLINK fields, are preserved through extraction and deterministic merge without being resolved. Linked media, local/file/UNC/network paths, protocol-relative or FTP targets, attached templates, external data, OLE/objects, unknown external relationships, and `word/externalLinks/*` parts remain fail-closed. Stored-template reads and activation now revalidate through the same boundary, covering upload, starter, AI-generated, duplicate, analyze, binding, download, merge, and finalization paths.
+
+Synthetic route and engine coverage passes for both Purchase Order and Client Invoice safe-link uploads, merge preservation, forbidden-resource rejection, and metadata-failure cleanup. Authenticated Local-QA browser evidence confirms the accurate forbidden-resource message and the independent converter capability state. Safe-link upload was not runtime-certified against the isolated QA backend because the local QA server configuration has no server-only Supabase storage key; the request is correctly blocked before metadata creation. The native runtime also has no `soffice`/`libreoffice` executable and leaves `DOCUMENT_PDF_CONVERTER_PATH` unset, so high-fidelity company-template PDF remains `UNAVAILABLE` with the programmatic fallback. The existing `Dockerfile.document-pdf` remains the approved optional path, but Docker was unavailable locally and no deployment configuration was changed.
 
 ## QA / release-readiness track
 
