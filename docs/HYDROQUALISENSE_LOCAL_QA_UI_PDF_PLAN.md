@@ -1,6 +1,6 @@
 # HydroQualiSense Local QA, UI/UX, and PDF Quality Plan
 
-Status: **ACTIVE — PHASE 1 COMPLETE / PHASE 2 PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / PHASE 3 IN PROGRESS — SUPPLIER INVOICE SLICE COMPLETE**
+Status: **ACTIVE — PHASE 1 COMPLETE / PHASE 2 PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / PHASE 3 LOCAL-QA REGRESSION SWEEP COMPLETE — HOSTED QA NEXT**
 Repository: `Juvialski/InvoiceApp`  
 Last corrected: **2026-09-12**
 
@@ -127,7 +127,7 @@ Real isolated authenticated Local-QA PDF evidence passed for both issued documen
 
 The authenticated Settings surface also exposes an editable per-user document identity. New issued documents use that human-readable Prepared by / Processed by name instead of the sign-in email; existing issued snapshots remain immutable.
 
-The overall Local-QA run remains `FAIL` only because the QA account does not expose `New RFQ` for Procurement at desktop, tablet, or mobile; the completion gate remains intentionally fail-closed. This is a separate Phase 1 coverage/data-state blocker, not a PDF rendering failure.
+The historical Phase 1 run remained `FAIL` only because its Procurement action looked for `New RFQ` before entering the RFQ tab; the completion gate correctly remained fail-closed. Phase 3 corrected that stale harness assumption and the integrated rerun now passes the RFQ gate without weakening coverage.
 
 This phase certifies only the programmatic fallback. Company-template DOCX and finalized company-template PDF remain separate paths and are not represented as high-fidelity conversion evidence when the optional converter is unavailable.
 
@@ -143,7 +143,25 @@ keeps VAT-inclusive and VAT-exclusive arithmetic distinct, preserves unknown
 values and source line totals, removes buyer identity from supplier posting
 readiness, and retains the Vendor -> guarded verification -> one authoritative
 Expense and correction/history boundaries. The focused evidence does not close
-the broader regression sweep or hosted exact-SHA certification.
+the hosted exact-SHA certification.
+
+### Phase 3 outcome
+
+The integrated Local-QA rerun records 57/57 authenticated route scenarios and
+7/7 broader functional workflows passing: RFQ/quotation comparison; partial
+Purchase Order receipt, remaining quantity, close guard, and Warehouse
+continuation; Supplier Invoice -> authoritative Expense -> Cash routing; Client
+Invoice -> Collection -> Cash routing; Payroll freshness/approval; Documents
+-> Compose review without send; and stale-record recovery. The Payroll
+approval freshness defect found during the sweep was fixed by sharing one
+reduced period identity between calculation and approval fingerprints.
+
+The QA company has no safe subcontract/claim fixture, so subcontract
+settlement remains `NOT TESTED`/fixture-blocked rather than represented as a
+pass. Gmail provider sync, server-authority template upload, and LibreOffice
+company-template PDF conversion remain environment/provider-limited and are
+not claimed as certified. No migration or database contract change was
+required, and production was not touched.
 
 Examples include:
 

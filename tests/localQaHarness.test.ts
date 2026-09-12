@@ -53,3 +53,26 @@ test("Local-QA scenario evidence keeps AI-unconfigured responses explicit and SM
   assert.match(scenarios, /Prepared by \/ Processed by name/);
   assert.doesNotMatch(scenarios, /sendEmailMessageByGmail|sendSms/i);
 });
+
+test("Procurement Local-QA opens the RFQ action from the RFQ tab and fails closed when required controls are absent", () => {
+  const scenarios = readFileSync(new URL("../scripts/qa/localQaScenarios.ts", import.meta.url), "utf8");
+  assert.match(scenarios, /const rfqTab = page\.getByRole\("button", \{ name: \/Requests for Quotation \\\(RFQs\\\)\/ \}\);[\s\S]*?rfqTab\.first\(\)\.click\(\);[\s\S]*?new-rfq-dialog/);
+  assert.match(scenarios, /assertion\(`\$\{actionId\}-available`, false,/);
+  assert.match(scenarios, /assertion\("rfq-tab-present", true,/);
+  assert.match(scenarios, /assertion\("rfq-tab-available", false,/);
+});
+
+test("Local-QA runner includes the broader functional sweep and keeps its failure gate explicit", () => {
+  assert.match(localQaSource, /runLocalQaFunctionalSweep/);
+  assert.match(localQaSource, /evidence\.functionalSweep = functionalSweep/);
+  assert.match(localQaSource, /functionalGaps = functionalSweep\.workflows\.filter/);
+  const functional = readFileSync(new URL("../scripts/qa/localQaFunctionalSweep.ts", import.meta.url), "utf8");
+  assert.match(functional, /functional-procurement-rfq-quotation/);
+  assert.match(functional, /functional-po-receipt-warehouse/);
+  assert.match(functional, /functional-supplier-invoice-expense-cash/);
+  assert.match(functional, /functional-client-invoice-collection-cash/);
+  assert.match(functional, /functional-payroll-approval-settlement/);
+  assert.match(functional, /functional-documents-email-review/);
+  assert.match(functional, /functional-deep-link-recovery/);
+  assert.doesNotMatch(functional, /Confirm & Send[\s\S]*?click\(\)/);
+});

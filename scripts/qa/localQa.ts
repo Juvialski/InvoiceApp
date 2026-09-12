@@ -13,6 +13,7 @@ import { chromium } from "playwright";
 import { isPortInUse, isServerReady, terminateChildServer } from "./devServerLifecycle.ts";
 import { redactSensitiveText, normalizeErrorMessage } from "./structuredEvidence.ts";
 import { runLocalQaScenarios, type LocalQaScenarioEvidence, type LocalQaScenarioRunResult } from "./localQaScenarios.ts";
+import { runLocalQaFunctionalSweep, type LocalQaFunctionalSweepResult } from "./localQaFunctionalSweep.ts";
 import { assertLocalQaTarget, assertProductionTargetIsRefused, LOCAL_QA_DEPLOYMENT_ID, LOCAL_QA_PROJECT_REF, LOCAL_QA_PRODUCTION_PROJECT_REF } from "../../src/lib/localQaTarget.ts";
 import { ROUTE_DEFINITIONS } from "../../src/utils/routes.ts";
 
@@ -60,6 +61,7 @@ interface LocalQaEvidence {
   pdfChecks?: Array<{ kind: string; source: string; pageCount: number; previewHash: string; downloadHash: string; exactMatch: boolean; renderedPages: number; previewScreenshotPath: string; downloadedPdfPath: string }>;
   scenarios?: readonly LocalQaScenarioEvidence[];
   scenarioSummary?: LocalQaScenarioRunResult["summary"];
+  functionalSweep?: LocalQaFunctionalSweepResult;
   failure?: string;
 }
 
@@ -413,11 +415,22 @@ async function main() {
     const coverageFailure = coverageGaps.length > 0
       ? `Authenticated Local-QA coverage incomplete: ${coverageGaps.map((scenario) => `${scenario.id}:${scenario.status}`).slice(0, 8).join(", ") || "unknown scenario"}.`
       : "";
+    const functionalSweep = await runLocalQaFunctionalSweep({
+      page: session.page,
+      baseUrl: BASE_URL,
+      waitForApp,
+      timeoutMs: QA_TIMEOUT_MS,
+    });
+    evidence.functionalSweep = functionalSweep;
+    const functionalGaps = functionalSweep.workflows.filter((workflow) => workflow.status !== "PASS");
+    const functionalFailure = functionalGaps.length > 0
+      ? `Authenticated Local-QA functional sweep incomplete: ${functionalGaps.map((workflow) => `${workflow.id}:${workflow.status}`).join(", ")}.`
+      : "";
     // PDF evidence is an independent Phase 2 gate. Capture it even when a
     // broader route scenario exposes an unrelated coverage gap, so the final
     // artifact distinguishes PDF evidence from the separate Local-QA blocker.
     evidence.pdfChecks = await pdfEvidence(session.page);
-    if (coverageFailure) throw new Error(coverageFailure);
+    if (coverageFailure || functionalFailure) throw new Error([coverageFailure, functionalFailure].filter(Boolean).join(" "));
     evidence.status = "PASS";
   } catch (error) {
     evidence.failure = safeError(error);

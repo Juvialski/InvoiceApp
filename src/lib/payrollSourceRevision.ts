@@ -56,6 +56,25 @@ export interface PayrollSourceRevisionValidationInput {
   periodSourceRevision?: number;
 }
 
+/**
+ * Keep period identity stable across calculation and approval. Persisted
+ * period metadata such as timestamps and user ownership is not a payroll
+ * source input and must not make an unchanged calculation appear stale.
+ */
+export function payrollPeriodSourceIdentity(period: {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  sourceRevision?: number;
+}) {
+  return {
+    id: period.id,
+    startDate: period.periodStart,
+    endDate: period.periodEnd,
+    ...(Number.isFinite(period.sourceRevision) ? { sourceRevision: period.sourceRevision } : {}),
+  };
+}
+
 export interface PayrollSourceRevisionValidationResult {
   valid: boolean;
   stale: boolean;
