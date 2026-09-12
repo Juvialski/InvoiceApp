@@ -1,6 +1,6 @@
 # HydroQualiSense Local QA, UI/UX, and PDF Quality Plan
 
-Status: **ACTIVE — PHASE 1 COMPLETE / PHASE 2 PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / PHASE 3 LOCAL-QA REGRESSION SWEEP COMPLETE — HOSTED QA NEXT**
+Status: **COMPLETE THROUGH PHASE 4 — LOCAL-QA UI/UX, PROGRAMMATIC PDF VISUAL CERTIFICATION, FUNCTIONAL REGRESSION, AND HOSTED EXACT-SHA QA COMPLETE / WAVE 4D NEXT**
 Repository: `Juvialski/InvoiceApp`  
 Last corrected: **2026-09-12**
 
@@ -78,7 +78,7 @@ No database contract, provider, SMS, production, or deep PDF visual-certificatio
 
 The dedicated document-quality phase is complete for the programmatic PDF fallback. The purpose was not merely to prove that Preview and Download share bytes, but to prove that the actual rendered pages are visually correct.
 
-For supported Purchase Orders and Client Invoices, exercise representative and deliberate edge cases including:
+For supported Purchase Orders and Client Invoices, the matrix covered:
 
 - with and without a logo;
 - wide, tall, and transparent logos;
@@ -96,15 +96,7 @@ For supported Purchase Orders and Client Invoices, exercise representative and d
 - missing optional values;
 - long unit/quantity labels, large PHP/EUR/USD amounts, and extremely long document numbers.
 
-For representative cases:
-
-1. open the in-app preview;
-2. capture sanitized preview evidence;
-3. download the exact PDF;
-4. render every PDF page to images;
-5. visually inspect first, continuation, and final pages;
-6. fix defects;
-7. regenerate and repeat until the acceptance gates pass.
+For representative cases the phase opened in-app preview, captured sanitized evidence, downloaded the exact PDF, rendered every page to images, visually inspected first/continuation/final pages, fixed defects, and repeated until acceptance gates passed.
 
 A document failed this phase if any of the following remained:
 
@@ -133,71 +125,41 @@ This phase certifies only the programmatic fallback. Company-template DOCX and f
 
 Programmatic PDF fallback, company-template DOCX, and finalized company-template PDF are separate output paths and must remain labeled truthfully. Do not claim high-fidelity conversion on a runtime where the supported converter is unavailable.
 
-## Phase 3 — Functional regression sweep using the local-QA loop
+## Phase 3 — Functional regression sweep using the local-QA loop — COMPLETE
 
-After the visual remediation phase, perform a focused end-to-end functional sweep across the workflows affected or touched during the UI/PDF audit.
+The integrated Local-QA rerun records 57/57 authenticated route scenarios and 7/7 broader functional workflows passing: RFQ/quotation comparison; partial Purchase Order receipt, remaining quantity, close guard, and Warehouse continuation; Supplier Invoice -> authoritative Expense -> Cash routing; Client Invoice -> Collection -> Cash routing; Payroll freshness/approval; Documents -> Compose review without send; and stale-record recovery.
 
-The Supplier Invoice systemic correctness slice is complete on the current
-implementation branch. It centralizes source monetary-basis reconciliation,
-keeps VAT-inclusive and VAT-exclusive arithmetic distinct, preserves unknown
-values and source line totals, removes buyer identity from supplier posting
-readiness, and retains the Vendor -> guarded verification -> one authoritative
-Expense and correction/history boundaries. The focused evidence does not close
-the hosted exact-SHA certification.
+The Supplier Invoice systemic correctness slice centralizes source monetary-basis reconciliation, keeps VAT-inclusive and VAT-exclusive arithmetic distinct, preserves unknown values and source line totals, removes buyer identity from supplier posting readiness, and retains the Vendor -> guarded verification -> one authoritative Expense and correction/history boundaries.
 
-### Phase 3 outcome
+The New RFQ condition was diagnosed as a stale harness-tab assumption and corrected without weakening fail-closed coverage. The Payroll approval freshness defect found during the sweep was fixed by sharing one reduced period identity between calculation and approval fingerprints.
 
-The integrated Local-QA rerun records 57/57 authenticated route scenarios and
-7/7 broader functional workflows passing: RFQ/quotation comparison; partial
-Purchase Order receipt, remaining quantity, close guard, and Warehouse
-continuation; Supplier Invoice -> authoritative Expense -> Cash routing; Client
-Invoice -> Collection -> Cash routing; Payroll freshness/approval; Documents
--> Compose review without send; and stale-record recovery. The Payroll
-approval freshness defect found during the sweep was fixed by sharing one
-reduced period identity between calculation and approval fingerprints.
-
-The QA company has no safe subcontract/claim fixture, so subcontract
-settlement remains `NOT TESTED`/fixture-blocked rather than represented as a
-pass. Gmail provider sync, server-authority template upload, and LibreOffice
-company-template PDF conversion remain environment/provider-limited and are
-not claimed as certified. No migration or database contract change was
-required, and production was not touched.
-
-Examples include:
-
-- project create/edit;
-- RFQ quotation entry/comparison;
-- Purchase Order issue/receipt/continuation/close flows;
-- supplier-invoice and linked-Expense navigation/correction rules;
-- Cash & Banking interactions;
-- client billing/collection navigation;
-- document-owner routing;
-- document -> Email compose handoff;
-- permission-aware behavior.
-
-Schema-compatible application defects should be fixed on the current branch and immediately retested against QA.
+The QA company has no safe subcontract/claim fixture, so subcontract settlement remains `NOT TESTED`/fixture-blocked rather than represented as a pass. Gmail provider sync, server-authority template upload, and LibreOffice company-template PDF conversion remain environment/provider-limited and are not claimed as certified. No migration or database contract change was required by the broader functional sweep, and production was not touched.
 
 If a discovered defect requires migration/RLS/RPC/trigger/financial-guard/company-integrity/concurrency changes, do **not** push an unmerged migration to shared QA. Use local Docker/Supabase runtime validation for that DB-bearing work, then allow the normal post-merge QA migration-promotion path to handle shared QA.
 
-## Phase 4 — Hosted exact-SHA QA certification — REQUIRED AFTER MERGE
+## Phase 4 — Hosted exact-SHA QA certification — COMPLETE
 
-Once the quality/regression implementation PR is merged:
+Certified application SHA:
 
-1. identify the exact merged `main` SHA;
-2. verify the intended Render QA deployment serves that exact SHA;
-3. verify deployment identity;
-4. inspect/promote canonical QA migrations only when required;
-5. verify migration parity and production separation;
-6. run applicable hosted authenticated/provider/runtime checks;
-7. retain exact-SHA evidence.
+`32e5faf3666095391e7df09244ac0f0bb4479c81`
 
-Local QA evidence does not replace this release gate.
+Hosted evidence:
 
-Do not call the UI/PDF quality work complete until the relevant hosted exact-SHA checks are clean.
+1. Render QA service `srv-dafno1id0e5s73d6e3b0`, deployment `dep-daidc37qj5pc73ac6ta0`, is live at `https://hydroqualisense-qa.onrender.com` from the exact certified SHA.
+2. `/api/health` reports `environment=qa`, deployment ID `qa-hydroqualisense`, repository SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`, and migration level `20260911141452`.
+3. QA Supabase project `vrpuznofrntyqsbugrib` was independently verified as distinct from production project `qijjshdwiylojvqojxyz`.
+4. Repository and QA migration heads both equal `20260911141452_supplier_invoice_buyer_simplification`. The protected workflow independently verified parity before/after; migration promotion was skipped, so no QA migration write occurred.
+5. Auth preflight passed, including persisted authenticated session and unauthenticated `/settings` returning the sign-in boundary.
+6. The exact-head hosted retry passed 9/9 route contracts with zero console errors, page errors, or failed requests.
+7. The authenticated engineering-document Storage probe uploaded a small synthetic PDF object, read it back with an identical SHA-256, and cleaned it up successfully without metadata rows.
+8. The first hosted route attempt recorded transient Supabase CORS failures only on `/dashboard`; the same exact SHA then passed on a single-job retry without deployment, migration, configuration, or code changes. This transient evidence remains recorded rather than being hidden.
+9. PR #155 changed Local-QA harness/scenarios, Payroll freshness code/tests, and phase-status documentation only; it did not change the programmatic PDF renderer, document delivery, SMS provider implementation, or template conversion implementation. Phase 3 functional evidence for RFQ, Payroll, programmatic PO/Client Invoice Preview/Download, and Documents -> Compose therefore remains applicable to the exact deployed code tree, while the route-focused hosted harness is not misrepresented as re-clicking all of those flows.
+10. The exact hosted Email/SMS surface reports no SMS provider configured. Gmail currently reports authorization expired/revoked, so live Gmail sync/send was not certified and no uncontrolled message was sent.
+11. Optional company-template PDF conversion remains truthfully `UNAVAILABLE` when the supported converter runtime is absent. Safe-link server-authority template upload and subcontract settlement retain their documented environment/fixture limitations rather than being converted into PASS.
 
-## Phase 5 — Wave 4D messaging-provider decision and integration
+Production remained read-only throughout Phase 4. No production database, Auth, Storage, secret, environment, or migration write was performed.
 
-Only after Phases 1-4 are complete should provider work become the next implementation priority.
+## Phase 5 — Wave 4D messaging-provider decision and integration — NEXT
 
 The Email / SMS and Documents workspaces exist, but Wave 4D remains incomplete because no real SMS provider is currently approved/configured/runtime-tested.
 
