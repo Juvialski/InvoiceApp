@@ -10,6 +10,7 @@ grant select on sms_ids to authenticated, service_role;
 
 select has_function('public', 'claim_sms_send_intent', 'SMS claim RPC exists');
 select has_function('public', 'complete_sms_delivery_intent', 'SMS completion RPC exists');
+select has_function('public', 'ensure_android_sms_reconciliation_reference', 'Android SMS reconciliation reference trigger function exists');
 select isnt_empty($$select 1 from pg_constraint where conname = 'document_send_intents_delivery_channel_check'$$, 'SMS channel constraint exists');
 select isnt_empty($$select 1 from pg_constraint where conname = 'document_send_intents_delivery_shape_check'$$, 'SMS delivery shape constraint exists');
 select isnt_empty($$select 1 from pg_indexes where indexname = 'document_send_intents_provider_message_unique'$$, 'provider message uniqueness is company scoped');
@@ -44,6 +45,11 @@ select is((select document_type from public.document_send_intents where id = (se
 select is((select destination from public.document_send_intents where id = (select intent_id from sms_attempt)), '+639171234567', 'SMS destination is canonical');
 select is((select recipients->>0 from public.document_send_intents where id = (select intent_id from sms_attempt)), '+639171234567', 'SMS intent has exactly one canonical recipient');
 select is((select attachment_source from public.document_send_intents where id = (select intent_id from sms_attempt)), 'NONE', 'SMS intent has no attachment provenance');
+select is(
+  (select provider_message_id from public.document_send_intents where id = (select intent_id from sms_attempt)),
+  'hs_' || left(encode(extensions.digest(convert_to('sms-rpc-attempt-1', 'UTF8'), 'sha256'), 'hex'), 32),
+  'Android SMS claim durably reserves the same deterministic gateway message id used for timeout reconciliation'
+);
 select is((public.claim_sms_send_intent('ANDROID_SIM_GATEWAY', '+639171234567', 'sms-rpc-attempt-1', repeat('a', 64)))->>'reconcileRequired', 'true', 'same SMS key cannot be sent again while pending');
 select throws_ok($$select public.claim_sms_send_intent('ANDROID_SIM_GATEWAY', '+14155550123', 'sms-rpc-invalid-destination', repeat('b', 64))$$, '22023', null, 'non-Philippine SMS destination is rejected by the database boundary');
 select throws_ok($$select public.claim_sms_send_intent('ANDROID_SIM_GATEWAY', '+639171234567', 'sms-rpc-invalid-hash', repeat('x', 64))$$, '22023', null, 'invalid SMS body hash is rejected');
