@@ -58,6 +58,28 @@ export interface DocumentTemplatePdfCapability {
   message: string;
 }
 
+export interface DocumentTemplateStorageCapability {
+  status: "AVAILABLE" | "UNAVAILABLE";
+  code?: string;
+  message: string;
+}
+
+export interface DocumentTemplateCapability extends DocumentTemplatePdfCapability {
+  templateStorage: DocumentTemplateStorageCapability;
+}
+
+export class DocumentTemplateApiError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(message: string, code: string, status: number) {
+    super(message);
+    this.name = "DocumentTemplateApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
 function base64(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
@@ -77,7 +99,13 @@ async function requestJson<T>(path: string, options: { companyId: string; method
     companyId: options.companyId,
   });
   const payload = await jsonResponse(response);
-  if (!response.ok || payload.success === false) throw new Error(payload.error || "The document-template request failed safely.");
+  if (!response.ok || payload.success === false) {
+    throw new DocumentTemplateApiError(
+      payload.error || "The document-template request failed safely.",
+      String(payload.code || "TEMPLATE_OPERATION_FAILED"),
+      response.status,
+    );
+  }
   return payload.data as T;
 }
 
@@ -86,8 +114,8 @@ export async function listDocumentTemplates(companyId: string): Promise<readonly
   return data.templates || [];
 }
 
-export async function getDocumentTemplatePdfCapability(companyId: string): Promise<DocumentTemplatePdfCapability> {
-  return requestJson<DocumentTemplatePdfCapability>("/api/document-templates/capability", { companyId });
+export async function getDocumentTemplatePdfCapability(companyId: string): Promise<DocumentTemplateCapability> {
+  return requestJson<DocumentTemplateCapability>("/api/document-templates/capability", { companyId });
 }
 
 export async function uploadDocumentTemplate(companyId: string, input: { documentType: DocumentTemplateType; file: File; displayName?: string }): Promise<DocumentTemplateVersion & { structure?: DocumentTemplateAnalysisResult["structure"]; preparation?: string }> {
@@ -135,7 +163,11 @@ async function binaryRequest(path: string, companyId: string, body?: unknown): P
   });
   if (!response.ok) {
     const payload = await jsonResponse(response);
-    throw new Error(payload.error || "The DOCX operation failed safely.");
+    throw new DocumentTemplateApiError(
+      payload.error || "The DOCX operation failed safely.",
+      String(payload.code || "TEMPLATE_OPERATION_FAILED"),
+      response.status,
+    );
   }
   const contentDisposition = response.headers.get("Content-Disposition") || "";
   const fileName = /filename="([^"]+)"/i.exec(contentDisposition)?.[1] || "HydroQualiSense_Document.docx";

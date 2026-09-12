@@ -133,6 +133,27 @@ For a deployment that deliberately enables company-template PDF output, configur
 
 Before treating the feature as operational, verify `GET /api/health` reports `documentPdfFinalization.status=AVAILABLE` with a converter identity/version, then run the authenticated Settings test with a non-authoritative demo snapshot. A missing, timed-out, failed, or invalid conversion produces no PDF evidence and does not change any financial record. The server never exposes converter paths, command details, credentials, or provider errors.
 
+### Required company-template Storage runtime
+
+Starter creation, valid DOCX upload, AI DOCX generation, template download, and
+template metadata persistence require the Express server's private Supabase
+Storage authority. Configure `SUPABASE_STORAGE_SERVER_KEY` in the isolated
+server secret store, alongside the server Supabase URL, using a modern
+`sb_secret_` key or an approved legacy service-role-compatible key. Keep this
+variable server-only: never prefix it with `VITE_`, place it in browser
+storage, include it in logs, or return it through a capability response.
+
+The application checks this prerequisite through
+`GET /api/document-templates/capability` and reports template Storage
+availability separately from PDF converter availability. If the key is missing
+or public/publishable, Starter, Upload, and Generate with AI remain disabled
+with an actionable prerequisite message; no client-side privileged Storage
+fallback is permitted. After configuring the key, verify the capability
+response, run the authenticated Starter and Upload workflows for both Purchase
+Order and Client Invoice, retrieve each saved version, and run the existing
+DOCX test-generation path. AI generation remains separately dependent on
+company AI configuration and provider validation.
+
 ### Initial deployment AI operator workflow
 
 After `bootstrap_deployment_company(...)` has created the isolated company and initial confirmed Company Admin, the initial operator may use Settings → initial AI setup once:

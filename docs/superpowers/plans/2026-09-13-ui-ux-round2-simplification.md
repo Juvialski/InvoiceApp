@@ -27,6 +27,37 @@
 
 ---
 
+## Task 0: Repair and certify document-template persistence before UI completion
+
+**Files:**
+- Modify: src/server/storage/storageCompensation.ts
+- Modify: src/server/documentTemplates/documentTemplateRouter.ts
+- Modify: src/lib/documentTemplates.ts
+- Modify: src/components/access/CompanyDocumentTemplatesSettings.tsx
+- Modify: .env.example and deployment/runbook documentation for the required server-only Storage authority variable
+- Test: tests/documentTemplateStorageCapability.test.ts
+- Test: tests/documentTemplateCompatibility.test.ts
+- Test: tests/documentTemplateSecurityBoundary.test.ts
+
+**Interfaces:** Preserve the existing company-bound DOCX validation, server-only storage/RPC wrappers, immutable version metadata, activation, and PDF capability contracts. Add a non-secret template-storage capability result and structured safe error categories so the UI cannot present dead persistence actions as operational.
+
+- [ ] **Step 1: Reproduce the current blocker and write failing tests.** Assert that a missing server Storage authority is reported as template storage unavailable, a publishable/anon key is rejected, a valid server-only key is accepted without returning its value, Starter/Upload/AI route failures include stable categories, and PDF unavailability does not mark DOCX template persistence unavailable.
+- [ ] **Step 2: Run the focused template tests and verify the new capability/error assertions fail.**
+
+Run: npx.cmd tsx --test tests/documentTemplateStorageCapability.test.ts tests/documentTemplateCompatibility.test.ts tests/documentTemplateSecurityBoundary.test.ts
+
+Expected: failure because the capability response exposes only PDF health and missing Storage authority is mapped to a generic catch-all.
+
+- [ ] **Step 3: Implement the smallest root-cause correction.** Add a server-only authority health helper, map StorageConfiguration/StorageError failures to safe categories/messages, and make /api/document-templates/capability return additive template-storage status plus the existing PDF status. Never use a browser key for privileged writes and never put a secret in the response.
+- [ ] **Step 4: Keep the UI truthful.** Load the additive capability state before enabling Starter, Upload, or AI actions; show a precise prerequisite message when storage authority is unavailable; gate AI separately on its existing company-provider state; keep PDF converter status separate and do not disable DOCX workflows because PDF conversion is unavailable.
+- [ ] **Step 5: Run focused tests and a real authenticated QA probe.** With secure server configuration present, click Starter and Upload for both Purchase Order and Client Invoice, retrieve each version, generate a test DOCX, refresh, and verify Storage/metadata/version state. Run AI only when its configured provider passes the existing capability test; otherwise record AI as not certified with the exact provider blocker. If the QA runtime lacks the server key, stop at that external configuration blocker and do not claim Starter/Upload/AI PASS.
+- [ ] **Step 6: Commit the correction and capability contract.**
+
+```powershell
+git add src/server/storage/storageCompensation.ts src/server/documentTemplates/documentTemplateRouter.ts src/lib/documentTemplates.ts src/components/access/CompanyDocumentTemplatesSettings.tsx .env.example docs tests/documentTemplateStorageCapability.test.ts tests/documentTemplateCompatibility.test.ts tests/documentTemplateSecurityBoundary.test.ts
+git commit -m "fix: make document template storage capability explicit"
+```
+
 ## Task 1: Lock live route inventory and grouped navigation contract
 
 **Files:**

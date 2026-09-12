@@ -21,7 +21,7 @@ import {
   type StorageAuthContext,
   type StoragePermissionKey,
 } from "../storage/storageRouter.ts";
-import { getStorageServerServiceRoleClient } from "../storage/storageCompensation.ts";
+import { getStorageServerAuthorityStatus, getStorageServerServiceRoleClient, type StorageServerAuthorityStatus } from "../storage/storageCompensation.ts";
 import type { FinancialDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import {
   getDocumentTemplateFields,
@@ -107,6 +107,7 @@ export interface DocumentTemplateRouterOptions {
   readonly providerSupplier?: (providerId: "supabase" | "s3" | "gcs" | "memory" | "custom", clientGetter?: () => SupabaseClient) => DocumentStorageProvider;
   readonly primaryProviderSupplier?: (environment?: NodeJS.ProcessEnv, clientGetter?: () => SupabaseClient) => DocumentStorageProvider;
   readonly serverSupabaseSupplier?: () => SupabaseClient;
+  readonly storageCapabilitySupplier?: (environment?: NodeJS.ProcessEnv) => StorageServerAuthorityStatus;
   readonly pdfConverterSupplier?: () => Promise<DocumentPdfConverter> | DocumentPdfConverter;
   readonly pdfCapabilitySupplier?: () => Promise<DocumentPdfFinalizationHealth> | DocumentPdfFinalizationHealth;
 }
@@ -124,6 +125,11 @@ function arrayValue<T>(value: unknown): T[] {
 }
 
 function apiStatus(error: any): number {
+  if (error instanceof StorageError || error instanceof StorageApiError || error instanceof DocumentPdfFinalizationError) {
+    return Number(error.status) || 503;
+  }
+  if (error instanceof DocumentTemplateValidationError) return 400;
+  if (error instanceof CompanyAiError) return Number(error.status) || 503;
   const code = String(error?.code || "");
   if (code === "42501") return 403;
   if (code === "22023" || code === "22P02") return 400;
@@ -136,7 +142,41 @@ function apiMessage(error: any, fallback: string): string {
   if (code === "42501") return "You do not have permission for this document-template operation.";
   if (code === "22023" || code === "22P02") return "The document-template request is invalid.";
   if (code === "23505") return "A document template with that identity already exists.";
+  if (error instanceof StorageError) {
+    if (error.code === "SERVER_CLEANUP_UNAVAILABLE" || error.code === "INVALID_SERVER_KEY" || error.code === "STORAGE_CONFIGURATION_ERROR") {
+      return error.code === "INVALID_SERVER_KEY"
+        ? "Template storage is unavailable because the server Storage authority is invalid."
+        : "Template storage is unavailable because server-side Storage authority is not configured. An operator must configure the private Supabase Storage server key.";
+    }
+    return "Template storage is unavailable. Check the server-side Storage configuration.";
+  }
   return error instanceof StorageApiError || error instanceof DocumentTemplateValidationError || error instanceof DocumentPdfFinalizationError ? error.message : fallback;
+}
+
+function apiErrorCode(error: any, fallback = "TEMPLATE_OPERATION_FAILED"): string {
+  if (error instanceof StorageApiError) return error.code;
+  if (error instanceof StorageError) {
+    if (error.code === "SERVER_CLEANUP_UNAVAILABLE" || error.code === "INVALID_SERVER_KEY" || error.code === "STORAGE_CONFIGURATION_ERROR") return "TEMPLATE_STORAGE_UNAVAILABLE";
+    return "TEMPLATE_STORAGE_FAILED";
+  }
+  if (error instanceof DocumentTemplateValidationError) return "DOCX_SECURITY_REJECTED";
+  if (error instanceof DocumentPdfFinalizationError) return error.code;
+  if (error instanceof CompanyAiError) return error.code;
+  return fallback;
+}
+
+function apiErrorPayload(error: any, fallback: string) {
+  return { success: false, code: apiErrorCode(error), error: apiMessage(error, fallback) };
+}
+
+function logTemplateFailure(stage: string, error: unknown) {
+  if (!String(process.env.HYDROQUALISENSE_ENVIRONMENT || process.env.VITE_HYDROQUALISENSE_ENVIRONMENT || "").trim()) return;
+  console.warn("document-template-failure", {
+    stage,
+    code: apiErrorCode(error),
+    status: apiStatus(error),
+    timestamp: new Date().toISOString(),
+  });
 }
 
 function mapVersion(row: Record<string, any>): DocumentTemplateVersionApi {
@@ -650,6 +690,9 @@ async function persistVersion(
     return { version: mapVersion(row), template: row.template ? mapRoot(record(row.template), []) : undefined };
   } catch (error: any) {
     await cleanupObject(auth, options, provider, put.ref.bucket, path);
+    if (error instanceof StorageError && ["SERVER_CLEANUP_UNAVAILABLE", "INVALID_SERVER_KEY", "STORAGE_CONFIGURATION_ERROR"].includes(error.code)) {
+      throw new StorageApiError(error.status, "TEMPLATE_STORAGE_UNAVAILABLE", apiMessage(error, "Template storage is unavailable."));
+    }
     throw new StorageApiError(apiStatus(error), "TEMPLATE_METADATA_FAILED", apiMessage(error, "The document template could not be recorded safely."));
   }
 }
@@ -772,12 +815,13 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const health = options.pdfCapabilitySupplier
         ? await options.pdfCapabilitySupplier()
         : await getDocumentPdfFinalizationHealth(process.env);
-      return res.json({ success: true, data: health });
+      const templateStorage = options.storageCapabilitySupplier
+        ? options.storageCapabilitySupplier(process.env)
+        : getStorageServerAuthorityStatus(process.env);
+      return res.json({ success: true, data: { ...health, templateStorage } });
     } catch (error: any) {
-      return res.status(error instanceof StorageApiError ? error.status : 503).json({
-        success: false,
-        error: apiMessage(error, "High-fidelity PDF capability could not be verified safely."),
-      });
+      logTemplateFailure("capability", error);
+      return res.status(apiStatus(error)).json(apiErrorPayload(error, "Document-template capability could not be verified safely."));
     }
   });
 
@@ -804,7 +848,8 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       });
       return res.status(201).json({ success: true, data: { ...result.version, structure, preparation: "MANUAL_BINDING_REQUIRED" } });
     } catch (error: any) {
-      return res.status(error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 400 : 503).json({ success: false, error: apiMessage(error, "The DOCX template could not be uploaded safely.") });
+      logTemplateFailure("upload", error);
+      return res.status(apiStatus(error)).json(apiErrorPayload(error, "The DOCX template could not be uploaded safely."));
     }
   });
 
@@ -829,7 +874,8 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       });
       return res.status(201).json({ success: true, data: result.version });
     } catch (error: any) {
-      return res.status(error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 400 : 503).json({ success: false, error: apiMessage(error, "The starter template could not be created safely.") });
+      logTemplateFailure("starter", error);
+      return res.status(apiStatus(error)).json(apiErrorPayload(error, "The starter template could not be created safely."));
     }
   });
 
@@ -865,10 +911,11 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       });
       return res.status(201).json({ success: true, data: { ...result.version, blueprint: built.blueprint, model: generated.model } });
     } catch (error: any) {
+      logTemplateFailure("generate-ai", error);
       const normalized = error instanceof CompanyAiError ? error : error;
       const status = normalized instanceof CompanyAiError ? normalized.status : error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 502 : 503;
       const message = normalized instanceof CompanyAiError ? "AI template generation is unavailable. Use a starter or manual DOCX template; no financial record was changed." : apiMessage(error, "The AI template could not be generated safely.");
-      return res.status(status).json({ success: false, error: message, ...(normalized instanceof CompanyAiError ? { code: normalized.code, reference: normalized.correlationRef } : {}) });
+      return res.status(status).json({ success: false, code: apiErrorCode(error, "AI_TEMPLATE_GENERATION_FAILED"), error: message, ...(normalized instanceof CompanyAiError ? { reference: normalized.correlationRef } : {}) });
     }
   });
 
