@@ -118,7 +118,10 @@ export async function sendSmsMessage(input: SendSmsMessageInput): Promise<SmsSen
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.success !== true) {
     const code = typeof payload.code === "string" ? payload.code : undefined;
-    const reconciliationRequired = code === "SMS_SEND_RECONCILE_REQUIRED" || response.status >= 500 || (response.ok && payload.success !== true);
+    const reconciliationRequired = payload.data?.reconciliationRequired === true
+      || code === "SMS_SEND_RECONCILE_REQUIRED"
+      || (!code && response.status >= 500)
+      || (response.ok && payload.success !== true);
     throw new SmsSendError(payload.error || "The SMS could not be sent safely.", { code, status: response.status, reconciliationRequired });
   }
   return payload.data as SmsSendResult;
