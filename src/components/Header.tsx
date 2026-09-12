@@ -440,35 +440,41 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         <div className={`min-h-0 flex-1 overflow-y-auto ${collapsed && !mobileOpen ? "px-1.5" : "px-3"} py-4 ops-scrollbar`}>
-          {!collapsed || mobileOpen ? <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Operations</p> : null}
           <nav className="space-y-1" aria-label="Primary navigation">
-            {navigation.modules.map((module) => (
-              <div key={module.id}>
-                <NavigationModuleButton
-                  module={module}
-                  active={activeModule?.id === module.id}
-                  sidebar
-                  collapsed={collapsed && !mobileOpen}
-                  expanded={module.id === "invoices" ? invoicesExpanded : undefined}
-                  invoicesCount={invoicesCount}
-                  onSelect={selectModule}
-                />
-                {module.id === "invoices" && (!collapsed || mobileOpen) && module.routes.length > 1 && (
-                  <div id="supplier-invoice-navigation" hidden={!invoicesExpanded} className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2" aria-label="Supplier invoice navigation">
-                    {module.routes.map((route) => (
-                      <NavigationRouteButton
-                        key={route.id}
-                        route={route}
-                        active={route.id === activeRouteId}
+            {navigation.groups.map((group, groupIndex) => (
+              <div key={group.id} className={groupIndex ? "mt-5" : undefined}>
+                {!collapsed || mobileOpen ? <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{group.label}</p> : null}
+                <div className="space-y-1">
+                  {group.modules.map((module) => (
+                    <div key={module.id}>
+                      <NavigationModuleButton
+                        module={module}
+                        active={activeModule?.id === module.id}
                         sidebar
-                        menuItem
+                        collapsed={collapsed && !mobileOpen}
+                        expanded={module.id === "invoices" ? invoicesExpanded : undefined}
                         invoicesCount={invoicesCount}
-                        reviewCount={reviewCount}
-                        onSelect={selectRoute}
+                        onSelect={selectModule}
                       />
-                    ))}
-                  </div>
-                )}
+                      {module.id === "invoices" && (!collapsed || mobileOpen) && module.routes.length > 1 && (
+                        <div id="supplier-invoice-navigation" hidden={!invoicesExpanded} className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2" aria-label="Supplier invoice navigation">
+                          {module.routes.map((route) => (
+                            <NavigationRouteButton
+                              key={route.id}
+                              route={route}
+                              active={route.id === activeRouteId}
+                              sidebar
+                              menuItem
+                              invoicesCount={invoicesCount}
+                              reviewCount={reviewCount}
+                              onSelect={selectRoute}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </nav>
