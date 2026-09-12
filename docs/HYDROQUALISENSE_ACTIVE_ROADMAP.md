@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — SUPPLIER PAYABLES SETTLEMENT CORRECTIVE PHASE IMPLEMENTED / HOSTED EXACT-SHA QA CERTIFICATION COMPLETE FOR PRIOR BASELINE / COMPANY DOCX CONVERTER RUNTIME CERTIFICATION BLOCKED / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — POST-MERGE SUPPLIER PAYABLES QA RECOVERY COMPLETE / HOSTED EXACT-SHA QA PASS ON CURRENT MAIN / SUPPLIER PAYABLES CERTIFIED IN ISOLATED QA / COMPANY DOCX CONVERTER RUNTIME CERTIFICATION BLOCKED / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-12**
 
@@ -17,7 +17,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 ## Current application / QA-hardening baseline
 
-Phase 1 application and QA-harness work is integrated through PR #150.
+Application and QA-harness work, including the supplier-payables corrective phase, is integrated through PR #158.
 
 The preceding application / QA-hardening baseline was:
 
@@ -39,7 +39,8 @@ Relevant completed product work:
 - staged local-QA/UI/PDF quality plan — PR #147;
 - local-QA browser-key hardening, including rejection of privileged legacy `service_role` JWTs — PR #148;
 - comprehensive authenticated Local-QA UI/UX redo — PR #150, with 57 authenticated scenarios covering all 16 canonical top-level routes plus the mobile Documents check, three target viewport profiles, and responsive/action fixes for Projects, Procurement, and Equipment;
-- Phase 3 supported/fixture-backed Local-QA functional regression sweep — PR #155, including the RFQ coverage correction and Payroll calculation/approval freshness fix.
+- Phase 3 supported/fixture-backed Local-QA functional regression sweep — PR #155, including the RFQ coverage correction and Payroll calculation/approval freshness fix;
+- Supplier Payables Settlement Truth & Consistency corrective phase — merged PR #158, including the canonical QA migration `20260912082656_supplier_payables_settlement_consistency`.
 
 ## Important correction — PR #146 did not finish the UI/UX and PDF quality program
 
@@ -84,22 +85,23 @@ The next work must follow this order unless the user explicitly reprioritizes it
    - a concrete Payroll approval defect was fixed by sharing the reduced period source identity between calculation and approval fingerprints; no migration or database contract change was required;
    - the QA company currently has no safe subcontract/claim fixture, so subcontract settlement remains `NOT TESTED`/fixture-blocked rather than represented as a pass. Gmail provider sync, server-authority template upload, and LibreOffice company-template conversion remain environment/provider-limited and are not claimed as certified.
 
-3A. **Supplier Payables Settlement Truth & Consistency Audit — IMPLEMENTED in the current corrective branch; exact hosted QA pending merge**
+3A. **Supplier Payables Settlement Truth & Consistency Audit — COMPLETE in merged PR #158**
    - the observed zero-card/zero-row failure was traced to the verification-shaped supplier `Expense` being intentionally created as `DRAFT`, while settlement/reporting code treated every linked invoice as transferred with zero invoice payable and the generic Expense gate rejected the DRAFT authority;
    - the corrected contract keeps that supplier-derived Expense `DRAFT`, leaves generic direct DRAFT Expense behavior unchanged, and makes the verified linked Expense the payable/settlement authority without mutating its lifecycle during payment;
    - supplier payment state is now derived from confirmed Cash & Banking evidence only. Document/OCR `amountPaid` remains separately visible evidence and cannot produce `PAID` or reduce outstanding. Reversed matches restore outstanding, legacy invoice-target matches remain visible through the linked Expense projection, and date-only overdue logic uses strict `due_date <` company business date;
    - Supplier Invoices, linked Expense detail, Cash & Banking candidates/target context, Dashboard, Projects, Reports, Assistant, correction previews, and invoice/project exports consume the shared projection. Verified project cost remains unchanged by settlement;
-   - local validation on this branch includes clean Supabase replay/pgTAP (45 files, 1,531 tests), focused TypeScript/domain tests, production build/lint, and demo browser evidence (78 scenarios, 34 routes, 4 viewports, 59 interactions, zero console/page/network/overflow failures). This is local/pre-merge evidence, not hosted QA certification;
-   - the new migration `20260912082656_supplier_payables_settlement_consistency` must be promoted only to the intended QA target after the exact merged application SHA is live and migration parity is checked. Production remains read-only.
+   - local validation on the implementation includes clean Supabase replay/pgTAP (45 files, 1,531 tests), focused TypeScript/domain tests, production build/lint, and demo browser evidence (78 scenarios, 34 routes, 4 viewports, 59 interactions, zero console/page/network/overflow failures);
+   - PR #158 is merged on current `main` at `e4ee4ebde489629ee74429b4e37abb511943a51e`. The protected QA release promoted `20260912082656_supplier_payables_settlement_consistency` to QA and independently verified canonical migration parity afterward;
+   - the authenticated QA supplier-payables certification passed 12/12 checks using a transaction-scoped synthetic fixture: document-reported payment stayed evidence-only, the verified linked `DRAFT` Expense remained the single authority, legacy invoice matches projected through it, partial/full/reversed Cash & Banking evidence produced the expected numeric truth, generic direct `DRAFT` and active invoice-target settlement were denied, project/source linkage remained intact, cross-company summary access was denied, and RPC grants stayed restricted;
+   - the synthetic certification transaction rolled back its fixture rows after assertion, leaving no additional supplier-payables test records in QA. Production migration was separately promoted under explicit authorization; this phase performed no production write.
 
-4. **Hosted exact-SHA QA certification after merge — COMPLETE for prior baseline; rerun required for the corrective branch after merge**
-   - Render QA service `srv-dafno1id0e5s73d6e3b0`, deployment `dep-daidc37qj5pc73ac6ta0`, is live at `https://hydroqualisense-qa.onrender.com` from the exact certified SHA;
-   - `/api/health` reports `environment=qa`, logical deployment ID `qa-hydroqualisense`, repository SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`, and migration level `20260911141452`;
+4. **Hosted exact-SHA QA certification — COMPLETE for current main**
+   - Render QA service `srv-dafno1id0e5s73d6e3b0` is live at `https://hydroqualisense-qa.onrender.com` from the exact current application SHA;
+   - `/api/health` reports `environment=qa`, logical deployment ID `qa-hydroqualisense`, repository SHA `e4ee4ebde489629ee74429b4e37abb511943a51e`, and migration level `20260912082656`;
    - QA Supabase project `vrpuznofrntyqsbugrib` is independently distinct from production project `qijjshdwiylojvqojxyz`;
-   - repository and QA migration heads both equal `20260911141452_supplier_invoice_buyer_simplification`; the protected release independently verified parity before and after and skipped migration promotion, so Phase 4 performed no QA migration write;
-   - the exact-head Protected QA Release retry passed: authenticated session persistence, unauthenticated `/settings` protection, 9/9 hosted route contracts, zero console/page/network errors, and a real authenticated engineering-document Storage upload/read/hash/cleanup probe all passed;
-   - the first hosted route attempt had transient browser-side Supabase CORS failures only on `/dashboard`; a same-exact-SHA retry passed cleanly without deployment, migration, configuration, or code changes, so it is recorded as transient evidence rather than hidden;
-   - Phase 3 regression-sensitive behavior remains represented by its exact merged code/tests and Local-QA evidence: the RFQ-tab coverage fix and Payroll freshness fix are present in PR #155; programmatic PO/Client Invoice PDF Preview/Download and Documents -> Compose review were not modified by PR #155. The hosted route harness proves that exact merged code tree is what is deployed but does not falsely claim to have re-clicked every Phase 3 workflow;
+   - repository and QA migration heads both equal `20260912082656_supplier_payables_settlement_consistency`; the protected release independently verified parity before and after and promoted only the missing canonical migration;
+   - Protected QA Release run `34689351709` initially failed only during authentication preflight with `no persisted Supabase session` / provider `Failed to fetch`; its exact same-SHA retry passed without deployment, migration, configuration, or code changes;
+   - the successful retry established email/password session persistence across reload and fresh navigation, unauthenticated `/settings` protection, 9/9 hosted route contracts, the QA banner and deployment-company identity, zero console/page/network errors, and a real authenticated engineering-document Storage upload/read/hash/cleanup probe with zero metadata rows;
    - QA currently displays Gmail authorization as expired/revoked and no SMS provider configured. No uncontrolled email or SMS was sent. SMS remains truthfully unavailable until provider-backed QA exists;
    - company-template PDF conversion remains `UNAVAILABLE` on the native runtime when the supported converter is absent. Server-authority safe-link template upload and subcontract settlement retain their previously documented environment/fixture limitations.
 
@@ -177,7 +179,7 @@ Synthetic route and engine coverage passes for both Purchase Order and Client In
 
 `QA CERTIFICATION: NOT READY`
 
-Phase 4 hosted exact-SHA certification is complete for application SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`. This status is narrower than overall release readiness. Wave 4D provider selection/runtime evidence remains incomplete, Gmail currently requires reauthorization, subcontract settlement remains fixture-blocked, and optional company-template conversion/server-authority limitations remain explicitly uncertified. Those limitations are not converted into PASS merely because the core hosted release gate is green.
+Phase 4 hosted exact-SHA certification is complete for application SHA `e4ee4ebde489629ee74429b4e37abb511943a51e`, and the supplier-payables corrective phase is certified in isolated QA. This status is narrower than overall release readiness. Wave 4D provider selection/runtime evidence remains incomplete, Gmail currently requires reauthorization, subcontract settlement remains fixture-blocked, and optional company-template conversion/server-authority limitations remain explicitly uncertified. Those limitations are not converted into PASS merely because the core hosted release gate is green.
 
 Historical QA evidence remains useful for the exact SHAs and contracts it actually exercised, but it must not be generalized to newer heads.
 

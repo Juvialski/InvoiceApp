@@ -141,23 +141,22 @@ If a discovered defect requires migration/RLS/RPC/trigger/financial-guard/compan
 
 Certified application SHA:
 
-`32e5faf3666095391e7df09244ac0f0bb4479c81`
+`e4ee4ebde489629ee74429b4e37abb511943a51e`
 
 Hosted evidence:
 
 1. Render QA service `srv-dafno1id0e5s73d6e3b0`, deployment `dep-daidc37qj5pc73ac6ta0`, is live at `https://hydroqualisense-qa.onrender.com` from the exact certified SHA.
-2. `/api/health` reports `environment=qa`, deployment ID `qa-hydroqualisense`, repository SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`, and migration level `20260911141452`.
+2. `/api/health` reports `environment=qa`, deployment ID `qa-hydroqualisense`, repository SHA `e4ee4ebde489629ee74429b4e37abb511943a51e`, and migration level `20260912082656`.
 3. QA Supabase project `vrpuznofrntyqsbugrib` was independently verified as distinct from production project `qijjshdwiylojvqojxyz`.
-4. Repository and QA migration heads both equal `20260911141452_supplier_invoice_buyer_simplification`. The protected workflow independently verified parity before/after; migration promotion was skipped, so no QA migration write occurred.
-5. Auth preflight passed, including persisted authenticated session and unauthenticated `/settings` returning the sign-in boundary.
+4. Repository and QA migration heads both equal `20260912082656_supplier_payables_settlement_consistency`. The protected workflow promoted only the missing canonical migration and independently verified parity afterward.
+5. The first authentication preflight failed with no persisted Supabase session and provider response `Failed to fetch`; the same exact SHA was retried without deployment, migration, configuration, or code changes and passed with session persistence plus the unauthenticated `/settings` sign-in boundary.
 6. The exact-head hosted retry passed 9/9 route contracts with zero console errors, page errors, or failed requests.
 7. The authenticated engineering-document Storage probe uploaded a small synthetic PDF object, read it back with an identical SHA-256, and cleaned it up successfully without metadata rows.
-8. The first hosted route attempt recorded transient Supabase CORS failures only on `/dashboard`; the same exact SHA then passed on a single-job retry without deployment, migration, configuration, or code changes. This transient evidence remains recorded rather than being hidden.
-9. PR #155 changed Local-QA harness/scenarios, Payroll freshness code/tests, and phase-status documentation only; it did not change the programmatic PDF renderer, document delivery, SMS provider implementation, or template conversion implementation. Phase 3 functional evidence for RFQ, Payroll, programmatic PO/Client Invoice Preview/Download, and Documents -> Compose therefore remains applicable to the exact deployed code tree, while the route-focused hosted harness is not misrepresented as re-clicking all of those flows.
-10. The exact hosted Email/SMS surface reports no SMS provider configured. Gmail currently reports authorization expired/revoked, so live Gmail sync/send was not certified and no uncontrolled message was sent. The approved SMS implementation paths are Company SIM Gateway (recommended) and PhilSMS (hosted fallback), but neither has runtime QA evidence in this record.
-11. Optional company-template PDF conversion remains truthfully `UNAVAILABLE` when the supported converter runtime is absent. Safe-link server-authority template upload and subcontract settlement retain their documented environment/fixture limitations rather than being converted into PASS.
+8. PR #158 adds the supplier-payables settlement correction; the separate authenticated QA RPC certification passed 12/12 assertions for cash-only payment truth, linked `DRAFT` Expense authority, legacy-match projection, partial/full/reversed states, generic-DRAFT and cross-company denials, project/source linkage, and RPC grants. The route-focused hosted harness is not misrepresented as re-clicking every earlier functional flow.
+9. The exact hosted Email/SMS surface reports no SMS provider configured. Gmail currently reports authorization expired/revoked, so live Gmail sync/send was not certified and no uncontrolled message was sent. The approved SMS implementation paths are Company SIM Gateway (recommended) and PhilSMS (hosted fallback), but neither has runtime QA evidence in this record.
+10. Optional company-template PDF conversion remains truthfully `UNAVAILABLE` when the supported converter runtime is absent. Safe-link server-authority template upload and subcontract settlement retain their documented environment/fixture limitations rather than being converted into PASS.
 
-Production remained read-only throughout Phase 4. No production database, Auth, Storage, secret, environment, or migration write was performed.
+Production remained read-only throughout this QA recovery/certification phase. The production migration was separately promoted under explicit authorization outside this phase; no production database, Auth, Storage, secret, or environment write was performed here.
 
 ## Phase 5 — Wave 4D messaging-provider decision and integration — IN PROGRESS
 
