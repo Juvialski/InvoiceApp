@@ -237,7 +237,7 @@ async function openAndCloseDialog(page: any, button: any, actionId: string, time
   if (await button.count() === 0) {
     return {
       status: "BLOCKED",
-      assertions: [assertion(`${actionId}-available`, true, "The control is not exposed in the current permission/data state.")],
+      assertions: [assertion(`${actionId}-available`, false, "The required control is not exposed in the current permission/data state.")],
       details: "The requested dialog control was not available in the current authenticated QA state.",
     };
   }
@@ -290,13 +290,14 @@ async function verifyProcurement(page: any, _viewport: QaViewport): Promise<Scen
   const assertions: LocalQaScenarioAssertion[] = [];
   const poDialog = await openAndCloseDialog(page, page.getByRole("button", { name: "New Purchase Order", exact: true }), "new-po-dialog", DEFAULT_TIMEOUT_MS);
   assertions.push(...(poDialog.assertions || []));
-  const rfqDialog = await openAndCloseDialog(page, page.getByRole("button", { name: "New RFQ", exact: true }), "new-rfq-dialog", DEFAULT_TIMEOUT_MS);
-  assertions.push(...(rfqDialog.assertions || []));
 
   const rfqTab = page.getByRole("button", { name: /Requests for Quotation \(RFQs\)/ });
   if (await rfqTab.count() > 0) {
     await rfqTab.first().click();
     await page.waitForTimeout(100);
+    assertions.push(assertion("rfq-tab-present", true, "The RFQ workspace tab is exposed for the authenticated QA account."));
+    const rfqDialog = await openAndCloseDialog(page, page.getByRole("button", { name: "New RFQ", exact: true }), "new-rfq-dialog", DEFAULT_TIMEOUT_MS);
+    assertions.push(...(rfqDialog.assertions || []));
     assertions.push(assertion("rfq-register", await page.locator("[aria-label='RFQ register cards']").count() > 0 || await page.getByText(/No RFQs match|No Requests for Quotation yet/i).count() > 0, "RFQ register or empty state is visible."));
     const compare = page.getByRole("button", { name: /View & Compare|Compare/, exact: false });
     if (await compare.count() > 0) {
@@ -305,7 +306,9 @@ async function verifyProcurement(page: any, _viewport: QaViewport): Promise<Scen
       assertions.push(assertion("quotation-comparison-dialog", closed, closed ? "Quotation comparison opened and closed safely." : "Quotation comparison did not close safely."));
     }
   } else {
-    assertions.push(assertion("rfq-tab", true, "RFQ tab is not exposed in the current permission/deployment state."));
+    assertions.push(assertion("rfq-tab-available", false, "The RFQ workspace tab is not exposed in the current permission/data state."));
+    const rfqDialog = await openAndCloseDialog(page, page.getByRole("button", { name: "New RFQ", exact: true }), "new-rfq-dialog", DEFAULT_TIMEOUT_MS);
+    assertions.push(...(rfqDialog.assertions || []));
   }
 
   const poTab = page.getByRole("button", { name: /Purchase Orders/i, exact: true });

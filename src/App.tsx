@@ -160,7 +160,7 @@ import { assignmentForLifecycle, componentForLifecycle, profileForLifecycle, typ
 import { isSafeToDeletePayrollPeriod, isSafeToDeletePayrollRun, selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
   import { applyPayrollMaintenance as applyPayrollMaintenanceRpc, applyPayrollWorkspaceReset as applyPayrollWorkspaceResetRpc, localMaintenanceResult, planLocalPayrollMaintenance, previewPayrollMaintenance as previewPayrollMaintenanceRpc, previewPayrollWorkspaceReset as previewPayrollWorkspaceResetRpc, assertPayrollWorkspaceResetConfirmation, type PayrollMaintenanceAction, type PayrollMaintenancePreview, type PayrollWorkspaceResetPreview } from "./lib/payrollMaintenance";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
-import { fingerprintPayrollSources, validatePayrollRunSourceRevision } from "./lib/payrollSourceRevision";
+import { fingerprintPayrollSources, payrollPeriodSourceIdentity, validatePayrollRunSourceRevision } from "./lib/payrollSourceRevision";
 import type { StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
@@ -258,7 +258,7 @@ function sourceInputForPayroll(
   projects?: Project[],
 ) {
   return {
-    period,
+    period: payrollPeriodSourceIdentity(period),
     workers: data.workers,
     attendanceRecords: data.attendanceRecords || [],
     leaveRequests: data.leaveRequests || [],

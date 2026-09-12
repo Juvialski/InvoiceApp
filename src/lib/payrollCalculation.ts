@@ -6,6 +6,7 @@ import type {
 } from "../types.ts";
 import {
   fingerprintPayrollSources,
+  payrollPeriodSourceIdentity,
   type PayrollSourceRevisionInput,
 } from "./payrollSourceRevision.ts";
 
@@ -524,14 +525,12 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
   const allHolidays = uniqueRecords([input.payrollHolidays, input.holidays]);
 
   const sourceInput: PayrollSourceRevisionInput = {
-    period: {
+    period: payrollPeriodSourceIdentity({
       id: input.periodId,
-      startDate: input.periodStart,
-      endDate: input.periodEnd,
-      ...(Number.isFinite(numberValue(input.sourceRevision ?? input.periodSourceRevision))
-        ? { sourceRevision: numberValue(input.sourceRevision ?? input.periodSourceRevision) }
-        : {}),
-    },
+      periodStart: input.periodStart,
+      periodEnd: input.periodEnd,
+      sourceRevision: numberValue(input.sourceRevision ?? input.periodSourceRevision),
+    }),
     workers: input.workers,
     attendance: allAttendance,
     leave: allLeave,

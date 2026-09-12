@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — LOCAL-QA UI/UX REDO COMPLETE / PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / COMPANY DOCX COMPATIBILITY IMPLEMENTATION COMPLETE / CONVERTER RUNTIME CERTIFICATION BLOCKED / SUPPLIER INVOICE CORRECTNESS SLICE COMPLETE / BROADER FUNCTIONAL REGRESSION IN PROGRESS / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
+Status: **CURRENT — LOCAL-QA UI/UX REDO COMPLETE / PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / COMPANY DOCX COMPATIBILITY IMPLEMENTATION COMPLETE / CONVERTER RUNTIME CERTIFICATION BLOCKED / PHASE 3 LOCAL-QA REGRESSION SWEEP COMPLETE / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
 Date: **2026-09-12**
 Repository: `Juvialski/InvoiceApp`
 
@@ -111,7 +111,7 @@ Authenticated Local-QA PDF evidence also passed on the real isolated QA backend:
 
 Settings now provides an editable per-user document identity. New issued documents use that human-readable name in the Prepared by / Processed by line rather than the sign-in email; existing issued snapshots remain immutable.
 
-The overall Local-QA command remains fail-closed because the QA account does not expose `New RFQ` for the three Procurement viewport scenarios. That is a separate coverage blocker and must not be described as PDF failure or overall QA certification.
+The historical Phase 1 Local-QA command remained fail-closed because its Procurement action tried to find `New RFQ` before selecting the RFQ tab. Phase 3 corrected that stale harness assumption and the integrated rerun now passes the RFQ gate. This remains pre-merge Local-QA evidence, not hosted QA certification.
 
 This result does not certify company-template DOCX or finalized company-template PDF output. The supported high-fidelity converter remains truthfully unavailable where it is not operational.
 
@@ -124,8 +124,8 @@ Synthetic engine and route tests pass for both Purchase Order and Client Invoice
 ## Phase 3 result — Supplier Invoice systemic correctness slice
 
 The Supplier Invoice correctness investigation is complete on the current
-implementation branch, while the broader functional regression sweep and
-hosted exact-SHA certification remain open.
+implementation branch. The broader supported/fixture-backed functional
+regression sweep is recorded below; hosted exact-SHA certification remains open.
 
 The implementation now uses one shared monetary reconciliation contract for
 direct upload, Gmail/email intake, review, exports, and PO comparison:
@@ -165,15 +165,19 @@ Validation evidence for this slice:
   browser checks showed a VAT-inclusive basis with no false subtotal or
   grand-total mismatch plus a genuine mismatch warning after an explicit
   source inconsistency; and
-- the general Local-QA harness still reports its known unrelated `New RFQ`
-  coverage blocker, so it is not release certification.
+- the integrated Local-QA rerun now passes the RFQ coverage gate; this remains
+  pre-merge evidence and is not release certification.
 
 This is pre-merge evidence. It does not certify the merged head, hosted QA,
 provider state, or production, and production remains read-only.
 
-## Then — Functional regression sweep
+## Phase 3 result — Broader functional regression sweep
 
-After PDF remediation, perform a focused functional sweep over workflows touched during the UI/PDF audit and fixes.
+The integrated `qa:local` rerun records 57/57 route scenarios and 7/7 functional workflows passing: RFQ/quotation comparison; partial Purchase Order receipt, remaining quantity, close guard, and Warehouse continuation; Supplier Invoice -> authoritative Expense -> Cash routing; Client Invoice -> Collection -> Cash routing; Payroll freshness/approval; Documents -> Compose review without send; and stale-record recovery.
+
+The New RFQ condition was diagnosed as a stale harness-tab assumption. The positive path now enters the RFQ tab before looking for the control, while missing required controls still fail closed. A concrete Payroll approval freshness defect was fixed by sharing one reduced period source identity between calculation and approval fingerprints. No migration, RLS, RPC, trigger, financial-guard, or inventory-guard change was required.
+
+The QA company has no safe subcontract/claim fixture, so subcontract settlement remains `NOT TESTED`/fixture-blocked rather than represented as a pass. Gmail provider sync, server-authority template upload, and LibreOffice company-template PDF conversion remain environment/provider-limited and are not claimed as certified. Production was not touched.
 
 Schema-compatible defects should be fixed immediately against local QA.
 
@@ -268,8 +272,8 @@ A green PR, merge, Render deployment, local-QA success, hosted-QA success, or do
 1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE in PR #150**
 2. **Deep PDF/export visual certification — COMPLETE for programmatic fallback**
 3. **Company-template compatibility implementation — COMPLETE on the current branch; converter runtime certification remains blocked by environment configuration**
-4. **Functional regression sweep — Supplier Invoice systemic correctness slice complete; broader workflow sweep remains**
-5. **Hosted exact-SHA QA certification**
+4. **Functional regression sweep — COMPLETE for supported/fixture-backed Local-QA workflows; subcontract/provider limitations remain explicitly unverified**
+5. **Hosted exact-SHA QA certification — NEXT**
 6. **Wave 4D messaging-provider selection/integration**
 7. **Wave 4D remaining readiness/completion evidence**
 8. **Worker Registration — PAUSED until explicit user resume**

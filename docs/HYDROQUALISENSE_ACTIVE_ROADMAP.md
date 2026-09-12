@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — COMPANY DOCX COMPATIBILITY IMPLEMENTATION COMPLETE / CONVERTER RUNTIME CERTIFICATION BLOCKED / SUPPLIER INVOICE SLICE COMPLETE / BROADER PHASE 3 IN PROGRESS / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — COMPANY DOCX COMPATIBILITY IMPLEMENTATION COMPLETE / CONVERTER RUNTIME CERTIFICATION BLOCKED / PHASE 3 LOCAL-QA REGRESSION SWEEP COMPLETE / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-12**
 
@@ -69,16 +69,19 @@ The next work must follow this order unless the user explicitly reprioritizes it
 2. **Deep PDF/export visual certification — COMPLETE for the programmatic PDF fallback**
    - the shared renderer now keeps full-page title centering independent of the logo, reserves safe logo/header space, wraps long units and quantities, fits large currency values inside their cells, keeps long document-number metadata below the heading, and preserves full amount-in-words content;
    - the expanded matrix covers 12 Purchase Order / Client Invoice cases with no, normal, wide, tall, and transparent-normalized logos, missing optional values, long names/addresses/projects/document numbers, long descriptions/units, large EUR/USD/PHP values, one-line and multi-page tables, long notes/terms/payment/delivery content, and every generated page was rendered and checked for page-boundary, continuation, total, signature, and footer defects;
-   - authenticated Local-QA exercised real issued Purchase Order and Client Invoice Preview/Download output. Both PDF sub-checks passed as `PROGRAMMATIC_PDF_FALLBACK` with exact preview/download SHA equality and rendered-page counts matching `pdfinfo` (1/1 each). The overall Local-QA run remains fail-closed because the QA account does not expose `New RFQ` in the Procurement scenarios; that unrelated coverage blocker is not represented as PDF success;
+   - authenticated Local-QA exercised real issued Purchase Order and Client Invoice Preview/Download output. Both PDF sub-checks passed as `PROGRAMMATIC_PDF_FALLBACK` with exact preview/download SHA equality and rendered-page counts matching `pdfinfo` (1/1 each). The historical Phase 1 run remained fail-closed because the harness looked for `New RFQ` before entering the RFQ tab; Phase 3 corrected that stale harness assumption and the integrated rerun now passes the RFQ coverage gate;
    - Settings now provides an editable per-user document identity, so new issued documents use a human-readable Prepared by / Processed by name independent of the sign-in email; existing issued snapshots remain immutable;
    - company-template DOCX and finalized company-template PDF remain separate output paths. This phase does not claim high-fidelity template conversion where the supported converter is unavailable.
 
-3. **Functional regression sweep using local QA — Supplier Invoice systemic correctness slice complete; broader sweep remains**
+3. **Functional regression sweep using local QA — COMPLETE for supported/fixture-backed workflows; hosted certification remains next**
    - retest the workflows changed or touched during the UI/PDF remediation;
    - fix schema-compatible defects immediately;
    - if a defect requires DB/RLS/RPC/migration changes, use local Docker/Supabase rather than applying unmerged schema work to shared QA.
    - the Supplier Invoice slice now centralizes source monetary semantics, removes false VAT/subtotal comparisons, preserves unresolved values, simplifies buyer identity to optional source evidence, and keeps Vendor -> verification -> one authoritative Expense boundaries intact;
-   - focused Supplier Invoice regression, clean local Supabase replay/pgTAP, migration/upgrade validation, targeted authenticated/demo browser checks, and build/lint evidence are recorded on the current implementation branch; this does not certify the merged/hosted head.
+   - focused Supplier Invoice regression, clean local Supabase replay/pgTAP, migration/upgrade validation, targeted authenticated/demo browser checks, and build/lint evidence are recorded on the current implementation branch; this does not certify the merged/hosted head;
+   - the integrated Local-QA rerun now records 57/57 route scenarios and 7/7 functional workflows passing, including RFQ/quotation comparison, partial PO receipt/close guard/Warehouse continuation, Supplier Invoice -> authoritative Expense -> Cash routing, Client Invoice -> Collection -> Cash routing, Payroll freshness/approval, Documents -> Compose review, and stale-record recovery;
+   - a concrete Payroll approval defect was fixed by sharing the reduced period source identity between calculation and approval fingerprints; no migration or database contract change was required;
+   - the QA company currently has no safe subcontract/claim fixture, so subcontract settlement remains `NOT TESTED`/fixture-blocked rather than represented as a pass. Gmail provider sync, server-authority template upload, and LibreOffice company-template conversion remain environment/provider-limited and are not claimed as certified.
 
 4. **Hosted exact-SHA QA certification after merge**
    - exact merged `main` SHA must be deployed to the intended Render QA service;

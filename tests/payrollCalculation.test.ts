@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculatePayroll, resolvePayrollRate, validatePayrollCalculationInput, validatePayrollProjectAllocations } from "../src/lib/payrollCalculation.ts";
+import { calculatePayroll, calculatePayrollRunFromWorkEntries, resolvePayrollRate, validatePayrollCalculationInput, validatePayrollProjectAllocations } from "../src/lib/payrollCalculation.ts";
+import { fingerprintPayrollSources, payrollPeriodSourceIdentity } from "../src/lib/payrollSourceRevision.ts";
 
 const worker = { defaultPayType: "HOURLY" as const, defaultRate: 500 };
 
@@ -50,4 +51,33 @@ test("validation exposes allocation percentages and unallocated labor", () => {
   assert.equal(result.unallocatedAmount, 40_000);
   assert.equal(validatePayrollProjectAllocations(100_000, [{ projectId: "a", allocationAmount: 60_000, allocationPercentage: 101 }]).valid, false);
   assert.equal(validatePayrollCalculationInput({ payType: "HOURLY", rate: 0 }).valid, false);
+});
+
+test("payroll calculation and approval freshness use the same reduced period identity", () => {
+  const period = { id: "period-1", periodStart: "2026-09-01", periodEnd: "2026-09-15", sourceRevision: 4 };
+  const result = calculatePayrollRunFromWorkEntries({
+    runId: "run-1",
+    periodId: period.id,
+    periodStart: period.periodStart,
+    periodEnd: period.periodEnd,
+    sourceRevision: period.sourceRevision,
+    workers: [],
+    assignments: [],
+    workEntries: [],
+    projects: [],
+  });
+  const approvalFingerprint = fingerprintPayrollSources({
+    period: payrollPeriodSourceIdentity(period),
+    workers: [],
+    attendanceRecords: [],
+    leaveRequests: [],
+    overtimeRequests: [],
+    holidays: [],
+    workEntries: [],
+    compensationProfiles: [],
+    assignments: [],
+    recurringComponents: [],
+    projects: [],
+  });
+  assert.equal(result.sourceFingerprint, approvalFingerprint);
 });
