@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId, useState } from "react";
 import { Badge as AstryxBadge } from "@astryxdesign/core/Badge";
 import { EmptyState as AstryxEmptyState } from "@astryxdesign/core/EmptyState";
 import { CheckCircle2, CircleAlert, Info, Loader2, RotateCcw, type LucideIcon } from "lucide-react";
@@ -81,6 +81,79 @@ export function SectionHeader({ title, description, action, icon: Icon, classNam
     </div>
     {action && <div className="shrink-0">{action}</div>}
   </div>;
+}
+
+export function PageActionBar({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={"flex min-w-0 flex-wrap items-center gap-2 " + className}>{children}</div>;
+}
+
+export function ResponsiveActionGroup({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={"flex min-w-0 flex-wrap items-center gap-2 " + className}>{children}</div>;
+}
+
+export function FilterBar({
+  children,
+  resultLabel,
+  hasActiveFilters = false,
+  onReset,
+  resetLabel = "Clear filters",
+  className = "",
+}: {
+  children: React.ReactNode;
+  resultLabel?: React.ReactNode;
+  hasActiveFilters?: boolean;
+  onReset?: () => void;
+  resetLabel?: string;
+  className?: string;
+}) {
+  return (
+    <section className={"rounded-xl border border-slate-200 bg-white p-3 sm:p-4 " + className} aria-label="Filters">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">{children}</div>
+        {(resultLabel || (hasActiveFilters && onReset)) && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+            {resultLabel && <span role="status" aria-live="polite">{resultLabel}</span>}
+            {hasActiveFilters && onReset && <button type="button" onClick={onReset} className="inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">{resetLabel}</button>}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function DisclosureSection({
+  title,
+  description,
+  children,
+  defaultOpen = false,
+  className = "",
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const contentId = "disclosure-" + useId().replace(/:/g, "");
+  return (
+    <section className={"rounded-xl border border-slate-200 bg-white " + className}>
+      <button
+        type="button"
+        className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={open}
+        aria-controls={contentId}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-black text-slate-900">{title}</span>
+          {description && <span className="mt-0.5 block text-xs leading-5 text-slate-500">{description}</span>}
+        </span>
+        <span aria-hidden="true" className={"shrink-0 text-lg leading-none text-slate-400 transition-transform " + (open ? "rotate-180" : "")}>⌄</span>
+      </button>
+      {open && <div id={contentId} className="border-t border-slate-100 p-4">{children}</div>}
+    </section>
+  );
 }
 
 export function MetricCard({
