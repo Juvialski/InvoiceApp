@@ -116,7 +116,8 @@ test("Assistant supplier payment resolves linked Expense authority and never mut
   assert.match(moduleSource, /supplier_invoice_id/);
   assert.match(moduleSource, /p_target_type: "EXPENSE"/);
   assert.match(moduleSource, /create_financial_transaction/);
-  assert.match(moduleSource, /This payment will approve the linked Expense and record the payment\./);
+  assert.match(moduleSource, /DRAFT lifecycle remains unchanged/);
+  assert.doesNotMatch(moduleSource, /approveLinkedExpenseForPayment/);
   assert.match(moduleSource, /SETTLEMENT_AUTHORITY_IS_EXPENSE/);
   assert.match(moduleSource, /reverse_financial_transaction/);
   assert.doesNotMatch(moduleSource, /invoices[\s\S]{0,120}\.update\(/i);

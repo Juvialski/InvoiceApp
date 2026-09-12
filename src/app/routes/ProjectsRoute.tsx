@@ -46,6 +46,7 @@ import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransacti
 import type { ProjectEquipmentSaveInput, ProjectMaterialSaveInput } from "../../lib/materialsEquipment.ts";
 import type { InventoryItem, InventoryMovement } from "../../lib/inventory.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
+import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
 
 export interface ProjectsRouteProps {
   projects: Project[];
@@ -71,6 +72,8 @@ export interface ProjectsRouteProps {
   costCodes?: readonly ProjectCostCode[];
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
+  supplierInvoiceSettlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  supplierSettlementToday?: string;
   expenses: Expense[];
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
@@ -222,6 +225,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   costCodes = [],
   invoices,
   invoiceAllocations,
+  supplierInvoiceSettlementProjections,
+  supplierSettlementToday,
   expenses,
   purchaseOrders = [],
   subcontracts = [],
@@ -358,6 +363,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         costCodes={costCodes}
         invoices={invoices}
         invoiceAllocations={invoiceAllocations}
+        supplierInvoiceSettlementProjections={supplierInvoiceSettlementProjections}
+        supplierSettlementToday={supplierSettlementToday}
         expenses={expenses}
         purchaseOrders={purchaseOrders}
         subcontracts={subcontracts}

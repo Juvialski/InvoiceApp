@@ -7,6 +7,7 @@ import { useDemoWorkspace } from "./DemoWorkspaceProvider.tsx";
 import { demoPathForProject, demoPathForTab } from "./demoRouting.ts";
 import { DEMO_PROJECT_IDS } from "./data/projects.ts";
 import { addDemoDays } from "./data/demoDates.ts";
+import { buildSupplierInvoiceSettlementProjections } from "../lib/supplierInvoiceSettlement.ts";
 
 const SUGGESTED_PROMPTS = [
   "Which projects are over budget?",
@@ -45,8 +46,9 @@ export function DemoAssistant({ onNavigate }: { onNavigate: (path: string) => vo
     }
     if (normalized.includes("invoice") && normalized.includes("attention")) {
       const review = data.invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW");
-      const overdue = data.invoices.filter((invoice) => invoice.status === "OVERDUE" && (invoice.balanceDue || 0) > 0);
-      return `${review.length} invoices need verification and ${overdue.length} verified invoices are overdue. The highest overdue balance is ${formatMoney(Math.max(0, ...overdue.map((invoice) => invoice.balanceDue || 0)), "PHP")}.`;
+      const projections = buildSupplierInvoiceSettlementProjections(data.invoices, data.expenses, data.cash.matches, data.anchorDate);
+      const overdue = data.invoices.filter((invoice) => projections.get(invoice.id)?.payable && projections.get(invoice.id)?.paymentState === "OVERDUE");
+      return `${review.length} invoices need verification and ${overdue.length} verified invoices are overdue. The highest overdue balance is ${formatMoney(Math.max(0, ...overdue.map((invoice) => projections.get(invoice.id)?.settlement.outstanding || 0)), "PHP")}.`;
     }
     if (normalized.includes("payroll") && (normalized.includes("week") || normalized.includes("due"))) {
       const current = data.payroll.periods.find((period) => period.status === "OPEN");
@@ -65,8 +67,9 @@ export function DemoAssistant({ onNavigate }: { onNavigate: (path: string) => vo
     }
     if (normalized.includes("outstanding") && normalized.includes("warehouse")) {
       const invoiceIds = new Set(data.invoiceAllocations.filter((allocation) => allocation.projectId === DEMO_PROJECT_IDS.warehouse).map((allocation) => allocation.invoiceId));
-      const outstanding = data.invoices.filter((invoice) => invoiceIds.has(invoice.id) && (invoice.balanceDue || 0) > 0);
-      const total = outstanding.reduce((sum, invoice) => sum + (invoice.balanceDue || 0), 0);
+      const projections = buildSupplierInvoiceSettlementProjections(data.invoices, data.expenses, data.cash.matches, data.anchorDate);
+      const outstanding = data.invoices.filter((invoice) => invoiceIds.has(invoice.id) && (projections.get(invoice.id)?.settlement.outstanding || 0) > 0.005);
+      const total = outstanding.reduce((sum, invoice) => sum + (projections.get(invoice.id)?.settlement.outstanding || 0), 0);
       return `${outstanding.length} warehouse invoices have an outstanding balance totaling ${formatMoney(total, "PHP")}. Open Invoices to review the overdue electrical bill and current supplier commitments.`;
     }
     if (normalized.includes("site log") || normalized.includes("daily log") || normalized.includes("site happened") || normalized.includes("rain delay")) {

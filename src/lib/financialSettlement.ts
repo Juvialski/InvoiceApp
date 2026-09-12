@@ -3,6 +3,7 @@ import type { ClientCollection } from "./clientCollections.ts";
 import { clientCollectionTotal } from "./clientCollections.ts";
 import type { FinancialAccount, FinancialTransaction } from "./cashBanking.ts";
 import { derivePaymentStatus } from "../utils/invoiceLogic.ts";
+import { businessDateForTimeZone, isPastDueDate } from "../utils/businessDate.ts";
 
 export type SettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE" | "CLIENT_COLLECTION" | "SUBCONTRACT_CLAIM";
 export const SETTLEMENT_RECORD_STATUSES = ["CONFIRMED", "REVERSED"] as const;
@@ -31,6 +32,9 @@ export interface FinancialSettlementHistoryItem {
   referenceNumber?: string;
   description?: string;
   currency?: string;
+  /** Present when a supplier read model includes legacy invoice and Expense targets together. */
+  targetType?: SettlementTargetType;
+  targetId?: string;
 }
 
 export interface FinancialSettlementSummary {
@@ -51,6 +55,8 @@ export interface FinancialSettlementSummary {
   linkState?: ClientCollectionSettlementState;
   legacyPaidWithoutBankLink?: boolean;
   historyRedacted?: boolean;
+  /** Supplier-only read contract: multiple active linked Expenses make the authority ambiguous. */
+  authorityConflict?: boolean;
   history: FinancialSettlementHistoryItem[];
 }
 
@@ -69,13 +75,20 @@ export interface SettlementCandidate {
   lifecycleStatus?: string;
   projectLabel?: string;
   projectId?: string;
+  /** Supplier-derived DRAFT Expenses are payable without changing generic DRAFT semantics. */
+  supplierInvoiceVerified?: boolean;
 }
 
 /** Canonical lifecycle gate shared by settlement summaries and cash candidates. */
-export function isSettlementTargetLifecycleEligible(targetType: SettlementTargetType, lifecycleStatus?: string) {
+export function isSettlementTargetLifecycleEligible(
+  targetType: SettlementTargetType,
+  lifecycleStatus?: string,
+  options: { supplierInvoiceVerified?: boolean } = {},
+) {
   const status = String(lifecycleStatus || "").trim().toUpperCase();
   if (targetType === "INVOICE") return status === "VERIFIED";
   if (targetType === "PAYROLL") return status === "APPROVED" || status === "PAID";
+  if (targetType === "EXPENSE" && status === "DRAFT") return options.supplierInvoiceVerified === true;
   if (targetType === "EXPENSE") return status === "APPROVED" || status === "PAID";
   if (targetType === "CLIENT_COLLECTION") return status === "RECORDED";
   if (targetType === "SUBCONTRACT_CLAIM") return status === "APPROVED";
@@ -98,8 +111,7 @@ function positive(value: unknown): number | undefined {
  * with an explicit withholding amount so an extracted remaining-balance field
  * is not accidentally treated as the original obligation.
  */
-export function invoiceCashPayableBasis(invoice: Pick<InvoiceData, "grandTotal" | "netAmountPayable" | "withholdingTaxAmount" | "philippineTaxDetails" | "linkedExpenseId">) {
-  if (invoice.linkedExpenseId) return { amount: 0, source: "SUPPLIER_EXPENSE" as const };
+export function invoiceCashPayableBasis(invoice: Pick<InvoiceData, "grandTotal" | "netAmountPayable" | "withholdingTaxAmount" | "philippineTaxDetails">) {
   const gross = Math.max(0, money(invoice.grandTotal));
   const explicitTopLevel = positive(invoice.netAmountPayable);
   if (explicitTopLevel !== undefined && explicitTopLevel <= gross + 0.01) return { amount: Math.min(explicitTopLevel, gross), source: "EXPLICIT_NET_PAYABLE" as const };
@@ -127,23 +139,22 @@ export function remainingTransactionAmount(transaction: Pick<FinancialTransactio
 export function deriveInvoiceSettlementSummary(
   invoice: Pick<InvoiceData, "id" | "currency" | "grandTotal" | "netAmountPayable" | "withholdingTaxAmount" | "philippineTaxDetails" | "amountPaid" | "dueDate" | "reviewStatus" | "lifecycleStatus" | "linkedExpenseId">,
   history: readonly FinancialSettlementHistoryItem[],
-  today = new Date().toISOString().slice(0, 10),
+  today = businessDateForTimeZone(),
 ): FinancialSettlementSummary {
   const basis = invoiceCashPayableBasis(invoice);
   const bankPaid = Math.min(basis.amount, confirmedSettlementTotal(history));
   const documentPaid = Math.min(basis.amount, Math.max(0, money(invoice.amountPaid)));
-  // Extracted/manual payment evidence may describe the same cash payment later
-  // linked from the bank. Never add the two blindly; the greater evidenced
-  // amount is a conservative operational total that cannot decrease when a
-  // first reconciliation is linked.
-  const effective = Math.max(bankPaid, documentPaid);
+  // Document-reported payment is retained as evidence only. It never reduces
+  // the operational payable and never produces PAID without a confirmed cash
+  // or bank settlement match.
+  const effective = bankPaid;
   const outstanding = money(Math.max(0, basis.amount - effective));
   const rawStatus = derivePaymentStatus({ grandTotal: basis.amount, amountPaid: effective, balanceDue: outstanding, dueDate: invoice.dueDate });
   // Settlement reporting treats any still-outstanding payable past its due date
   // as overdue, including partially paid invoices. This mirrors the canonical
   // SQL settlement summary, while the legacy document payment status remains
   // available separately on the invoice itself.
-  const overdue = outstanding > 0.005 && Boolean(invoice.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(invoice.dueDate) && invoice.dueDate < today);
+  const overdue = isPastDueDate(outstanding, invoice.dueDate, today);
   const status: InvoiceSettlementState = invoice.linkedExpenseId
     ? "TRANSFERRED_TO_EXPENSE"
     : invoice.lifecycleStatus === "VOID"
@@ -303,6 +314,6 @@ export function eligibleSettlementCandidates(transaction: FinancialTransaction, 
     candidate.outstandingAmount > 0.005 &&
     candidate.currency.toUpperCase() === transaction.currency.toUpperCase() &&
     targetTypes.includes(candidate.targetType) &&
-    isSettlementTargetLifecycleEligible(candidate.targetType, candidate.lifecycleStatus)
+    isSettlementTargetLifecycleEligible(candidate.targetType, candidate.lifecycleStatus, { supplierInvoiceVerified: candidate.supplierInvoiceVerified })
   );
 }

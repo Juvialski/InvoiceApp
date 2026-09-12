@@ -1,28 +1,32 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Landmark, WalletCards } from "lucide-react";
-import type { FinancialFxSnapshot, InvoiceData } from "../types.ts";
-import { deriveInvoiceSettlementSummary, type FinancialSettlementSummary } from "../lib/financialSettlement.ts";
+import type { Expense, FinancialFxSnapshot, InvoiceData } from "../types.ts";
+import type { FinancialTransactionMatch } from "../lib/cashBanking.ts";
 import { loadFinancialSettlementSummary } from "../lib/financialSettlementPersistence.ts";
-import { demoSettlementSummaryForTarget } from "../demo/data/settlements.ts";
 import { appPathForInvoice } from "../utils/appRouting.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
 import { isVoidedInvoice } from "../utils/projectCosting.ts";
 import { displayFinancialAmountInPhp } from "../utils/financialCurrency.ts";
+import {
+  buildSupplierInvoiceSettlementProjections,
+  supplierInvoiceProjectionFromSummary,
+  type SupplierInvoicePaymentDisplayState,
+  type SupplierInvoiceSettlementProjection,
+} from "../lib/supplierInvoiceSettlement.ts";
 
 interface Props {
   invoices: readonly InvoiceData[];
+  expenses?: readonly Expense[];
+  settlementMatches?: readonly FinancialTransactionMatch[];
+  settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  today?: string;
   financialFxSnapshots?: readonly FinancialFxSnapshot[];
   maxRows?: number;
   onNavigatePath?: AppNavigate;
 }
 
-function localSummary(invoice: InvoiceData) {
-  const demo = invoice.id.startsWith("demo-") ? demoSettlementSummaryForTarget("INVOICE", invoice.id) : null;
-  return demo || deriveInvoiceSettlementSummary(invoice, []);
-}
-
-function tone(state: FinancialSettlementSummary["settlementState"]) {
+function tone(state: SupplierInvoicePaymentDisplayState) {
   if (state === "PAID") return "bg-emerald-50 text-emerald-700";
   if (state === "OVERDUE") return "bg-rose-50 text-rose-700";
   if (state === "PARTIALLY_PAID") return "bg-amber-50 text-amber-800";
@@ -34,44 +38,52 @@ function invoiceNavigationPath(invoiceId: string) {
   return invoiceId.startsWith("demo-") ? `/demo/app${path}` : path;
 }
 
-export const InvoiceSettlementDirectoryPanel: React.FC<Props> = ({ invoices, financialFxSnapshots = [], maxRows = 8, onNavigatePath }) => {
+export const InvoiceSettlementDirectoryPanel: React.FC<Props> = ({ invoices, expenses = [], settlementMatches = [], settlementProjections, today, financialFxSnapshots = [], maxRows = 8, onNavigatePath }) => {
   const eligible = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && !isVoidedInvoice(invoice)), [invoices]);
-  const [summaries, setSummaries] = useState<Map<string, FinancialSettlementSummary>>(() => new Map(eligible.map((invoice) => [invoice.id, localSummary(invoice)])));
+  const localProjections = useMemo(
+    () => settlementProjections || buildSupplierInvoiceSettlementProjections(invoices, expenses, settlementMatches, today),
+    [expenses, invoices, settlementMatches, settlementProjections, today],
+  );
+  const [projections, setProjections] = useState<Map<string, SupplierInvoiceSettlementProjection>>(() => new Map(localProjections));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [refreshAttempt, setRefreshAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    setSummaries(new Map(eligible.map((invoice) => [invoice.id, localSummary(invoice)])));
+    setProjections(new Map(localProjections));
     setLoading(false);
     setError("");
     const remote = eligible.filter((invoice) => !invoice.id.startsWith("demo-") && !invoice.id.startsWith("local-")).slice(0, 50);
     if (!remote.length) return () => { cancelled = true; };
     setLoading(true);
     Promise.all(remote.map(async (invoice) => {
-      try { return [invoice.id, await loadFinancialSettlementSummary("INVOICE", invoice.id)] as const; }
+      const local = localProjections.get(invoice.id);
+      try {
+        const summary = await loadFinancialSettlementSummary(local?.targetType || "INVOICE", local?.targetId || invoice.id);
+        return [invoice.id, summary ? supplierInvoiceProjectionFromSummary(invoice, local?.linkedExpense, summary, today, { conflict: local?.authorityConflict }) : null] as const;
+      }
       catch { return [invoice.id, null] as const; }
     })).then((rows) => {
       if (cancelled) return;
-      setSummaries((current) => {
+      setProjections((current) => {
         const next = new Map(current);
-        for (const [id, summary] of rows) if (summary) next.set(id, summary);
+        for (const [id, projection] of rows) if (projection) next.set(id, projection);
         return next;
       });
-      if (rows.some(([, summary]) => !summary)) setError("Some settlement summaries could not be refreshed; local document evidence is shown for those invoices.");
+      if (rows.some(([, projection]) => !projection)) setError("Some settlement summaries could not be refreshed; local cash evidence is shown for those invoices.");
     }).catch((cause) => { if (!cancelled) setError(safeErrorMessage(cause, "Settlement summaries could not be refreshed.")); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [eligible, refreshAttempt]);
+  }, [eligible, localProjections, refreshAttempt, today]);
 
-  const rows = eligible.map((invoice) => ({ invoice, summary: summaries.get(invoice.id) || localSummary(invoice) }));
-  const open = rows.filter(({ summary }) => summary.outstanding > 0.005);
-  const paid = rows.filter(({ summary }) => summary.settlementState === "PAID").length;
-  const partial = rows.filter(({ summary }) => summary.settlementState === "PARTIALLY_PAID").length;
-  const overdue = rows.filter(({ summary }) => summary.settlementState === "OVERDUE").length;
+  const rows = eligible.map((invoice) => ({ invoice, projection: projections.get(invoice.id) || localProjections.get(invoice.id) })).filter((row): row is { invoice: InvoiceData; projection: SupplierInvoiceSettlementProjection } => Boolean(row.projection));
+  const open = rows.filter(({ projection }) => projection.payable && projection.settlement.outstanding > 0.005);
+  const paid = rows.filter(({ projection }) => projection.payable && projection.paymentState === "PAID").length;
+  const partial = rows.filter(({ projection }) => projection.payable && projection.paymentState === "PARTIALLY_PAID").length;
+  const overdue = rows.filter(({ projection }) => projection.payable && projection.paymentState === "OVERDUE").length;
   const visible = [...open].sort((a, b) => {
-    const overdueOrder = Number(b.summary.settlementState === "OVERDUE") - Number(a.summary.settlementState === "OVERDUE");
+    const overdueOrder = Number(b.projection.paymentState === "OVERDUE") - Number(a.projection.paymentState === "OVERDUE");
     return overdueOrder || (a.invoice.dueDate || "9999-12-31").localeCompare(b.invoice.dueDate || "9999-12-31");
   }).slice(0, maxRows);
 
@@ -87,8 +99,8 @@ export const InvoiceSettlementDirectoryPanel: React.FC<Props> = ({ invoices, fin
       <Metric icon={WalletCards} label="Partial" value={String(partial)} />
       <Metric icon={AlertTriangle} label="Overdue" value={String(overdue)} warning={overdue > 0} />
     </div>
-    {visible.length > 0 ? <div className="mt-4 grid gap-2 lg:grid-cols-2">{visible.map(({ invoice, summary }) => { const payable = displayFinancialAmountInPhp(summary.settlementBasis, summary.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots); const paid = displayFinancialAmountInPhp(summary.reconciledCashPaid, summary.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots); const outstanding = displayFinancialAmountInPhp(summary.outstanding, summary.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots); return <a key={invoice.id} href={invoiceNavigationPath(invoice.id)} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(appPathForInvoice(invoice.id)); }} className="min-w-0 rounded-lg border border-slate-100 bg-slate-50 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
-      <div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-black text-slate-900">{invoice.invoiceNumber || "Supplier invoice"} · {invoice.vendor?.name || "Supplier"}</p><p className="mt-1 break-words text-[10px] text-slate-500">Payable {payable.baseLabel} · confirmed cash {paid.baseLabel}</p>{(payable.sourceLabel || payable.requiresFx) && <p className={`mt-0.5 break-words text-[9px] ${payable.requiresFx ? "font-bold text-amber-700" : "text-slate-400"}`}>{payable.sourceLabel || "PHP conversion required"}</p>}</div><span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${tone(summary.settlementState)}`}>{String(summary.settlementState).replaceAll("_", " ")}</span></div>
+    {visible.length > 0 ? <div className="mt-4 grid gap-2 lg:grid-cols-2">{visible.map(({ invoice, projection }) => { const summary = projection.settlement; const payable = displayFinancialAmountInPhp(summary.settlementBasis, summary.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots); const paid = displayFinancialAmountInPhp(summary.reconciledCashPaid, summary.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots); const outstanding = displayFinancialAmountInPhp(summary.outstanding, summary.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots); return <a key={invoice.id} href={invoiceNavigationPath(invoice.id)} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(appPathForInvoice(invoice.id)); }} className="min-w-0 rounded-lg border border-slate-100 bg-slate-50 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+      <div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-black text-slate-900">{invoice.invoiceNumber || "Supplier invoice"} · {invoice.vendor?.name || "Supplier"}</p><p className="mt-1 break-words text-[10px] text-slate-500">Payable {payable.baseLabel} · confirmed cash {paid.baseLabel}</p>{(payable.sourceLabel || payable.requiresFx) && <p className={`mt-0.5 break-words text-[9px] ${payable.requiresFx ? "font-bold text-amber-700" : "text-slate-400"}`}>{payable.sourceLabel || "PHP conversion required"}</p>}</div><span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${tone(projection.paymentState)}`}>{projection.paymentState.replaceAll("_", " ")}</span></div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-[10px] text-slate-500">Due {invoice.dueDate || "not recorded"}</span><strong className="text-[10px] tabular-nums text-slate-800">{outstanding.baseLabel} outstanding</strong></div>
     </a> })}</div> : <p className="mt-4 rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">No verified supplier invoice currently has an outstanding settlement balance.</p>}
   </section>;

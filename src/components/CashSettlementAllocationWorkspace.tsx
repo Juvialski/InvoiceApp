@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, Landmark, Link2, RotateCcw, Search, Split, WalletCards } from "lucide-react";
-import { confirmedTargetMatchedAmount, financialId, isFinancialReconciliationCandidateLifecycleEligible, reconciliationStatusForTransaction, type CashBankingWorkspaceData, type FinancialReconciliationCandidate, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
+import { confirmedCandidateMatchedAmount, financialId, isFinancialReconciliationCandidateLifecycleEligible, reconciliationStatusForTransaction, type CashBankingWorkspaceData, type FinancialReconciliationCandidate, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
 import { defaultSettlementAllocation, type FinancialSettlementHistoryItem } from "../lib/financialSettlement.ts";
 import { reverseFinancialSettlement } from "../lib/financialSettlementPersistence.ts";
 import { appPathForExpense, appPathForInvoice, appPathForPayrollRun, appPathForProject, appPathForSubcontractClaim, financialTransactionIdFromSearch, type CashSettlementTargetContext } from "../utils/appRouting.ts";
@@ -94,7 +94,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
   const reversedTransactionMatches = transaction ? data.matches.filter((match) => match.transactionId === transaction.id && match.status === "REVERSED" && ["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION", "SUBCONTRACT_CLAIM"].includes(match.targetType)) : [];
   const alreadyAllocated = transaction ? round(activeMatches.filter((match) => match.transactionId === transaction.id).reduce((sum, match) => sum + match.matchedAmount, 0)) : 0;
   const remaining = transaction ? round(Math.max(0, transaction.amount - alreadyAllocated)) : 0;
-  const targetSettled = requestedTargetCandidate ? confirmedTargetMatchedAmount(requestedTargetCandidate.targetType, requestedTargetCandidate.targetId, activeMatches) : 0;
+  const targetSettled = requestedTargetCandidate ? confirmedCandidateMatchedAmount(requestedTargetCandidate, activeMatches) : 0;
   const targetOutstanding = requestedTargetCandidate ? round(Math.max(0, requestedTargetCandidate.amount - targetSettled)) : 0;
   const targetCurrencyMatches = Boolean(!transaction || !requestedTargetCandidate || !requestedTargetCandidate.currency || requestedTargetCandidate.currency.toUpperCase() === transaction.currency.toUpperCase());
   const targetDirectionMatches = Boolean(!transaction || !requestedTargetCandidate || (transaction.direction === (requestedTargetCandidate.targetType === "CLIENT_COLLECTION" ? "CREDIT" : "DEBIT")));
@@ -104,7 +104,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
     const search = query.trim().toLowerCase();
     const allowedTypes = transaction.direction === "CREDIT" ? ["CLIENT_COLLECTION"] : ["INVOICE", "PAYROLL", "EXPENSE", "SUBCONTRACT_CLAIM"];
     return candidates.map((candidate) => {
-      const settled = round(activeMatches.filter((match) => match.targetType === candidate.targetType && match.targetId === candidate.targetId).reduce((sum, match) => sum + match.matchedAmount, 0));
+      const settled = confirmedCandidateMatchedAmount(candidate, activeMatches);
       const outstanding = round(Math.max(0, candidate.amount - settled));
       return { candidate, settled, outstanding };
     }).filter(({ candidate, outstanding }) => outstanding > 0.005

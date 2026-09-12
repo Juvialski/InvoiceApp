@@ -31,6 +31,8 @@ function rowToHistory(row: Record<string, unknown>): FinancialSettlementHistoryI
     referenceNumber: text(row.reference_number ?? row.referenceNumber),
     description: text(row.description),
     currency: text(row.currency),
+    targetType: text(row.target_type ?? row.targetType) as FinancialSettlementHistoryItem["targetType"],
+    targetId: text(row.target_id ?? row.targetId),
   };
 }
 
@@ -55,6 +57,7 @@ function summaryFromRpc(value: unknown): FinancialSettlementSummary {
     ...(row.linkState === null || row.linkState === undefined ? {} : { linkState: String(row.linkState) as NonNullable<FinancialSettlementSummary["linkState"]> }),
     legacyPaidWithoutBankLink: Boolean(row.legacyPaidWithoutBankLink),
     historyRedacted: Boolean(row.historyRedacted),
+    authorityConflict: Boolean(row.authorityConflict),
     history,
   };
 }

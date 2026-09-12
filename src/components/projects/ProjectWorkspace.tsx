@@ -68,6 +68,7 @@ import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 import { isProjectWorkspaceTabDeploymentVisible } from "./projectWorkspaceVisibility.ts";
 import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
 import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransactionMatch } from "../../lib/cashBanking.ts";
+import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
 
 export type WorkspaceTab = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "materials-equipment" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
@@ -81,6 +82,8 @@ interface ProjectWorkspaceProps {
   costCodes?: readonly ProjectCostCode[];
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
+  supplierInvoiceSettlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  supplierSettlementToday?: string;
   expenses: Expense[];
   purchaseOrders?: PurchaseOrder[];
   receipts?: PurchaseOrderReceipt[];
@@ -266,6 +269,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   costCodes = [],
   invoices,
   invoiceAllocations,
+  supplierInvoiceSettlementProjections,
+  supplierSettlementToday,
   expenses,
   purchaseOrders = [],
   receipts = [],
@@ -598,8 +603,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       {tab === "materials-equipment" && <ProjectMaterialsEquipment project={project} materials={materials} equipment={equipment} canonicalEquipment={canonicalEquipment} equipmentAssignments={equipmentAssignments} inventoryItems={inventoryItems} inventoryMovements={inventoryMovements} inventoryBalances={inventoryBalances} purchaseOrders={purchaseOrders} receipts={receipts} vendors={vendors} costCodes={costCodes} dailySiteLogsData={projectDailySiteLogsData} canReadSiteLogs={canReadSiteLogs} canReadProcurement={canReadProcurement} canReadInventory={canReadInventory} canManage={canManageProject} guestMode={engineeringDocumentsGuestMode} onOpenSiteLogs={() => selectTab("site-logs")} onOpenWarehouse={canReadInventory ? onOpenWarehouse : undefined} onSaveMaterial={onSaveMaterial} onSaveEquipment={onSaveEquipment} />}
 
       {tab === "invoices" && canReadInvoices && (canManageInvoiceAllocations
-        ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} costCodes={costCodes as ProjectCostCode[]} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />
-        : <ProjectInvoicesReadOnly project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} />)}
+        ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} settlementProjections={supplierInvoiceSettlementProjections} today={supplierSettlementToday} costCodes={costCodes as ProjectCostCode[]} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />
+        : <ProjectInvoicesReadOnly project={project} invoices={invoices} allocations={invoiceAllocations} settlementProjections={supplierInvoiceSettlementProjections} today={supplierSettlementToday} onOpenInvoice={onOpenInvoice} />)}
 
       {tab === "expenses" && canReadExpenses && <ProjectExpenses projectId={project.id} currency={project.currency} expenses={projectExpenses} onAdd={canManageExpenses ? onAddExpense : undefined} onOpenCorrection={canManageExpenses ? onOpenExpenseCorrection : undefined} />}
 

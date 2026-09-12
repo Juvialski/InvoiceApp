@@ -222,7 +222,8 @@ import {
   writeCashBankingWorkspaceToLocal,
 } from "./lib/cashBankingPersistence.ts";
 import { reverseFinancialSettlement } from "./lib/financialSettlementPersistence.ts";
-import { invoiceCashPayableBasis } from "./lib/financialSettlement.ts";
+import { buildSupplierInvoiceSettlementProjections } from "./lib/supplierInvoiceSettlement.ts";
+import { businessDateForTimeZone } from "./utils/businessDate.ts";
 import {
   extractVendorEvidenceFromInvoice,
   resolveBatchVendors,
@@ -576,7 +577,7 @@ function InvoiceWorkspace() {
   const handleBatchExportExcel = async () => {
     try {
       const { exportBatchInvoicesToExcel } = await import("./utils/excelExport.ts");
-      exportBatchInvoicesToExcel(invoicesRef.current);
+      exportBatchInvoicesToExcel(invoicesRef.current, undefined, { settlementProjections: supplierInvoiceSettlementProjections, today: supplierSettlementToday });
     } catch (error: unknown) {
       showNotification("error", userFacingError(error, "Could not export invoices to Excel."));
     }
@@ -3247,13 +3248,16 @@ function InvoiceWorkspace() {
 
   const previewInvoiceCorrection = async (invoice: InvoiceData): Promise<FinancialCorrectionPreview> => {
     if (session && supabase) return previewInvoiceCorrectionInSupabase(invoice.id);
-    const matches = cashData.matches.filter((match) => match.targetType === "INVOICE" && match.targetId === invoice.id);
+    const authority = supplierInvoiceSettlementProjections.get(invoice.id);
+    const matches = cashData.matches.filter((match) => (match.targetType === "INVOICE" && match.targetId === invoice.id)
+      || (match.targetType === "EXPENSE" && authority?.targetType === "EXPENSE" && match.targetId === authority.targetId));
     return buildLocalInvoiceCorrectionPreview({
       invoice,
       allocationCount: invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id).length,
       settlementMatchCount: matches.length,
       confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length,
       historyCount: invoice.reviewStatus === "VERIFIED" ? 1 : 0,
+      paymentStatus: authority?.paymentState,
     });
   };
 
@@ -4656,6 +4660,11 @@ function InvoiceWorkspace() {
     [permissions, projectCostSourceStates],
   );
   const detailPayrollForProjectCost = projectLaborSource === "detail" ? costPayroll : [];
+  const supplierSettlementToday = businessDateForTimeZone(new Date(), activeCompany?.timezone);
+  const supplierInvoiceSettlementProjections = useMemo(
+    () => buildSupplierInvoiceSettlementProjections(invoices, expenses, cashData.matches, supplierSettlementToday),
+    [cashData.matches, expenses, invoices, supplierSettlementToday],
+  );
   const projectSummaries = useMemo<Record<string, ProjectCostSummary>>(() => {
     const next: Record<string, ProjectCostSummary> = {};
     projects.forEach((project) => {
@@ -4670,17 +4679,29 @@ function InvoiceWorkspace() {
         projectLaborAggregates,
         laborSource: projectLaborSource,
         fxSnapshots: financialFxSnapshots,
+        settlementMatches: cashData.matches,
       });
     });
-    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, fxSnapshots: financialFxSnapshots, baseCurrency: activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY });
+    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, fxSnapshots: financialFxSnapshots, settlementMatches: cashData.matches, baseCurrency: activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY });
     next.__unallocated__ = unallocated;
     return next;
-  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, financialFxSnapshots, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, activeCompany?.defaultCurrency, regionalSettings.currency]);
+  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, financialFxSnapshots, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, cashData.matches, activeCompany?.defaultCurrency, regionalSettings.currency]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
-    ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}`, lifecycleStatus: expense.status })),
+    ...expenses.filter((expense) => expense.status !== "VOID").flatMap((expense) => {
+      const linkedInvoice = expense.supplierInvoiceId ? invoices.find((invoice) => invoice.id === expense.supplierInvoiceId) : undefined;
+      const authority = linkedInvoice ? supplierInvoiceSettlementProjections.get(linkedInvoice.id) : undefined;
+      if (linkedInvoice && (!authority || authority.authorityConflict || authority.targetType !== "EXPENSE" || authority.targetId !== expense.id)) return [];
+      return [{ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}`, lifecycleStatus: expense.status, supplierInvoiceVerified: Boolean(linkedInvoice && linkedInvoice.reviewStatus === "VERIFIED" && linkedInvoice.lifecycleStatus !== "VOID"), supplierInvoiceId: linkedInvoice?.id }];
+    }),
     // Linked supplier invoices are evidence only; the Expense is the sole
     // supplier payable candidate for cash settlement.
-    ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: invoiceCashPayableBasis(invoice).amount, currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name, lifecycleStatus: invoice.reviewStatus })),
+    ...invoices.filter((invoice) => {
+      const projection = supplierInvoiceSettlementProjections.get(invoice.id);
+      return projection?.payable && projection.targetType === "INVOICE" && projection.settlement.outstanding > 0.005;
+    }).map((invoice) => {
+      const projection = supplierInvoiceSettlementProjections.get(invoice.id)!;
+      return { targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: projection.settlement.settlementBasis, currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name, lifecycleStatus: invoice.reviewStatus };
+    }),
     ...payrollData.runs.filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: payrollData.entries.filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: payrollData.periods.find((period) => period.id === run.periodId)?.payDate || payrollData.periods.find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment", lifecycleStatus: run.status })),
     ...subcontractClaims.filter((claim) => claim.status === "APPROVED" && claim.netCertifiedAmount > 0).map((claim) => {
       const subcontract = subcontracts.find((item) => item.id === claim.subcontractId);
@@ -4700,7 +4721,7 @@ function InvoiceWorkspace() {
       };
     }),
     ...clientCollectionData.collections.filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId, billingId: Array.isArray(collection.allocations) ? collection.allocations[0]?.billingId : undefined })),
-  ].filter((candidate) => candidate.amount > 0), [clientCollectionData.collections, expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods, subcontractClaims, subcontracts, vendors]);
+  ].filter((candidate) => candidate.amount > 0), [clientCollectionData.collections, expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods, subcontractClaims, subcontracts, supplierInvoiceSettlementProjections, vendors]);
   const dashboardViewData = useMemo(() => buildDashboardViewData({
     projects,
     invoices: costInvoices,
@@ -4714,6 +4735,7 @@ function InvoiceWorkspace() {
     laborSource: projectLaborSource,
     fxSnapshots: financialFxSnapshots,
     baseCurrency: activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY,
+    businessTimeZone: activeCompany?.timezone || regionalSettings.timezone,
     periods: payrollData.periods,
     workers: payrollData.workers,
     payrollEntries: payrollData.entries,
@@ -4725,9 +4747,9 @@ function InvoiceWorkspace() {
     customEnd: dashboardCustomEnd,
     selectedCurrency: dashboardCurrency,
     projectId: dashboardProjectId,
-  }), [projects, costInvoices, expenses, financialFxSnapshots, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
+  }), [projects, costInvoices, expenses, financialFxSnapshots, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId, activeCompany?.timezone, regionalSettings.timezone]);
 
-  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods, fxSnapshots: financialFxSnapshots }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, financialFxSnapshots]);
+  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods, fxSnapshots: financialFxSnapshots, settlementMatches: cashData.matches, today: supplierSettlementToday }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, financialFxSnapshots, cashData.matches, supplierSettlementToday]);
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID").length;
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
@@ -4874,6 +4896,9 @@ function InvoiceWorkspace() {
           workspaceRouteVisible={workspaceRouteVisible}
           workspaceLoading={workspaceLoading}
           dashboardData={dashboardViewData}
+          supplierInvoiceSettlementProjections={supplierInvoiceSettlementProjections}
+          settlementMatches={cashData.matches}
+          supplierSettlementToday={supplierSettlementToday}
           dashboardProjectId={dashboardProjectId}
           onDashboardProjectChange={(projectId) => {
             setDashboardProjectId(projectId);

@@ -61,6 +61,7 @@ interface VerificationWorkspaceProps {
   onOpenCorrection?: () => void;
   repairMode?: boolean;
   linkedExpense?: Expense;
+  supplierInvoiceAuthorityConflict?: boolean;
   linkedExpenseLoading?: boolean;
   canRecordExpensePayment?: boolean;
   canReverseExpensePayment?: boolean;
@@ -175,6 +176,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   onOpenCorrection,
   repairMode = false,
   linkedExpense,
+  supplierInvoiceAuthorityConflict = false,
   linkedExpenseLoading = false,
   canRecordExpensePayment = false,
   canReverseExpensePayment = false,
@@ -392,6 +394,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
              onOpenCorrection={onOpenCorrection}
              repairMode={repairMode}
             linkedExpense={linkedExpense}
+            authorityConflict={supplierInvoiceAuthorityConflict}
             linkedExpenseLoading={linkedExpenseLoading}
             canRecordExpensePayment={canRecordExpensePayment}
             canReverseExpensePayment={canReverseExpensePayment}

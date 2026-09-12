@@ -455,6 +455,8 @@ function ExpenseDetailPanel({ expense, invoice, purchaseOrder, project, returnPa
       title="Expense payment"
       targetLabel={`${expense.category} · ${expense.description}`}
       lifecycleStatus={expense.status}
+      supplierInvoiceVerified={Boolean(invoice && invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && expense.supplierInvoiceId === invoice.id)}
+      supplierInvoiceDueDate={invoice?.dueDate}
       fallbackSummary={deriveExpenseSettlementSummary(expense, [])}
       recordPaymentPath={appPathForCashTarget("EXPENSE", expense.id, appPathForExpense(expense.id))}
       canRecordPayment={canRecordPayments}

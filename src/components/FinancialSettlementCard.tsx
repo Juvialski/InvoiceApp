@@ -6,9 +6,10 @@ import { demoSettlementSummaryForTarget } from "../demo/data/settlements.ts";
 import { appPathForCashTransaction } from "../utils/appRouting.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
-import type { FinancialFxSnapshot, FinancialFxSourceType } from "../types.ts";
+import type { FinancialFxSnapshot, FinancialFxSourceType, InvoiceLifecycleStatus, ReviewStatus } from "../types.ts";
 import { displayFinancialAmountInPhp } from "../utils/financialCurrency.ts";
 import { SettlementReversalDialog } from "./financial/SettlementReversalDialog.tsx";
+import { deriveSupplierInvoicePaymentState } from "../lib/supplierInvoiceSettlement.ts";
 
 export interface FinancialSettlementCardProps {
   targetType: SettlementTargetType;
@@ -19,6 +20,11 @@ export interface FinancialSettlementCardProps {
   canReverse?: boolean;
   fallbackSummary?: FinancialSettlementSummary | null;
   lifecycleStatus?: string;
+  /** Allows only the verification-created supplier DRAFT Expense exception. */
+  supplierInvoiceVerified?: boolean;
+  /** Review status used by the INVOICE settlement gate; invoice lifecycle remains separate. */
+  supplierInvoiceReviewStatus?: string;
+  supplierInvoiceDueDate?: string;
   recordPaymentPath?: string;
   canRecordPayment?: boolean;
   openTargetPath?: string;
@@ -66,6 +72,9 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   canReverse = false,
   fallbackSummary,
   lifecycleStatus,
+  supplierInvoiceVerified = false,
+  supplierInvoiceReviewStatus,
+  supplierInvoiceDueDate,
   recordPaymentPath,
   canRecordPayment = false,
   openTargetPath,
@@ -164,8 +173,7 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
           .filter((h) => h.status === "CONFIRMED")
           .reduce((sum, h) => sum + (h.amount || 0), 0);
         const basis = summary?.settlementBasis || 0;
-        const docPaid = summary?.documentReportedPaid || 0;
-        const effective = Math.max(activePaid, docPaid);
+        const effective = activePaid;
         const outstanding = Math.max(0, basis - effective);
         const isVoided = summary?.lifecycleStatus === "VOID" || lifecycleStatus === "VOID";
         const state = isVoided
@@ -225,8 +233,18 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   const active = visibleSummary?.history.filter((item) => item.status === "CONFIRMED") || [];
   const reversed = visibleSummary?.history.filter((item) => item.status === "REVERSED") || [];
   const targetLifecycleStatus = lifecycleStatus || visibleSummary?.lifecycleStatus;
-  const targetLifecycleEligible = isSettlementTargetLifecycleEligible(targetType, targetLifecycleStatus);
+  const authorityConflict = visibleSummary.authorityConflict === true;
+  const targetLifecycleEligible = !authorityConflict && targetType === "INVOICE"
+    ? targetLifecycleStatus !== "VOID" && visibleSummary.lifecycleStatus !== "VOID" && isSettlementTargetLifecycleEligible(targetType, supplierInvoiceReviewStatus || visibleSummary.lifecycleStatus)
+    : !authorityConflict && isSettlementTargetLifecycleEligible(targetType, targetLifecycleStatus, { supplierInvoiceVerified });
   const hasOutstanding = visibleSummary.outstanding > 0.005;
+  const displaySettlementState = (visibleSummary.lifecycleStatus === "VOID" || lifecycleStatus === "VOID")
+    ? "VOID" as const
+    : authorityConflict
+    ? "UNPAID" as const
+    : (targetType === "EXPENSE" && supplierInvoiceVerified) || (targetType === "INVOICE" && supplierInvoiceDueDate)
+    ? deriveSupplierInvoicePaymentState({ reviewStatus: (targetType === "INVOICE" ? supplierInvoiceReviewStatus || "NEEDS_REVIEW" : "VERIFIED") as ReviewStatus, lifecycleStatus: targetType === "INVOICE" ? lifecycleStatus as InvoiceLifecycleStatus : undefined, dueDate: supplierInvoiceDueDate }, targetType === "EXPENSE" ? { status: targetLifecycleStatus as "DRAFT" | "APPROVED" | "PAID" | "VOID", amount: visibleSummary.settlementBasis } : undefined, visibleSummary)
+    : visibleSummary.settlementState;
   const recordPaymentUnavailableReason = !targetLifecycleEligible
     ? targetLifecycleStatus
       ? `Payment settlement is unavailable while this ${targetType.toLowerCase()} is ${targetLifecycleStatus}.`
@@ -266,8 +284,8 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
           </div>
           {visibleSummary && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-black ${stateTone(summary.settlementState)}`}>
-                {String(summary.settlementState).replaceAll("_", " ")}
+              <span className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-black ${stateTone(displaySettlementState)}`}>
+                {String(displaySettlementState).replaceAll("_", " ")}
               </span>
               {(summary.lifecycleStatus === "VOID" || lifecycleStatus === "VOID") && (
                 <span className="w-fit rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-700">
@@ -281,6 +299,8 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
         {error && <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-800"><span>{error}{visibleSummary ? " Showing the last successful settlement evidence." : ""}</span><button type="button" onClick={() => void refresh()} className="shrink-0 rounded-md bg-white px-2 py-1 font-black text-rose-800 shadow-sm">Retry</button></div>}
 
         {refreshing && <p role="status" className="mt-3 text-[10px] font-semibold text-indigo-700">Refreshing settlement evidence… Existing evidence remains visible.</p>}
+
+        {authorityConflict && <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-900">Multiple active Expenses claim this supplier invoice. Settlement actions are locked until one authoritative Expense remains.</p>}
 
         {visibleSummary && (
           <>

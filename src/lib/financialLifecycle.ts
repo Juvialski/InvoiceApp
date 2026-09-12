@@ -146,9 +146,11 @@ export interface LocalInvoiceCorrectionInput {
   settlementMatchCount?: number;
   confirmedSettlementCount?: number;
   historyCount?: number;
+  /** Current supplier payment state from the cash-backed projection. */
+  paymentStatus?: string;
 }
 
-export function buildLocalInvoiceCorrectionPreview({ invoice, allocationCount = 0, settlementMatchCount = 0, confirmedSettlementCount = 0, historyCount = 0 }: LocalInvoiceCorrectionInput): FinancialCorrectionPreview {
+export function buildLocalInvoiceCorrectionPreview({ invoice, allocationCount = 0, settlementMatchCount = 0, confirmedSettlementCount = 0, historyCount = 0, paymentStatus }: LocalInvoiceCorrectionInput): FinancialCorrectionPreview {
   const lifecycleStatus = invoice.lifecycleStatus || "ACTIVE";
   const protectedDependencyCount = allocationCount + settlementMatchCount + historyCount + (invoice.reviewStatus === "VERIFIED" ? 1 : 0);
   const disposableDependencyCount = (invoice.extractionId ? 1 : 0) + (invoice.sourceDocumentId ? 1 : 0) + (invoice.sourceEmailId ? 1 : 0);
@@ -159,9 +161,9 @@ export function buildLocalInvoiceCorrectionPreview({ invoice, allocationCount = 
   return {
     entityType: "INVOICE",
     entityId: invoice.id,
-    status: invoice.status || "UNPAID",
+    status: paymentStatus || "UNPAID",
     reviewStatus: invoice.reviewStatus,
-    paymentStatus: invoice.status,
+    paymentStatus: paymentStatus || "UNPAID",
     lifecycleStatus,
     archivedAt: invoice.archivedAt,
     voidedAt: invoice.voidedAt,

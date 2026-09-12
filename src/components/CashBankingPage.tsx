@@ -17,7 +17,7 @@ import {
 import {
   buildCashDashboardPosition,
   buildStatementPreview,
-  confirmedTargetMatchedAmount,
+  confirmedCandidateMatchedAmount,
   createFinancialAccount,
   createFinancialMatch,
   createFinancialTransaction,
@@ -448,7 +448,7 @@ export const CashBankingPage: React.FC<CashBankingPageProps> = ({
       return;
     }
     const remaining = Math.max(0, transaction.amount - data.matches.filter((match) => match.transactionId === transaction.id && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0));
-    const targetLinked = data.matches.filter((match) => match.targetType === suggestion.candidate.targetType && match.targetId === suggestion.candidate.targetId && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0);
+    const targetLinked = confirmedCandidateMatchedAmount(suggestion.candidate, data.matches);
     const matchedAmount = Math.min(remaining, Math.max(0, suggestion.candidate.amount - targetLinked));
     if (matchedAmount <= 0) return;
     setBusy(`match:${transaction.id}`);
@@ -482,7 +482,7 @@ export const CashBankingPage: React.FC<CashBankingPageProps> = ({
   const reasonCopy = reasonAction ? reasonDialogCopy(reasonAction) : undefined;
 
   const workspaceDataPending = useWorkspaceDataPending();
-  const targetOutstanding = targetCandidate ? Math.max(0, targetCandidate.amount - confirmedTargetMatchedAmount(targetCandidate.targetType, targetCandidate.targetId, data.matches)) : undefined;
+  const targetOutstanding = targetCandidate ? Math.max(0, targetCandidate.amount - confirmedCandidateMatchedAmount(targetCandidate, data.matches)) : undefined;
   const targetContextMessage = !targetContext?.requested
     ? undefined
     : targetContext.invalid

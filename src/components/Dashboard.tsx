@@ -1,27 +1,40 @@
 import React from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Mail, Receipt, WalletCards } from "lucide-react";
 import { Card } from "@astryxdesign/core/Card";
-import type { InvoiceData } from "../types";
+import type { Expense, InvoiceData } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { formatMoney, totalVatByCurrency, totalsByCurrency } from "../utils/invoiceLogic";
 import { isVoidedInvoice } from "../utils/projectCosting.ts";
+import type { FinancialTransactionMatch } from "../lib/cashBanking.ts";
+import { buildSupplierInvoiceSettlementProjections, supplierInvoicePaymentStateFor } from "../lib/supplierInvoiceSettlement.ts";
 import { EmptyState, MetricCard, PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 
 interface DashboardProps {
   invoices: InvoiceData[];
+  expenses?: Expense[];
+  settlementMatches?: readonly FinancialTransactionMatch[];
+  today?: string;
   onOpenInvoice: (invoice: InvoiceData) => void;
   onNavigate: (tab: "extractor" | "inbox" | "invoices" | "review" | "projects" | "payroll" | "expenses" | "reports") => void;
 }
 
 const isPhilippine = (invoice: InvoiceData) => invoice.currency?.toUpperCase() === "PHP" || invoice.vendor?.country?.toLowerCase().includes("philippines") || Boolean(invoice.philippineTaxDetails);
 
-export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, onNavigate }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses = [], settlementMatches = [], today, onOpenInvoice, onNavigate }) => {
   const activeInvoices = invoices.filter((invoice) => !isVoidedInvoice(invoice));
+  const settlementProjections = buildSupplierInvoiceSettlementProjections(invoices, expenses, settlementMatches, today);
   const needsReview = activeInvoices.filter((i) => i.reviewStatus === "NEEDS_REVIEW" && !i.archivedAt);
   const verified = activeInvoices.filter((i) => i.reviewStatus === "VERIFIED");
-  const overdue = activeInvoices.filter((i) => i.status === "OVERDUE");
+  const overdue = activeInvoices.filter((invoice) => settlementProjections.get(invoice.id)?.payable && supplierInvoicePaymentStateFor(invoice, settlementProjections.get(invoice.id), today) === "OVERDUE");
   const totals = totalsByCurrency(activeInvoices);
-  const balances = totalsByCurrency(activeInvoices, "balanceDue");
+  const balances = activeInvoices.reduce<Record<string, number>>((result, invoice) => {
+    const projection = settlementProjections.get(invoice.id);
+    if (projection?.payable) {
+      const currency = (invoice.currency || "UNK").toUpperCase();
+      result[currency] = Math.round(((result[currency] || 0) + projection.settlement.outstanding) * 100) / 100;
+    }
+    return result;
+  }, {});
   const vatTotals = totalVatByCurrency(activeInvoices);
   const phpTotal = totals.PHP || 0;
   const phpOutstanding = balances.PHP || 0;

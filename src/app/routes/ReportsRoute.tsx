@@ -21,6 +21,8 @@ import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { useAppPermissions, useProjectCostCompleteness, useWorkspaceDataPending } from "../AppPermissionContext.tsx";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
+import type { FinancialTransactionMatch } from "../../lib/cashBanking.ts";
+import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
 
 export interface ReportsRouteProps {
   projects: Project[];
@@ -38,6 +40,9 @@ export interface ReportsRouteProps {
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   onExport?: () => void;
+  settlementMatches?: readonly FinancialTransactionMatch[];
+  settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  today?: string;
 }
 
 export const ReportsRoute: React.FC<ReportsRouteProps> = ({
@@ -56,6 +61,9 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
   projectLaborAggregates = [],
   laborSource,
   onExport,
+  settlementMatches = [],
+  settlementProjections,
+  today,
 }) => {
   const permissions = useAppPermissions();
   const canReadFinancialReports = hasPermission(permissions, PERMISSION_KEYS.reportsRead);
@@ -87,11 +95,14 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
         projectLaborAggregates,
         laborSource,
         payrollDetailVisible: canReadPayrollDetail,
+        settlementMatches,
+        settlementProjections,
+        today,
       }));
 
   return (
     <div className="space-y-6" data-project-cost-completeness={projectCostCompleteness.status}>
-      {canReadFinancialReports && canReadInvoices && <Reports invoices={invoices} fxSnapshots={fxSnapshots} baseCurrency={baseCurrency} />}
+      {canReadFinancialReports && canReadInvoices && <Reports invoices={invoices} settlementProjections={settlementProjections} today={today} fxSnapshots={fxSnapshots} baseCurrency={baseCurrency} />}
 
       {canReadPayrollReports && canReadPayrollDetail && (
         <PayrollOperatingCosts runs={runs} entries={entries} allocations={payrollAllocations} />
@@ -114,6 +125,9 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
           laborSource={laborSource}
           payrollDetailVisible={canReadPayrollDetail}
           onExport={handleExport}
+          settlementProjections={settlementProjections}
+          settlementMatches={settlementMatches}
+          today={today}
         />
       ) : canReadFinancialReports ? (
         <section role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">

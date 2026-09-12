@@ -4,18 +4,21 @@ import type { FinancialFxSnapshot, InvoiceData } from "../types";
 import { formatMoney, totalsByCurrency } from "../utils/invoiceLogic";
 import { convertFinancialAmount, normalizeFinancialCurrency } from "../utils/financialCurrency.ts";
 import { isVoidedInvoice } from "../utils/projectCosting.ts";
+import { supplierInvoicePaymentStateFor, type SupplierInvoiceSettlementProjection } from "../lib/supplierInvoiceSettlement.ts";
 import { EmptyState, MetricCard, Notice, PageHeader, SectionHeader, StatusBadge, type StatusTone } from "./ui/OperationsUI";
 
 interface ReportsProps {
   invoices: InvoiceData[];
   fxSnapshots?: readonly FinancialFxSnapshot[];
   baseCurrency?: string;
+  settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  today?: string;
 }
 
 const monthLabel = (date: string) => date ? new Intl.DateTimeFormat("en-PH", { month: "long", year: "numeric", timeZone: "Asia/Manila" }).format(new Date(`${date}T12:00:00+08:00`)) : "Undated";
 function paymentTone(status: string): StatusTone { return status === "PAID" ? "success" : status === "OVERDUE" ? "danger" : status === "PARTIALLY_PAID" ? "info" : "neutral"; }
 
-export const Reports: React.FC<ReportsProps> = ({ invoices, fxSnapshots = [], baseCurrency = "PHP" }) => {
+export const Reports: React.FC<ReportsProps> = ({ invoices, fxSnapshots = [], baseCurrency = "PHP", settlementProjections, today }) => {
   const reportingCurrency = normalizeFinancialCurrency(baseCurrency);
   const activeInvoices = useMemo(() => invoices.filter((invoice) => !isVoidedInvoice(invoice)), [invoices]);
   const currencyTotals = totalsByCurrency(activeInvoices);
@@ -44,7 +47,7 @@ export const Reports: React.FC<ReportsProps> = ({ invoices, fxSnapshots = [], ba
     return { vatable: sum((invoice) => invoice.philippineTaxDetails?.vatableSales), vat: sum((invoice) => invoice.philippineTaxDetails?.vatAmount ?? invoice.totalTax), zero: sum((invoice) => invoice.philippineTaxDetails?.zeroRatedSales), exempt: sum((invoice) => invoice.philippineTaxDetails?.vatExemptSales), unresolved };
   }, [fxSnapshots, phInvoices, reportingCurrency, vatInvoices]);
   const reviewQuality = { verified: activeInvoices.filter((invoice) => invoice.reviewStatus === "VERIFIED").length, needsReview: activeInvoices.filter((invoice) => !invoice.archivedAt && invoice.reviewStatus === "NEEDS_REVIEW").length, missingTin: activeInvoices.filter((invoice) => !invoice.vendor?.taxId).length, mathMismatch: activeInvoices.filter((invoice) => invoice.validation?.issues.some((issue) => issue.id.includes("mismatch"))).length, potentialDuplicate: activeInvoices.filter((invoice) => invoice.duplicateStatus === "POSSIBLE_DUPLICATE").length };
-  const payment = ["PAID", "PARTIALLY_PAID", "UNPAID", "OVERDUE"].map((status) => [status, activeInvoices.filter((invoice) => invoice.status === status).length] as const);
+  const payment = ["PAID", "PARTIALLY_PAID", "UNPAID", "OVERDUE"].map((status) => [status, activeInvoices.filter((invoice) => supplierInvoicePaymentStateFor(invoice, settlementProjections?.get(invoice.id), today) === status).length] as const);
 
   return <div className="space-y-5">
     <PageHeader eyebrow="Operational reporting" title="Reports" description="Review supplier source activity, PHP reporting readiness, payment status, and Philippine tax signals. Voided invoices are excluded from active totals; currencies remain separate; original currencies remain visible." />

@@ -237,6 +237,10 @@ export interface FinancialReconciliationCandidate {
   reference?: string;
   description?: string;
   lifecycleStatus?: string;
+  /** A verified supplier-linked DRAFT Expense is a payable target; generic DRAFT Expenses remain ineligible. */
+  supplierInvoiceVerified?: boolean;
+  /** Legacy invoice-target matches remain visible when this Expense owns supplier settlement. */
+  supplierInvoiceId?: string;
   projectId?: string;
   /** Billing selected when a client-collection target returns to its invoice. */
   billingId?: string;
@@ -245,9 +249,9 @@ export interface FinancialReconciliationCandidate {
 }
 
 /** Keep cash candidate rendering aligned with the guarded settlement lifecycle. */
-export function isFinancialReconciliationCandidateLifecycleEligible(candidate: Pick<FinancialReconciliationCandidate, "targetType" | "lifecycleStatus">) {
+export function isFinancialReconciliationCandidateLifecycleEligible(candidate: Pick<FinancialReconciliationCandidate, "targetType" | "lifecycleStatus" | "supplierInvoiceVerified">) {
   return candidate.targetType !== "OTHER"
-    && isSettlementTargetLifecycleEligible(candidate.targetType, candidate.lifecycleStatus);
+    && isSettlementTargetLifecycleEligible(candidate.targetType, candidate.lifecycleStatus, { supplierInvoiceVerified: candidate.supplierInvoiceVerified });
 }
 
 export interface FinancialMatchSuggestion {
@@ -905,6 +909,11 @@ export function confirmedMatchedAmount(transactionId: string, matches: readonly 
 
 export function confirmedTargetMatchedAmount(targetType: FinancialMatchTargetType, targetId: string, matches: readonly FinancialTransactionMatch[]): number {
   return roundMoney(matches.filter((match) => match.targetType === targetType && match.targetId === targetId && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0));
+}
+
+export function confirmedCandidateMatchedAmount(candidate: Pick<FinancialReconciliationCandidate, "targetType" | "targetId" | "supplierInvoiceId">, matches: readonly FinancialTransactionMatch[]): number {
+  return roundMoney(confirmedTargetMatchedAmount(candidate.targetType, candidate.targetId, matches)
+    + (candidate.targetType === "EXPENSE" && candidate.supplierInvoiceId ? confirmedTargetMatchedAmount("INVOICE", candidate.supplierInvoiceId, matches) : 0));
 }
 
 export function reconciliationStatusForTransaction(transaction: FinancialTransaction, matches: readonly FinancialTransactionMatch[]): FinancialReconciliationStatus {

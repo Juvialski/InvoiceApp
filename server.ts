@@ -39,6 +39,7 @@ import {
   reconcileInvoiceMonetarySemantics,
   resolveInvoiceMonetarySemantics,
 } from "./src/utils/invoiceMonetarySemantics.ts";
+import { businessDateForTimeZone } from "./src/utils/businessDate.ts";
 
 dotenv.config();
 
@@ -632,10 +633,7 @@ function roundMoney(value: number) {
 function deriveStatus(grandTotal: number | undefined, amountPaid: number | undefined, balanceDue: number | undefined, dueDate?: string) {
   if (grandTotal !== undefined && grandTotal > 0 && balanceDue !== undefined && balanceDue <= 0.01) return "PAID";
   if (amountPaid !== undefined && amountPaid > 0 && balanceDue !== undefined && balanceDue > 0.01) return "PARTIALLY_PAID";
-  if (dueDate && balanceDue !== undefined) {
-    const due = new Date(`${dueDate}T23:59:59+08:00`);
-    if (!Number.isNaN(due.getTime()) && due.getTime() < Date.now() && balanceDue > 0.01) return "OVERDUE";
-  }
+  if (dueDate && /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && dueDate < businessDateForTimeZone() && balanceDue > 0.01) return "OVERDUE";
   return "UNPAID";
 }
 

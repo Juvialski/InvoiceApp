@@ -1,7 +1,8 @@
 import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, PayrollProjectAllocation, Project, ProjectCostSummary, PayrollEntry, PayrollPeriod, PayrollRun, Worker } from "../types.ts";
-import { calculateProjectCost, normalizedInvoiceAllocationAmount } from "./projectCosting.ts";
+import { calculateProjectCost, normalizedInvoiceAllocationAmount, type SettlementMatchInput } from "./projectCosting.ts";
 import type { CostPayrollRecord } from "./projectCosting.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
+import { supplierInvoicePaymentStateFor, type SupplierInvoiceSettlementProjection } from "../lib/supplierInvoiceSettlement.ts";
 
 export interface ProjectCostReportRow extends ProjectCostSummary { projectCode: string; projectName: string; currency: string; }
 
@@ -9,6 +10,7 @@ export interface ProjectCostReportOptions {
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   fxSnapshots?: readonly FinancialFxSnapshot[];
+  settlementMatches?: readonly SettlementMatchInput[];
 }
 
 export function buildProjectCostReport(
@@ -30,6 +32,7 @@ export function buildProjectCostReport(
       projectLaborAggregates: options.projectLaborAggregates,
       laborSource: options.laborSource,
       fxSnapshots: options.fxSnapshots,
+      settlementMatches: options.settlementMatches,
     }),
   }));
 }
@@ -64,10 +67,10 @@ export function buildProjectLaborAggregateReport(
   });
 }
 
-export function buildProjectInvoiceReport(projects: Project[], invoices: InvoiceData[], allocations: InvoiceProjectAllocation[]) {
+export function buildProjectInvoiceReport(projects: Project[], invoices: InvoiceData[], allocations: InvoiceProjectAllocation[], settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>, today?: string) {
   return invoices.flatMap((invoice) => allocations.filter((allocation) => allocation.invoiceId === invoice.id).map((allocation) => {
     const project = projects.find((item) => item.id === allocation.projectId);
-    return { project: project?.projectName || "Unknown project", projectCode: project?.projectCode || "", vendor: invoice.vendor?.name || invoice.vendor?.registeredName || "Unknown vendor", invoiceNumber: invoice.invoiceNumber || "", invoiceDate: invoice.invoiceDate || "", invoiceTotal: invoice.grandTotal, allocatedAmount: normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), currency: invoice.currency || "", paymentStatus: invoice.status || "UNPAID", reviewStatus: invoice.reviewStatus || "NEEDS_REVIEW", lifecycleStatus: invoice.lifecycleStatus || "ACTIVE", visibility: invoice.archivedAt ? "ARCHIVED" : "VISIBLE" };
+    return { project: project?.projectName || "Unknown project", projectCode: project?.projectCode || "", vendor: invoice.vendor?.name || invoice.vendor?.registeredName || "Unknown vendor", invoiceNumber: invoice.invoiceNumber || "", invoiceDate: invoice.invoiceDate || "", invoiceTotal: invoice.grandTotal, allocatedAmount: normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), currency: invoice.currency || "", paymentStatus: supplierInvoicePaymentStateFor(invoice, settlementProjections?.get(invoice.id), today), reviewStatus: invoice.reviewStatus || "NEEDS_REVIEW", lifecycleStatus: invoice.lifecycleStatus || "ACTIVE", visibility: invoice.archivedAt ? "ARCHIVED" : "VISIBLE" };
   }));
 }
 

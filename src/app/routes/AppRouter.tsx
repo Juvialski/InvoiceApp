@@ -74,6 +74,7 @@ import type { EquipmentSaveInput } from "../../lib/equipment.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
+import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
 import type {
   CashBankingWorkspaceData,
   FinancialAccount,
@@ -441,6 +442,9 @@ export interface AppRouterProps {
 
   // Reports
   onExportReportsWorkbook?: () => void;
+  supplierInvoiceSettlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  settlementMatches?: readonly FinancialTransactionMatch[];
+  supplierSettlementToday?: string;
 
   // Settings
   regionalSettings: RegionalSettings;
@@ -683,6 +687,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onApplyExpenseCorrection,
   onExpenseCorrectionContextConsumed,
   onExportReportsWorkbook,
+  supplierInvoiceSettlementProjections,
+  settlementMatches = [],
+  supplierSettlementToday,
   regionalSettings,
   onRegionalSettingsChange = () => {},
   showDeploymentAccessManagement = true,
@@ -707,6 +714,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         invoices={invoices}
         expenses={expenses}
         expensesLoaded={!workspaceLoading}
+        settlementMatches={settlementMatches}
+        settlementProjections={supplierInvoiceSettlementProjections}
+        today={supplierSettlementToday}
         financialFxSnapshots={financialFxSnapshots}
         vendors={vendors}
         projects={projects}
@@ -775,6 +785,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         canReverseFinancialMatch={canReverseFinancialMatch}
         selectedProject={selectedProject}
         summaries={projectSummaries}
+        supplierInvoiceSettlementProjections={supplierInvoiceSettlementProjections}
+        supplierSettlementToday={supplierSettlementToday}
         projectDashboard={projectDashboard}
         costCodes={costCodes}
         materials={materials}
@@ -978,6 +990,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onNavigatePath={onNavigatePath}
         invoices={invoices}
         financialFxSnapshots={financialFxSnapshots}
+        expenses={expenses}
+        settlementMatches={settlementMatches}
+        settlementProjections={supplierInvoiceSettlementProjections}
+        today={supplierSettlementToday}
         vendors={vendors}
         projects={projects}
         costCodes={costCodes as ProjectCostCode[]}
@@ -1210,6 +1226,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         invoices={invoices}
         invoiceAllocations={invoiceProjectAllocations}
         expenses={expenses}
+        settlementProjections={supplierInvoiceSettlementProjections}
+        settlementMatches={settlementMatches}
+        today={supplierSettlementToday}
         fxSnapshots={financialFxSnapshots}
         baseCurrency={baseCurrency}
         workers={payrollData.workers}
