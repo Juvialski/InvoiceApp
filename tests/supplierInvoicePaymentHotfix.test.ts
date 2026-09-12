@@ -27,7 +27,7 @@ const expense = { status: "APPROVED" as const, amount: 11.72 };
 
 test("linked Expense settlement is the supplier invoice display truth", () => {
   assert.equal(deriveSupplierInvoicePaymentState(invoice, expense, settlement(), "2026-09-10"), "OVERDUE");
-  assert.equal(deriveSupplierInvoicePaymentState(invoice, expense, settlement({ reconciledCashPaid: 5, effectiveSettled: 5, outstanding: 6.72, settlementState: "PARTIALLY_PAID" }), "2026-09-10"), "PARTIALLY_PAID");
+  assert.equal(deriveSupplierInvoicePaymentState(invoice, expense, settlement({ reconciledCashPaid: 5, effectiveSettled: 5, outstanding: 6.72, settlementState: "PARTIALLY_PAID" }), "2026-09-10"), "OVERDUE");
   assert.equal(deriveSupplierInvoicePaymentState(invoice, expense, settlement({ reconciledCashPaid: 11.72, effectiveSettled: 11.72, outstanding: 0, settlementState: "PAID" }), "2026-09-10"), "PAID");
 });
 
@@ -76,7 +76,8 @@ test("normal supplier payment stays inside Change Status and uses canonical Expe
   assert.match(dialog, />Paid</);
   assert.match(dialog, />Partially Paid</);
   assert.match(dialog, /Confirm Payment/);
-  assert.match(dialog, /This payment will approve the linked Expense and record the payment\./);
+  assert.match(dialog, /supplier-derived DRAFT Expense remains a DRAFT cost record/);
+  assert.doesNotMatch(dialog, /saveExpenseToSupabase/);
   assert.match(dialog, /listFinancialAccounts/);
   assert.match(dialog, /saveFinancialAccountToSupabase/);
   assert.match(dialog, /saveFinancialTransactionToSupabase/);
@@ -94,10 +95,10 @@ test("live supplier payment state fails closed until authoritative settlement ev
   assert.doesNotMatch(surface, /setSummary\(fallbackSummary\)/);
 });
 
-test("DRAFT approval survives a later payment failure and successful settlement is never undone by refresh failure", () => {
+test("supplier-derived DRAFT survives payment failure and successful settlement is never undone by refresh failure", () => {
   const dialog = readFileSync("src/components/SupplierInvoicePaymentDialog.tsx", "utf8");
-  assert.match(dialog, /paymentExpense = await saveExpenseToSupabase\(\{ \.\.\.paymentExpense, status: "APPROVED" \}\)/);
-  assert.match(dialog, /onExpenseUpdated\?\.\(paymentExpense\)/);
+  assert.doesNotMatch(dialog, /paymentExpense = await saveExpenseToSupabase/);
+  assert.doesNotMatch(dialog, /status: "APPROVED"/);
   assert.match(dialog, /let settlementConfirmed = false/);
   assert.match(dialog, /settlementConfirmed = true/);
   assert.match(dialog, /if \(transactionId && !settlementConfirmed\)/);
@@ -106,7 +107,8 @@ test("DRAFT approval survives a later payment failure and successful settlement 
 
 test("Assistant compensation stops once supplier settlement confirmation is authoritative", () => {
   const assistant = readFileSync("src/server/assistant/financialSettlementAssistant.ts", "utf8");
-  assert.match(assistant, /const approvedExpense = await approveLinkedExpenseForPayment\(context, resolved\.expense\)/);
+  assert.match(assistant, /const paymentExpense = resolved\.expense/);
+  assert.doesNotMatch(assistant, /approveLinkedExpenseForPayment/);
   assert.match(assistant, /let settlementConfirmed = false/);
   assert.match(assistant, /settlementConfirmed = true/);
   assert.match(assistant, /if \(transactionCreated && !settlementConfirmed\)/);
@@ -126,11 +128,12 @@ test("zero-account and mobile payment flow remain inline and bounded", () => {
   assert.match(dialog, /sm:grid-cols-2/);
 });
 
-test("payment permissions fail closed across Expense approval, transaction creation, settlement, and account creation", () => {
+test("payment permissions fail closed across transaction creation, settlement, and account creation", () => {
   const dialog = readFileSync("src/components/SupplierInvoicePaymentDialog.tsx", "utf8");
-  assert.match(dialog, /PERMISSION_KEYS\.expensesWrite/);
+  assert.doesNotMatch(dialog, /PERMISSION_KEYS\.expensesWrite/);
   assert.match(dialog, /PERMISSION_KEYS\.cashTransactionsManage/);
   assert.match(dialog, /PERMISSION_KEYS\.cashReconcile/);
   assert.match(dialog, /PERMISSION_KEYS\.cashAccountsManage/);
-  assert.match(dialog, /You do not have permission to approve the linked Expense and record this payment\./);
+  assert.match(dialog, /canRecordPayment/);
+  assert.doesNotMatch(dialog, /permission to approve the linked Expense/);
 });

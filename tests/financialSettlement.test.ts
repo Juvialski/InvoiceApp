@@ -46,13 +46,13 @@ test("invoice payable basis only trusts explicit net-payable semantics", () => {
   assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000, philippineTaxDetails: { netAmountPayable: 95_000, withholdingTaxAmount: 5_000 } } as any), { amount: 95_000, source: "EXPLICIT_NET_PAYABLE" });
 });
 
-test("invoice settlement never blindly adds document paid and bank paid", () => {
+test("invoice settlement never treats document-paid evidence as cash settlement", () => {
   const invoice = { id: "inv", currency: "PHP", grandTotal: 100_000, amountPaid: 60_000, dueDate: "2026-09-01", reviewStatus: "VERIFIED" as const };
   const partial = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 40_000)], REFERENCE_DATE);
   assert.equal(partial.documentReportedPaid, 60_000);
   assert.equal(partial.reconciledCashPaid, 40_000);
-  assert.equal(partial.effectiveSettled, 60_000);
-  assert.equal(partial.outstanding, 40_000);
+  assert.equal(partial.effectiveSettled, 40_000);
+  assert.equal(partial.outstanding, 60_000);
   assert.equal(partial.settlementState, "PARTIALLY_PAID");
   const paid = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 40_000), confirmed("m2", "tx-2", 60_000)], REFERENCE_DATE);
   assert.equal(paid.effectiveSettled, 100_000);
@@ -73,6 +73,7 @@ test("voided invoice settlement history remains readable but is not an active se
   const summary = deriveInvoiceSettlementSummary(invoice as any, [confirmed("void-match", "tx-void", 100_000)], REFERENCE_DATE);
   assert.equal(summary.lifecycleStatus, "VOID");
   assert.equal(summary.effectiveSettled, 100_000);
+  assert.equal(summary.outstanding, 0);
   assert.deepEqual(eligibleSettlementCandidates(transaction(), [{ targetType: "INVOICE", targetId: invoice.id, label: "Voided", currency: "PHP", settlementBasis: 100_000, settledAmount: 100_000, outstandingAmount: 0, lifecycleStatus: summary.lifecycleStatus }]), []);
 });
 
@@ -177,6 +178,7 @@ test("settlement migration is additive, guarded, auditable and not a costing sou
   const migration = readFileSync("supabase/migrations/20260827210000_financial_settlement_integration.sql", "utf8");
   const hardening = readFileSync("supabase/migrations/20260827211000_financial_settlement_payable_basis_hardening.sql", "utf8");
   const summaryHardening = readFileSync("supabase/migrations/20260827212000_financial_settlement_summary_hardening.sql", "utf8");
+  const consistency = readFileSync("supabase/migrations/20260912082656_supplier_payables_settlement_consistency.sql", "utf8");
   assert.match(migration, /create or replace function public\.confirm_financial_settlement/);
   assert.match(migration, /create or replace function public\.reverse_financial_settlement/);
   assert.match(migration, /security definer[\s\S]*set search_path = ''/i);
@@ -194,5 +196,7 @@ test("settlement migration is additive, guarded, auditable and not a costing sou
   assert.match(migration, /revoke all on function public\.confirm_financial_settlement[^;]+from public, anon/);
   assert.match(hardening, /withholdingTaxAmount/);
   assert.match(summaryHardening, /greatest\(v_document_paid,v_cash_paid\)/);
+  assert.match(consistency, /v_effective := v_cash_paid/);
+  assert.doesNotMatch(consistency, /v_effective\s*:=\s*greatest\(v_document_paid/);
   assert.doesNotMatch(migration, /project_cost|project_actual|totalActualCost/i);
 });

@@ -37,6 +37,7 @@ import {
 import { formatDate } from "../config/regional";
 import { listCompanyVendors } from "../lib/persistence";
 import { displayFinancialAmountInPhp } from "../utils/financialCurrency.ts";
+import { supplierInvoicePaymentStateFor, type SupplierInvoicePaymentDisplayState } from "../lib/supplierInvoiceSettlement.ts";
 
 function valueAtPath(value: any, path: string) {
   return path.split(".").reduce((current, key) => current?.[key], value);
@@ -94,6 +95,7 @@ interface InvoiceViewerProps {
   focusFieldToken?: number;
   vendors?: Vendor[];
   financialFxSnapshots?: readonly FinancialFxSnapshot[];
+  paymentState?: SupplierInvoicePaymentDisplayState;
 }
 
 export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
@@ -106,7 +108,9 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   focusFieldToken,
   vendors,
   financialFxSnapshots = [],
+  paymentState,
 }) => {
+  const canonicalPaymentState = paymentState || supplierInvoicePaymentStateFor(invoice);
   const [copied, setCopied] = useState(false);
   const [activeView, setActiveView] = useState<"details" | "preview">("details");
   const [isEditingHeader, setIsEditingHeader] = useState(false);
@@ -163,11 +167,11 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   };
 
   const handleExportExcel = () => {
-    exportSingleInvoiceToExcel(invoice);
+    exportSingleInvoiceToExcel(invoice, { paymentState: canonicalPaymentState });
   };
 
   const handleExportCSV = () => {
-    exportInvoiceLineItemsToCSV(invoice);
+    exportInvoiceLineItemsToCSV(invoice, { paymentState: canonicalPaymentState });
   };
 
   const handleCopyTable = () => {
@@ -288,14 +292,14 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               </h2>
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                  invoice.status?.toUpperCase() === "PAID"
+                  canonicalPaymentState === "PAID"
                     ? "bg-green-100 text-green-700"
-                    : invoice.status?.toUpperCase() === "OVERDUE"
+                    : canonicalPaymentState === "OVERDUE"
                     ? "bg-rose-100 text-rose-700"
                     : "bg-amber-100 text-amber-800"
                 }`}
               >
-                {invoice.status || "UNPAID"}
+                {canonicalPaymentState.replaceAll("_", " ")}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">

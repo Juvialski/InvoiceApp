@@ -49,6 +49,13 @@ export interface CostPayrollRecord {
   allocations: PayrollProjectAllocation[];
 }
 
+export interface SettlementMatchInput {
+  targetType: string;
+  targetId?: string | null;
+  matchedAmount: number;
+  status: string;
+}
+
 export interface ProjectCostInput {
   invoices?: CostInvoice[];
   payroll?: CostPayrollRecord[];
@@ -65,6 +72,8 @@ export interface ProjectCostInput {
   baseCurrency?: string;
   /** Immutable transaction-level conversions used only when the target currency matches the snapshot base. */
   fxSnapshots?: readonly FinancialFxSnapshot[];
+  /** Confirmed/reversed Cash & Banking evidence used for payable projections. */
+  settlementMatches?: readonly SettlementMatchInput[];
 }
 
 export interface ProjectCostSummaryWithCurrency extends ProjectCostSummary {
@@ -117,6 +126,16 @@ export function roundMoney(value: unknown) {
 
 function positiveMoney(value: unknown) {
   return roundMoney(Math.max(0, Number(value) || 0));
+}
+
+function confirmedSettlementAmount(targetType: string, targetId: string, matches: readonly SettlementMatchInput[]) {
+  return roundMoney(matches
+    .filter((match) => match.targetType === targetType && String(match.targetId || "") === targetId && match.status === "CONFIRMED")
+    .reduce((sum, match) => sum + positiveMoney(match.matchedAmount), 0));
+}
+
+function supplierExpenseConfirmedSettlementAmount(invoice: CostInvoice, expense: Expense, matches: readonly SettlementMatchInput[]) {
+  return roundMoney(confirmedSettlementAmount("EXPENSE", expense.id, matches) + confirmedSettlementAmount("INVOICE", invoice.id, matches));
 }
 
 export function normalizeCurrency(value?: string) {
@@ -172,8 +191,9 @@ export function validateInvoiceAllocations(
  * Returns the amount paid at invoice level. A PAID status is only a fallback
  * when the source does not provide either amountPaid or balanceDue.
  */
-export function invoicePaidAmount(invoice: Pick<CostInvoice, "grandTotal" | "amountPaid" | "status" | "balanceDue">) {
+export function invoicePaidAmount(invoice: Pick<CostInvoice, "id" | "grandTotal" | "amountPaid" | "status" | "balanceDue">, settlementMatches?: readonly SettlementMatchInput[]) {
   const total = positiveMoney(invoice.grandTotal);
+  if (settlementMatches !== undefined) return roundMoney(Math.min(total, confirmedSettlementAmount("INVOICE", invoice.id, settlementMatches)));
   const reportedPaid = Number(invoice.amountPaid);
   if (Number.isFinite(reportedPaid)) return roundMoney(Math.min(total, Math.max(0, reportedPaid)));
   const reportedBalance = Number(invoice.balanceDue);
@@ -183,9 +203,10 @@ export function invoicePaidAmount(invoice: Pick<CostInvoice, "grandTotal" | "amo
 }
 
 /** The invoice-level payable balance, intentionally separate from cost. */
-export function invoiceUnpaidBalance(invoice: Pick<CostInvoice, "grandTotal" | "amountPaid" | "status" | "balanceDue">) {
+export function invoiceUnpaidBalance(invoice: Pick<CostInvoice, "id" | "grandTotal" | "amountPaid" | "status" | "balanceDue">, settlementMatches?: readonly SettlementMatchInput[]) {
   if ((invoice as CostInvoice).lifecycleStatus === "VOID") return 0;
   const total = positiveMoney(invoice.grandTotal);
+  if (settlementMatches !== undefined) return roundMoney(Math.max(0, total - invoicePaidAmount(invoice, settlementMatches)));
   const reportedBalance = Number(invoice.balanceDue);
   if (Number.isFinite(reportedBalance)) return roundMoney(Math.min(total, Math.max(0, reportedBalance)));
   return roundMoney(Math.max(0, total - invoicePaidAmount(invoice)));
@@ -193,11 +214,10 @@ export function invoiceUnpaidBalance(invoice: Pick<CostInvoice, "grandTotal" | "
 
 export const unpaidBalance = invoiceUnpaidBalance;
 
-function invoicePaidAllocationAmounts(invoice: CostInvoice) {
+function invoicePaidAllocationAmounts(invoice: CostInvoice, paidTotal = invoicePaidAmount(invoice)) {
   const projectAmounts = invoiceAllocationAmountsByProject(invoice);
   const allocationTotal = invoiceAllocationTotal(invoice);
   const invoiceTotal = positiveMoney(invoice.grandTotal);
-  const paidTotal = invoicePaidAmount(invoice);
   const result = new Map<string, number>();
   if (allocationTotal <= 0 || invoiceTotal <= 0 || paidTotal <= 0) return result;
 
@@ -219,10 +239,10 @@ function invoicePaidAllocationAmounts(invoice: CostInvoice) {
   return result;
 }
 
-function invoiceAllocationPayableAmount(invoice: CostInvoice, allocatedAmount: number, paidAmount: number) {
+function invoiceAllocationPayableAmount(invoice: CostInvoice, allocatedAmount: number, paidAmount: number, unpaidBalance = invoiceUnpaidBalance(invoice)) {
   const total = positiveMoney(invoice.grandTotal);
   if (allocatedAmount <= 0 || total <= 0) return 0;
-  const proportionalPayable = allocatedAmount * invoiceUnpaidBalance(invoice) / total;
+  const proportionalPayable = allocatedAmount * unpaidBalance / total;
   return roundMoney(Math.min(Math.max(0, allocatedAmount - paidAmount), Math.max(0, proportionalPayable)));
 }
 
@@ -567,8 +587,9 @@ export function calculateProjectCost(
         summary.pendingInvoiceCost = roundMoney(summary.pendingInvoiceCost + costAmount);
         continue;
       }
-      const paidAmount = invoicePaidAllocationAmounts(invoice).get(projectId) || 0;
-      const payableAmount = invoiceAllocationPayableAmount(invoice, allocationAmount, paidAmount);
+      const paidTotal = invoicePaidAmount(invoice, input.settlementMatches);
+      const paidAmount = invoicePaidAllocationAmounts(invoice, paidTotal).get(projectId) || 0;
+      const payableAmount = invoiceAllocationPayableAmount(invoice, allocationAmount, paidAmount, invoiceUnpaidBalance(invoice, input.settlementMatches));
       const paidTargetAmount = amountInTargetCurrency(paidAmount, invoiceCurrency, "SUPPLIER_INVOICE", invoice.id);
       const payableTargetAmount = amountInTargetCurrency(payableAmount, invoiceCurrency, "SUPPLIER_INVOICE", invoice.id);
       if (paidTargetAmount === undefined || payableTargetAmount === undefined) continue;
@@ -587,7 +608,7 @@ export function calculateProjectCost(
     if (isConfirmedInvoice(invoice)) {
       summary.unallocatedInvoiceCost = roundMoney(summary.unallocatedInvoiceCost + residualTargetAmount);
       const invoiceTotal = positiveMoney(invoice.grandTotal);
-      const payable = invoiceTotal ? roundMoney(residual * invoiceUnpaidBalance(invoice) / invoiceTotal) : 0;
+      const payable = invoiceTotal ? roundMoney(residual * invoiceUnpaidBalance(invoice, input.settlementMatches) / invoiceTotal) : 0;
       const payableTargetAmount = amountInTargetCurrency(payable, invoiceCurrency, "SUPPLIER_INVOICE", invoice.id);
       if (payableTargetAmount === undefined) continue;
       summary.unallocatedInvoicePayable = roundMoney(summary.unallocatedInvoicePayable + payableTargetAmount);
@@ -652,6 +673,19 @@ export function calculateProjectCost(
       const confirmed = isConfirmedSupplierExpense(expense, linkedInvoice);
       if (confirmed) {
         summary.otherExpenseCost = roundMoney(summary.otherExpenseCost + converted);
+        if (linkedInvoice) {
+          const expenseTotal = positiveMoney(expense.amount);
+          const settledTotal = input.settlementMatches === undefined
+            ? invoicePaidAmount(linkedInvoice)
+            : supplierExpenseConfirmedSettlementAmount(linkedInvoice, expense, input.settlementMatches);
+          const settledAmount = expenseTotal > 0 ? roundMoney(Math.min(amount, amount * Math.min(expenseTotal, settledTotal) / expenseTotal)) : 0;
+          const settledTargetAmount = amountInTargetCurrency(settledAmount, expenseCurrency, "EXPENSE", expense.id, { sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id, sourceCurrency: linkedInvoice.currency });
+          const payableTargetAmount = amountInTargetCurrency(roundMoney(amount - settledAmount), expenseCurrency, "EXPENSE", expense.id, { sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id, sourceCurrency: linkedInvoice.currency });
+          if (settledTargetAmount === undefined || payableTargetAmount === undefined) continue;
+          summary.paidInvoiceCost = roundMoney(summary.paidInvoiceCost + settledTargetAmount);
+          summary.unpaidInvoiceCost = roundMoney(summary.unpaidInvoiceCost + payableTargetAmount);
+          summary.payableCost = roundMoney(summary.payableCost + payableTargetAmount);
+        }
       } else {
         summary.pendingExpenseCost = roundMoney(summary.pendingExpenseCost + converted);
       }
@@ -663,6 +697,18 @@ export function calculateProjectCost(
     const confirmed = isConfirmedSupplierExpense(expense, linkedInvoice);
     if (confirmed) {
       summary.unallocatedExpenseCost = roundMoney(summary.unallocatedExpenseCost + converted);
+      if (linkedInvoice) {
+        const expenseTotal = positiveMoney(expense.amount);
+        const settledTotal = input.settlementMatches === undefined
+          ? invoicePaidAmount(linkedInvoice)
+          : supplierExpenseConfirmedSettlementAmount(linkedInvoice, expense, input.settlementMatches);
+        const settledAmount = expenseTotal > 0 ? roundMoney(Math.min(amount, amount * Math.min(expenseTotal, settledTotal) / expenseTotal)) : 0;
+        const settledTargetAmount = amountInTargetCurrency(settledAmount, expenseCurrency, "EXPENSE", expense.id, { sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id, sourceCurrency: linkedInvoice.currency });
+        const payableTargetAmount = amountInTargetCurrency(roundMoney(amount - settledAmount), expenseCurrency, "EXPENSE", expense.id, { sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id, sourceCurrency: linkedInvoice.currency });
+        if (settledTargetAmount === undefined || payableTargetAmount === undefined) continue;
+        summary.paidInvoiceCost = roundMoney(summary.paidInvoiceCost + settledTargetAmount);
+        summary.unallocatedInvoicePayable = roundMoney(summary.unallocatedInvoicePayable + payableTargetAmount);
+      }
     } else {
       summary.unallocatedPendingExpenseCost = roundMoney(summary.unallocatedPendingExpenseCost + converted);
     }

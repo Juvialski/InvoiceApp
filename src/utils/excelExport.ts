@@ -3,6 +3,15 @@ import type { Expense, InvoiceData, InvoiceProjectAllocation, PayrollEntry, Payr
 import { buildExpenseReport, buildPayrollReportWithContext, buildProjectCostReport, buildProjectInvoiceReport, buildProjectLaborAggregateReport } from "./projectReports.ts";
 import type { CostPayrollRecord } from "./projectCosting.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
+import type { FinancialTransactionMatch } from "../lib/cashBanking.ts";
+import type { SupplierInvoiceSettlementProjection } from "../lib/supplierInvoiceSettlement.ts";
+import { supplierInvoicePaymentStateFor } from "../lib/supplierInvoiceSettlement.ts";
+
+export interface InvoiceExportPaymentOptions {
+  paymentState?: SupplierInvoiceSettlementProjection["paymentState"];
+  settlementProjection?: SupplierInvoiceSettlementProjection;
+  today?: string;
+}
 
 function getColumnWidths(rows: unknown[][]) {
   const widths: { wch: number }[] = [];
@@ -21,7 +30,7 @@ function taxRegistration(invoice: InvoiceData) {
   return invoice.vendor?.taxRegistration || invoice.philippineTaxDetails?.sellerRegistration || "UNKNOWN";
 }
 
-function invoiceRegisterRow(invoice: InvoiceData) {
+function invoiceRegisterRow(invoice: InvoiceData, options: InvoiceExportPaymentOptions = {}) {
   const tax = invoice.philippineTaxDetails || {};
   return {
     "Invoice Date": invoice.invoiceDate || "",
@@ -45,7 +54,7 @@ function invoiceRegisterRow(invoice: InvoiceData) {
     "Line Amount Basis": invoice.financialSemantics?.lineTotalBasis || "UNKNOWN",
     "Subtotal Basis": invoice.financialSemantics?.subtotalBasis || "UNKNOWN",
     "Tax Inclusion": invoice.financialSemantics?.taxInclusion || "UNKNOWN",
-    "Payment Status": invoice.status || "UNPAID",
+    "Payment Status": options.paymentState || supplierInvoicePaymentStateFor(invoice, options.settlementProjection, options.today),
     "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
     Source: invoice.sourceType || "UPLOAD",
     "Email Sender": invoice.sourceMetadata?.sender || "",
@@ -145,7 +154,7 @@ function appendJsonSheet(wb: XLSX.WorkBook, rows: Record<string, unknown>[], nam
   XLSX.utils.book_append_sheet(wb, sheet, name);
 }
 
-function appendInvoiceDetails(wb: XLSX.WorkBook, invoice: InvoiceData) {
+function appendInvoiceDetails(wb: XLSX.WorkBook, invoice: InvoiceData, paymentState?: InvoiceExportPaymentOptions["paymentState"]) {
   const tax = invoice.philippineTaxDetails || {};
   const rows: unknown[][] = [
     ["INVOICE DETAILS", "", "", ""],
@@ -158,7 +167,7 @@ function appendInvoiceDetails(wb: XLSX.WorkBook, invoice: InvoiceData) {
     ["VATable Sales", tax.vatableSales ?? "", "VAT Amount", tax.vatAmount ?? invoice.totalTax ?? ""],
     ["Zero-Rated Sales", tax.zeroRatedSales ?? "", "VAT-Exempt Sales", tax.vatExemptSales ?? ""],
     ["Discount", invoice.totalDiscount || 0, "Withholding Tax", invoice.withholdingTaxAmount ?? tax.withholdingTaxAmount ?? ""],
-    ["Net Payable", invoice.netAmountPayable ?? tax.netAmountPayable ?? "", "Payment Status", invoice.status || "UNPAID"],
+    ["Net Payable", invoice.netAmountPayable ?? tax.netAmountPayable ?? "", "Payment Status", paymentState || supplierInvoicePaymentStateFor(invoice)],
     ["TIN / branch", [invoice.vendor?.taxId, invoice.vendor?.branchCode].filter(Boolean).join(" / "), "ATP / OCN", [tax.authorityToPrintNumber, tax.outboundCorrespondenceNumber].filter(Boolean).join(" / ")],
   ];
   const sheet = XLSX.utils.aoa_to_sheet(rows);
@@ -166,9 +175,10 @@ function appendInvoiceDetails(wb: XLSX.WorkBook, invoice: InvoiceData) {
   XLSX.utils.book_append_sheet(wb, sheet, "Invoice Details");
 }
 
-export function exportSingleInvoiceToExcel(invoice: InvoiceData) {
+export function exportSingleInvoiceToExcel(invoice: InvoiceData, options: InvoiceExportPaymentOptions = {}) {
   const wb = XLSX.utils.book_new();
-  appendInvoiceDetails(wb, invoice);
+  const paymentState = options.paymentState || supplierInvoicePaymentStateFor(invoice, options.settlementProjection, options.today);
+  appendInvoiceDetails(wb, invoice, paymentState);
   appendJsonSheet(wb, lineItemRows([invoice]), "Line Items");
   appendJsonSheet(wb, vatRows([invoice]), "VAT Summary");
   appendJsonSheet(wb, vendorRows([invoice]), "Vendors");
@@ -177,10 +187,10 @@ export function exportSingleInvoiceToExcel(invoice: InvoiceData) {
   XLSX.writeFile(wb, `${cleanInvNum}_${invoice.invoiceDate || new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
-export function exportBatchInvoicesToExcel(invoices: InvoiceData[], customFileName?: string) {
+export function exportBatchInvoicesToExcel(invoices: InvoiceData[], customFileName?: string, options: { settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>; today?: string } = {}) {
   if (!invoices?.length) return;
   const wb = XLSX.utils.book_new();
-  appendJsonSheet(wb, invoices.map(invoiceRegisterRow), "Invoice Register");
+  appendJsonSheet(wb, invoices.map((invoice) => invoiceRegisterRow(invoice, { settlementProjection: options.settlementProjections?.get(invoice.id), today: options.today })), "Invoice Register");
   appendJsonSheet(wb, lineItemRows(invoices), "Line Items");
   appendJsonSheet(wb, vatRows(invoices), "VAT Summary");
   appendJsonSheet(wb, vendorRows(invoices), "Vendors");
@@ -205,7 +215,7 @@ function downloadCsv(rows: Record<string, unknown>[], fileName: string) {
   document.body.removeChild(link);
 }
 
-export function exportInvoiceLineItemsToCSV(invoice: InvoiceData) {
+export function exportInvoiceLineItemsToCSV(invoice: InvoiceData, options: InvoiceExportPaymentOptions = {}) {
   const tax = invoice.philippineTaxDetails || {};
   const rows = (invoice.items || []).map((item, index) => ({
     "Invoice Number": invoice.invoiceNumber || "",
@@ -231,19 +241,19 @@ export function exportInvoiceLineItemsToCSV(invoice: InvoiceData) {
     "Invoice Total": invoice.grandTotal,
     "Withholding Tax": invoice.withholdingTaxAmount ?? tax.withholdingTaxAmount ?? "",
     "Net Payable": invoice.netAmountPayable ?? tax.netAmountPayable ?? "",
-    "Payment Status": invoice.status || "UNPAID",
+    "Payment Status": options.paymentState || supplierInvoicePaymentStateFor(invoice, options.settlementProjection, options.today),
     "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
     Source: invoice.sourceType || "UPLOAD",
     "Email Sender": invoice.sourceMetadata?.sender || "",
     "Email Subject": invoice.sourceMetadata?.subject || "",
     Confidence: invoice.confidenceScore ?? "",
   }));
-  downloadCsv(rows.length ? rows : [invoiceRegisterRow(invoice)], `Invoice_${invoice.invoiceNumber || "export"}.csv`);
+  downloadCsv(rows.length ? rows : [invoiceRegisterRow(invoice, options)], `Invoice_${invoice.invoiceNumber || "export"}.csv`);
 }
 
-export function exportInvoiceRegisterToCSV(invoices: InvoiceData[]) {
+export function exportInvoiceRegisterToCSV(invoices: InvoiceData[], options: { settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>; today?: string } = {}) {
   if (!invoices?.length) return;
-  downloadCsv(invoices.map(invoiceRegisterRow), `Invoice_Register_${new Date().toISOString().slice(0, 10)}.csv`);
+  downloadCsv(invoices.map((invoice) => invoiceRegisterRow(invoice, { settlementProjection: options.settlementProjections?.get(invoice.id), today: options.today })), `Invoice_Register_${new Date().toISOString().slice(0, 10)}.csv`);
 }
 
 export interface EngineeringWorkbookInput {
@@ -260,6 +270,9 @@ export interface EngineeringWorkbookInput {
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   payrollDetailVisible?: boolean;
+  settlementMatches?: readonly FinancialTransactionMatch[];
+  settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  today?: string;
 }
 
 /** Keeps the existing invoice workbook intact while adding a separate project-cost workbook. */
@@ -268,12 +281,12 @@ export function exportEngineeringProjectWorkbookToExcel(input: EngineeringWorkbo
   const payrollDetailVisible = input.payrollDetailVisible ?? (input.laborSource === undefined || input.laborSource === "detail");
   const workbook = XLSX.utils.book_new();
   appendJsonSheet(workbook, input.projects.map((project) => ({ "Project Code": project.projectCode, "Project Name": project.projectName, Client: project.clientName || "", Location: project.location || "", Status: project.status, Budget: project.projectBudget, Currency: project.currency })), "Projects");
-  appendJsonSheet(workbook, buildProjectInvoiceReport(input.projects, input.invoices, input.invoiceAllocations), "Invoice Allocations");
+  appendJsonSheet(workbook, buildProjectInvoiceReport(input.projects, input.invoices, input.invoiceAllocations, input.settlementProjections, input.today), "Invoice Allocations");
   appendJsonSheet(workbook, payrollDetailVisible
     ? buildPayrollReportWithContext(input.projects, input.workers, input.periods, input.runs, input.entries, input.payrollAllocations)
     : buildProjectLaborAggregateReport(input.projects, input.projectLaborAggregates || []).map((row) => Object.fromEntries(Object.entries(row))), "Payroll Allocations");
   appendJsonSheet(workbook, buildExpenseReport(input.projects, input.expenses), "Expenses");
-  appendJsonSheet(workbook, buildProjectCostReport(input.projects, input.invoices, input.invoiceAllocations, payroll, input.expenses, { projectLaborAggregates: input.projectLaborAggregates, laborSource: input.laborSource }).map((row) => ({ ...row })), "Project Cost Summary");
+  appendJsonSheet(workbook, buildProjectCostReport(input.projects, input.invoices, input.invoiceAllocations, payroll, input.expenses, { projectLaborAggregates: input.projectLaborAggregates, laborSource: input.laborSource, settlementMatches: input.settlementMatches }).map((row) => ({ ...row })), "Project Cost Summary");
   if (payrollDetailVisible) appendJsonSheet(workbook, input.workers.map((worker) => ({ "Employee Code": worker.employeeCode, Name: worker.displayName, Role: worker.jobTitle || "", "Employment Type": worker.employmentType, "Pay Type": worker.defaultPayType, "Default Rate": worker.defaultRate, Active: worker.active })), "Workers");
   const dateStr = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(workbook, customFileName || `Engineering_Project_Costs_${dateStr}.xlsx`);

@@ -8,7 +8,6 @@ import {
   saveFinancialAccountToSupabase,
   saveFinancialTransactionToSupabase,
 } from "../lib/cashBankingPersistence.ts";
-import { saveExpenseToSupabase } from "../lib/expenses.ts";
 import type { FinancialSettlementHistoryItem, FinancialSettlementSummary } from "../lib/financialSettlement.ts";
 import { confirmFinancialSettlement, loadFinancialSettlementSummary } from "../lib/financialSettlementPersistence.ts";
 import {
@@ -26,7 +25,6 @@ interface SupplierInvoicePaymentDialogProps {
   settlement: FinancialSettlementSummary;
   canRecordPayment?: boolean;
   onClose: () => void;
-  onExpenseUpdated?: (expense: Expense) => void;
   onRecorded: (expense: Expense, settlement: FinancialSettlementSummary) => void;
 }
 
@@ -76,15 +74,13 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
   settlement,
   canRecordPayment = false,
   onClose,
-  onExpenseUpdated,
   onRecorded,
 }) => {
   const permissions = useAppPermissions();
-  const canApproveExpense = hasPermission(permissions, PERMISSION_KEYS.expensesWrite);
   const canManageTransactions = hasPermission(permissions, PERMISSION_KEYS.cashTransactionsManage);
   const canReconcile = hasPermission(permissions, PERMISSION_KEYS.cashReconcile);
   const canManageAccounts = hasPermission(permissions, PERMISSION_KEYS.cashAccountsManage);
-  const canPay = canRecordPayment && canManageTransactions && canReconcile && (expense.status !== "DRAFT" || canApproveExpense);
+  const canPay = canRecordPayment && canManageTransactions && canReconcile;
 
   const [mode, setMode] = useState<SupplierInvoicePaymentMode>("PAID");
   const [amount, setAmount] = useState(String(settlement.outstanding || ""));
@@ -187,9 +183,7 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
       return;
     }
     if (!canPay) {
-      setError(expense.status === "DRAFT" && !canApproveExpense
-        ? "You do not have permission to approve the linked Expense and record this payment."
-        : "You do not have permission to record this supplier payment.");
+      setError("You do not have permission to record this supplier payment.");
       return;
     }
     const selectedAccount = matchingAccounts.find((account) => account.id === accountId);
@@ -212,15 +206,10 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
 
     setSubmitting(true);
     setError("");
-    let paymentExpense = expense;
+    const paymentExpense = expense;
     let transactionId = "";
     let settlementConfirmed = false;
     try {
-      if (paymentExpense.status === "DRAFT") {
-        paymentExpense = await saveExpenseToSupabase({ ...paymentExpense, status: "APPROVED" });
-        onExpenseUpdated?.(paymentExpense);
-      }
-
       const transaction = await saveFinancialTransactionToSupabase(buildSupplierInvoicePaymentTransaction({
         invoiceId: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
@@ -263,9 +252,6 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
           console.error("Supplier payment transaction rollback failed", rollbackCause);
         }
       }
-      if (paymentExpense.status === "APPROVED" && expense.status === "DRAFT" && !settlementConfirmed) {
-        message = `${message} The linked Expense was approved as confirmed, but no payment settlement was created. You can retry this payment.`;
-      }
       setError(message);
     } finally {
       setSubmitting(false);
@@ -297,8 +283,7 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
         </fieldset>
 
         {expense.status === "DRAFT" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="supplier-payment-draft-approval-notice">
-          <p className="flex gap-2 text-xs font-black text-amber-950"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />This payment will approve the linked Expense and record the payment.</p>
-          {!canApproveExpense && <p className="mt-1 text-xs text-amber-900">You do not have permission to approve the linked Expense.</p>}
+          <p className="flex gap-2 text-xs font-black text-amber-950"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />This supplier-derived DRAFT Expense remains a DRAFT cost record; confirmed cash settlement will be recorded against it.</p>
         </div>}
 
         <div>

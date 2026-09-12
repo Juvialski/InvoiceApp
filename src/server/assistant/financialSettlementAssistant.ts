@@ -66,7 +66,7 @@ export const FINANCIAL_SETTLEMENT_TOOL_DEFINITIONS: readonly FinancialSettlement
   read("get_financial_transaction_settlements", "Show confirmed or reversed settlement links for one cash transaction, including who/when provenance available to the current company.", ["cash.transactions.read", "cash.reconcile"], { transactionId: uuid }, ["transactionId"]),
   navigation("navigate_to_financial_transaction", "Open a specific Cash & Banking transaction in the reconciliation workspace.", ["cash.summary.read", "cash.transactions.read"], { transactionId: uuid }, ["transactionId"]),
   navigation("navigate_to_payroll_run", "Open a specific payroll run with its payroll-detail workspace.", ["payroll.detail.read"], { runId: uuid }, ["runId"]),
-  prepare("prepare_supplier_invoice_payment", "Prepare a Paid or Partially Paid supplier-invoice payment using its authoritative linked Expense, a canonical Cash/Bank debit, and an EXPENSE settlement. A linked DRAFT Expense is approved only after human confirmation.", ["invoices.read", "expenses.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"], { invoiceId: uuid, accountId: uuid, paymentMode: supplierPaymentModeSchema, amount: amountSchema, paymentDate: { type: "string" }, referenceNumber: { type: "string" }, notes: { type: "string" } }, ["invoiceId", "accountId", "paymentMode", "paymentDate"]),
+  prepare("prepare_supplier_invoice_payment", "Prepare a Paid or Partially Paid supplier-invoice payment using its authoritative linked Expense, a canonical Cash/Bank debit, and an EXPENSE settlement. A verification-created DRAFT Expense remains DRAFT; only the confirmed settlement changes payment state.", ["invoices.read", "expenses.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"], { invoiceId: uuid, accountId: uuid, paymentMode: supplierPaymentModeSchema, amount: amountSchema, paymentDate: { type: "string" }, referenceNumber: { type: "string" }, notes: { type: "string" } }, ["invoiceId", "accountId", "paymentMode", "paymentDate"]),
   prepare("prepare_match_transaction_to_invoice", "Prepare a supplier-invoice cash settlement for an invoice without a linked authoritative Expense. Human confirmation is required and project cost is not changed.", ["cash.reconcile", "invoices.manage", "expenses.read"], { transactionId: uuid, invoiceId: uuid, amount: amountSchema, notes: { type: "string" } }, ["transactionId", "invoiceId", "amount"]),
   prepare("prepare_match_transaction_to_payroll", "Prepare a payroll-run employee-net-pay disbursement link. Human confirmation is required and payroll sources/costs are not changed.", ["cash.reconcile", "payroll.approve"], { transactionId: uuid, runId: uuid, amount: amountSchema, notes: { type: "string" } }, ["transactionId", "runId", "amount"]),
   prepare("prepare_split_transaction_allocation", "Prepare one posted debit split across multiple invoice/payroll obligations. The confirmed batch executes atomically.", splitPermissions, { transactionId: uuid, allocations: { type: "array", minItems: 2, maxItems: 20, items: allocationSchema } }, ["transactionId", "allocations"]),
@@ -163,7 +163,6 @@ async function activeLinkedExpense(context: AssistantToolContext, invoiceId: str
     .eq("company_id", context.auth.companyId)
     .eq("supplier_invoice_id", invoiceId)
     .neq("status", "VOID")
-    .is("archived_at", null)
     .limit(2);
   if (result.error) throw new AssistantBackendError("TOOL_READ_FAILED", "The linked supplier Expense could not be read safely.", 503);
   const rows = (result.data || []) as Record<string, unknown>[];
@@ -187,7 +186,11 @@ async function paymentAccounts(context: AssistantToolContext, currency: string) 
 async function supplierInvoiceAuthority(context: AssistantToolContext, invoiceId: string) {
   const expense = await activeLinkedExpense(context, invoiceId);
   if (expense) {
-    const summary = await settlementSummary(context, "EXPENSE", String(expense.id));
+    // The invoice-target summary is the supplier-facing read model: it uses
+    // the linked Expense basis, aggregates legacy invoice-target matches, and
+    // applies the invoice date-only overdue rule. The payment authority still
+    // remains the linked Expense for mutations.
+    const summary = await settlementSummary(context, "INVOICE", invoiceId);
     return { targetType: "EXPENSE" as const, targetId: String(expense.id), expense, summary };
   }
   const summary = await settlementSummary(context, "INVOICE", invoiceId);
@@ -213,7 +216,14 @@ async function validatePreparedAllocation(context: AssistantToolContext, transac
   const summary = await settlementSummary(context, targetType, targetId);
   if (String(summary.currency || "").toUpperCase() !== String(tx.currency || "").toUpperCase()) throw new AssistantBackendError("SETTLEMENT_CURRENCY_MISMATCH", "Transaction and target currency differ. FX settlement is not supported.", 409);
   if (targetType === "INVOICE" && String(summary.lifecycleStatus) !== "VERIFIED") throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "Only a VERIFIED supplier invoice can be settled.", 409);
-  if (targetType === "EXPENSE" && !["APPROVED", "PAID"].includes(String(summary.lifecycleStatus))) throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "The linked Expense must be APPROVED before settlement confirmation.", 409);
+  if (targetType === "EXPENSE" && String(summary.lifecycleStatus) === "DRAFT") {
+    const expense = await one(context, "expenses", "id,supplier_invoice_id,status", targetId);
+    if (!expense.supplier_invoice_id) throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "Only a verified supplier-linked DRAFT Expense can receive settlement evidence before approval.", 409);
+    const invoice = await one(context, "invoices", "id,review_status,lifecycle_status", String(expense.supplier_invoice_id));
+    if (String(invoice.review_status) !== "VERIFIED" || String(invoice.lifecycle_status || "ACTIVE") === "VOID") throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "The supplier-linked Expense requires an active VERIFIED invoice before settlement confirmation.", 409);
+  } else if (targetType === "EXPENSE" && !["APPROVED", "PAID"].includes(String(summary.lifecycleStatus))) {
+    throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "The Expense is not eligible for settlement confirmation.", 409);
+  }
   if (targetType === "PAYROLL" && !["APPROVED", "PAID"].includes(String(summary.lifecycleStatus))) throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "Only an APPROVED or legacy PAID payroll run can receive disbursement evidence.", 409);
   const allocated = await transactionAllocated(context, transactionId);
   const transactionRemaining = Math.max(0, num(tx.amount) - allocated);
@@ -331,8 +341,8 @@ async function prepareSupplierInvoicePayment(args: Record<string, unknown>, cont
       amount: resolved.amount,
       paymentDate: args.paymentDate,
       referenceNumber: args.referenceNumber,
-      willApproveLinkedExpense: resolved.expense.status === "DRAFT",
-      confirmationMessage: resolved.expense.status === "DRAFT" ? "This payment will approve the linked Expense and record the payment." : "This will record the payment against the linked Expense.",
+      willApproveLinkedExpense: false,
+      confirmationMessage: resolved.expense.status === "DRAFT" ? "This will record confirmed cash settlement against the supplier-linked Expense; its DRAFT lifecycle remains unchanged." : "This will record the payment against the linked Expense.",
       financialEvidence: "A canonical Cash/Bank debit and confirmed EXPENSE settlement will be created.",
       projectCostImpact: 0,
       confirmationRequired: true,
@@ -401,27 +411,10 @@ async function rpc(context: AssistantToolContext, name: string, args: Record<str
   return result.data;
 }
 
-async function approveLinkedExpenseForPayment(context: AssistantToolContext, expense: Record<string, unknown>) {
-  if (expense.status !== "DRAFT") return expense;
-  const updatedAt = String(expense.updated_at || "");
-  let query = (context.auth.supabase as any).from("expenses")
-    .update({ status: "APPROVED", updated_at: new Date().toISOString() })
-    .eq("company_id", context.auth.companyId)
-    .eq("id", String(expense.id))
-    .eq("status", "DRAFT");
-  if (updatedAt) query = query.eq("updated_at", updatedAt);
-  const result = await query.select("id,supplier_invoice_id,status,amount,currency,description,payee,updated_at,archived_at,voided_at").maybeSingle();
-  if (result.error) throw new AssistantBackendError("DOMAIN_WRITE_REJECTED", result.error.message || "The linked Expense could not be approved.", 409);
-  if (result.data) return result.data as Record<string, unknown>;
-  const current = await activeLinkedExpense(context, String(expense.supplier_invoice_id));
-  if (current && current.id === expense.id && ["APPROVED", "PAID"].includes(String(current.status))) return current;
-  throw new AssistantBackendError("FINANCIAL_AUTHORITY_CHANGED", "The linked Expense changed before payment could be recorded. Review its current state before retrying.", 409);
-}
-
 export async function executePreparedFinancialSettlementAction(context: AssistantToolContext, toolName: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (toolName === "prepare_supplier_invoice_payment") {
     const resolved = await resolveSupplierInvoicePayment(args, context);
-    const approvedExpense = await approveLinkedExpenseForPayment(context, resolved.expense);
+    const paymentExpense = resolved.expense;
     const transactionId = String(args.transactionId);
     let transactionCreated = false;
     let settlementConfirmed = false;
@@ -435,15 +428,15 @@ export async function executePreparedFinancialSettlementAction(context: Assistan
         p_description: `Supplier invoice ${resolved.invoice.invoice_number || resolved.invoice.id} payment`,
         p_direction: "DEBIT",
         p_amount: resolved.amount,
-        p_currency: String(approvedExpense.currency || "PHP").toUpperCase(),
+        p_currency: String(paymentExpense.currency || "PHP").toUpperCase(),
         p_source_fingerprint: `assistant-supplier-payment-${transactionId}`,
       });
       transactionCreated = true;
-      await validatePreparedAllocation(context, transactionId, "EXPENSE", String(approvedExpense.id), resolved.amount);
+      await validatePreparedAllocation(context, transactionId, "EXPENSE", String(paymentExpense.id), resolved.amount);
       const match = await rpc(context, "confirm_financial_settlement", {
         p_transaction_id: transactionId,
         p_target_type: "EXPENSE",
-        p_target_id: approvedExpense.id,
+        p_target_id: paymentExpense.id,
         p_matched_amount: resolved.amount,
         p_match_id: args.matchId,
         p_confidence: 100,
@@ -454,11 +447,11 @@ export async function executePreparedFinancialSettlementAction(context: Assistan
       let settlement: Record<string, unknown> | null = null;
       let settlementRefreshRequired = false;
       try {
-        settlement = await settlementSummary(context, "EXPENSE", String(approvedExpense.id));
+        settlement = await settlementSummary(context, "EXPENSE", String(paymentExpense.id));
       } catch {
         settlementRefreshRequired = true;
       }
-      return { operation: "supplier_invoice_payment_recorded", invoiceId: resolved.invoice.id, paymentAuthority: { targetType: "EXPENSE", targetId: approvedExpense.id }, transaction, match, settlement, settlementRefreshRequired, paymentMode: args.paymentMode, amount: resolved.amount, projectCostImpact: 0 };
+      return { operation: "supplier_invoice_payment_recorded", invoiceId: resolved.invoice.id, paymentAuthority: { targetType: "EXPENSE", targetId: paymentExpense.id }, transaction, match, settlement, settlementRefreshRequired, paymentMode: args.paymentMode, amount: resolved.amount, projectCostImpact: 0 };
     } catch (cause) {
       if (transactionCreated && !settlementConfirmed) {
         try {

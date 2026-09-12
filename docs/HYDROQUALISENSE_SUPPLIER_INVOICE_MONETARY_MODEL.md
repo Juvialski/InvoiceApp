@@ -16,6 +16,12 @@ rate or a company-wide tax policy.
 - A source-displayed line `total` is preserved as extracted. It is not replaced
   by `quantity × unitPrice` when a source amount is present.
 - `UNKNOWN` is not numeric zero. Missing source amounts remain unresolved.
+- A document/OCR `amountPaid` value is retained as source evidence only. It does
+  not reduce the operational payable or produce a paid state without confirmed
+  Cash & Banking settlement evidence.
+- Verification may create the authoritative linked Expense in `DRAFT`. That
+  supplier-derived DRAFT is a deliberate payable state and remains distinct
+  from a generic direct DRAFT Expense.
 
 ## Explicit basis fields
 

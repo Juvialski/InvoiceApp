@@ -17,6 +17,7 @@ import {
   reconcileInvoiceMonetarySemantics,
   roundInvoiceMoney,
 } from "./invoiceMonetarySemantics.ts";
+import { businessDateForTimeZone } from "./businessDate.ts";
 
 export { evaluateInvoiceDuplicateEvidence, findExistingInvoiceForSourcePayload };
 
@@ -252,10 +253,7 @@ export function derivePaymentStatus(invoice: Pick<InvoiceData, "grandTotal" | "a
   if (balance === undefined) return paid > 0 ? "PARTIALLY_PAID" : "UNPAID";
   if (total > 0 && balance <= 0.01) return "PAID";
   if (paid > 0 && balance > 0.01) return "PARTIALLY_PAID";
-  if (invoice.dueDate) {
-    const due = new Date(`${invoice.dueDate}T23:59:59+08:00`);
-    if (!Number.isNaN(due.getTime()) && due.getTime() < Date.now() && balance > 0.01) return "OVERDUE";
-  }
+  if (invoice.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(invoice.dueDate) && invoice.dueDate < businessDateForTimeZone() && balance > 0.01) return "OVERDUE";
   return "UNPAID";
 }
 

@@ -2,12 +2,15 @@ import type { Expense, FinancialFxSnapshot, InvoiceData, PayrollEntry, PayrollPe
 import type { DashboardActivityPeriod, DashboardAttentionItem, DashboardInvoiceOperations, DashboardProjectRow, DashboardViewData } from "../components/engineering/EngineeringCostOperationsDashboard.tsx";
 import { totalVatByCurrency, totalsByCurrency } from "./invoiceLogic.ts";
 import { calculateProjectCost, isConfirmedInvoice, isConfirmedSupplierExpense, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth, unallocatedCostByCurrency, type CostInvoice, type CostPayrollRecord } from "./projectCosting.ts";
-import { buildAccountingIndex, unpaidBalance } from "./dashboardStats.ts";
+import { buildAccountingIndex } from "./dashboardStats.ts";
 import { buildCashDashboardPosition, type CashBankingWorkspaceData } from "../lib/cashBanking.ts";
 import type { PurchaseOrder, Subcontract, SubcontractProgressClaim, SubcontractVariation } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 import { convertFinancialAmountWithFallback } from "./financialCurrency.ts";
 import { supplierExpenseCostOwnership } from "./supplierInvoiceCostOwnership.ts";
+import { buildSupplierInvoiceSettlementProjections, supplierInvoicePaymentStateFor } from "../lib/supplierInvoiceSettlement.ts";
+import { businessDateForTimeZone } from "./businessDate.ts";
+import type { FinancialTransactionMatch } from "../lib/cashBanking.ts";
 
 type DashboardInvoice = CostInvoice & Pick<InvoiceData, "invoiceDate" | "dueDate" | "vendor" | "invoiceNumber" | "extractedAt" | "philippineTaxDetails" | "philippineInvoiceCompleteness" | "invoiceSubtype" | "totalTax">;
 type DashboardPayrollEntry = Pick<PayrollEntry, "id" | "grossPay" | "costContext" | "projectAllocatedCost">;
@@ -38,6 +41,7 @@ export interface DashboardViewModelInput {
   today?: string;
   fxSnapshots?: readonly FinancialFxSnapshot[];
   baseCurrency?: string;
+  businessTimeZone?: string;
 }
 
 function round(value: number) { return Math.round((Number(value) || 0) * 100) / 100; }
@@ -78,15 +82,18 @@ function aggregateMonths(from: string, to: string) {
   return months;
 }
 
-function invoiceOperations(invoices: DashboardInvoice[], reportingCurrency: string, fxSnapshots?: readonly FinancialFxSnapshot[]): DashboardInvoiceOperations {
+function invoiceOperations(invoices: DashboardInvoice[], expenses: Expense[], matches: readonly FinancialTransactionMatch[], reportingCurrency: string, fxSnapshots?: readonly FinancialFxSnapshot[], today = businessDateForTimeZone()): DashboardInvoiceOperations {
   const activeInvoices = invoices.filter((invoice) => !isVoidedInvoice(invoice));
   const raw = activeInvoices as unknown as InvoiceData[];
   const totals = totalsByCurrency(raw);
   const outstandingByCurrency: Record<string, number> = {};
   const vat = totalVatByCurrency(raw);
+  const projections = buildSupplierInvoiceSettlementProjections(raw, expenses, matches, today);
   for (const invoice of activeInvoices) {
-    const code = currencyOf(invoice.currency);
-    outstandingByCurrency[code] = round((outstandingByCurrency[code] || 0) + unpaidBalance(invoice));
+    const projection = projections.get(invoice.id);
+    if (!projection?.payable) continue;
+    const code = currencyOf(projection.settlement.currency || invoice.currency);
+    outstandingByCurrency[code] = round((outstandingByCurrency[code] || 0) + projection.settlement.outstanding);
   }
   const philippines = activeInvoices.filter((invoice) => currencyOf(invoice.currency) === "PHP" || invoice.vendor?.country?.toLowerCase().includes("philippines") || Boolean(invoice.philippineTaxDetails));
   const vatInvoices = philippines.filter((invoice) => invoice.invoiceSubtype === "VAT_INVOICE" || invoice.philippineTaxDetails?.sellerRegistration === "VAT");
@@ -97,7 +104,7 @@ function invoiceOperations(invoices: DashboardInvoice[], reportingCurrency: stri
     totalsByCurrency: totals,
     outstandingByCurrency,
     vatByCurrency: vat,
-    overdueCount: activeInvoices.filter((invoice) => invoice.status === "OVERDUE" || (validDate(invoice.dueDate) && invoice.dueDate! < isoDate(new Date()) && unpaidBalance(invoice) > 0)).length,
+    overdueCount: activeInvoices.filter((invoice) => projections.get(invoice.id)?.payable && supplierInvoicePaymentStateFor(invoice, projections.get(invoice.id), today) === "OVERDUE").length,
     needsReviewCount: activeInvoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt).length,
     verifiedCount: activeInvoices.filter((invoice) => invoice.reviewStatus === "VERIFIED").length,
     totalCount: invoices.length,
@@ -115,7 +122,9 @@ function invoiceOperations(invoices: DashboardInvoice[], reportingCurrency: stri
 function buildAttention(input: DashboardViewModelInput, rows: DashboardProjectRow[], unallocated: Array<{ currency: string; total: number }>): DashboardAttentionItem[] {
   const attention: DashboardAttentionItem[] = [];
   const review = input.invoices.filter((invoice) => !isVoidedInvoice(invoice) && !invoice.archivedAt && invoice.reviewStatus === "NEEDS_REVIEW").length;
-  const overdue = input.invoices.filter((invoice) => !isVoidedInvoice(invoice) && !invoice.archivedAt && invoice.status === "OVERDUE").length;
+  const today = input.today || businessDateForTimeZone(new Date(), input.businessTimeZone);
+  const projections = buildSupplierInvoiceSettlementProjections(input.invoices as unknown as InvoiceData[], input.expenses, input.cash?.matches || [], today);
+  const overdue = input.invoices.filter((invoice) => !isVoidedInvoice(invoice) && !invoice.archivedAt && projections.get(invoice.id)?.paymentState === "OVERDUE").length;
   if (review) attention.push({ id: "invoice-review", label: "Invoices need review", detail: "Verify supplier invoices before they become confirmed project cost.", count: review, action: "review" });
   if (overdue) attention.push({ id: "invoice-overdue", label: "Overdue supplier invoices", detail: "Review current payables and due dates.", count: overdue, action: "invoices" });
   for (const item of rows.filter((row) => row.health === "OVER BUDGET" || row.health === "NEAR LIMIT" || row.availableAfterCommitments < 0).slice(0, 4)) attention.push({ id: `project-${item.projectId}`, label: item.availableAfterCommitments < 0 ? `${item.projectCode} commitments exceed budget` : `${item.projectCode} needs budget attention`, detail: `${item.health}; confirmed ${item.confirmedUtilization.toFixed(1)}% and commitment ${item.commitmentUtilization.toFixed(1)}%.`, action: "projects", projectId: item.projectId });
@@ -130,10 +139,11 @@ function buildAttention(input: DashboardViewModelInput, rows: DashboardProjectRo
 }
 
 export function buildDashboardViewData(input: DashboardViewModelInput): DashboardViewData {
-  const today = input.today || isoDate(new Date());
+  const today = input.today || businessDateForTimeZone(new Date(), input.businessTimeZone);
   const range = periodRange(input.activityPeriod, input.customStart, input.customEnd, today);
   const preparedPayroll = payrollInput(input.payroll, input.periods);
   const supplierOwnership = supplierExpenseCostOwnership(input.invoices, input.expenses);
+  const supplierSettlementProjections = buildSupplierInvoiceSettlementProjections(input.invoices as unknown as InvoiceData[], input.expenses, input.cash?.matches || [], today);
   const currencies = [...new Set([
     ...input.projects.map((project) => currencyOf(project.currency)),
     ...input.invoices.map((invoice) => currencyOf(invoice.currency)),
@@ -159,6 +169,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
       projectLaborAggregates: input.projectLaborAggregates,
       laborSource: input.laborSource,
       fxSnapshots: input.fxSnapshots,
+      settlementMatches: input.cash?.matches,
     });
     const pending = round(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
     const confirmed = round(summary.totalActualCost);
@@ -207,7 +218,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
   let unknownDueDatePayables = 0;
   for (const invoice of selectedInvoices) {
     if (invoice.reviewStatus !== "VERIFIED") continue;
-    const outstandingSourceAmount = unpaidBalance(invoice);
+    const outstandingSourceAmount = supplierSettlementProjections.get(invoice.id)?.settlement.outstanding || 0;
     const outstanding = convertFinancialAmountWithFallback(outstandingSourceAmount, invoice.currency, selectedCurrency, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots);
     if (outstanding === undefined || !outstanding) continue;
     if (!validDate(invoice.dueDate)) { unknownDueDatePayables = round(unknownDueDatePayables + outstanding); continue; }
@@ -234,7 +245,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
   }
   const expenseTrendMap = new Map(trendMonths.map((period) => [period, { label: monthLabel(period), directExpenses: 0 }]));
   for (const expense of input.expenses) if (currencyOf(expense.currency) === selectedCurrency && expense.projectId && expense.status !== "VOID" && inRange(expense.expenseDate, range.from, range.to)) { const point = expenseTrendMap.get(monthKey(expense.expenseDate)); if (point) point.directExpenses = round(point.directExpenses + expense.amount); }
-  const unallocatedByCurrency = unallocatedCostByCurrency({ invoices: input.invoices, expenses: input.expenses, payroll: preparedPayroll, fxSnapshots: input.fxSnapshots }, input.baseCurrency || "PHP");
+  const unallocatedByCurrency = unallocatedCostByCurrency({ invoices: input.invoices, expenses: input.expenses, payroll: preparedPayroll, fxSnapshots: input.fxSnapshots, settlementMatches: input.cash?.matches }, input.baseCurrency || "PHP");
   const overheadByCurrency = currencies.map((code) => { let adminOffice = 0; let generalOverhead = 0; for (const run of preparedPayroll) { if (currencyOf(run.currency) !== code) continue; for (const entry of run.entries || []) { const amount = Number(entry.grossPay) || 0; if (entry.costContext?.type === "ADMIN_OFFICE") adminOffice += amount; if (entry.costContext?.type === "GENERAL_OVERHEAD") generalOverhead += amount; } } return { currency: code, adminOffice: round(adminOffice), generalOverhead: round(generalOverhead), total: round(adminOffice + generalOverhead) }; }).filter((row) => row.total > 0);
   const currentPeriod = input.periods.find((period) => period.status !== "VOID" && period.periodStart <= today && period.periodEnd >= today);
   const currentRuns = currentPeriod ? input.payrollRuns.filter((run) => run.periodId === currentPeriod.id && run.status !== "VOID") : [];
@@ -248,12 +259,13 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
   const unallocatedForAttention = unallocatedByCurrency.map((row) => ({ currency: row.currency, total: row.total }));
   const payrollDetailAvailable = input.laborSource === undefined || input.laborSource === "detail";
   const selectedOutstandingPayables = selectedInvoices.reduce((sum, invoice) => {
-    const converted = convertFinancialAmountWithFallback(unpaidBalance(invoice), invoice.currency, selectedCurrency, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots);
+    const outstanding = supplierSettlementProjections.get(invoice.id)?.settlement.outstanding || 0;
+    const converted = convertFinancialAmountWithFallback(outstanding, invoice.currency, selectedCurrency, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots);
     return sum + (converted || 0);
   }, 0);
   const isConfirmedBridgeExpense = (expense: Expense) => {
     const linkedInvoice = expense.supplierInvoiceId ? supplierOwnership.invoiceById.get(expense.supplierInvoiceId) : undefined;
     return isConfirmedSupplierExpense(expense, linkedInvoice);
   };
-  return { selectedCurrency, currencies, activityPeriod: input.activityPeriod, activityStart: range.from, activityEnd: range.to, activityLabel: range.label, activeProjects: projectRows.filter((row) => { const status = input.projects.find((project) => project.id === row.projectId)?.status; return status === "ACTIVE" || (status as string) === "IN_PROGRESS"; }).length, totalProjectBudget: budget, confirmedProjectCost: confirmed, committedProjectCost: committed, pendingProjectCost: pending, availableAfterCommitments: round(budget - confirmed - committed - pending), outstandingPayables: round(selectedOutstandingPayables), projectRows, monthlyCostTrend, costComposition: [{ name: "Supplier invoices", value: composition.invoices, color: "#4f46e5" }, { name: "Project payroll", value: composition.labor, color: "#8b5cf6" }, { name: "Direct expenses", value: composition.expenses, color: "#f59e0b" }], budgetUtilization, payableAging: [{ bucket: "Current", value: round(aging.current) }, { bucket: "1–30", value: round(aging.days1To30) }, { bucket: "31–60", value: round(aging.days31To60) }, { bucket: "61–90", value: round(aging.days61To90) }, { bucket: "90+", value: round(aging.over90) }], unknownDueDatePayables, payrollTrend: [...payrollTrendMap.values()], expenseTrend: [...expenseTrendMap.values()], unallocatedByCurrency, overheadByCurrency, cashPosition, payrollDetailAvailable, payrollSummary: { currentPeriodLabel: currentPeriod ? `${currentPeriod.periodStart} – ${currentPeriod.periodEnd}` : "No active period", activeWorkers: input.workers.filter((worker) => worker.active).length, grossPayroll: round(currentEntries.reduce((sum, entry) => sum + entry.grossPay, 0)), projectLabor: round(currentProjectLabor), overhead: round(currentOverhead), unallocatedLabor: round(currentUnallocated), runStatus: currentRuns[0]?.status || "No run", blockingIssues: 0, warnings: 0 }, expenseSummary: { selectedPeriodTotal: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && inRange(expense.expenseDate, range.from, range.to) && expense.status !== "VOID").reduce((sum, expense) => sum + expense.amount, 0)), confirmedProjectExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && expense.projectId && inRange(expense.expenseDate, range.from, range.to) && isConfirmedBridgeExpense(expense)).reduce((sum, expense) => sum + expense.amount, 0)), pendingProjectExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && expense.projectId && inRange(expense.expenseDate, range.from, range.to) && expense.status === "DRAFT" && !isConfirmedBridgeExpense(expense)).reduce((sum, expense) => sum + expense.amount, 0)), unallocatedExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && !expense.projectId && inRange(expense.expenseDate, range.from, range.to) && expense.status !== "VOID").reduce((sum, expense) => sum + expense.amount, 0)) }, attention: buildAttention(input, projectRows, unallocatedForAttention), invoiceOperations: invoiceOperations(input.invoices, currencyOf(input.baseCurrency || "PHP"), input.fxSnapshots) };
+  return { selectedCurrency, currencies, activityPeriod: input.activityPeriod, activityStart: range.from, activityEnd: range.to, activityLabel: range.label, activeProjects: projectRows.filter((row) => { const status = input.projects.find((project) => project.id === row.projectId)?.status; return status === "ACTIVE" || (status as string) === "IN_PROGRESS"; }).length, totalProjectBudget: budget, confirmedProjectCost: confirmed, committedProjectCost: committed, pendingProjectCost: pending, availableAfterCommitments: round(budget - confirmed - committed - pending), outstandingPayables: round(selectedOutstandingPayables), projectRows, monthlyCostTrend, costComposition: [{ name: "Supplier invoices", value: composition.invoices, color: "#4f46e5" }, { name: "Project payroll", value: composition.labor, color: "#8b5cf6" }, { name: "Direct expenses", value: composition.expenses, color: "#f59e0b" }], budgetUtilization, payableAging: [{ bucket: "Current", value: round(aging.current) }, { bucket: "1–30", value: round(aging.days1To30) }, { bucket: "31–60", value: round(aging.days31To60) }, { bucket: "61–90", value: round(aging.days61To90) }, { bucket: "90+", value: round(aging.over90) }], unknownDueDatePayables, payrollTrend: [...payrollTrendMap.values()], expenseTrend: [...expenseTrendMap.values()], unallocatedByCurrency, overheadByCurrency, cashPosition, payrollDetailAvailable, payrollSummary: { currentPeriodLabel: currentPeriod ? `${currentPeriod.periodStart} – ${currentPeriod.periodEnd}` : "No active period", activeWorkers: input.workers.filter((worker) => worker.active).length, grossPayroll: round(currentEntries.reduce((sum, entry) => sum + entry.grossPay, 0)), projectLabor: round(currentProjectLabor), overhead: round(currentOverhead), unallocatedLabor: round(currentUnallocated), runStatus: currentRuns[0]?.status || "No run", blockingIssues: 0, warnings: 0 }, expenseSummary: { selectedPeriodTotal: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && inRange(expense.expenseDate, range.from, range.to) && expense.status !== "VOID").reduce((sum, expense) => sum + expense.amount, 0)), confirmedProjectExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && expense.projectId && inRange(expense.expenseDate, range.from, range.to) && isConfirmedBridgeExpense(expense)).reduce((sum, expense) => sum + expense.amount, 0)), pendingProjectExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && expense.projectId && inRange(expense.expenseDate, range.from, range.to) && expense.status === "DRAFT" && !isConfirmedBridgeExpense(expense)).reduce((sum, expense) => sum + expense.amount, 0)), unallocatedExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && !expense.projectId && inRange(expense.expenseDate, range.from, range.to) && expense.status !== "VOID").reduce((sum, expense) => sum + expense.amount, 0)) }, attention: buildAttention(input, projectRows, unallocatedForAttention), invoiceOperations: invoiceOperations(input.invoices, input.expenses, input.cash?.matches || [], currencyOf(input.baseCurrency || "PHP"), input.fxSnapshots, today) };
 }

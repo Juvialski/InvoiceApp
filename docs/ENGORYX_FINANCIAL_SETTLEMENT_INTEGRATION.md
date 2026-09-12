@@ -85,7 +85,7 @@ Cash settlement does not allow `cash.reconcile` to bypass another domain's mutat
 
 - Invoice confirmation/reversal requires `cash.reconcile` and `invoices.manage`.
 - Payroll confirmation/reversal requires `cash.reconcile` and `payroll.approve`.
-- Existing expense compatibility requires `cash.reconcile` and `expenses.manage`.
+- Existing expense compatibility requires `cash.reconcile` and `expenses.manage`. A verification-created supplier-linked `DRAFT` Expense is the narrow exception to the ordinary Expense lifecycle gate: it may receive settlement evidence only while its exact company-bound parent supplier invoice is active and `VERIFIED`. Generic direct `DRAFT` Expenses remain ineligible.
 - Client collection confirmation/reversal requires `cash.reconcile` and `projects.manage`.
 
 Read summaries use the target domain's read permission. Assistant tools add appropriate Cash read/reconciliation permission requirements before exposing linked transaction information.
@@ -110,6 +110,8 @@ Engoryx does not invent withholding amounts and does not assume every Philippine
 
 Invoice extraction/current data may already contain `amountPaid` or related payment evidence. That evidence is preserved and displayed separately from confirmed bank reconciliation.
 
+For a verified supplier invoice with an authoritative linked Expense, the Expense amount is the payable basis. The supplier-facing projection uses that Expense as the settlement target, includes any historical invoice-target matches in the same source relationship, and does not create a second payable or cost row.
+
 The operational settlement summary therefore exposes:
 
 - settlement basis;
@@ -120,9 +122,11 @@ The operational settlement summary therefore exposes:
 - settlement state;
 - linked settlement history.
 
-Document-reported and bank-confirmed amounts are **not blindly added** because they may describe the same payment. The canonical summary conservatively uses independently identified evidence without manufacturing an extra payment.
+Document-reported payment is **evidence only**. It never reduces the operational payable and never produces `PAID`, `PARTIALLY_PAID`, or `OVERDUE` settlement meaning by itself. Only active confirmed cash/bank matches reduce the outstanding amount; reversed matches restore it. The canonical summary therefore never treats an OCR/document-paid value as settlement and never manufactures an extra payment when the same cash event is later reconciled.
 
 Invoice settlement presentation uses the existing payment-status semantics where appropriate: `UNPAID`, `PARTIALLY_PAID`, `PAID`, and overdue presentation.
+
+Due dates are date-only business data. Overdue means `outstanding > 0` and `due_date <` the company business date; the due date itself is still current. If a company timezone is unavailable, the application uses the documented Asia/Manila default for this product.
 
 ## Payroll settlement basis
 

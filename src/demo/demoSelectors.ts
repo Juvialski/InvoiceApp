@@ -59,6 +59,7 @@ export function buildDemoProjectSummaries(data: DemoWorkspaceData): Record<strin
     subcontractClaims: data.subcontractClaims,
     subcontractVariations: data.subcontractVariations,
     fxSnapshots: data.financialFxSnapshots,
+    settlementMatches: data.cash.matches,
     baseCurrency: data.company.currency,
   })]));
 }
@@ -87,6 +88,7 @@ export function buildDemoDashboard(data: DemoWorkspaceData, options?: { activity
     selectedCurrency: options?.selectedCurrency || "PHP",
     projectId: options?.selectedProjectId,
     today: data.anchorDate,
+    businessTimeZone: data.company.timezone,
   });
 }
 
@@ -105,5 +107,6 @@ export function buildDemoProjectDashboard(data: DemoWorkspaceData, projectId: st
     fxSnapshots: data.financialFxSnapshots,
     periods: data.payroll.periods,
     today: data.anchorDate,
+    settlementMatches: data.cash.matches,
   });
 }

@@ -34,7 +34,7 @@ import { buildLocalInventoryItem, recordInventoryMovementLocally, type Inventory
 import { applyLocalEquipmentAssignment, applyLocalEquipmentReturn, applyLocalEquipmentTransfer, buildEquipmentWorkspaceFromProjectRegister, buildLocalEquipment, type EquipmentSaveInput } from "../lib/equipment.ts";
 import { calculateLineReceiptProgress } from "../utils/purchaseOrderReceipts.ts";
 import { supplierExpenseProjectProjection } from "../utils/supplierInvoiceCostOwnership.ts";
-import { invoiceCashPayableBasis } from "../lib/financialSettlement.ts";
+import { buildSupplierInvoiceSettlementProjections } from "../lib/supplierInvoiceSettlement.ts";
 import { applyLocalChecks } from "../utils/invoiceLogic.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "documents", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
@@ -89,12 +89,18 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
   const clientBillings = data.clientBillings || [];
+  const supplierInvoiceSettlementProjections = useMemo(() => buildSupplierInvoiceSettlementProjections(data.invoices, data.expenses || [], data.cash.matches, data.anchorDate), [data]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
-    ...(data.expenses || []).filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}`, lifecycleStatus: expense.status })),
-    ...(data.invoices || []).filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: invoiceCashPayableBasis(invoice).amount, currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name, lifecycleStatus: invoice.reviewStatus })),
+    ...(data.expenses || []).filter((expense) => expense.status !== "VOID").flatMap((expense) => {
+      const linkedInvoice = expense.supplierInvoiceId ? data.invoices.find((invoice) => invoice.id === expense.supplierInvoiceId) : undefined;
+      const authority = linkedInvoice ? supplierInvoiceSettlementProjections.get(linkedInvoice.id) : undefined;
+      if (linkedInvoice && (!authority || authority.authorityConflict || authority.targetType !== "EXPENSE" || authority.targetId !== expense.id)) return [];
+      return [{ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}`, lifecycleStatus: expense.status, supplierInvoiceVerified: Boolean(linkedInvoice && linkedInvoice.reviewStatus === "VERIFIED" && linkedInvoice.lifecycleStatus !== "VOID"), supplierInvoiceId: linkedInvoice?.id }];
+    }),
+    ...(data.invoices || []).filter((invoice) => { const projection = supplierInvoiceSettlementProjections.get(invoice.id); return projection?.payable && projection.targetType === "INVOICE" && projection.settlement.outstanding > 0.005; }).map((invoice) => { const projection = supplierInvoiceSettlementProjections.get(invoice.id)!; return { targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: projection.settlement.settlementBasis, currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name, lifecycleStatus: invoice.reviewStatus }; }),
     ...(data.payroll.runs || []).filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: (data.payroll.entries || []).filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: (data.payroll.periods || []).find((period) => period.id === run.periodId)?.payDate || (data.payroll.periods || []).find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment", lifecycleStatus: run.status })),
     ...(data.clientCollections || []).filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId, billingId: Array.isArray(collection.allocations) ? collection.allocations[0]?.billingId : undefined })),
-  ].filter((candidate) => candidate.amount > 0), [data]);
+  ].filter((candidate) => candidate.amount > 0), [data, supplierInvoiceSettlementProjections]);
   const reviewQueue = useMemo(() => data.invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID"), [data.invoices]);
   const demoProjectCostCompleteness = useMemo(() => projectCostDataCompleteness(["*"]), []);
 
@@ -471,8 +477,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   };
 
   const previewInvoiceCorrection = async (invoice: InvoiceData): Promise<FinancialCorrectionPreview> => {
-    const matches = data.cash.matches.filter((match) => match.targetType === "INVOICE" && match.targetId === invoice.id);
-    return buildLocalInvoiceCorrectionPreview({ invoice, allocationCount: data.invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id).length, settlementMatchCount: matches.length, confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length, historyCount: invoice.reviewStatus === "VERIFIED" ? 1 : 0 });
+    const projection = supplierInvoiceSettlementProjections.get(invoice.id);
+    const matches = data.cash.matches.filter((match) => (match.targetType === "INVOICE" && match.targetId === invoice.id)
+      || (match.targetType === "EXPENSE" && projection?.targetType === "EXPENSE" && match.targetId === projection.targetId));
+    return buildLocalInvoiceCorrectionPreview({ invoice, allocationCount: data.invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id).length, settlementMatchCount: matches.length, confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length, historyCount: invoice.reviewStatus === "VERIFIED" ? 1 : 0, paymentStatus: projection?.paymentState });
   };
 
   const applyInvoiceCorrection = async (invoice: InvoiceData, action: FinancialCorrectionAction, reason?: string): Promise<FinancialCorrectionResult> => {
@@ -586,6 +594,9 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             activeTab={activeTab}
             onNavigatePath={(path, replace = false) => onNavigate(path.startsWith("/demo/") ? path : demoPathForAppPath(path), replace)}
             dashboardData={dashboardData}
+            supplierInvoiceSettlementProjections={supplierInvoiceSettlementProjections}
+            settlementMatches={data.cash.matches}
+            supplierSettlementToday={data.anchorDate}
             dashboardProjectId={dashboardProjectId}
             onDashboardProjectChange={setDashboardProjectId}
             onDashboardActivityPeriodChange={setActivityPeriod}

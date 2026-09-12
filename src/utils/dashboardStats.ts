@@ -15,6 +15,7 @@ import {
   invoiceUnpaidBalance,
   isConfirmedExpense,
   isConfirmedInvoice,
+  isConfirmedSupplierExpense,
   isVoidedInvoice,
   MixedCurrencyError,
   normalizeCurrency,
@@ -26,8 +27,10 @@ import {
   type CostPayrollRecord,
   type ProjectCostInput,
   type ProjectCostSummaryWithCurrency,
+  type SettlementMatchInput,
 } from "./projectCosting.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
+import { buildSupplierInvoiceSettlementProjections } from "../lib/supplierInvoiceSettlement.ts";
 
 export type CurrencyAmount = Record<string, number>;
 
@@ -54,6 +57,7 @@ export interface DashboardStatsInput {
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   fxSnapshots?: readonly FinancialFxSnapshot[];
+  settlementMatches?: readonly SettlementMatchInput[];
 }
 
 export interface IndexedAccountingData {
@@ -226,8 +230,8 @@ export function invoiceResidualByCurrency(invoices: CostInvoice[]): CurrencyAmou
 }
 
 /** Invoice-level payable, kept separate from confirmed cost. */
-export function unpaidBalance(invoice: Pick<CostInvoice, "grandTotal" | "amountPaid" | "status" | "balanceDue">) {
-  return invoiceUnpaidBalance(invoice);
+export function unpaidBalance(invoice: Pick<CostInvoice, "id" | "grandTotal" | "amountPaid" | "status" | "balanceDue">, settlementMatches?: readonly SettlementMatchInput[]) {
+  return invoiceUnpaidBalance(invoice, settlementMatches);
 }
 
 function addUnique<T extends { id: string }>(map: Map<string, T[]>, key: string, value: T) {
@@ -313,6 +317,7 @@ export function projectBudgetPositions(projects: Project[], input: ProjectCostIn
       projectLaborAggregates: input.projectLaborAggregates,
       laborSource: input.laborSource,
       fxSnapshots: input.fxSnapshots,
+      settlementMatches: input.settlementMatches,
     });
     return {
       projectId: project.id,
@@ -420,10 +425,16 @@ function roundedAging(result: PayableAging) {
   return Object.fromEntries(Object.entries(result).map(([key, value]) => [key, typeof value === "number" ? roundMoney(value) : value])) as PayableAging;
 }
 
+interface PayableAgingOptions {
+  expenses?: readonly Expense[];
+  settlementMatches?: readonly SettlementMatchInput[];
+}
+
 export function agingPayables(
   invoices: CostInvoice[],
   asOf: string | Date = new Date().toISOString().slice(0, 10),
   targetCurrency?: string,
+  options: PayableAgingOptions = {},
 ): PayableAging {
   const currencies = [...new Set(invoices.filter(isConfirmedInvoice).map((invoice) => normalizeCurrency(invoice.currency)))];
   const target = targetCurrency ? normalizeCurrency(targetCurrency) : undefined;
@@ -431,10 +442,14 @@ export function agingPayables(
   const result: PayableAging = { current: 0, days1To30: 0, days31To60: 0, days61To90: 0, over90: 0, ...(target || currencies[0] ? { currency: target || currencies[0] } : {}) };
   const asOfDate = normalizedAsOf(asOf);
   const asOfTime = utcDate(asOfDate);
+  const projections = options.settlementMatches === undefined
+    ? undefined
+    : buildSupplierInvoiceSettlementProjections(invoices as unknown as InvoiceData[], options.expenses || [], options.settlementMatches, asOfDate);
   for (const invoice of invoices) {
     if (!isConfirmedInvoice(invoice)) continue;
     if (target && normalizeCurrency(invoice.currency) !== target) continue;
-    const amount = unpaidBalance(invoice);
+    const projection = projections?.get(invoice.id);
+    const amount = projection ? (projection.payable ? projection.settlement.outstanding : 0) : unpaidBalance(invoice);
     const dueDate = dateOf(invoice.dueDate) || sourceDate(invoice);
     const dueTime = utcDate(dueDate);
     if (!amount || !dueDate || Number.isNaN(asOfTime) || Number.isNaN(dueTime)) continue;
@@ -448,10 +463,10 @@ export function agingPayables(
   return roundedAging(result);
 }
 
-export function agingPayablesByCurrency(invoices: CostInvoice[], asOf: string | Date = new Date().toISOString().slice(0, 10)) {
+export function agingPayablesByCurrency(invoices: CostInvoice[], asOf: string | Date = new Date().toISOString().slice(0, 10), options: PayableAgingOptions = {}) {
   const groups: Record<string, CostInvoice[]> = {};
   for (const invoice of invoices) if (isConfirmedInvoice(invoice)) (groups[normalizeCurrency(invoice.currency)] ||= []).push(invoice);
-  return Object.fromEntries(Object.entries(groups).map(([code, rows]) => [code, agingPayables(rows, asOf, code)])) as Record<string, PayableAging>;
+  return Object.fromEntries(Object.entries(groups).map(([code, rows]) => [code, agingPayables(rows, asOf, code, options)])) as Record<string, PayableAging>;
 }
 
 export function payrollLaborVsOverhead(
@@ -506,6 +521,11 @@ export function activityTrends(input: DashboardStatsInput, options: ActivityTren
   const code = normalizeCurrency(options.currency || "PHP");
   const grain = options.grain || options.granularity || "month";
   const includeUnallocated = options.includeUnallocated !== false;
+  const canonicalSettlement = input.settlementMatches === undefined
+    ? undefined
+    : buildSupplierInvoiceSettlementProjections((input.invoices || []) as unknown as InvoiceData[], input.expenses || [], input.settlementMatches, normalizedAsOf(options.to || new Date().toISOString().slice(0, 10)));
+  const linkedInvoiceIds = new Set((input.expenses || []).filter((expense) => expense.status !== "VOID").map((expense) => expense.supplierInvoiceId).filter((id): id is string => Boolean(id)));
+  const linkedInvoices = new Map((input.invoices || []).map((invoice) => [invoice.id, invoice]));
   const points = new Map<string, AccountingTrendPoint>();
   const getPoint = (date: string) => {
     const key = periodKey(date, grain);
@@ -516,6 +536,7 @@ export function activityTrends(input: DashboardStatsInput, options: ActivityTren
 
   for (const invoice of input.invoices || []) {
     if (isVoidedInvoice(invoice)) continue;
+    if (canonicalSettlement && linkedInvoiceIds.has(invoice.id)) continue;
     if (normalizeCurrency(invoice.currency) !== code) continue;
     const date = sourceDate(invoice);
     if (!inActivityPeriod(date, options)) continue;
@@ -525,7 +546,8 @@ export function activityTrends(input: DashboardStatsInput, options: ActivityTren
     if (isConfirmedInvoice(invoice)) {
       addTrendValue(point, "actual", allocated);
       addTrendValue(point, "invoices", allocated);
-      addTrendValue(point, "payable", unpaidBalance(invoice));
+      const outstanding = canonicalSettlement ? canonicalSettlement.get(invoice.id)?.settlement.outstanding || 0 : unpaidBalance(invoice);
+      addTrendValue(point, "payable", outstanding);
       if (includeUnallocated) addTrendValue(point, "unallocated", residual);
     } else {
       addTrendValue(point, "pending", allocated);
@@ -541,11 +563,14 @@ export function activityTrends(input: DashboardStatsInput, options: ActivityTren
     if (!inActivityPeriod(date, options)) continue;
     const point = getPoint(date);
     const amount = roundMoney(expense.amount);
-    if (isConfirmedExpense(expense.status)) {
+    const linkedInvoice = expense.supplierInvoiceId ? linkedInvoices.get(expense.supplierInvoiceId) : undefined;
+    const confirmed = linkedInvoice ? isConfirmedSupplierExpense(expense, linkedInvoice) : isConfirmedExpense(expense.status);
+    if (confirmed) {
       if (expense.projectId) {
         addTrendValue(point, "actual", amount);
         addTrendValue(point, "expenses", amount);
       } else if (includeUnallocated) addTrendValue(point, "unallocated", amount);
+      if (canonicalSettlement && linkedInvoice) addTrendValue(point, "payable", canonicalSettlement.get(linkedInvoice.id)?.settlement.outstanding || 0);
     } else if (expense.projectId) {
       addTrendValue(point, "pending", amount);
     } else if (includeUnallocated) addTrendValue(point, "pendingUnallocated", amount);

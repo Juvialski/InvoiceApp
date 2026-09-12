@@ -16,6 +16,9 @@ import {
 import { InvoiceData } from "../types";
 import { exportBatchInvoicesToExcel } from "../utils/excelExport";
 import { formatDate, formatMoney, totalsByCurrency } from "../utils/invoiceLogic";
+import type { Expense } from "../types.ts";
+import type { FinancialTransactionMatch } from "../lib/cashBanking.ts";
+import { buildSupplierInvoiceSettlementProjections } from "../lib/supplierInvoiceSettlement.ts";
 
 interface BatchManagerProps {
   invoices: InvoiceData[];
@@ -23,6 +26,9 @@ interface BatchManagerProps {
   onOpenCorrection: (invoice: InvoiceData) => void;
   onClearAll: () => void;
   onAddNew: () => void;
+  expenses?: Expense[];
+  settlementMatches?: readonly FinancialTransactionMatch[];
+  today?: string;
 }
 
 export const BatchManager: React.FC<BatchManagerProps> = ({
@@ -31,14 +37,18 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
   onOpenCorrection,
   onClearAll,
   onAddNew,
+  expenses = [],
+  settlementMatches = [],
+  today,
 }) => {
+  const settlementProjections = buildSupplierInvoiceSettlementProjections(invoices, expenses, settlementMatches, today);
   const totals = totalsByCurrency(invoices);
   const phpTotal = totals.PHP || 0;
   const phpTax = invoices.filter((invoice) => invoice.currency === "PHP").reduce((sum, invoice) => sum + (Number(invoice.philippineTaxDetails?.vatAmount ?? invoice.totalTax) || 0), 0);
   const totalLineItems = invoices.reduce((sum, inv) => sum + (inv.items?.length || 0), 0);
 
   const handleExportAllExcel = () => {
-    exportBatchInvoicesToExcel(invoices);
+    exportBatchInvoicesToExcel(invoices, undefined, { settlementProjections, today });
   };
 
   return (
@@ -175,14 +185,14 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                     <td className="py-3.5 px-4 text-center">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          inv.status?.toUpperCase() === "PAID"
+                          settlementProjections.get(inv.id)?.paymentState === "PAID"
                             ? "bg-green-100 text-green-700"
-                            : inv.status?.toUpperCase() === "OVERDUE"
+                            : settlementProjections.get(inv.id)?.paymentState === "OVERDUE"
                             ? "bg-rose-100 text-rose-700"
                             : "bg-amber-100 text-amber-800"
                         }`}
                       >
-                        {inv.status || "UNPAID"}
+                        {settlementProjections.get(inv.id)?.paymentState || "UNPAID"}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center">

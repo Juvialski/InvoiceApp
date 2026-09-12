@@ -14,6 +14,7 @@ export interface SupplierInvoiceExpenseSurfaceProps {
   invoice: Pick<InvoiceData, "id" | "invoiceNumber" | "reviewStatus" | "lifecycleStatus" | "dueDate" | "currency" | "status">;
   linkedExpenseId?: string;
   linkedExpense?: Expense;
+  authorityConflict?: boolean;
   loading?: boolean;
   canRecordPayment?: boolean;
   canReversePayment?: boolean;
@@ -41,6 +42,7 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
   invoice,
   linkedExpenseId,
   linkedExpense,
+  authorityConflict = false,
   loading = false,
   canRecordPayment = false,
   canReversePayment = false,
@@ -118,6 +120,13 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
     </section>;
   }
 
+  if (authorityConflict) {
+    return <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4" aria-label="Supplier payment authority conflict" data-testid="supplier-invoice-expense-bridge" role="alert">
+      <p className="flex items-center gap-2 text-xs font-black text-rose-950"><CircleAlert className="h-4 w-4" />Multiple active linked Expenses</p>
+      <p className="mt-1 break-words text-[10px] leading-4 text-rose-900">Payment is locked because more than one active Expense claims this supplier invoice. Resolve the authoritative Expense relationship before recording or reversing settlement evidence.</p>
+    </section>;
+  }
+
   if (!summary && !demoSummary) {
     return <section className="space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4" aria-label="Supplier payment" data-testid="supplier-invoice-expense-bridge">
       {summaryError ? <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3">
@@ -131,8 +140,9 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
 
   const visibleSummary = summary || demoSummary!;
   const paymentStatus = deriveSupplierInvoicePaymentState(invoice, currentExpense, visibleSummary);
+  const settlementAuthorityConflict = authorityConflict || visibleSummary.authorityConflict === true;
   const hasOutstanding = visibleSummary.outstanding > 0.005;
-  const canChangeStatus = invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && currentExpense.status !== "VOID" && hasOutstanding;
+  const canChangeStatus = !settlementAuthorityConflict && invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && currentExpense.status !== "VOID" && hasOutstanding;
 
   const handleReversed = (item: FinancialSettlementHistoryItem) => {
     if (currentExpense.id.startsWith("demo-")) {
@@ -156,6 +166,7 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
         </div>
         {summaryLoading && <p className="mt-1 text-[10px] text-slate-500">Refreshing payment evidence…</p>}
         {summaryError && <p className="mt-1 text-[10px] text-amber-800">{summaryError}</p>}
+        {settlementAuthorityConflict && <p role="alert" className="mt-1 text-[10px] font-semibold text-rose-800">Payment is locked until the active linked Expense authority conflict is resolved.</p>}
       </div>
       {canChangeStatus && <button type="button" onClick={() => setPaymentOpen(true)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white shadow-sm hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2" data-testid="change-supplier-payment-status">
         <WalletCards className="h-4 w-4" />Change Status
@@ -168,6 +179,8 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
       title="Payment history"
       targetLabel={`${currentExpense.category} · ${currentExpense.description}`}
       lifecycleStatus={currentExpense.status}
+      supplierInvoiceVerified={invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && currentExpense.status !== "VOID"}
+      supplierInvoiceDueDate={invoice.dueDate}
       fallbackSummary={visibleSummary}
       canRecordPayment={false}
       canReverse={canReversePayment}
@@ -187,7 +200,6 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
       settlement={visibleSummary}
       canRecordPayment={canRecordPayment}
       onClose={() => setPaymentOpen(false)}
-      onExpenseUpdated={(updatedExpense) => setCurrentExpense(updatedExpense)}
       onRecorded={(updatedExpense, updatedSummary) => {
         setCurrentExpense(updatedExpense);
         setSummary(updatedSummary);

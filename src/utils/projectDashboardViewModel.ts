@@ -1,10 +1,12 @@
 import type { Expense, FinancialFxSnapshot, InvoiceProjectAllocation, PayrollPeriod, Project, PurchaseOrder, Subcontract, SubcontractProgressClaim, SubcontractVariation } from "../types.ts";
 import type { CostInvoice, CostPayrollRecord } from "./projectCosting.ts";
 import { calculateProjectCost, isConfirmedSupplierExpense, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth } from "./projectCosting.ts";
-import { unpaidBalance } from "./dashboardStats.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
+import type { FinancialTransactionMatch } from "../lib/cashBanking.ts";
 import { convertFinancialAmount } from "./financialCurrency.ts";
 import { supplierExpenseCostOwnership } from "./supplierInvoiceCostOwnership.ts";
+import { buildSupplierInvoiceSettlementProjections, supplierInvoicePaymentStateFor } from "../lib/supplierInvoiceSettlement.ts";
+import { businessDateForTimeZone } from "./businessDate.ts";
 
 export interface ProjectDashboardTrendPoint {
   label: string;
@@ -55,6 +57,7 @@ interface ProjectDashboardInput {
   periods?: PayrollPeriod[];
   today?: string;
   fxSnapshots?: readonly FinancialFxSnapshot[];
+  settlementMatches?: readonly FinancialTransactionMatch[];
 }
 
 function round(value: number) { return Math.round((Number(value) || 0) * 100) / 100; }
@@ -67,7 +70,9 @@ function monthsBetween(keys: string[]) { const valid = keys.filter((key) => /^\d
 function projectInvoiceAmount(invoice: CostInvoice, projectId: string) { return isVoidedInvoice(invoice) ? 0 : round((invoice.allocations || []).filter((allocation) => allocation.projectId === projectId).reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), 0)); }
 
 export function buildProjectDashboardViewData(input: ProjectDashboardInput): ProjectDashboardViewData {
+  const today = input.today || businessDateForTimeZone();
   const supplierOwnership = supplierExpenseCostOwnership(input.invoices, input.expenses);
+  const supplierSettlementProjections = buildSupplierInvoiceSettlementProjections(input.invoices as unknown as import("../types.ts").InvoiceData[], input.expenses, input.settlementMatches || [], today);
   const summary = calculateProjectCost(input.project, {
     invoices: input.invoices,
     expenses: input.expenses,
@@ -79,6 +84,7 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
     projectLaborAggregates: input.projectLaborAggregates,
     laborSource: input.laborSource,
     fxSnapshots: input.fxSnapshots,
+    settlementMatches: input.settlementMatches,
   });
   const pending = round(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
   const confirmed = round(summary.totalActualCost);
@@ -87,7 +93,7 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
   const invoiceDates = input.invoices.filter((invoice) => !supplierOwnership.byInvoiceId.has(invoice.id) && projectInvoiceAmount(invoice, input.project.id) > 0).map((invoice) => dateOnly((invoice as CostInvoice & { invoiceDate?: string }).invoiceDate));
   const payrollDates = input.payroll.filter((run) => (run.allocations || []).some((allocation) => allocation.projectId === input.project.id)).map((run) => dateOnly(run.periodEnd));
   const expenseDates = input.expenses.filter((expense) => expense.projectId === input.project.id).map((expense) => dateOnly(expense.expenseDate));
-  const keys = monthsBetween([...invoiceDates, ...payrollDates, ...expenseDates, dateOnly(input.project.startDate), dateOnly(input.today || new Date().toISOString())].map(monthKey));
+  const keys = monthsBetween([...invoiceDates, ...payrollDates, ...expenseDates, dateOnly(input.project.startDate), today].map(monthKey));
   const points = new Map(keys.map((period) => [period, { label: monthLabel(period), period, invoices: 0, payroll: 0, expenses: 0, total: 0, pending: 0, cumulative: 0, cumulativeCommitted: 0 }]));
   for (const invoice of input.invoices) {
     if (isVoidedInvoice(invoice)) continue;
@@ -130,11 +136,14 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
     return { ...point, cumulative, cumulativeCommitted: round(cumulative + cumulativePending) };
   });
   const attention: ProjectDashboardAttention[] = [];
-  const projectInvoices = input.invoices.filter((invoice) => !supplierOwnership.byInvoiceId.has(invoice.id) && projectInvoiceAmount(invoice, input.project.id) > 0);
+  const projectInvoices = input.invoices.filter((invoice) => projectInvoiceAmount(invoice, input.project.id) > 0);
   const review = projectInvoices.filter((invoice) => invoice.reviewStatus !== "VERIFIED").length;
-  const overdue = projectInvoices.filter((invoice) => { const dueDate = (invoice as CostInvoice & { dueDate?: string }).dueDate; return Boolean(dueDate && dueDate < (input.today || new Date().toISOString().slice(0, 10)) && unpaidBalance(invoice) > 0); }).length;
+  const overdue = projectInvoices.filter((invoice) => supplierSettlementProjections.get(invoice.id)?.payable && supplierInvoicePaymentStateFor(invoice, supplierSettlementProjections.get(invoice.id), today) === "OVERDUE").length;
   const pendingPayroll = input.payroll.filter((run) => run.status === "DRAFT" || run.status === "CALCULATED").some((run) => (run.allocations || []).some((allocation) => allocation.projectId === input.project.id));
-  const pendingExpenses = input.expenses.some((expense) => expense.projectId === input.project.id && expense.status === "DRAFT");
+  const pendingExpenses = input.expenses.some((expense) => {
+    const linkedInvoice = expense.supplierInvoiceId ? supplierOwnership.invoiceById.get(expense.supplierInvoiceId) : undefined;
+    return expense.projectId === input.project.id && expense.status === "DRAFT" && !isConfirmedSupplierExpense(expense, linkedInvoice);
+  });
   if (review) attention.push({ id: "project-invoice-review", label: "Invoices awaiting review", detail: `${review} allocated supplier invoice${review === 1 ? "" : "s"} is not verified.`, tab: "invoices" });
   if (overdue) attention.push({ id: "project-overdue", label: "Overdue supplier invoices", detail: `${overdue} allocated supplier invoice${overdue === 1 ? "" : "s"} has an unpaid balance.`, tab: "invoices" });
   if (pendingPayroll) attention.push({ id: "project-pending-payroll", label: "Pending project payroll", detail: "Draft or calculated project labor is not yet confirmed.", tab: "payroll" });

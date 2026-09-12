@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — PHASE 4 HOSTED EXACT-SHA QA CERTIFICATION COMPLETE / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — SUPPLIER PAYABLES SETTLEMENT CORRECTIVE PHASE IMPLEMENTED ON CURRENT BRANCH / PRIOR BASELINE HOSTED EXACT-SHA QA CERTIFICATION COMPLETE / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Date: **2026-09-12**
 Repository: `Juvialski/InvoiceApp`
 
@@ -72,6 +72,28 @@ The integrated Local-QA rerun recorded 57/57 authenticated route scenarios and 7
 The RFQ coverage defect was a stale harness-tab assumption and was corrected without weakening the fail-closed gate. The Payroll defect was fixed by sharing one reduced payroll-period identity between calculation and approval fingerprints, preventing a fresh recalculation from falsely invalidating itself as stale.
 
 The QA company still has no safe subcontract/claim fixture, so subcontract settlement remains `NOT TESTED`/fixture-blocked rather than a pass.
+
+## Corrective phase — Supplier Payables Settlement Truth & Consistency Audit
+
+This corrective implementation is complete on the current feature branch and remains pending merge plus exact hosted QA certification.
+
+The observed supplier-payables inconsistency had three related causes:
+
+- verification intentionally created the linked supplier `Expense` as `DRAFT`, but the generic Expense settlement gate rejected every DRAFT Expense;
+- linked-invoice summaries treated the invoice as transferred with a zero payable, so the Supplier Invoice overview and downstream open-payable counts dropped the record;
+- directory badges, overdue counts, correction previews, and several project/report helpers read persisted extraction/document payment fields instead of one current cash-backed settlement projection.
+
+The corrected contract is:
+
+- the verified linked Expense is the one supplier payable/settlement authority, including when it remains DRAFT; generic direct DRAFT Expenses retain their existing ineligible behavior;
+- payment state is derived from confirmed Cash & Banking matches only. OCR/document `amountPaid` is preserved as separate evidence and cannot make an obligation paid or reduce its outstanding balance;
+- both canonical Expense matches and legacy invoice-target matches are aggregated once for the linked supplier relationship. Reversal is history-preserving and restores outstanding balance;
+- date-only overdue means positive outstanding with `due_date <` the company business date. The due date itself is current;
+- verified project cost and source-document provenance do not change when settlement evidence is created or reversed.
+
+The shared projection now feeds Supplier Invoices, linked Expense detail, Cash & Banking candidate/target context, Dashboard, Projects, Reports, Assistant, correction previews, and invoice/project exports. Local evidence on this branch is clean Supabase replay/pgTAP (45 files, 1,531 tests), focused TypeScript/domain tests, build/lint, and demo browser QA (78 scenarios, 34 routes, 4 viewports, 59 interactions, zero console/page/network/overflow failures). These results are local/pre-merge evidence; they do not certify the hosted QA deployment.
+
+The new forward migration is `20260912082656_supplier_payables_settlement_consistency`. After merge, bind the exact deployed application SHA and intended QA database, inspect migration parity, promote only missing canonical forward migrations if required, and rerun hosted supplier-payables/RPC/provider checks. Production remains read-only.
 
 ## Phase 4 — Hosted exact-SHA QA certification — COMPLETE
 
@@ -195,13 +217,14 @@ Do not weaken these boundaries to simplify provider work or QA.
 2. **Deep PDF/export visual certification — COMPLETE for programmatic fallback**
 3. **Company-template compatibility implementation — COMPLETE; converter runtime certification remains environment-limited**
 4. **Functional regression sweep — COMPLETE for supported/fixture-backed Local-QA workflows**
-5. **Hosted exact-SHA QA certification — COMPLETE for `32e5faf3666095391e7df09244ac0f0bb4479c81`**
-6. **Wave 4D messaging-provider selection/integration — IN PROGRESS**
-7. **Wave 4D remaining readiness/completion evidence**
-8. **Worker Registration — PAUSED until Wave 4D is genuinely complete and the user explicitly resumes it**
-9. Site Attendance
-10. Face-Recognition Attendance — design/privacy/security first
-11. Final pre-production security/data-integrity certification
+5. **Supplier Payables Settlement Truth & Consistency Audit — COMPLETE in current branch; exact hosted QA pending merge**
+6. **Hosted exact-SHA QA certification — COMPLETE for prior baseline; rerun required for the corrective branch after merge**
+7. **Wave 4D messaging-provider selection/integration — IN PROGRESS**
+8. **Wave 4D remaining readiness/completion evidence**
+9. **Worker Registration — PAUSED until Wave 4D is genuinely complete and the user explicitly resumes it**
+10. Site Attendance
+11. Face-Recognition Attendance — design/privacy/security first
+12. Final pre-production security/data-integrity certification
 
 ## Active implementation phase — Wave 4D messaging-provider selection/integration
 

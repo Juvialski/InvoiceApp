@@ -62,7 +62,7 @@ select is((select status from public.expenses where supplier_invoice_id = (selec
 select is((select review_status from public.invoices where id = (select invoice_id from r3_ids)), 'VERIFIED', 'supplier invoice is verified in the same operation');
 select is((select current_data->>'linkedExpenseId' from public.invoices where id = (select invoice_id from r3_ids)), (select id::text from public.expenses where supplier_invoice_id = (select invoice_id from r3_ids)), 'invoice stores the durable linked Expense id');
 select is((select legal_name from public.company_document_profiles where company_id = (select company_id from r3_ids)), 'R3 Test Company', 'supplier verification retains the deployment document profile identity');
-select is((select public.get_financial_settlement_summary((select company_id from r3_ids), 'INVOICE', (select invoice_id from r3_ids))->>'settlementState'), 'TRANSFERRED_TO_EXPENSE', 'linked supplier invoice cannot become a second payable settlement target');
+select is((select public.get_financial_settlement_summary((select company_id from r3_ids), 'INVOICE', (select invoice_id from r3_ids))->>'settlementState'), 'UNPAID', 'linked supplier invoice uses the Expense amount without creating a second payable settlement target');
 select lives_ok($$select public.verify_supplier_invoice_and_create_expense((select invoice_id from r3_ids))$$, 'repeated supplier verification is idempotent');
 select is((select count(*) from public.expenses where supplier_invoice_id = (select invoice_id from r3_ids)), 1::bigint, 'repeated verification does not duplicate the Expense');
 

@@ -34,6 +34,9 @@ import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCo
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import { appPathForCashTarget } from "../../utils/appRouting.ts";
 import type { InventoryItem } from "../../lib/inventory.ts";
+import type { FinancialTransactionMatch } from "../../lib/cashBanking.ts";
+import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
+import { supplierInvoicePaymentStateFor } from "../../lib/supplierInvoiceSettlement.ts";
 
 export interface InvoicesRouteProps {
   selectedInvoice?: InvoiceData | null;
@@ -43,6 +46,9 @@ export interface InvoicesRouteProps {
   projects?: Project[];
   expenses?: readonly Expense[];
   expensesLoaded?: boolean;
+  settlementMatches?: readonly FinancialTransactionMatch[];
+  settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  today?: string;
   financialFxSnapshots?: readonly FinancialFxSnapshot[];
   costCodes?: ProjectCostCode[];
   invoiceProjectAllocations?: InvoiceProjectAllocation[];
@@ -121,6 +127,9 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   projects = [],
   expenses = [],
   expensesLoaded = true,
+  settlementMatches = [],
+  settlementProjections,
+  today,
   financialFxSnapshots = [],
   costCodes = [],
   invoiceProjectAllocations = [],
@@ -195,8 +204,9 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const canRecordInvoicePayment = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.invoicesWrite]);
   const canRecordExpensePayment = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.expensesWrite]);
-  const linkedExpense = selectedInvoice?.linkedExpenseId ? expenses.find((expense) => expense.id === selectedInvoice.linkedExpenseId) : undefined;
-  const linkedExpenseLoading = Boolean(selectedInvoice?.linkedExpenseId && !expensesLoaded);
+  const linkedExpense = selectedInvoice ? expenses.find((expense) => expense.supplierInvoiceId === selectedInvoice.id && expense.status !== "VOID") || (selectedInvoice.linkedExpenseId ? expenses.find((expense) => expense.id === selectedInvoice.linkedExpenseId && expense.status !== "VOID") : undefined) : undefined;
+  const linkedExpenseId = linkedExpense?.id || selectedInvoice?.linkedExpenseId;
+  const linkedExpenseLoading = Boolean(linkedExpenseId && !expensesLoaded);
   const canReverseExpensePayment = canRecordExpensePayment;
   const [correctionInvoice, setCorrectionInvoice] = useState<InvoiceData | null>(null);
   const [correctionPreview, setCorrectionPreview] = useState<FinancialCorrectionPreview | null>(null);
@@ -245,13 +255,13 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
 
   if (selectedInvoice) {
     if (!canManageInvoices && !canVerifyInvoices) {
-      return <div className="space-y-5">{selectedInvoice.linkedExpenseId ? <SupplierInvoiceExpenseSurface invoice={selectedInvoice} linkedExpenseId={selectedInvoice.linkedExpenseId} linkedExpense={linkedExpense} loading={linkedExpenseLoading} canRecordPayment={canRecordExpensePayment} canReversePayment={canReverseExpensePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} /> : <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} recordPaymentPath={appPathForCashTarget("INVOICE", selectedInvoice.id)} canRecordPayment={canRecordInvoicePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />}<InvoiceViewer invoice={selectedInvoice} financialFxSnapshots={financialFxSnapshots} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
+      return <div className="space-y-5">{linkedExpenseId ? <SupplierInvoiceExpenseSurface invoice={selectedInvoice} linkedExpenseId={linkedExpenseId} linkedExpense={linkedExpense} authorityConflict={settlementProjections?.get(selectedInvoice.id)?.authorityConflict} loading={linkedExpenseLoading} canRecordPayment={canRecordExpensePayment} canReversePayment={canReverseExpensePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} /> : <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} supplierInvoiceVerified={selectedInvoice.reviewStatus === "VERIFIED"} supplierInvoiceReviewStatus={selectedInvoice.reviewStatus} supplierInvoiceDueDate={selectedInvoice.dueDate} compact canReverse={canReverseSettlement} recordPaymentPath={appPathForCashTarget("INVOICE", selectedInvoice.id)} canRecordPayment={canRecordInvoicePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />}<InvoiceViewer invoice={selectedInvoice} paymentState={supplierInvoicePaymentStateFor(selectedInvoice, settlementProjections?.get(selectedInvoice.id), today)} financialFxSnapshots={financialFxSnapshots} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
     }
     const handleReopenCallback = async () => { if (onReopen) return onReopen(selectedInvoice); return undefined; };
     const canRepairVerifiedInvoice = !activeSupplierExpenseInvoiceIds.includes(selectedInvoice.id);
     return (
       <div className="space-y-5">
-        {!selectedInvoice.linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} recordPaymentPath={appPathForCashTarget("INVOICE", selectedInvoice.id)} canRecordPayment={canRecordInvoicePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />}
+        {!linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} supplierInvoiceVerified={selectedInvoice.reviewStatus === "VERIFIED"} supplierInvoiceReviewStatus={selectedInvoice.reviewStatus} supplierInvoiceDueDate={selectedInvoice.dueDate} compact canReverse={canReverseSettlement} recordPaymentPath={appPathForCashTarget("INVOICE", selectedInvoice.id)} canRecordPayment={canRecordInvoicePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />}
         {canManageInvoices && onPreviewCorrection && <button type="button" onClick={() => void openCorrection(selectedInvoice)} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100">Review correction options</button>}
         <VerificationWorkspace
           invoice={selectedInvoice}
@@ -275,6 +285,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onOpenCorrection={onPreviewCorrection ? () => void openCorrection(selectedInvoice) : undefined}
           repairMode={repairMode}
           linkedExpense={linkedExpense}
+          supplierInvoiceAuthorityConflict={settlementProjections?.get(selectedInvoice.id)?.authorityConflict}
           linkedExpenseLoading={linkedExpenseLoading}
           canRecordExpensePayment={canRecordExpensePayment}
           canReverseExpensePayment={canReverseExpensePayment}
@@ -318,7 +329,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} financialFxSnapshots={financialFxSnapshots} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifySupplierInvoices ? onStartReview : undefined} readOnly={!canVerifySupplierInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} vendors={vendors} canManage={canManageVendors} onDeactivateVendor={onDeactivateVendor} onReactivateVendor={onReactivateVendor} />;
-  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}{correctionDialog}</div>;
+  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} expenses={expenses} settlementMatches={settlementMatches} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}{correctionDialog}</div>;
 };
 
 export default InvoicesRoute;

@@ -4,16 +4,18 @@ import { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Pa
 import { buildExpenseReport, buildPayrollReportWithContext, buildProjectCostReport, buildProjectInvoiceReport, buildProjectLaborAggregateReport, ProjectCostReportRow } from "../../utils/projectReports";
 import { CostPayrollRecord } from "../../utils/projectCosting";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
+import type { FinancialTransactionMatch } from "../../lib/cashBanking.ts";
+import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
 
-interface ProjectReportsProps { projects: Project[]; invoices: InvoiceData[]; invoiceAllocations: InvoiceProjectAllocation[]; expenses: Expense[]; fxSnapshots?: readonly FinancialFxSnapshot[]; workers: Worker[]; assignments: ProjectWorkerAssignment[]; periods: PayrollPeriod[]; runs: PayrollRun[]; entries: PayrollEntry[]; payrollAllocations: PayrollProjectAllocation[]; projectLaborAggregates?: readonly ProjectLaborCostAggregate[]; laborSource?: ProjectLaborSource; payrollDetailVisible?: boolean; onExport?: () => void; }
+interface ProjectReportsProps { projects: Project[]; invoices: InvoiceData[]; invoiceAllocations: InvoiceProjectAllocation[]; expenses: Expense[]; fxSnapshots?: readonly FinancialFxSnapshot[]; workers: Worker[]; assignments: ProjectWorkerAssignment[]; periods: PayrollPeriod[]; runs: PayrollRun[]; entries: PayrollEntry[]; payrollAllocations: PayrollProjectAllocation[]; projectLaborAggregates?: readonly ProjectLaborCostAggregate[]; laborSource?: ProjectLaborSource; payrollDetailVisible?: boolean; onExport?: () => void; settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>; settlementMatches?: readonly FinancialTransactionMatch[]; today?: string; }
 type ReportTab = "cost" | "invoices" | "payroll" | "expenses";
 
-export const ProjectReports: React.FC<ProjectReportsProps> = ({ projects, invoices, invoiceAllocations, expenses, fxSnapshots = [], workers, periods, runs, entries, payrollAllocations, projectLaborAggregates = [], laborSource, payrollDetailVisible, onExport }) => {
+export const ProjectReports: React.FC<ProjectReportsProps> = ({ projects, invoices, invoiceAllocations, expenses, fxSnapshots = [], workers, periods, runs, entries, payrollAllocations, projectLaborAggregates = [], laborSource, payrollDetailVisible, onExport, settlementProjections, settlementMatches = [], today }) => {
   const [tab, setTab] = useState<ReportTab>("cost");
   const showPayrollDetail = payrollDetailVisible ?? (laborSource === undefined || laborSource === "detail");
   const payroll: CostPayrollRecord[] = runs.map((run) => ({ id: run.id, status: run.status, entries: entries.filter((entry) => entry.payrollRunId === run.id), allocations: payrollAllocations.filter((allocation) => entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)) }));
-  const costRows = useMemo(() => buildProjectCostReport(projects, invoices, invoiceAllocations, payroll, expenses, { projectLaborAggregates, laborSource, fxSnapshots }), [projects, invoices, invoiceAllocations, payroll, expenses, projectLaborAggregates, laborSource, fxSnapshots]);
-  const invoiceRows = useMemo(() => buildProjectInvoiceReport(projects, invoices, invoiceAllocations), [projects, invoices, invoiceAllocations]);
+  const costRows = useMemo(() => buildProjectCostReport(projects, invoices, invoiceAllocations, payroll, expenses, { projectLaborAggregates, laborSource, fxSnapshots, settlementMatches }), [projects, invoices, invoiceAllocations, payroll, expenses, projectLaborAggregates, laborSource, fxSnapshots, settlementMatches]);
+  const invoiceRows = useMemo(() => buildProjectInvoiceReport(projects, invoices, invoiceAllocations, settlementProjections, today), [projects, invoices, invoiceAllocations, settlementProjections, today]);
   const payrollRows = useMemo(() => buildPayrollReportWithContext(projects, workers, periods, runs, entries, payrollAllocations), [projects, workers, periods, runs, entries, payrollAllocations]);
   const aggregateRows = useMemo(() => buildProjectLaborAggregateReport(projects, projectLaborAggregates), [projects, projectLaborAggregates]);
   const expenseRows = useMemo(() => buildExpenseReport(projects, expenses), [projects, expenses]);

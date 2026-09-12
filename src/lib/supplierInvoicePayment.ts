@@ -1,37 +1,12 @@
-import type { Expense, InvoiceData } from "../types.ts";
+import type { InvoiceData } from "../types.ts";
 import { financialId, stableFinancialFingerprint, type FinancialTransaction } from "./cashBanking.ts";
-import type { FinancialSettlementSummary } from "./financialSettlement.ts";
+export { deriveSupplierInvoicePaymentState, type SupplierInvoicePaymentDisplayState } from "./supplierInvoiceSettlement.ts";
 
-export type SupplierInvoicePaymentDisplayState = "PAID" | "PARTIALLY_PAID" | "OVERDUE" | "UNPAID" | "VOID";
 export type SupplierInvoicePaymentMode = "PAID" | "PARTIALLY_PAID";
 
 function money(value: unknown) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.round((numeric + Number.EPSILON) * 100) / 100 : 0;
-}
-
-export function deriveSupplierInvoicePaymentState(
-  invoice: Pick<InvoiceData, "reviewStatus" | "lifecycleStatus" | "dueDate">,
-  expense: Pick<Expense, "status" | "amount">,
-  settlement: Pick<FinancialSettlementSummary, "settlementBasis" | "reconciledCashPaid" | "outstanding"> | null | undefined,
-  today = new Date().toISOString().slice(0, 10),
-): SupplierInvoicePaymentDisplayState {
-  if (invoice.lifecycleStatus === "VOID" || expense.status === "VOID") return "VOID";
-
-  const basis = Math.max(0, money(settlement?.settlementBasis ?? expense.amount));
-  const paid = Math.max(0, money(settlement?.reconciledCashPaid));
-  const outstanding = Math.max(0, money(settlement?.outstanding ?? basis - paid));
-
-  if (basis > 0.005 && outstanding <= 0.005) return "PAID";
-  if (paid > 0.005) return "PARTIALLY_PAID";
-
-  const overdue = Boolean(
-    invoice.reviewStatus === "VERIFIED"
-      && invoice.dueDate
-      && /^\d{4}-\d{2}-\d{2}$/.test(invoice.dueDate)
-      && invoice.dueDate < today,
-  );
-  return overdue ? "OVERDUE" : "UNPAID";
 }
 
 export function supplierInvoicePaymentAmount(

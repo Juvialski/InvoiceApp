@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HOSTED EXACT-SHA QA CERTIFICATION COMPLETE / COMPANY DOCX CONVERTER RUNTIME CERTIFICATION BLOCKED / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — SUPPLIER PAYABLES SETTLEMENT CORRECTIVE PHASE IMPLEMENTED / HOSTED EXACT-SHA QA CERTIFICATION COMPLETE FOR PRIOR BASELINE / COMPANY DOCX CONVERTER RUNTIME CERTIFICATION BLOCKED / WAVE 4D SMS PROVIDER IMPLEMENTATION IN PROGRESS / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-12**
 
@@ -84,7 +84,15 @@ The next work must follow this order unless the user explicitly reprioritizes it
    - a concrete Payroll approval defect was fixed by sharing the reduced period source identity between calculation and approval fingerprints; no migration or database contract change was required;
    - the QA company currently has no safe subcontract/claim fixture, so subcontract settlement remains `NOT TESTED`/fixture-blocked rather than represented as a pass. Gmail provider sync, server-authority template upload, and LibreOffice company-template conversion remain environment/provider-limited and are not claimed as certified.
 
-4. **Hosted exact-SHA QA certification after merge — COMPLETE for application SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`**
+3A. **Supplier Payables Settlement Truth & Consistency Audit — IMPLEMENTED in the current corrective branch; exact hosted QA pending merge**
+   - the observed zero-card/zero-row failure was traced to the verification-shaped supplier `Expense` being intentionally created as `DRAFT`, while settlement/reporting code treated every linked invoice as transferred with zero invoice payable and the generic Expense gate rejected the DRAFT authority;
+   - the corrected contract keeps that supplier-derived Expense `DRAFT`, leaves generic direct DRAFT Expense behavior unchanged, and makes the verified linked Expense the payable/settlement authority without mutating its lifecycle during payment;
+   - supplier payment state is now derived from confirmed Cash & Banking evidence only. Document/OCR `amountPaid` remains separately visible evidence and cannot produce `PAID` or reduce outstanding. Reversed matches restore outstanding, legacy invoice-target matches remain visible through the linked Expense projection, and date-only overdue logic uses strict `due_date <` company business date;
+   - Supplier Invoices, linked Expense detail, Cash & Banking candidates/target context, Dashboard, Projects, Reports, Assistant, correction previews, and invoice/project exports consume the shared projection. Verified project cost remains unchanged by settlement;
+   - local validation on this branch includes clean Supabase replay/pgTAP (45 files, 1,531 tests), focused TypeScript/domain tests, production build/lint, and demo browser evidence (78 scenarios, 34 routes, 4 viewports, 59 interactions, zero console/page/network/overflow failures). This is local/pre-merge evidence, not hosted QA certification;
+   - the new migration `20260912082656_supplier_payables_settlement_consistency` must be promoted only to the intended QA target after the exact merged application SHA is live and migration parity is checked. Production remains read-only.
+
+4. **Hosted exact-SHA QA certification after merge — COMPLETE for prior baseline; rerun required for the corrective branch after merge**
    - Render QA service `srv-dafno1id0e5s73d6e3b0`, deployment `dep-daidc37qj5pc73ac6ta0`, is live at `https://hydroqualisense-qa.onrender.com` from the exact certified SHA;
    - `/api/health` reports `environment=qa`, logical deployment ID `qa-hydroqualisense`, repository SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`, and migration level `20260911141452`;
    - QA Supabase project `vrpuznofrntyqsbugrib` is independently distinct from production project `qijjshdwiylojvqojxyz`;
