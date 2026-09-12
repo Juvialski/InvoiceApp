@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — COMPANY DOCX COMPATIBILITY IMPLEMENTATION COMPLETE / CONVERTER RUNTIME CERTIFICATION BLOCKED / PHASE 3 LOCAL-QA REGRESSION SWEEP COMPLETE / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — HOSTED EXACT-SHA QA CERTIFICATION COMPLETE / COMPANY DOCX CONVERTER RUNTIME CERTIFICATION BLOCKED / WAVE 4D MESSAGING-PROVIDER WORK NEXT / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-12**
 
@@ -38,7 +38,8 @@ Relevant completed product work:
 - local branch -> real QA development harness plus canonical PDF preview/download-byte foundation and initial PDF renderer hardening — PR #146;
 - staged local-QA/UI/PDF quality plan — PR #147;
 - local-QA browser-key hardening, including rejection of privileged legacy `service_role` JWTs — PR #148;
-- comprehensive authenticated Local-QA UI/UX redo — PR #150, with 57 authenticated scenarios covering all 16 canonical top-level routes plus the mobile Documents check, three target viewport profiles, and responsive/action fixes for Projects, Procurement, and Equipment.
+- comprehensive authenticated Local-QA UI/UX redo — PR #150, with 57 authenticated scenarios covering all 16 canonical top-level routes plus the mobile Documents check, three target viewport profiles, and responsive/action fixes for Projects, Procurement, and Equipment;
+- Phase 3 supported/fixture-backed Local-QA functional regression sweep — PR #155, including the RFQ coverage correction and Payroll calculation/approval freshness fix.
 
 ## Important correction — PR #146 did not finish the UI/UX and PDF quality program
 
@@ -73,21 +74,28 @@ The next work must follow this order unless the user explicitly reprioritizes it
    - Settings now provides an editable per-user document identity, so new issued documents use a human-readable Prepared by / Processed by name independent of the sign-in email; existing issued snapshots remain immutable;
    - company-template DOCX and finalized company-template PDF remain separate output paths. This phase does not claim high-fidelity template conversion where the supported converter is unavailable.
 
-3. **Functional regression sweep using local QA — COMPLETE for supported/fixture-backed workflows; hosted certification remains next**
+3. **Functional regression sweep using local QA — COMPLETE for supported/fixture-backed workflows**
    - retest the workflows changed or touched during the UI/PDF remediation;
    - fix schema-compatible defects immediately;
    - if a defect requires DB/RLS/RPC/migration changes, use local Docker/Supabase rather than applying unmerged schema work to shared QA.
    - the Supplier Invoice slice now centralizes source monetary semantics, removes false VAT/subtotal comparisons, preserves unresolved values, simplifies buyer identity to optional source evidence, and keeps Vendor -> verification -> one authoritative Expense boundaries intact;
-   - focused Supplier Invoice regression, clean local Supabase replay/pgTAP, migration/upgrade validation, targeted authenticated/demo browser checks, and build/lint evidence are recorded on the current implementation branch; this does not certify the merged/hosted head;
-   - the integrated Local-QA rerun now records 57/57 route scenarios and 7/7 functional workflows passing, including RFQ/quotation comparison, partial PO receipt/close guard/Warehouse continuation, Supplier Invoice -> authoritative Expense -> Cash routing, Client Invoice -> Collection -> Cash routing, Payroll freshness/approval, Documents -> Compose review, and stale-record recovery;
+   - focused Supplier Invoice regression, clean local Supabase replay/pgTAP, migration/upgrade validation, targeted authenticated/demo browser checks, and build/lint evidence are recorded on the implementation history;
+   - the integrated Local-QA rerun records 57/57 route scenarios and 7/7 functional workflows passing, including RFQ/quotation comparison, partial PO receipt/close guard/Warehouse continuation, Supplier Invoice -> authoritative Expense -> Cash routing, Client Invoice -> Collection -> Cash routing, Payroll freshness/approval, Documents -> Compose review, and stale-record recovery;
    - a concrete Payroll approval defect was fixed by sharing the reduced period source identity between calculation and approval fingerprints; no migration or database contract change was required;
    - the QA company currently has no safe subcontract/claim fixture, so subcontract settlement remains `NOT TESTED`/fixture-blocked rather than represented as a pass. Gmail provider sync, server-authority template upload, and LibreOffice company-template conversion remain environment/provider-limited and are not claimed as certified.
 
-4. **Hosted exact-SHA QA certification after merge**
-   - exact merged `main` SHA must be deployed to the intended Render QA service;
-   - verify deployment identity, migration parity/promotion when required, production separation, and applicable hosted authenticated/runtime checks.
+4. **Hosted exact-SHA QA certification after merge — COMPLETE for application SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`**
+   - Render QA service `srv-dafno1id0e5s73d6e3b0`, deployment `dep-daidc37qj5pc73ac6ta0`, is live at `https://hydroqualisense-qa.onrender.com` from the exact certified SHA;
+   - `/api/health` reports `environment=qa`, logical deployment ID `qa-hydroqualisense`, repository SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`, and migration level `20260911141452`;
+   - QA Supabase project `vrpuznofrntyqsbugrib` is independently distinct from production project `qijjshdwiylojvqojxyz`;
+   - repository and QA migration heads both equal `20260911141452_supplier_invoice_buyer_simplification`; the protected release independently verified parity before and after and skipped migration promotion, so Phase 4 performed no QA migration write;
+   - the exact-head Protected QA Release retry passed: authenticated session persistence, unauthenticated `/settings` protection, 9/9 hosted route contracts, zero console/page/network errors, and a real authenticated engineering-document Storage upload/read/hash/cleanup probe all passed;
+   - the first hosted route attempt had transient browser-side Supabase CORS failures only on `/dashboard`; a same-exact-SHA retry passed cleanly without deployment, migration, configuration, or code changes, so it is recorded as transient evidence rather than hidden;
+   - Phase 3 regression-sensitive behavior remains represented by its exact merged code/tests and Local-QA evidence: the RFQ-tab coverage fix and Payroll freshness fix are present in PR #155; programmatic PO/Client Invoice PDF Preview/Download and Documents -> Compose review were not modified by PR #155. The hosted route harness proves that exact merged code tree is what is deployed but does not falsely claim to have re-clicked every Phase 3 workflow;
+   - QA currently displays Gmail authorization as expired/revoked and no SMS provider configured. No uncontrolled email or SMS was sent. SMS remains truthfully unavailable until provider-backed QA exists;
+   - company-template PDF conversion remains `UNAVAILABLE` on the native runtime when the supported converter is absent. Server-authority safe-link template upload and subcontract settlement retain their previously documented environment/fixture limitations.
 
-5. **Wave 4D messaging-provider selection/integration**
+5. **Wave 4D messaging-provider selection/integration — NEXT**
    - only after the quality/certification sequence above is complete;
    - real SMS remains `Not configured` until an approved provider is selected, configured with server-side credentials, and runtime-tested in QA.
 
@@ -102,7 +110,7 @@ The next work must follow this order unless the user explicitly reprioritizes it
 
 10. Final pre-production security/data-integrity certification before broad rollout.
 
-Do not skip the remaining broader regression and hosted exact-SHA quality phases merely because this Supplier Invoice slice is complete.
+Do not skip the remaining Wave 4D provider/readiness work merely because the current exact application SHA passed hosted QA.
 
 ## Current Wave 4D product state — incomplete
 
@@ -117,7 +125,7 @@ The current implementation provides:
 
 Wave 4D remains incomplete because no outbound SMS provider is currently approved/configured/runtime-tested. The authoritative completion criteria remain in `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
-Provider work must not preempt the remaining PDF, regression, and hosted-certification sequence above.
+Provider selection/integration is now the next implementation phase. Worker Registration remains paused.
 
 ## Local-QA development boundary
 
@@ -159,6 +167,8 @@ Synthetic route and engine coverage passes for both Purchase Order and Client In
 ## QA / release-readiness track
 
 `QA CERTIFICATION: NOT READY`
+
+Phase 4 hosted exact-SHA certification is complete for application SHA `32e5faf3666095391e7df09244ac0f0bb4479c81`. This status is narrower than overall release readiness. Wave 4D provider selection/runtime evidence remains incomplete, Gmail currently requires reauthorization, subcontract settlement remains fixture-blocked, and optional company-template conversion/server-authority limitations remain explicitly uncertified. Those limitations are not converted into PASS merely because the core hosted release gate is green.
 
 Historical QA evidence remains useful for the exact SHAs and contracts it actually exercised, but it must not be generalized to newer heads.
 
