@@ -132,7 +132,7 @@ function classifyExternalTarget(value: string): ExternalTargetClassification {
   if (/^ftp:/i.test(target)) return { kind: "BLOCKED", reason: "the target is an FTP resource" };
   if (/^\/\//.test(target)) return { kind: "BLOCKED", reason: "the target is protocol-relative" };
   if (/^\\\\/.test(target)) return { kind: "BLOCKED", reason: "the target is a UNC/network path" };
-  if (/^[A-Za-z]:[\\/]/.test(target) || /^[\\/]/.test(target) || target.includes("\\")) {
+  if (/^[A-Za-z]:[\\/]/.test(target) || target.includes("\\")) {
     return { kind: "BLOCKED", reason: "the target is a local or network path" };
   }
   if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(target)) return { kind: "BLOCKED", reason: "the target uses an unsupported resource scheme" };
@@ -185,7 +185,7 @@ function xmlAttributes(tag: string): ReadonlyMap<string, string> {
 
 function relationshipElements(xml: string): readonly string[] {
   const elements: string[] = [];
-  for (const match of xml.matchAll(/<Relationship\b/gi)) {
+  for (const match of xml.matchAll(/<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?Relationship\b/gi)) {
     const start = match.index ?? -1;
     if (start < 0) continue;
     let quote = "";
