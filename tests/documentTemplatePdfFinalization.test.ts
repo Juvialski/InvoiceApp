@@ -18,6 +18,7 @@ import {
 import {
   clearDocumentPdfFinalizationHealthCache,
   createDocumentPdfConverter,
+  DOCUMENT_PDF_UNAVAILABLE_MESSAGE,
   DocumentPdfFinalizationError,
   finalizeMergedDocxToPdf,
   getDocumentPdfFinalizationHealth,
@@ -193,7 +194,7 @@ async function setupRouterServer(options: {
     primaryProviderSupplier: () => storage.provider,
     serverSupabaseSupplier: () => serverSupabase,
     pdfConverterSupplier: options.converter ? () => options.converter! : undefined,
-    pdfCapabilitySupplier: () => ({ status: "UNAVAILABLE", message: "High-fidelity PDF conversion is unavailable on this deployment." }),
+    pdfCapabilitySupplier: () => ({ status: "UNAVAILABLE", message: DOCUMENT_PDF_UNAVAILABLE_MESSAGE }),
   }));
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -384,6 +385,7 @@ test("PDF capability endpoint reports unavailable without claiming availability"
     assert.equal(response.status, 200);
     const payload = await response.json();
     assert.equal(payload.data.status, "UNAVAILABLE");
+    assert.match(payload.data.message, /programmatic PDF fallback/i);
     assert.doesNotMatch(JSON.stringify(payload.data), /\bAvailable\b/i);
   } finally {
     await closeServer(fixture.server);

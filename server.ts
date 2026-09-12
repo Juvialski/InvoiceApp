@@ -23,7 +23,7 @@ import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyIn
 import { validatePublicProspectSubmission } from "./src/lib/publicProspect.ts";
 import { releaseMetadataFromEnv } from "./src/server/releaseMetadata.ts";
 import { loadServerPdfLogo } from "./src/server/documentPdfLogo.ts";
-import { getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
+import { DOCUMENT_PDF_UNAVAILABLE_MESSAGE, getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
 import { getSmsProviderStatus } from "./src/server/messaging/smsProvider.ts";
 import {
   chooseBestExtractionCandidate,
@@ -725,7 +725,7 @@ app.get("/api/health", async (_req, res) => {
   try {
     documentPdfFinalization = await getDocumentPdfFinalizationHealth(process.env);
   } catch {
-    documentPdfFinalization = { status: "UNAVAILABLE", message: "High-fidelity PDF conversion is unavailable on this deployment." } as const;
+    documentPdfFinalization = { status: "UNAVAILABLE", message: DOCUMENT_PDF_UNAVAILABLE_MESSAGE } as const;
   }
   res.json({
     status: "ok",

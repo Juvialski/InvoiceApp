@@ -14,6 +14,7 @@ export const MAX_FINALIZED_PDF_BYTES = 25 * 1024 * 1024;
 export const DOCUMENT_PDF_TEMP_PREFIX = "hydroqualisense-pdf-";
 export const DOCUMENT_PDF_CONVERTER_PATH_ENV = "DOCUMENT_PDF_CONVERTER_PATH";
 export const DOCUMENT_PDF_CONVERTER_TIMEOUT_ENV = "DOCUMENT_PDF_CONVERTER_TIMEOUT_MS";
+export const DOCUMENT_PDF_UNAVAILABLE_MESSAGE = "High-fidelity PDF conversion is unavailable on this deployment. Use the existing programmatic PDF fallback for final PDF output.";
 
 const DEFAULT_CONVERTER_TIMEOUT_MS = 45_000;
 const MAX_CONVERTER_TIMEOUT_MS = 120_000;
@@ -199,10 +200,10 @@ async function probeConverter(executable: string): Promise<ProbeResult> {
     await mkdir(profilePath);
     const result = await runProcess(executable, converterArgs(profilePath, ["--version"]), CAPABILITY_TIMEOUT_MS);
     if (result.timedOut || result.code !== 0 || result.spawnError) {
-      return { status: "UNAVAILABLE", message: "High-fidelity PDF conversion is unavailable on this deployment." };
+      return { status: "UNAVAILABLE", message: DOCUMENT_PDF_UNAVAILABLE_MESSAGE };
     }
     const converterVersion = versionFromOutput(result.stdout, result.stderr);
-    if (!converterVersion) return { status: "UNAVAILABLE", message: "High-fidelity PDF conversion is unavailable on this deployment." };
+    if (!converterVersion) return { status: "UNAVAILABLE", message: DOCUMENT_PDF_UNAVAILABLE_MESSAGE };
     return {
       status: "AVAILABLE",
       converterId: "libreoffice",
@@ -211,7 +212,7 @@ async function probeConverter(executable: string): Promise<ProbeResult> {
       executable,
     };
   } catch {
-    return { status: "UNAVAILABLE", message: "High-fidelity PDF conversion is unavailable on this deployment." };
+    return { status: "UNAVAILABLE", message: DOCUMENT_PDF_UNAVAILABLE_MESSAGE };
   } finally {
     if (directory) await rm(directory, { recursive: true, force: true, maxRetries: 2 }).catch(() => {});
   }
@@ -221,7 +222,7 @@ async function probeConverterWithCache(env: Readonly<Record<string, string | und
   const key = `${process.platform}|${String(env[DOCUMENT_PDF_CONVERTER_PATH_ENV] || "")}`;
   const cached = healthCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.result;
-  let result: ProbeResult = { status: "UNAVAILABLE", message: "High-fidelity PDF conversion is unavailable on this deployment." };
+  let result: ProbeResult = { status: "UNAVAILABLE", message: DOCUMENT_PDF_UNAVAILABLE_MESSAGE };
   for (const executable of converterCandidates(env)) {
     const candidate = await probeConverter(executable);
     if (candidate.status === "AVAILABLE") {
@@ -330,7 +331,7 @@ export async function createDocumentPdfConverter(
 ): Promise<DocumentPdfConverter> {
   const result = await probeConverterWithCache(env);
   if (result.status !== "AVAILABLE" || !result.executable) {
-    throw new DocumentPdfFinalizationError("PDF_CONVERTER_UNAVAILABLE", "High-fidelity PDF conversion is unavailable on this deployment. Use the existing PDF fallback.");
+    throw new DocumentPdfFinalizationError("PDF_CONVERTER_UNAVAILABLE", DOCUMENT_PDF_UNAVAILABLE_MESSAGE);
   }
   return new LibreOfficePdfConverter(result.executable, result.converterVersion || "unknown", timeoutFromEnv(env));
 }

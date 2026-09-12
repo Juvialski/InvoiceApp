@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — LOCAL-QA UI/UX REDO COMPLETE / PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / SUPPLIER INVOICE CORRECTNESS SLICE COMPLETE / BROADER FUNCTIONAL REGRESSION IN PROGRESS / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
+Status: **CURRENT — LOCAL-QA UI/UX REDO COMPLETE / PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / COMPANY DOCX COMPATIBILITY IMPLEMENTATION COMPLETE / CONVERTER RUNTIME CERTIFICATION BLOCKED / SUPPLIER INVOICE CORRECTNESS SLICE COMPLETE / BROADER FUNCTIONAL REGRESSION IN PROGRESS / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
 Date: **2026-09-12**
 Repository: `Juvialski/InvoiceApp`
 
@@ -114,6 +114,12 @@ Settings now provides an editable per-user document identity. New issued documen
 The overall Local-QA command remains fail-closed because the QA account does not expose `New RFQ` for the three Procurement viewport scenarios. That is a separate coverage blocker and must not be described as PDF failure or overall QA certification.
 
 This result does not certify company-template DOCX or finalized company-template PDF output. The supported high-fidelity converter remains truthfully unavailable where it is not operational.
+
+## Supplemental result — Company-template compatibility and converter investigation
+
+The DOCX validator now uses an explicit OOXML relationship policy. Official inert Word `mailto:` and `http(s):` hyperlink relationships are accepted and preserved without application or converter dereferencing. Equivalent HYPERLINK field codes in `w:instrText` and `w:fldSimple` are treated the same way. Linked HTTPS media, file/FTP/protocol-relative/UNC/local resources, attached templates, external data, OLE/objects, unknown external relationships, and `word/externalLinks/*` resource parts remain rejected with an accurate linked-resource explanation. The validator is reused for stored-template reads and activation as well as upload, starter, AI-generated, duplicate, analyze, binding, download, deterministic merge, and PDF finalization paths.
+
+Synthetic engine and route tests pass for both Purchase Order and Client Invoice safe-link uploads, extraction/merge preservation, forbidden resources, AI/starter origins, and failed metadata cleanup. Authenticated Local-QA browser evidence passes for the new forbidden-resource message and independent converter capability panel. Safe-link upload is not runtime-certified against the isolated QA backend: the local QA server has no server-only `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_STORAGE_SERVER_KEY`, so the server-authority storage path returns 503 before metadata creation. The native runtime also has no `soffice`/`libreoffice` executable and `DOCUMENT_PDF_CONVERTER_PATH` is unset; the capability correctly remains `UNAVAILABLE` and explains the programmatic fallback. The existing `Dockerfile.document-pdf` is unchanged as the approved optional converter architecture; local Docker was unavailable, so real LibreOffice conversion and deployed container certification remain open.
 
 ## Phase 3 result — Supplier Invoice systemic correctness slice
 
@@ -261,14 +267,15 @@ A green PR, merge, Render deployment, local-QA success, hosted-QA success, or do
 
 1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE in PR #150**
 2. **Deep PDF/export visual certification — COMPLETE for programmatic fallback**
-3. **Functional regression sweep — Supplier Invoice systemic correctness slice complete; broader workflow sweep remains**
-4. **Hosted exact-SHA QA certification**
-5. **Wave 4D messaging-provider selection/integration**
-6. **Wave 4D remaining readiness/completion evidence**
-7. **Worker Registration — PAUSED until explicit user resume**
-8. Site Attendance
-9. Face-Recognition Attendance — design/privacy/security first
-10. Final pre-production security/data-integrity certification
+3. **Company-template compatibility implementation — COMPLETE on the current branch; converter runtime certification remains blocked by environment configuration**
+4. **Functional regression sweep — Supplier Invoice systemic correctness slice complete; broader workflow sweep remains**
+5. **Hosted exact-SHA QA certification**
+6. **Wave 4D messaging-provider selection/integration**
+7. **Wave 4D remaining readiness/completion evidence**
+8. **Worker Registration — PAUSED until explicit user resume**
+9. Site Attendance
+10. Face-Recognition Attendance — design/privacy/security first
+11. Final pre-production security/data-integrity certification
 
 Do not skip from the completed Phase 1 pass directly to provider work.
 

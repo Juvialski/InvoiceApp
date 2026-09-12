@@ -48,7 +48,7 @@ Settings can run the same finalization pipeline with a bounded, non-authoritativ
 
 Conversion is server-only. DOCX input remains untrusted after Wave 4A validation. The finalization path:
 
-- rejects macros, unsafe ZIP paths, external relationships, external links, unsupported compression, and unsafe expansion ratios;
+- rejects macros, unsafe ZIP paths, linked external/local/network resources, unsupported compression, and unsafe expansion ratios; official inert Word `mailto:` and `http(s):` hyperlinks are preserved and are never resolved by the application or converter;
 - uses fixed filenames inside a random temporary directory;
 - invokes `soffice` with `spawn` and `shell:false`, never a shell command string;
 - gives LibreOffice an isolated temporary user profile;
@@ -74,6 +74,6 @@ The database requires a PDF evidence row to reference an existing matching DOCX 
 
 ## Fidelity limitations
 
-LibreOffice is the supported self-hosted renderer, not Microsoft Word. Complex Word-only features, uncommon fonts, embedded external content, macros, unsupported fields, and provider-specific rendering differences may not reproduce exactly. External content is rejected rather than fetched. The health/capability check and final PDF validation are deliberately fail-closed; the existing programmatic PDF remains the compatibility fallback.
+LibreOffice is the supported self-hosted renderer, not Microsoft Word. Complex Word-only features, uncommon fonts, embedded external content, macros, unsupported fields, and provider-specific rendering differences may not reproduce exactly. Linked external content is rejected rather than fetched; ordinary inert Word hyperlinks are retained without dereferencing. The health/capability check and final PDF validation are deliberately fail-closed; the existing programmatic PDF remains the compatibility fallback.
 
 Wave 4C extends this evidence into outbound delivery history. SMS remains provider-neutral foundation only until an approved provider is configured and runtime-tested.
