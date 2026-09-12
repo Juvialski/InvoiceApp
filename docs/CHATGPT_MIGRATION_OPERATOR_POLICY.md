@@ -48,11 +48,30 @@ Before any production migration write, ChatGPT must:
 
 1. identify the exact Render/deployment-to-Supabase mapping for every intended client;
 2. verify the target is not QA and is exactly the approved client project;
-3. verify current repository SHA, migration head, live database history, and required recovery/backup prerequisites;
+3. verify current repository SHA, migration head, live database history, and required recovery/backup prerequisites or a valid explicit exception below;
 4. scope writes only to the explicitly authorized production deployment(s);
 5. apply missing committed migrations in canonical order while preserving canonical migration history;
 6. independently verify parity, application health, and relevant security/data-integrity contracts;
-7. stop that target on any safety, migration, history, backup, or compatibility blocker instead of broadening the write.
+7. stop that target on any safety, migration, history, compatibility, or unmet recovery/backup blocker not covered by the explicit exception below instead of broadening the write.
+
+### Explicit Supabase Free-tier no-backup exception
+
+When the approved production Supabase project is on a tier where a provider-managed production backup or restore point is unavailable, an explicit user instruction acknowledging that limitation may waive **only** the provider-backup prerequisite for one identified production deployment and one intended release. This subsection is the narrow authoritative exception to broader backup-mandatory wording in `AGENTS.md`, the deployment runbook, or older handoff text.
+
+The exception is valid only when all of the following remain true:
+
+- the exact production Render/deployment-to-Supabase mapping is proven and the target is not QA;
+- the user explicitly authorizes proceeding without a provider backup for that production deployment;
+- live production migration history is canonical and non-divergent up to its current head;
+- every missing migration is already committed on the approved release, has passed the applicable QA/database/security validation, and is applied forward-only in canonical order;
+- the operator inspects the missing set and refuses any reset, destructive rewrite, irreversible data deletion, or other migration whose risk requires a separate explicit destructive-operation authorization;
+- if the intended application SHA is not yet live, database-first promotion is allowed only when the missing migration set is demonstrably backward-compatible with the currently deployed application; otherwise the operator must stop until the compatible application release can be deployed;
+- canonical migration version/name history is preserved exactly;
+- post-promotion migration parity and relevant runtime/security/data-integrity checks are performed against the production target.
+
+Using this exception means there may be no provider restore point if the release fails. The operator must state that fact in the release evidence and treat forward correction as the recovery path. Do not fabricate `database_backup_runs`, restore-drill records, or other backup evidence merely to satisfy a gate.
+
+This exception does not waive exact-target proof, client isolation, canonical migration history, financial/security invariants, destructive-operation safeguards, application compatibility, or post-promotion verification.
 
 Production promotion must never silently expand from one client to all clients. A fleet-wide promotion requires an explicit fleet instruction.
 
