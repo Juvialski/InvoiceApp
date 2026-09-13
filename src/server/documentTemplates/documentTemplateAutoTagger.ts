@@ -18,6 +18,7 @@ import {
 
 export type DocumentTemplatePartKind = "DOCUMENT" | "HEADER" | "FOOTER";
 export type DocumentTemplateAnchorKind = "PARAGRAPH" | "CELL";
+export type DocumentTemplateAnchorInsertionMode = "REPLACE" | "AFTER_LABEL" | "ADJACENT_CELL";
 
 export interface DocumentTemplateAnchor {
   readonly id: string;
@@ -30,6 +31,8 @@ export interface DocumentTemplateAnchor {
   readonly cellIndex?: number;
   readonly text: string;
   readonly targetText?: string;
+  readonly insertionMode?: DocumentTemplateAnchorInsertionMode;
+  readonly relatedCellIndex?: number;
   readonly occurrence: number;
 }
 
@@ -163,11 +166,12 @@ function keyForOccurrence(anchor: Pick<DocumentTemplateAnchor, "partName" | "kin
   return `${anchor.partName}|${anchor.kind}|${anchor.text}`;
 }
 
-function anchorId(anchor: Pick<DocumentTemplateAnchor, "partName" | "kind" | "paragraphIndex" | "tableIndex" | "rowIndex" | "cellIndex">, occurrence: number): string {
+function anchorId(anchor: Pick<DocumentTemplateAnchor, "partName" | "kind" | "paragraphIndex" | "tableIndex" | "rowIndex" | "cellIndex">, occurrence: number, slot?: string): string {
+  const suffix = slot ? `:slot:${slot}` : "";
   if (anchor.kind === "CELL") {
-    return `${anchor.partName}:cell:${anchor.tableIndex}:${anchor.rowIndex}:${anchor.cellIndex}:occurrence:${occurrence}`;
+    return `${anchor.partName}:cell:${anchor.tableIndex}:${anchor.rowIndex}:${anchor.cellIndex}${suffix}:occurrence:${occurrence}`;
   }
-  return `${anchor.partName}:paragraph:${anchor.paragraphIndex}:occurrence:${occurrence}`;
+  return `${anchor.partName}:paragraph:${anchor.paragraphIndex}${suffix}:occurrence:${occurrence}`;
 }
 
 function suggestedFieldKey(headerText: string): string | undefined {
@@ -204,14 +208,26 @@ function inspectPart(partName: string, xml: string, anchors: DocumentTemplateAnc
   const tables = tableFragments(xml);
   tables.forEach((table, tableIndex) => {
     rowFragments(table.text).forEach((rowXml, rowIndex) => {
-      cellFragments(rowXml).forEach((cellXml, cellIndex) => {
+      const rowCells = cellFragments(rowXml);
+      const rowTexts = rowCells.map((cellXml) => normalizeText(textFromWordXml(cellXml)));
+      rowCells.forEach((cellXml, cellIndex) => {
         const text = normalizeText(textFromWordXml(cellXml));
         if (!text) return;
         const key = keyForOccurrence({ partName, kind: "CELL", text });
         const occurrence = (occurrences.get(key) || 0) + 1;
         occurrences.set(key, occurrence);
+        const relatedCellIndex = !rowTexts[cellIndex + 1] && /\btotal\b/i.test(text) ? cellIndex + 1 : undefined;
+        const insertionMode = relatedCellIndex !== undefined ? "ADJACENT_CELL" as const : /^.*:\s*$/.test(text) ? "AFTER_LABEL" as const : undefined;
         const base = { partName, partKind: kind, kind: "CELL" as const, paragraphIndex: -1, tableIndex, rowIndex, cellIndex, text, occurrence };
-        anchors.push({ ...base, id: anchorId(base, occurrence), targetText: targetTextFor(text) });
+        anchors.push({ ...base, id: anchorId(base, occurrence), targetText: targetTextFor(text), ...(insertionMode ? { insertionMode } : {}), ...(relatedCellIndex === undefined ? {} : { relatedCellIndex }) });
+        const currencyMatch = /\btotal\s*\(([^)]+)\)/i.exec(text);
+        if (currencyMatch?.[1]?.trim()) {
+          const currencyTarget = currencyMatch[1].trim();
+          const currencyKey = keyForOccurrence({ partName, kind: "CELL", text: currencyTarget });
+          const currencyOccurrence = (occurrences.get(currencyKey) || 0) + 1;
+          occurrences.set(currencyKey, currencyOccurrence);
+          anchors.push({ ...base, id: anchorId(base, currencyOccurrence, "currency"), targetText: currencyTarget, insertionMode: "REPLACE", occurrence: currencyOccurrence });
+        }
       });
     });
     const candidate = lineTableCandidate(partName, kind, tableIndex, table.text);
@@ -229,7 +245,8 @@ function inspectPart(partName: string, xml: string, anchors: DocumentTemplateAnc
     const occurrence = (occurrences.get(key) || 0) + 1;
     occurrences.set(key, occurrence);
     const base = { partName, partKind: kind, kind: "PARAGRAPH" as const, paragraphIndex, text, occurrence };
-    anchors.push({ ...base, id: anchorId(base, occurrence), targetText: targetTextFor(text) });
+    const insertionMode = /^.*:\s*$/.test(text) ? "AFTER_LABEL" as const : undefined;
+    anchors.push({ ...base, id: anchorId(base, occurrence), targetText: targetTextFor(text), ...(insertionMode ? { insertionMode } : {}) });
     paragraphIndex += 1;
   }
   if (!tables.length && !paragraphIndex) warnings.push(`No editable text anchors were found in ${partName}.`);
@@ -268,6 +285,9 @@ export function validateTemplateMappingAnalysisAgainstInventory(
 ): { ok: true; analysis: DocumentTemplateMappingAnalysis } | { ok: false; errors: readonly string[] } {
   const errors: string[] = [];
   const usedAnchors = new Set<string>();
+  const normalizedMappings = [...analysis.mappings];
+  const normalizationWarnings: string[] = [];
+  const unresolved = [...analysis.unresolved];
   for (const [index, mapping] of analysis.mappings.entries()) {
     if (mapping.unresolved) continue;
     if (!mapping.fieldKey || !isDocumentTemplateFieldKey(documentType, mapping.fieldKey)) {
@@ -280,37 +300,71 @@ export function validateTemplateMappingAnalysisAgainstInventory(
     }
     const anchor = inventory.anchors.find((candidate) => candidate.id === mapping.anchorId);
     if (!anchor) {
-      errors.push(`mapping ${index + 1} references an unknown source anchor.`);
+      normalizedMappings[index] = { ...mapping, fieldKey: undefined, targetText: undefined, unresolved: true };
+      normalizationWarnings.push(`Mapping ${index + 1} was left unresolved because its source anchor was not found.`);
+      unresolved.push(`Mapping ${index + 1} references an unknown source anchor.`);
       continue;
     }
-    if (usedAnchors.has(anchor.id)) errors.push(`mapping ${index + 1} duplicates a source anchor that is already mapped.`);
-    usedAnchors.add(anchor.id);
-    if (!mapping.targetText || !anchor.targetText || mapping.targetText !== anchor.targetText) {
-      errors.push(`mapping ${index + 1} no longer matches the uploaded source text.`);
+    if (usedAnchors.has(anchor.id)) {
+      normalizedMappings[index] = { ...mapping, fieldKey: undefined, targetText: undefined, unresolved: true };
+      normalizationWarnings.push(`Mapping ${index + 1} was left unresolved because its source anchor was already used.`);
+      unresolved.push(`Mapping ${index + 1} duplicates a source anchor.`);
+      continue;
     }
+    usedAnchors.add(anchor.id);
+    if (!anchor.targetText) {
+      normalizedMappings[index] = { ...mapping, fieldKey: undefined, targetText: undefined, unresolved: true };
+      normalizationWarnings.push(`Mapping ${index + 1} was left unresolved because its source value is not safely replaceable.`);
+      unresolved.push(`Mapping ${index + 1} does not identify a replaceable source value.`);
+      continue;
+    }
+    else if (mapping.targetText !== anchor.targetText) normalizationWarnings.push(`Mapping ${index + 1} target text was normalized from the verified source anchor.`);
+    if (anchor.targetText) normalizedMappings[index] = { ...mapping, targetText: anchor.targetText };
     if (getDocumentTemplateField(documentType, mapping.fieldKey)?.collection) {
-      errors.push(`mapping ${index + 1} is a repeating line field and must be mapped through a line table.`);
+      normalizedMappings[index] = { ...mapping, fieldKey: undefined, targetText: undefined, unresolved: true };
+      normalizationWarnings.push(`Mapping ${index + 1} was left unresolved because repeating fields require a line table.`);
+      unresolved.push(`Mapping ${index + 1} requires a repeating line table.`);
     }
   }
 
   const lineTable = analysis.lineTable;
+  let normalizedLineTable = lineTable;
   if (lineTable) {
-    if (!lineTable.candidateId) errors.push("The repeating line-table proposal does not identify a deterministic table candidate.");
+    let lineTableInvalid = false;
+    if (!lineTable.candidateId) lineTableInvalid = true;
     const candidate = lineTable.candidateId ? inventory.lineTableCandidates.find((item) => item.id === lineTable.candidateId) : undefined;
-    if (!candidate) errors.push("The repeating line-table proposal references an unknown table candidate.");
-    if (!inventory.lineTable || inventory.lineTable.id !== lineTable.candidateId) errors.push("The repeating line-item table is ambiguous or no longer uniquely identified.");
+    if (!candidate) lineTableInvalid = true;
+    if (!inventory.lineTable || inventory.lineTable.id !== lineTable.candidateId) lineTableInvalid = true;
     const columns = lineTable.columns || [];
     const usedColumns = new Set<number>();
     for (const [index, column] of columns.entries()) {
-      if (usedColumns.has(column.columnIndex)) errors.push(`line-table column ${index + 1} is mapped more than once.`);
+      if (usedColumns.has(column.columnIndex)) lineTableInvalid = true;
       usedColumns.add(column.columnIndex);
-      if (!candidate?.columns.some((item) => item.columnIndex === column.columnIndex)) errors.push(`line-table column ${index + 1} is outside the identified table.`);
-      if (!isDocumentTemplateFieldKey(documentType, column.fieldKey) || !getDocumentTemplateField(documentType, column.fieldKey)?.collection) errors.push(`line-table column ${index + 1} references an unavailable repeating field.`);
+      if (!candidate?.columns.some((item) => item.columnIndex === column.columnIndex)) lineTableInvalid = true;
+      if (!isDocumentTemplateFieldKey(documentType, column.fieldKey) || !getDocumentTemplateField(documentType, column.fieldKey)?.collection) lineTableInvalid = true;
     }
-    if (!columns.length) errors.push("The repeating line-table proposal does not contain column mappings.");
+    if (!columns.length) lineTableInvalid = true;
+    if (lineTableInvalid) {
+      normalizedLineTable = undefined;
+      normalizationWarnings.push("The repeating line-table proposal was left unresolved because its candidate or columns were ambiguous.");
+      unresolved.push("Repeating line-table mapping needs review.");
+    }
   }
-  if (analysis.mappings.some((mapping) => mapping.fieldKey?.startsWith("lines.")) && !lineTable) errors.push("Repeating line fields require a uniquely identified line-item table.");
-  return errors.length ? { ok: false, errors } : { ok: true, analysis };
+  if (normalizedMappings.some((mapping) => mapping.fieldKey?.startsWith("lines.")) && !normalizedLineTable) {
+    for (const [index, mapping] of normalizedMappings.entries()) {
+      if (!mapping.fieldKey?.startsWith("lines.")) continue;
+      normalizedMappings[index] = { ...mapping, fieldKey: undefined, targetText: undefined, unresolved: true };
+    }
+    normalizationWarnings.push("Repeating line fields were left unresolved because no unique line-item table was available.");
+    unresolved.push("Repeating line fields require a unique line-item table.");
+  }
+  if (errors.length) return { ok: false, errors };
+  return {
+    ok: true,
+    analysis: normalizationWarnings.length || normalizedLineTable !== analysis.lineTable
+      ? { ...analysis, mappings: normalizedMappings, unresolved, warnings: [...analysis.warnings, ...normalizationWarnings], ...(normalizedLineTable ? { lineTable: normalizedLineTable } : { lineTable: undefined }) }
+      : analysis,
+  };
 }
 
 function xmlEscapeText(value: string): string {
@@ -366,12 +420,31 @@ function normalizedSpan(source: string, target: string): readonly [number, numbe
   }
   const normalizedTarget = normalizeText(target);
   const normalizedIndex = normalized.indexOf(normalizedTarget);
-  if (normalizedIndex < 0) return undefined;
-  const second = normalized.indexOf(normalizedTarget, normalizedIndex + Math.max(normalizedTarget.length, 1));
-  if (second >= 0) throw new DocumentTemplatePreparationError("AMBIGUOUS_SOURCE_TEXT", "The selected source text occurs more than once in the identified Word location.");
-  const start = starts[normalizedIndex];
-  const end = ends[normalizedIndex + normalizedTarget.length - 1];
-  return start === undefined || end === undefined ? undefined : [start, end];
+  if (normalizedIndex >= 0) {
+    const second = normalized.indexOf(normalizedTarget, normalizedIndex + Math.max(normalizedTarget.length, 1));
+    if (second >= 0) throw new DocumentTemplatePreparationError("AMBIGUOUS_SOURCE_TEXT", "The selected source text occurs more than once in the identified Word location.");
+    const start = starts[normalizedIndex];
+    const end = ends[normalizedIndex + normalizedTarget.length - 1];
+    return start === undefined || end === undefined ? undefined : [start, end];
+  }
+
+  const compactSource = [...source].filter((character) => !/\s/.test(character));
+  const compactStarts: number[] = [];
+  const compactEnds: number[] = [];
+  for (let index = 0; index < source.length; index += 1) {
+    if (/\s/.test(source[index] || "")) continue;
+    compactStarts.push(index);
+    compactEnds.push(index + 1);
+  }
+  const compactTarget = [...normalizedTarget].filter((character) => !/\s/.test(character)).join("");
+  const compactText = compactSource.join("");
+  const compactIndex = compactText.indexOf(compactTarget);
+  if (compactIndex < 0) return undefined;
+  const compactSecond = compactText.indexOf(compactTarget, compactIndex + Math.max(compactTarget.length, 1));
+  if (compactSecond >= 0) throw new DocumentTemplatePreparationError("AMBIGUOUS_SOURCE_TEXT", "The selected source text occurs more than once in the identified Word location.");
+  const compactStart = compactStarts[compactIndex];
+  const compactEnd = compactEnds[compactIndex + compactTarget.length - 1];
+  return compactStart === undefined || compactEnd === undefined ? undefined : [compactStart, compactEnd];
 }
 
 function replaceTextSpan(xml: string, targetText: string, replacement: string): string {
@@ -428,7 +501,7 @@ function replaceTableInPart(xml: string, tableIndex: number, replace: (tableXml:
 function replaceParagraphInPart(xml: string, paragraphIndex: number, replace: (paragraphXml: string) => string): string {
   const tables = tableFragments(xml);
   const tableRanges = tables.map((table) => [table.start, table.end] as const);
-  const paragraphs = paragraphFragments(xml).filter((paragraph) => !tableRanges.some(([start, end]) => paragraph.start >= start && paragraph.end <= end));
+  const paragraphs = paragraphFragments(xml).filter((paragraph) => !tableRanges.some(([start, end]) => paragraph.start >= start && paragraph.end <= end)).filter((paragraph) => Boolean(normalizeText(textFromWordXml(paragraph.text))));
   const paragraph = paragraphs[paragraphIndex];
   if (!paragraph) throw new DocumentTemplatePreparationError("PARAGRAPH_NOT_FOUND", "The selected paragraph no longer exists in the uploaded Word template.");
   return replaceRange(xml, paragraph.start, paragraph.end, replace(paragraph.text));
@@ -455,8 +528,16 @@ function updateLastTextNode(xml: string, update: (value: string) => string, appe
 }
 
 function replaceAnchorInPart(xml: string, anchor: DocumentTemplateAnchor, targetText: string, replacement: string): string {
-  if (anchor.kind === "PARAGRAPH") return replaceParagraphInPart(xml, anchor.paragraphIndex, (paragraphXml) => replaceTextSpan(paragraphXml, targetText, replacement));
-  return replaceTableInPart(xml, anchor.tableIndex!, (tableXml) => replaceRowInTable(tableXml, anchor.rowIndex!, (rowXml) => replaceCellInRow(rowXml, anchor.cellIndex!, (cellXml) => replaceTextSpan(cellXml, targetText, replacement))));
+  const replaceTarget = (fragment: string) => anchor.insertionMode === "AFTER_LABEL"
+    ? replaceTextSpan(fragment, targetText, `${targetText}${replacement}`)
+    : replaceTextSpan(fragment, targetText, replacement);
+  if (anchor.kind === "PARAGRAPH") return replaceParagraphInPart(xml, anchor.paragraphIndex, replaceTarget);
+  return replaceTableInPart(xml, anchor.tableIndex!, (tableXml) => replaceRowInTable(tableXml, anchor.rowIndex!, (rowXml) => {
+    if (anchor.insertionMode === "ADJACENT_CELL" && anchor.relatedCellIndex !== undefined) {
+      return replaceCellInRow(rowXml, anchor.relatedCellIndex, (cellXml) => updateFirstTextNode(cellXml, () => replacement, replacement));
+    }
+    return replaceCellInRow(rowXml, anchor.cellIndex!, replaceTarget);
+  }));
 }
 
 function replaceLineTableInPart(xml: string, candidate: DocumentTemplateUniqueLineTable, columns: readonly DocumentTemplatePreparationLineColumn[]): string {
@@ -536,7 +617,15 @@ export function prepareDocxTemplate(
     if (!anchor) throw new DocumentTemplatePreparationError("ANCHOR_NOT_FOUND", "The selected source anchor no longer exists.");
     const part = zip.file(anchor.partName);
     if (!part) throw new DocumentTemplatePreparationError("PART_NOT_FOUND", "The selected Word package part no longer exists.");
-    const nextXml = replaceAnchorInPart(part.asText(), anchor, mapping.targetText, `{{${mapping.fieldKey}}}`);
+    let nextXml: string;
+    try {
+      nextXml = replaceAnchorInPart(part.asText(), anchor, mapping.targetText, `{{${mapping.fieldKey}}}`);
+    } catch (error) {
+      if (error instanceof DocumentTemplatePreparationError && error.code === "SOURCE_TEXT_MISMATCH") {
+        throw new DocumentTemplatePreparationError("SOURCE_TEXT_MISMATCH", `The selected ${mapping.fieldKey} source anchor no longer matches the uploaded Word template.`);
+      }
+      throw error;
+    }
     zip.file(anchor.partName, nextXml);
   }
   const lineTable = plan.lineTable ? inventory.lineTable : undefined;

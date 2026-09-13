@@ -389,7 +389,7 @@ async function runDocumentTemplateStorageWorkflow(options: LocalQaFunctionalSwee
     await activate.click();
     await page.waitForTimeout(800);
     if (!/Active v/i.test(await page.locator("[data-document-template-type='" + documentType + "']").innerText())) throw new Error(documentType + " Starter did not become the selected active version.");
-    const starterDownload = await downloadTemplateArtifact(page, editor.getByRole("button", { name: "Download / edit in Word", exact: true }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    const starterDownload = await downloadTemplateArtifact(page, editor.getByRole("button", { name: /^(?:Advanced fallback: edit in Word|Download \/ edit in Word)$/ }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
     workflow.actions.push("Retrieve the persisted " + documentType + " Starter DOCX after activation (" + starterDownload.fileName + ", " + starterDownload.size + " bytes)");
     await page.reload({ waitUntil: "domcontentloaded", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
     await options.waitForApp(page);
@@ -405,7 +405,7 @@ async function runDocumentTemplateStorageWorkflow(options: LocalQaFunctionalSwee
     await page.locator("input[type=file]").setInputFiles({ name: uploadedFileName, mimeType: DOCX_MIME_TYPE, buffer: Buffer.from(built.bytes) });
     await editor.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
     if (!/UPLOADED/i.test(await editor.innerText())) throw new Error(documentType + " Upload did not create an uploaded template version.");
-    const uploadedDownload = await downloadTemplateArtifact(page, editor.getByRole("button", { name: "Download / edit in Word", exact: true }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    const uploadedDownload = await downloadTemplateArtifact(page, editor.getByRole("button", { name: /^(?:Advanced fallback: edit in Word|Download \/ edit in Word)$/ }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
     workflow.actions.push("Upload, validate, persist, and retrieve a safe " + documentType + " DOCX (" + uploadedDownload.fileName + ", " + uploadedDownload.size + " bytes)");
     await page.reload({ waitUntil: "domcontentloaded", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
     await options.waitForApp(page);
@@ -454,7 +454,7 @@ async function runDocumentTemplateAiWorkflow(options: LocalQaFunctionalSweepOpti
     const editor = page.locator("[data-document-template-editor]").first();
     await editor.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
     if (!/AI_GENERATED/i.test(await editor.innerText())) throw new Error(documentType + " AI generation did not create an AI-generated template version.");
-    const download = await downloadTemplateArtifact(page, editor.getByRole("button", { name: "Download / edit in Word", exact: true }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    const download = await downloadTemplateArtifact(page, editor.getByRole("button", { name: /^(?:Advanced fallback: edit in Word|Download \/ edit in Word)$/ }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
     generatedArtifacts.push(documentType + " " + download.fileName + " (" + download.size + " bytes)");
     workflow.actions.push("Generate, persist, and retrieve a provider-backed AI " + (documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice") + " DOCX");
 

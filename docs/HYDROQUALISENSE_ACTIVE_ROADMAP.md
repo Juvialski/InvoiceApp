@@ -72,9 +72,9 @@ The fresh authenticated Local-QA route matrix recorded **59/59 passing scenarios
 
 The Document Templates capability was rechecked after the isolated QA server received the private `SUPABASE_STORAGE_SERVER_KEY`. The restarted authenticated Local-QA server returned `templateStorage.status=AVAILABLE`; Purchase Order and Client Invoice Starter plus safe DOCX Upload each persisted immutable metadata/version records, refreshed Settings, and retrieved the stored DOCX successfully. The Starter generator was corrected so its declared `company.vatTin` binding is emitted and activation validation returns `VALID`.
 
-AI template generation remains **NOT CERTIFIED** separately: `/api/deployment/company-ai` returned `503 AI_CREDENTIALS_SERVER_MISCONFIGURED` because the Local-QA runtime lacks the separate AI server configuration; AI generation was not attempted and must not be attributed to Storage. PDF converter availability remains a separate `UNAVAILABLE` capability and does not gate DOCX persistence.
+Real authenticated Local-QA AI-template evidence is now obtained separately from Storage: `/api/deployment/company-ai` returned HTTP 200 with `runtimeCapability.status=AVAILABLE` while persisted `lastTestStatus` remained `NOT_TESTED`; no credential material was exposed. The HSC Purchase Order Analyze request returned `aiStatus=AVAILABLE` using `gemini-3.5-flash-lite`, the reviewed UI Prepare action created a VALID immutable `DUPLICATED` descendant from the uploaded version, the original SHA remained unchanged, and Test DOCX rendered both synthetic line items. The separate Generate with AI UI workflow passed for Purchase Order and Client Invoice, including persisted VALID AI drafts, refresh visibility, and DOCX downloads. PDF converter availability remains a separate `UNAVAILABLE` capability and does not gate DOCX persistence.
 
-The functional Local-QA sweep recorded **8 PASS, 0 FAIL, 1 BLOCKED**, with the one blocked case being only the separate AI configuration prerequisite. No uncontrolled email/SMS send and no production mutation occurred.
+The broad Local-QA route matrix still requires separate harness cleanup/reconciliation because its long sweep recorded unrelated route/session failures; the isolated authenticated AI/template workflow itself passed. No uncontrolled email/SMS send and no production mutation occurred.
 
 UI/UX Round 2 is therefore complete. The exact next implementation is now the active Document Template AI Auto-Tagging + AI Capability Correction. Wave 4D messaging-provider integration/completion resumes only after this correction is safely merged/certified. Worker Registration remains paused.
 
@@ -95,7 +95,7 @@ The corrective scope is:
 - fail-closed ambiguity, OOXML security, company isolation, AI budgeting, and financial snapshot boundaries;
 - truthful Generate errors that remain distinct from Storage, PDF fallback, and converter capability.
 
-Current implementation validation is local focused tests and TypeScript lint. No hosted/provider AI certification, production mutation, or claim of certified AI generation is recorded here. Authenticated Local-QA template acceptance remains required after the branch is deployed to a proven non-production target.
+Current implementation validation includes focused/affected tests, TypeScript lint/build, and real authenticated Local-QA AI/template evidence against the exact QA project. This is not hosted exact-SHA release certification and does not authorize production mutation. High-fidelity PDF conversion remains separately unavailable.
 
 ## Explicit 2026-09-12 reprioritization — UI/UX Round 2
 
@@ -188,7 +188,7 @@ Overall QA remains not ready because broader readiness/provider limitations rema
 - SMS has approved provider paths but no controlled configured runtime-certified deployment yet;
 - Gmail exact-state provider proof may require reauthorization;
 - subcontract settlement remains fixture-blocked where no safe fixture exists;
-- company-template Starter and safe Upload Storage authority is locally configured and certified; high-fidelity PDF conversion remains unavailable, and AI template generation remains blocked by separate server-side AI configuration;
+- company-template Starter/Upload Storage authority and the real authenticated AI Analyze/Prepare/Generate/Test DOCX workflow are locally certified for the exercised QA target; high-fidelity PDF conversion remains unavailable;
 - the newer UI/UX Round 2 application code still requires appropriate hosted exact-SHA evidence before release-readiness claims can move from the older hosted-certified application SHA.
 
 Production remains read-only unless separately and explicitly authorized under `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md`.

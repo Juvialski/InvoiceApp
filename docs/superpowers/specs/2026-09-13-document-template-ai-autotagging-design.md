@@ -98,3 +98,11 @@ Use the existing document-template compatibility/security tests and add a saniti
 ## Product-truth update
 
 The same PR will record this corrective phase as the immediate phase before resuming Wave 4D, while keeping UI/UX Round 2 complete and Worker Registration paused. It will preserve separate truth for Storage, company AI runtime, programmatic PDF, and high-fidelity converter capability. AI template generation will not be marked certified solely because code or local tests pass; only obtained QA evidence will be recorded.
+
+## QA evidence update — 2026-09-13
+
+The configured non-production Local-QA runtime was restarted after its server-only AI settings were supplied. The authenticated capability check returned HTTP 200 with `runtimeCapability.status=AVAILABLE` and persisted `lastTestStatus=NOT_TESTED`, without exposing credential material.
+
+The real HSC Purchase Order workflow then passed: Analyze returned `aiStatus=AVAILABLE` using `gemini-3.5-flash-lite`; reviewed Prepare created a VALID immutable `DUPLICATED` descendant linked to the uploaded version while the original SHA remained unchanged; Test DOCX rendered multiple demo lines; and the UI workflow exposed the new Prepare action. The separate Settings Generate with AI workflow passed for Purchase Order and Client Invoice, including VALID persisted AI drafts, refresh visibility, downloads, and Test DOCX rendering.
+
+This is authenticated pre-merge QA evidence for the exercised QA target. It is not hosted exact-SHA release certification, production authorization, or PDF-converter certification. The broad route harness still has unrelated route/session reconciliation work and is not represented as an overall PASS.

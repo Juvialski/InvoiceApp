@@ -441,8 +441,8 @@ export function validateTemplateBlueprint(value: unknown, documentType: Document
   }
   const signatureLabels = stringArray(source.signatureLabels, 4, 80);
   if (!signatureLabels || signatureLabels.length < 1) errors.push("signatureLabels must contain at least one label.");
-  const footerText = source.footerText === undefined ? undefined : boundedString(source.footerText, 500);
-  if (source.footerText !== undefined && !footerText) errors.push("footerText is invalid.");
+  const footerText = source.footerText === undefined || source.footerText === null ? undefined : boundedString(source.footerText, 500);
+  if (source.footerText !== undefined && source.footerText !== null && !footerText) errors.push("footerText is invalid.");
   const includeCompanyProfile = booleanValue(source.includeCompanyProfile, true);
   const includePaymentInstructions = booleanValue(source.includePaymentInstructions, documentType === "CLIENT_INVOICE");
   const includeTerms = booleanValue(source.includeTerms, true);

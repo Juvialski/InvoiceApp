@@ -98,6 +98,23 @@ test("blueprint and AI mapping validators reject executable or malformed output"
   assert.equal(malformed.ok, false);
 });
 
+test("template blueprint validation accepts the schema-declared null footer value", () => {
+  const result = validateTemplateBlueprint({
+    schemaVersion: "1",
+    documentType: "PURCHASE_ORDER",
+    title: "Safe",
+    style: "PROFESSIONAL",
+    sections: [],
+    lineColumns: ["lines.description", "lines.amount", "lines.lineNumber"],
+    includeCompanyProfile: true,
+    includePaymentInstructions: false,
+    includeTerms: true,
+    signatureLabels: ["Prepared by"],
+    footerText: null,
+  }, "PURCHASE_ORDER");
+  assert.equal(result.ok, true);
+});
+
 test("starter DOCX merges scalar and variable-length repeating rows deterministically", async () => {
   const built = await buildStarterDocxTemplate("PURCHASE_ORDER");
   const source = extractDocxStructure(built.bytes, "starter.docx");
@@ -210,5 +227,33 @@ test("Generate AI errors keep safe provider categories and never become Storage 
 test("analysis retains a safe heuristic line-table candidate when AI omits one", () => {
   const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
   assert.match(router, /completedAnalysis/);
-  assert.match(router, /!anchored\.analysis\.lineTable && heuristic\.lineTable/);
+  assert.match(router, /anchored\.analysis\.lineTable/);
+  assert.match(router, /heuristic\.lineTable/);
+});
+
+test("AI analysis request requires deterministic anchors for resolved mappings", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /For every resolved mapping, anchorId and targetText are mandatory/);
+  assert.match(router, /required: \["fieldKey", "sourceLabel", "location", "anchorId", "targetText", "confidence", "reason", "unresolved"\]/);
+  assert.match(router, /required: \["location", "candidateId", "confidence", "fieldKeys", "columns"\]/);
+});
+
+test("AI analysis exposes a safe failure category for rejected structured responses", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /documentTemplateAnalysisFailureCode/);
+  assert.match(router, /failureCode: documentTemplateAnalysisFailureCode\(error\)/);
+});
+
+test("AI analysis supplements missing required mappings from verified deterministic anchors", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /existingFieldKeys/);
+  assert.match(router, /heuristic\.mappings\.filter/);
+  assert.match(router, /purchaseOrder\.currency|purchaseOrder\.totalAmount/);
+});
+
+test("Generate prompt pins the blueprint discriminator values required by application validation", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /schemaVersion must be exactly 1/);
+  assert.match(router, /documentType must be exactly/);
+  assert.match(router, /style must be exactly one of PROFESSIONAL, COMPACT, or FORMAL/);
 });

@@ -79,6 +79,69 @@ test("duplicate line-table candidates remain unresolved instead of selecting by 
   assert.ok(inventory.warnings.some((warning) => /ambiguous|multiple/i.test(warning)));
 });
 
+async function blankScalarSlotFixture(): Promise<Uint8Array> {
+  const base = await taglessPurchaseOrderFixture();
+  const zip = new PizZip(base);
+  const documentFile = zip.file("word/document.xml");
+  assert.ok(documentFile);
+  const extra = [
+    `<w:p><w:r><w:t>Deliver to:</w:t></w:r></w:p>`,
+    `<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Total (Php)</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t></w:t></w:r></w:p></w:tc></w:tr></w:tbl>`,
+  ].join("");
+  zip.file("word/document.xml", documentFile!.asText().replace("</w:body>", `${extra}</w:body>`));
+  return new Uint8Array(zip.generate({ type: "uint8array" }));
+}
+
+test("anchor discovery exposes safe label-only and adjacent blank value slots", async () => {
+  const bytes = await blankScalarSlotFixture();
+  const inventory = extractDocumentTemplateAnchorInventory(bytes, "blank-slots.docx");
+  const deliverTo = inventory.anchors.find((anchor) => anchor.text === "Deliver to:");
+  const total = inventory.anchors.find((anchor) => anchor.text === "Total (Php)");
+  const currency = inventory.anchors.find((anchor) => anchor.targetText === "Php");
+  assert.equal(deliverTo?.insertionMode, "AFTER_LABEL");
+  assert.equal(total?.insertionMode, "ADJACENT_CELL");
+  assert.equal(total?.relatedCellIndex, 1);
+  assert.equal(currency?.insertionMode, "REPLACE");
+});
+
+test("preparation inserts tags into verified blank label/value slots without replacing labels", async () => {
+  const bytes = await blankScalarSlotFixture();
+  const inventory = extractDocumentTemplateAnchorInventory(bytes, "blank-slots.docx");
+  const deliverTo = inventory.anchors.find((anchor) => anchor.text === "Deliver to:");
+  const total = inventory.anchors.find((anchor) => anchor.text === "Total (Php)");
+  const currency = inventory.anchors.find((anchor) => anchor.targetText === "Php");
+  assert.ok(deliverTo && total && currency);
+  const prepared = prepareDocxTemplate(bytes, "blank-slots.docx", "PURCHASE_ORDER", {
+    documentType: "PURCHASE_ORDER",
+    mappings: [
+      { fieldKey: "project.deliverTo", anchorId: deliverTo.id, targetText: deliverTo.targetText!, confirmed: true },
+      { fieldKey: "purchaseOrder.totalAmount", anchorId: total.id, targetText: total.targetText!, confirmed: true },
+      { fieldKey: "purchaseOrder.currency", anchorId: currency.id, targetText: currency.targetText!, confirmed: true },
+    ],
+  });
+  const text = extractDocxStructure(prepared.bytes, "prepared-blank-slots.docx").text;
+  assert.match(text, /Deliver to:\s*\{\{project\.deliverTo\}\}/);
+  assert.match(text, /Total \(\{\{purchaseOrder\.currency\}\}\)/);
+  assert.ok(extractDocxStructure(prepared.bytes, "prepared-blank-slots.docx").tags.includes("purchaseOrder.totalAmount"));
+});
+
+test("paragraph anchor indexes remain stable when the uploaded DOCX contains empty paragraphs", async () => {
+  const base = await taglessPurchaseOrderFixture();
+  const zip = new PizZip(base);
+  const documentFile = zip.file("word/document.xml");
+  assert.ok(documentFile);
+  zip.file("word/document.xml", documentFile!.asText().replace(/<w:p\b[\s\S]*?SOURCE_purchaseOrder\.documentNumber[\s\S]*?<\/w:p>/i, "<w:p/>$&"));
+  const bytes = new Uint8Array(zip.generate({ type: "uint8array" }));
+  const inventory = extractDocumentTemplateAnchorInventory(bytes, "empty-paragraph.docx");
+  const anchor = inventory.anchors.find((candidate) => candidate.text.startsWith("No.:"));
+  assert.ok(anchor);
+  const prepared = prepareDocxTemplate(bytes, "empty-paragraph.docx", "PURCHASE_ORDER", {
+    documentType: "PURCHASE_ORDER",
+    mappings: [{ fieldKey: "purchaseOrder.documentNumber", anchorId: anchor.id, targetText: anchor.targetText!, confirmed: true }],
+  });
+  assert.ok(extractDocxStructure(prepared.bytes, "prepared-empty-paragraph.docx").tags.includes("purchaseOrder.documentNumber"));
+});
+
 test("anchored mapping validation rejects stale, unknown, and duplicate source locations", async () => {
   const built = await buildStarterDocxTemplate("PURCHASE_ORDER");
   const inventory = extractDocumentTemplateAnchorInventory(built.bytes, "starter.docx");
@@ -107,22 +170,25 @@ test("anchored mapping validation rejects stale, unknown, and duplicate source l
     ...valid.analysis,
     mappings: [{ ...valid.analysis.mappings[0]!, targetText: "not the uploaded text" }],
   }, inventory, "PURCHASE_ORDER");
-  assert.equal(stale.ok, false);
-  assert.match(JSON.stringify(stale), /target|source/i);
+  if (stale.ok === false) throw new Error(stale.errors.join(" "));
+  assert.equal(stale.analysis.mappings[0]?.targetText, companyAnchor.targetText);
+  assert.match(stale.analysis.warnings.join(" "), /normalized/i);
 
   const unknown = validateTemplateMappingAnalysisAgainstInventory({
     ...valid.analysis,
     mappings: [{ ...valid.analysis.mappings[0]!, anchorId: "word/document.xml:paragraph:999:occurrence:1" }],
   }, inventory, "PURCHASE_ORDER");
-  assert.equal(unknown.ok, false);
-  assert.match(JSON.stringify(unknown), /anchor/i);
+  if (unknown.ok === false) throw new Error(unknown.errors.join(" "));
+  assert.equal(unknown.analysis.mappings[0]?.unresolved, true);
+  assert.match(unknown.analysis.unresolved.join(" "), /anchor/i);
 
   const duplicate = validateTemplateMappingAnalysisAgainstInventory({
     ...valid.analysis,
     mappings: [valid.analysis.mappings[0]!, valid.analysis.mappings[0]!],
   }, inventory, "PURCHASE_ORDER");
-  assert.equal(duplicate.ok, false);
-  assert.match(JSON.stringify(duplicate), /duplicate/i);
+  if (duplicate.ok === false) throw new Error(duplicate.errors.join(" "));
+  assert.equal(duplicate.analysis.mappings[1]?.unresolved, true);
+  assert.match(duplicate.analysis.unresolved.join(" "), /duplicate/i);
 });
 
 test("anchored line-table validation requires an existing candidate and allowlisted line fields", async () => {
@@ -158,8 +224,9 @@ test("anchored line-table validation requires an existing candidate and allowlis
       columns: [{ columnIndex: 0, fieldKey: "invoice.totalAmount" }],
     },
   }, inventory, "PURCHASE_ORDER");
-  assert.equal(invalid.ok, false);
-  assert.match(JSON.stringify(invalid), /candidate|field|line/i);
+  if (invalid.ok === false) throw new Error(invalid.errors.join(" "));
+  assert.equal(invalid.analysis.lineTable, undefined);
+  assert.match(invalid.analysis.unresolved.join(" "), /line/i);
 });
 
 function purchaseOrderPreparationPlan(bytes: Uint8Array): DocumentTemplatePreparationPlan {

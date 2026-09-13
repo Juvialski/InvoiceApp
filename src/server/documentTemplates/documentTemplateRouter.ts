@@ -198,6 +198,21 @@ export function documentTemplateAiErrorMessage(error: CompanyAiError): string {
   return `${DOCUMENT_TEMPLATE_AI_FAILURE_MESSAGES[error.code] || "Document AI could not complete the request safely."} No financial record was changed.`;
 }
 
+function documentTemplateAnalysisFailureCode(error: unknown): string {
+  if (error instanceof CompanyAiError) return error.code;
+  const message = error instanceof Error ? error.message : "";
+  if (/AI response JSON was malformed/i.test(message)) return "AI_ANALYSIS_INVALID_JSON";
+  if (/mapping schema/i.test(message)) return "AI_ANALYSIS_SCHEMA_INVALID";
+  if (/unknown source anchor/i.test(message)) return "AI_ANALYSIS_UNKNOWN_ANCHOR";
+  if (/no longer matches/i.test(message)) return "AI_ANALYSIS_SOURCE_MISMATCH";
+  if (/duplicates a source anchor/i.test(message)) return "AI_ANALYSIS_DUPLICATE_ANCHOR";
+  if (/line-table|line-item table/i.test(message)) return "AI_ANALYSIS_LINE_TABLE_REJECTED";
+  if (/unknown or ambiguous document location/i.test(message)) return "AI_ANALYSIS_ANCHOR_REJECTED";
+  if (error instanceof DocumentTemplateValidationError) return "AI_ANALYSIS_VALIDATION_REJECTED";
+  return "AI_ANALYSIS_REJECTED";
+}
+
+
 function logTemplateFailure(stage: string, error: unknown) {
   if (!String(process.env.HYDROQUALISENSE_ENVIRONMENT || process.env.VITE_HYDROQUALISENSE_ENVIRONMENT || "").trim()) return;
   console.warn("document-template-failure", {
@@ -733,6 +748,10 @@ function heuristicAnalysis(documentType: DocumentTemplateType, structure: { para
     const anchor = inventory.anchors.find((candidate) => pattern.test(candidate.text));
     mappings.push({ fieldKey, sourceLabel, location: anchor?.id || "unresolved", confidence, reason, unresolved: !anchor, ...(anchor ? { anchorId: anchor.id, targetText: anchor.targetText } : {}) } as any);
   };
+  const addFromAnchor = (fieldKey: string, sourceLabel: string, anchor: ReturnType<typeof extractDocumentTemplateAnchorInventory>["anchors"][number] | undefined, confidence: number, reason: string) => {
+    if (!anchor || !getDocumentTemplateFields(documentType).some((field) => field.key === fieldKey)) return;
+    mappings.push({ fieldKey, sourceLabel, location: anchor.id, confidence, reason, unresolved: false, anchorId: anchor.id, targetText: anchor.targetText } as any);
+  };
   const paragraphs = structure.paragraphs.map((value) => value.trim()).filter(Boolean);
   const find = (pattern: RegExp) => paragraphs.find((value) => pattern.test(value));
   if (documentType === "PURCHASE_ORDER") {
@@ -745,6 +764,10 @@ function heuristicAnalysis(documentType: DocumentTemplateType, structure: { para
     if (find(/\b(?:bill to|customer|client)\b/i)) add("billTo.name", "Bill To / Client", /\b(?:bill to|customer|client)\b/i, 0.76, "The label resembles the client identity area.");
     if (find(/\b(?:project|job)\b/i)) add("project.projectName", "Project / Job", /\b(?:project|job)\b/i, 0.6, "The label may identify the project context.");
   }
+  const currencyField = documentType === "PURCHASE_ORDER" ? "purchaseOrder.currency" : "invoice.currency";
+  const totalField = documentType === "PURCHASE_ORDER" ? "purchaseOrder.totalAmount" : "invoice.totalAmount";
+  addFromAnchor(currencyField, "Currency label", inventory.anchors.find((anchor) => anchor.insertionMode === "REPLACE" && /^php$/i.test(anchor.targetText || "")), 0.72, "The application derived a safe currency slot from the document label.");
+  addFromAnchor(totalField, "Document total", inventory.anchors.find((anchor) => anchor.insertionMode === "ADJACENT_CELL" && /\btotal\b/i.test(anchor.text)), 0.72, "The application derived a safe adjacent total-value slot from the document table.");
   const lineTable = inventory.lineTable;
   const lineTableProposal = lineTable ? {
     location: lineTable.id,
@@ -797,8 +820,8 @@ const mappingAnalysisSchema = {
     confidence: { type: Type.NUMBER },
     mappings: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: {
        fieldKey: { type: Type.STRING, nullable: true }, sourceLabel: { type: Type.STRING }, location: { type: Type.STRING }, anchorId: { type: Type.STRING, nullable: true }, targetText: { type: Type.STRING, nullable: true }, confidence: { type: Type.NUMBER }, reason: { type: Type.STRING }, unresolved: { type: Type.BOOLEAN },
-    }, required: ["fieldKey", "sourceLabel", "location", "confidence", "reason", "unresolved"] } },
-     lineTable: { type: Type.OBJECT, nullable: true, properties: { location: { type: Type.STRING }, candidateId: { type: Type.STRING, nullable: true }, confidence: { type: Type.NUMBER }, fieldKeys: { type: Type.ARRAY, items: { type: Type.STRING } }, columns: { type: Type.ARRAY, nullable: true, items: { type: Type.OBJECT, properties: { columnIndex: { type: Type.INTEGER }, fieldKey: { type: Type.STRING }, confidence: { type: Type.NUMBER, nullable: true } }, required: ["columnIndex", "fieldKey"] } } }, required: ["location", "confidence", "fieldKeys"] },
+     }, required: ["fieldKey", "sourceLabel", "location", "anchorId", "targetText", "confidence", "reason", "unresolved"] } },
+     lineTable: { type: Type.OBJECT, nullable: true, properties: { location: { type: Type.STRING }, candidateId: { type: Type.STRING, nullable: true }, confidence: { type: Type.NUMBER }, fieldKeys: { type: Type.ARRAY, items: { type: Type.STRING } }, columns: { type: Type.ARRAY, nullable: true, items: { type: Type.OBJECT, properties: { columnIndex: { type: Type.INTEGER }, fieldKey: { type: Type.STRING }, confidence: { type: Type.NUMBER, nullable: true } }, required: ["columnIndex", "fieldKey", "confidence"] } } }, required: ["location", "candidateId", "confidence", "fieldKeys", "columns"] },
     unresolved: { type: Type.ARRAY, items: { type: Type.STRING } },
     warnings: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
@@ -948,7 +971,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const profile = record(profileResult.data);
       const allowedFields = getDocumentTemplateFields(documentType).map((field) => `${field.key} — ${field.label} — ${field.type}${field.collection ? " (repeating line)" : ""}`).join("\n");
       const generated = await aiJson(auth, `<USER_REQUEST>\n${prompt}\n</USER_REQUEST>\n<COMPANY_PROFILE>\nlegalName: ${String(profile.legal_name || "")}`
-        + `\naddress: ${String(profile.address || "")}\ncontactNumber: ${String(profile.contact_number || "")}\n</COMPANY_PROFILE>\n<ALLOWED_FIELDS>\n${allowedFields}\n</ALLOWED_FIELDS>\nRequested document type: ${documentType}\nCreate a structured, presentation-only TemplateBlueprint. Do not calculate totals, tax, FX, payment state, document numbers, suppliers, clients, or project facts.`, blueprintSchema);
+        + `\naddress: ${String(profile.address || "")}\ncontactNumber: ${String(profile.contact_number || "")}\n</COMPANY_PROFILE>\n<ALLOWED_FIELDS>\n${allowedFields}\n</ALLOWED_FIELDS>\nRequested document type: ${documentType}\nCreate a structured, presentation-only TemplateBlueprint. schemaVersion must be exactly 1; documentType must be exactly ${documentType}; style must be exactly one of PROFESSIONAL, COMPACT, or FORMAL. Include every required blueprint property: sections, lineColumns, includeCompanyProfile, includePaymentInstructions, includeTerms, signatureLabels, and footerText (use null when no footer is requested). Do not calculate totals, tax, FX, payment state, document numbers, suppliers, clients, or project facts.`, blueprintSchema);
       let decoded: unknown;
       try { decoded = JSON.parse(generated.text || "{}"); } catch { throw new StorageApiError(502, "AI_INVALID_RESPONSE", "The AI template response was not valid structured JSON. Use the starter or manual route."); }
       const built = await buildDocxTemplateFromBlueprint(decoded, documentType);
@@ -1001,24 +1024,33 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
           ...(anchor.cellIndex === undefined ? {} : { cellIndex: anchor.cellIndex }),
           text: anchor.text,
           ...(anchor.targetText ? { targetText: anchor.targetText } : {}),
+          ...(anchor.insertionMode ? { insertionMode: anchor.insertionMode } : {}),
+          ...(anchor.relatedCellIndex === undefined ? {} : { relatedCellIndex: anchor.relatedCellIndex }),
           occurrence: anchor.occurrence,
         })),
         lineTableCandidates: inventory.lineTableCandidates.slice(0, 20),
         ...(inventory.lineTable ? { lineTable: inventory.lineTable } : {}),
       };
       try {
-        const generated = await aiJson(auth, `<DOCUMENT_DATA>\n${JSON.stringify(safeStructure)}\n</DOCUMENT_DATA>\n<ALLOWED_FIELDS>\n${getDocumentTemplateFields(version.documentType).map((field) => `${field.key} — ${field.label}`).join("\n")}\n</ALLOWED_FIELDS>\nRequested document type: ${version.documentType}\nMap only the supplied anchorId and line-table candidateId values. Return targetText exactly as supplied for every resolved scalar mapping. Return only cautious proposed mappings. Mark uncertain items unresolved and do not invent bindings.`, mappingAnalysisSchema);
+        const generated = await aiJson(auth, `<DOCUMENT_DATA>\n${JSON.stringify(safeStructure)}\n</DOCUMENT_DATA>\n<ALLOWED_FIELDS>\n${getDocumentTemplateFields(version.documentType).map((field) => `${field.key} — ${field.label}`).join("\n")}\n</ALLOWED_FIELDS>\nRequested document type: ${version.documentType}\nMap only the supplied anchorId and line-table candidateId values. For every resolved mapping, anchorId and targetText are mandatory and must exactly match the supplied anchor. For unresolved mappings, set fieldKey, anchorId, and targetText to null and set unresolved true. For a resolved line table, candidateId and columns are mandatory. Return only cautious proposed mappings. Mark uncertain items unresolved and do not invent bindings.`, mappingAnalysisSchema);
         let decoded: unknown;
         try { decoded = JSON.parse(generated.text || "{}"); } catch { throw new Error("AI response JSON was malformed."); }
         const validated = validateTemplateMappingAnalysis(decoded, version.documentType);
         if (!validated.ok) throw new Error("AI response failed the application-owned mapping schema.");
         const anchored = validateTemplateMappingAnalysisAgainstInventory(validated.analysis, inventory, version.documentType);
-        if (!anchored.ok) throw new Error("AI response referenced an unknown or ambiguous document location.");
-        const completedAnalysis = !anchored.analysis.lineTable && heuristic.lineTable ? { ...anchored.analysis, lineTable: heuristic.lineTable } : anchored.analysis;
+        if (anchored.ok === false) throw new Error(`AI response anchor validation failed: ${anchored.errors.slice(0, 4).join(" ")}`);
+        const existingFieldKeys = new Set(anchored.analysis.mappings.filter((mapping) => !mapping.unresolved && mapping.fieldKey).map((mapping) => mapping.fieldKey));
+        const supplementalMappings = heuristic.mappings.filter((mapping) => !mapping.unresolved && mapping.fieldKey && mapping.anchorId && mapping.targetText && !existingFieldKeys.has(mapping.fieldKey));
+        const completedAnalysis = {
+          ...anchored.analysis,
+          mappings: [...anchored.analysis.mappings, ...supplementalMappings],
+          ...(anchored.analysis.lineTable || !heuristic.lineTable ? {} : { lineTable: heuristic.lineTable }),
+          ...(supplementalMappings.length ? { warnings: [...anchored.analysis.warnings, "Some safe required-field slots were supplied by deterministic application analysis for human review."] } : {}),
+        };
         return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "AVAILABLE", model: generated.model, analysis: completedAnalysis, heuristic } });
       } catch (error) {
         const safe = error instanceof CompanyAiError ? "AI assistance is unavailable for this analysis." : "AI analysis was rejected because its response was malformed or unsafe.";
-        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "UNAVAILABLE", message: safe, analysis: heuristic, heuristic } });
+        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "UNAVAILABLE", message: safe, failureCode: documentTemplateAnalysisFailureCode(error), analysis: heuristic, heuristic } });
       }
     } catch (error: any) {
       return res.status(error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 400 : 503).json({ success: false, error: apiMessage(error, "The document template could not be analyzed safely.") });

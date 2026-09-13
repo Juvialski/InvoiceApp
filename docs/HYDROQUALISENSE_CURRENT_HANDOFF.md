@@ -72,11 +72,11 @@ Purchase Order and Client Invoice Starter plus safe Upload each:
 
 The Starter generator now emits the declared `company.vatTin` tag so activation validation is `VALID`.
 
-AI template generation remains separately **NOT CERTIFIED**. `/api/deployment/company-ai` returned `503 AI_CREDENTIALS_SERVER_MISCONFIGURED` because the Local-QA runtime lacks its separate AI server configuration. AI generation was not attempted and this blocker must not be attributed to Storage.
+Real authenticated Local-QA AI-template evidence is now obtained separately from Storage. `/api/deployment/company-ai` returned HTTP 200 with `runtimeCapability.status=AVAILABLE` while persisted `lastTestStatus` remained `NOT_TESTED`; no credential material was returned. The HSC Purchase Order Analyze request returned `aiStatus=AVAILABLE` with model `gemini-3.5-flash-lite`. The reviewed UI Prepare action created a VALID immutable `DUPLICATED` descendant from the uploaded HSC version, preserved the original SHA, and Test DOCX rendered both synthetic lines. The separate Generate with AI Settings workflow passed for Purchase Order and Client Invoice, persisted VALID AI drafts, survived refresh, downloaded AI DOCX artifacts, and their Test DOCX outputs rendered both synthetic lines.
 
 High-fidelity company-template PDF conversion remains independently `UNAVAILABLE`. The existing programmatic PDF fallback remains a separate capability.
 
-The final Local-QA functional sweep recorded **8 PASS, 0 FAIL, 1 BLOCKED**, where the only blocked case was the separate AI configuration prerequisite.
+The broad Local-QA route matrix still needs separate harness cleanup/reconciliation because its long sweep recorded unrelated route/session failures; the isolated authenticated AI/template workflow passed. This is pre-merge QA evidence, not hosted exact-SHA release certification.
 
 No secret was returned to the browser. No uncontrolled email/SMS send and no production mutation occurred.
 
@@ -111,7 +111,7 @@ Focused local implementation evidence obtained so far:
 - local DB-runtime checks remain skipped when their explicit runtime flag is absent;
 - no hosted/provider AI certification, production mutation, or uncontrolled email/SMS send has occurred.
 
-The branch still requires the affected-test selector, production build, authenticated non-production Local-QA workflow, final diff review, roadmap reconciliation, push, and PR opening before handoff. AI template generation remains **NOT CERTIFIED** until real non-production runtime evidence is obtained.
+The branch still requires the affected-test selector, production build, final diff review, roadmap reconciliation, push, and PR update before handoff. Real authenticated non-production AI/template runtime evidence is obtained; hosted exact-SHA certification, production authorization, and high-fidelity PDF conversion remain separate and incomplete.
 
 ## Exact next product phase after the correction — Wave 4D messaging-provider integration/completion
 
@@ -133,7 +133,7 @@ The next implementation should:
 - preserve inbound Gmail intake and existing issued-document Gmail delivery/history behavior;
 - reconnect/certify Gmail as needed for exact-state provider evidence rather than assuming old authorization is current;
 - preserve append-only/company-bound delivery history, idempotency/reconciliation boundaries, and source document ownership;
-- keep AI/provider prerequisites separately truthful; the current `AI_CREDENTIALS_SERVER_MISCONFIGURED` condition is not a Storage failure;
+- keep AI/provider prerequisites separately truthful; the exercised QA runtime is now available while hosted/provider/release evidence remains separate from Storage and PDF converter truth;
 - preserve the completed UI/UX Round 2 hierarchy while adding provider capability;
 - close the remaining Wave 4D provider/AI/recovery/readiness evidence before any Worker Registration work.
 
@@ -155,7 +155,7 @@ Company-template high-fidelity conversion remains a separate capability and must
 
 ### Functional Local-QA sweep — complete for supported/fixture-backed workflows
 
-The integrated Local-QA sweep exercises key RFQ/PO/Warehouse, supplier payable, client receivable, payroll, Documents->Compose, stale-record, and now Document Templates Starter/Upload persistence/retrieval flows. Subcontract settlement remains fixture-blocked where no safe fixture exists. AI template generation remains blocked by separate server AI configuration.
+The integrated Local-QA sweep exercises key RFQ/PO/Warehouse, supplier payable, client receivable, payroll, Documents->Compose, stale-record, and Document Templates Starter/Upload persistence/retrieval flows. Subcontract settlement remains fixture-blocked where no safe fixture exists. The isolated authenticated AI/template workflow now passes separately; the broad harness still needs route/session cleanup before an overall PASS claim.
 
 ### Supplier Payables Settlement Truth & Consistency — complete
 
@@ -214,7 +214,7 @@ Provider implementation/completion is now the **next active product phase**. Rea
 ### Company-template Storage / AI / conversion
 
 - Starter and safe Upload Storage authority is **AVAILABLE and locally certified** for Purchase Order and Client Invoice persistence/retrieval.
-- AI template generation is **NOT CERTIFIED** because the separate server AI prerequisite currently returns `AI_CREDENTIALS_SERVER_MISCONFIGURED` in Local-QA.
+- Real authenticated Local-QA AI template generation is **PASSED for the exercised QA workflow**: runtime capability AVAILABLE, HSC Analyze AVAILABLE, immutable Prepare VALID, Test DOCX passed, and Purchase Order/Client Invoice Generate + persist + refresh + download + Test DOCX passed. Hosted exact-SHA certification remains separate.
 - Programmatic PDF fallback is separate and already certified for exercised records.
 - Company-template high-fidelity converter-backed PDF remains independently `UNAVAILABLE`.
 
