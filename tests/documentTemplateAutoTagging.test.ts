@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import PizZip from "pizzip";
 import { buildStarterDocxTemplate } from "../src/server/documentTemplates/documentTemplateEngine.ts";
-import { extractDocumentTemplateAnchorInventory } from "../src/server/documentTemplates/documentTemplateAutoTagger.ts";
+import { extractDocumentTemplateAnchorInventory, validateTemplateMappingAnalysisAgainstInventory } from "../src/server/documentTemplates/documentTemplateAutoTagger.ts";
+import { validateTemplateMappingAnalysis } from "../src/lib/documentTemplateRegistry.ts";
 
 const WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
@@ -76,4 +77,89 @@ test("duplicate line-table candidates remain unresolved instead of selecting by 
   assert.equal(inventory.lineTable, undefined);
   assert.ok(inventory.lineTableCandidates.length >= 2);
   assert.ok(inventory.warnings.some((warning) => /ambiguous|multiple/i.test(warning)));
+});
+
+test("anchored mapping validation rejects stale, unknown, and duplicate source locations", async () => {
+  const built = await buildStarterDocxTemplate("PURCHASE_ORDER");
+  const inventory = extractDocumentTemplateAnchorInventory(built.bytes, "starter.docx");
+  const companyAnchor = inventory.anchors.find((anchor) => anchor.text.includes("{{company.legalName}}"));
+  assert.ok(companyAnchor);
+  const analysis = {
+    confidence: 0.95,
+    mappings: [{
+      fieldKey: "company.legalName",
+      sourceLabel: "Company legal name",
+      location: "document paragraph",
+      anchorId: companyAnchor.id,
+      targetText: companyAnchor.targetText,
+      confidence: 0.95,
+      reason: "The source text is the company identity field.",
+      unresolved: false,
+    }],
+    unresolved: [],
+    warnings: [],
+  };
+  const valid = validateTemplateMappingAnalysis(analysis, "PURCHASE_ORDER");
+  assert.equal(valid.ok, true);
+  if (valid.ok === false) return;
+  assert.equal(validateTemplateMappingAnalysisAgainstInventory(valid.analysis, inventory, "PURCHASE_ORDER").ok, true);
+
+  const stale = validateTemplateMappingAnalysisAgainstInventory({
+    ...valid.analysis,
+    mappings: [{ ...valid.analysis.mappings[0]!, targetText: "not the uploaded text" }],
+  }, inventory, "PURCHASE_ORDER");
+  assert.equal(stale.ok, false);
+  assert.match(JSON.stringify(stale), /target|source/i);
+
+  const unknown = validateTemplateMappingAnalysisAgainstInventory({
+    ...valid.analysis,
+    mappings: [{ ...valid.analysis.mappings[0]!, anchorId: "word/document.xml:paragraph:999:occurrence:1" }],
+  }, inventory, "PURCHASE_ORDER");
+  assert.equal(unknown.ok, false);
+  assert.match(JSON.stringify(unknown), /anchor/i);
+
+  const duplicate = validateTemplateMappingAnalysisAgainstInventory({
+    ...valid.analysis,
+    mappings: [valid.analysis.mappings[0]!, valid.analysis.mappings[0]!],
+  }, inventory, "PURCHASE_ORDER");
+  assert.equal(duplicate.ok, false);
+  assert.match(JSON.stringify(duplicate), /duplicate/i);
+});
+
+test("anchored line-table validation requires an existing candidate and allowlisted line fields", async () => {
+  const built = await buildStarterDocxTemplate("PURCHASE_ORDER");
+  const inventory = extractDocumentTemplateAnchorInventory(built.bytes, "starter.docx");
+  assert.ok(inventory.lineTable);
+  const lineTable = inventory.lineTable!;
+  const analysis = validateTemplateMappingAnalysis({
+    confidence: 0.9,
+    mappings: [],
+    lineTable: {
+      location: "document table",
+      candidateId: lineTable.id,
+      confidence: 0.9,
+      fieldKeys: ["lines.lineNumber", "lines.description", "lines.amount"],
+      columns: [
+        { columnIndex: 0, fieldKey: "lines.lineNumber" },
+        { columnIndex: 3, fieldKey: "lines.description" },
+        { columnIndex: 5, fieldKey: "lines.amount" },
+      ],
+    },
+    unresolved: [],
+    warnings: [],
+  }, "PURCHASE_ORDER");
+  assert.equal(analysis.ok, true);
+  if (analysis.ok === false) return;
+  assert.equal(validateTemplateMappingAnalysisAgainstInventory(analysis.analysis, inventory, "PURCHASE_ORDER").ok, true);
+
+  const invalid = validateTemplateMappingAnalysisAgainstInventory({
+    ...analysis.analysis,
+    lineTable: {
+      ...analysis.analysis.lineTable!,
+      candidateId: "word/document.xml:table:99:header:0",
+      columns: [{ columnIndex: 0, fieldKey: "invoice.totalAmount" }],
+    },
+  }, inventory, "PURCHASE_ORDER");
+  assert.equal(invalid.ok, false);
+  assert.match(JSON.stringify(invalid), /candidate|field|line/i);
 });

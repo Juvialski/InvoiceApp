@@ -76,9 +76,17 @@ export interface DocumentTemplateMappingProposal {
   readonly fieldKey?: string;
   readonly sourceLabel: string;
   readonly location: string;
+  readonly anchorId?: string;
+  readonly targetText?: string;
   readonly confidence: number;
   readonly reason: string;
   readonly unresolved: boolean;
+}
+
+export interface DocumentTemplateMappingLineColumn {
+  readonly columnIndex: number;
+  readonly fieldKey: string;
+  readonly confidence?: number;
 }
 
 export interface DocumentTemplateMappingAnalysis {
@@ -87,8 +95,10 @@ export interface DocumentTemplateMappingAnalysis {
   readonly mappings: readonly DocumentTemplateMappingProposal[];
   readonly lineTable?: {
     readonly location: string;
+    readonly candidateId?: string;
     readonly confidence: number;
     readonly fieldKeys: readonly string[];
+    readonly columns?: readonly DocumentTemplateMappingLineColumn[];
   };
   readonly unresolved: readonly string[];
   readonly warnings: readonly string[];
@@ -498,9 +508,13 @@ export function validateTemplateMappingAnalysis(value: unknown, documentType: Do
   if (!rawMappings) errors.push("mappings must contain at most 100 entries.");
   else rawMappings.forEach((item, index) => {
     const mapping = item && typeof item === "object" && !Array.isArray(item) ? item as Record<string, unknown> : {};
+    const mappingKeys = new Set(["fieldKey", "sourceLabel", "location", "anchorId", "targetText", "confidence", "reason", "unresolved"]);
+    for (const key of Object.keys(mapping)) if (!mappingKeys.has(key)) errors.push(`mapping ${index + 1} contains an unsupported property.`);
     const fieldKey = mapping.fieldKey === null || mapping.fieldKey === undefined || mapping.fieldKey === "" ? undefined : boundedString(mapping.fieldKey, 120);
     const sourceLabel = boundedString(mapping.sourceLabel, 160);
     const location = boundedString(mapping.location, 160);
+    const anchorId = mapping.anchorId === null || mapping.anchorId === undefined || mapping.anchorId === "" ? undefined : boundedString(mapping.anchorId, 240);
+    const targetText = mapping.targetText === null || mapping.targetText === undefined || mapping.targetText === "" ? undefined : boundedString(mapping.targetText, 500);
     const reason = boundedString(mapping.reason, 400);
     const itemConfidence = Number(mapping.confidence);
     const unresolved = mapping.unresolved === true;
@@ -512,20 +526,39 @@ export function validateTemplateMappingAnalysis(value: unknown, documentType: Do
       errors.push(`mapping ${index + 1} references an unavailable field.`);
       return;
     }
-    mappings.push({ ...(fieldKey ? { fieldKey } : {}), sourceLabel, location, confidence: itemConfidence, reason, unresolved });
+    mappings.push({ ...(fieldKey ? { fieldKey } : {}), sourceLabel, location, ...(anchorId ? { anchorId } : {}), ...(targetText ? { targetText } : {}), confidence: itemConfidence, reason, unresolved });
   });
   const rawLineTable = source.lineTable;
   let lineTable: DocumentTemplateMappingAnalysis["lineTable"];
   if (rawLineTable !== undefined && rawLineTable !== null) {
     const table = rawLineTable && typeof rawLineTable === "object" && !Array.isArray(rawLineTable) ? rawLineTable as Record<string, unknown> : {};
     const location = boundedString(table.location, 160);
+    const candidateId = table.candidateId === null || table.candidateId === undefined || table.candidateId === "" ? undefined : boundedString(table.candidateId, 240);
     const lineConfidence = Number(table.confidence);
     const fieldKeys = stringArray(table.fieldKeys, 8, 120);
+    const rawColumns = table.columns;
+    const columns: DocumentTemplateMappingLineColumn[] = [];
+    if (rawColumns !== undefined) {
+      if (!Array.isArray(rawColumns) || rawColumns.length > 8) errors.push("lineTable columns are invalid.");
+      else rawColumns.forEach((item, index) => {
+        const column = item && typeof item === "object" && !Array.isArray(item) ? item as Record<string, unknown> : {};
+        const columnKeys = new Set(["columnIndex", "fieldKey", "confidence"]);
+        for (const key of Object.keys(column)) if (!columnKeys.has(key)) errors.push(`lineTable column ${index + 1} contains an unsupported property.`);
+        const columnIndex = Number(column.columnIndex);
+        const fieldKey = boundedString(column.fieldKey, 120);
+        const columnConfidence = column.confidence === undefined ? undefined : Number(column.confidence);
+        if (!Number.isInteger(columnIndex) || columnIndex < 0 || columnIndex > 50 || !fieldKey || !getDocumentTemplateField(documentType, fieldKey)?.collection || (columnConfidence !== undefined && (!Number.isFinite(columnConfidence) || columnConfidence < 0 || columnConfidence > 1))) {
+          errors.push(`lineTable column ${index + 1} is invalid.`);
+          return;
+        }
+        columns.push({ columnIndex, fieldKey, ...(columnConfidence === undefined ? {} : { confidence: columnConfidence }) });
+      });
+    }
     if (!location || !Number.isFinite(lineConfidence) || lineConfidence < 0 || lineConfidence > 1 || !fieldKeys) errors.push("lineTable is invalid.");
     else {
       const invalid = fieldKeys.some((key) => !getDocumentTemplateField(documentType, key)?.collection);
       if (invalid) errors.push("lineTable contains an unavailable line field.");
-      else lineTable = { location, confidence: lineConfidence, fieldKeys };
+      else lineTable = { location, ...(candidateId ? { candidateId } : {}), confidence: lineConfidence, fieldKeys, ...(rawColumns === undefined ? {} : { columns }) };
     }
   }
   const unresolved = stringArray(source.unresolved, 100, 240);

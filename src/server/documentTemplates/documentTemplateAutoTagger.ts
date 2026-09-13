@@ -4,7 +4,12 @@ import {
   DocumentTemplateValidationError,
   validateDocxTemplateBytes,
 } from "./documentTemplateEngine.ts";
-import { type DocumentTemplateType } from "../../lib/documentTemplateRegistry.ts";
+import {
+  getDocumentTemplateField,
+  isDocumentTemplateFieldKey,
+  type DocumentTemplateMappingAnalysis,
+  type DocumentTemplateType,
+} from "../../lib/documentTemplateRegistry.ts";
 
 export type DocumentTemplatePartKind = "DOCUMENT" | "HEADER" | "FOOTER";
 export type DocumentTemplateAnchorKind = "PARAGRAPH" | "CELL";
@@ -249,6 +254,58 @@ export function extractDocumentTemplateAnchorInventory(bytes: Uint8Array, fileNa
     ...(lineTable ? { lineTable } : {}),
     warnings,
   };
+}
+
+export function validateTemplateMappingAnalysisAgainstInventory(
+  analysis: DocumentTemplateMappingAnalysis,
+  inventory: DocumentTemplateAnchorInventory,
+  documentType: DocumentTemplateType,
+): { ok: true; analysis: DocumentTemplateMappingAnalysis } | { ok: false; errors: readonly string[] } {
+  const errors: string[] = [];
+  const usedAnchors = new Set<string>();
+  for (const [index, mapping] of analysis.mappings.entries()) {
+    if (mapping.unresolved) continue;
+    if (!mapping.fieldKey || !isDocumentTemplateFieldKey(documentType, mapping.fieldKey)) {
+      errors.push(`mapping ${index + 1} references an unavailable application field.`);
+      continue;
+    }
+    if (!mapping.anchorId) {
+      errors.push(`mapping ${index + 1} does not identify a deterministic source anchor.`);
+      continue;
+    }
+    const anchor = inventory.anchors.find((candidate) => candidate.id === mapping.anchorId);
+    if (!anchor) {
+      errors.push(`mapping ${index + 1} references an unknown source anchor.`);
+      continue;
+    }
+    if (usedAnchors.has(anchor.id)) errors.push(`mapping ${index + 1} duplicates a source anchor that is already mapped.`);
+    usedAnchors.add(anchor.id);
+    if (!mapping.targetText || !anchor.targetText || mapping.targetText !== anchor.targetText) {
+      errors.push(`mapping ${index + 1} no longer matches the uploaded source text.`);
+    }
+    if (getDocumentTemplateField(documentType, mapping.fieldKey)?.collection) {
+      errors.push(`mapping ${index + 1} is a repeating line field and must be mapped through a line table.`);
+    }
+  }
+
+  const lineTable = analysis.lineTable;
+  if (lineTable) {
+    if (!lineTable.candidateId) errors.push("The repeating line-table proposal does not identify a deterministic table candidate.");
+    const candidate = lineTable.candidateId ? inventory.lineTableCandidates.find((item) => item.id === lineTable.candidateId) : undefined;
+    if (!candidate) errors.push("The repeating line-table proposal references an unknown table candidate.");
+    if (!inventory.lineTable || inventory.lineTable.id !== lineTable.candidateId) errors.push("The repeating line-item table is ambiguous or no longer uniquely identified.");
+    const columns = lineTable.columns || [];
+    const usedColumns = new Set<number>();
+    for (const [index, column] of columns.entries()) {
+      if (usedColumns.has(column.columnIndex)) errors.push(`line-table column ${index + 1} is mapped more than once.`);
+      usedColumns.add(column.columnIndex);
+      if (!candidate?.columns.some((item) => item.columnIndex === column.columnIndex)) errors.push(`line-table column ${index + 1} is outside the identified table.`);
+      if (!isDocumentTemplateFieldKey(documentType, column.fieldKey) || !getDocumentTemplateField(documentType, column.fieldKey)?.collection) errors.push(`line-table column ${index + 1} references an unavailable repeating field.`);
+    }
+    if (!columns.length) errors.push("The repeating line-table proposal does not contain column mappings.");
+  }
+  if (analysis.mappings.some((mapping) => mapping.fieldKey?.startsWith("lines.")) && !lineTable) errors.push("Repeating line fields require a uniquely identified line-item table.");
+  return errors.length ? { ok: false, errors } : { ok: true, analysis };
 }
 
 export class DocumentTemplatePreparationError extends DocumentTemplateValidationError {

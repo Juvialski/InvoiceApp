@@ -46,6 +46,10 @@ import {
   validateDocxTemplateBytes,
 } from "./documentTemplateEngine.ts";
 import {
+  extractDocumentTemplateAnchorInventory,
+  validateTemplateMappingAnalysisAgainstInventory,
+} from "./documentTemplateAutoTagger.ts";
+import {
   createDocumentPdfConverter,
   DOCUMENT_PDF_UNAVAILABLE_MESSAGE,
   finalizeMergedDocxToPdf,
@@ -697,38 +701,39 @@ async function persistVersion(
   }
 }
 
-function heuristicAnalysis(documentType: DocumentTemplateType, structure: { paragraphs: readonly string[]; tables: readonly { rows: readonly (readonly string[])[] }[] }): DocumentTemplateMappingAnalysis {
+function heuristicAnalysis(documentType: DocumentTemplateType, structure: { paragraphs: readonly string[]; tables: readonly { rows: readonly (readonly string[])[] }[] }, inventory: ReturnType<typeof extractDocumentTemplateAnchorInventory>): DocumentTemplateMappingAnalysis {
   const mappings: Array<{ fieldKey: string; sourceLabel: string; location: string; confidence: number; reason: string; unresolved: boolean }> = [];
-  const add = (fieldKey: string, sourceLabel: string, location: string, confidence: number, reason: string) => {
+  const add = (fieldKey: string, sourceLabel: string, pattern: RegExp, confidence: number, reason: string) => {
     if (!getDocumentTemplateFields(documentType).some((field) => field.key === fieldKey)) return;
-    mappings.push({ fieldKey, sourceLabel, location, confidence, reason, unresolved: false });
+    const anchor = inventory.anchors.find((candidate) => pattern.test(candidate.text));
+    mappings.push({ fieldKey, sourceLabel, location: anchor?.id || "unresolved", confidence, reason, unresolved: !anchor, ...(anchor ? { anchorId: anchor.id, targetText: anchor.targetText } : {}) } as any);
   };
   const paragraphs = structure.paragraphs.map((value) => value.trim()).filter(Boolean);
   const find = (pattern: RegExp) => paragraphs.find((value) => pattern.test(value));
   if (documentType === "PURCHASE_ORDER") {
-    if (find(/\b(?:po\s*(?:no|number)|purchase order reference)\b/i)) add("purchaseOrder.documentNumber", "PO No.", "paragraph", 0.78, "The label resembles a purchase-order identifier.");
-    if (find(/\b(?:job site|project location|deliver to)\b/i)) add("project.deliverTo", "Job Site / Deliver to", "paragraph", 0.7, "The label resembles a project delivery location.");
-    if (find(/\b(?:vendor|supplier)\b/i)) add("supplier.name", "Vendor / Supplier", "paragraph", 0.76, "The label resembles the supplier identity area.");
-    if (find(/\b(?:requested by|prepared by|processed by)\b/i)) add("processor.name", "Requested / Prepared by", "paragraph", 0.68, "The label resembles a responsible processor field.");
+    if (find(/\b(?:po\s*(?:no|number)|purchase order reference)\b/i)) add("purchaseOrder.documentNumber", "PO No.", /\b(?:po\s*(?:no|number)|purchase order reference)\b/i, 0.78, "The label resembles a purchase-order identifier.");
+    if (find(/\b(?:job site|project location|deliver to)\b/i)) add("project.deliverTo", "Job Site / Deliver to", /\b(?:job site|project location|deliver to)\b/i, 0.7, "The label resembles a project delivery location.");
+    if (find(/\b(?:vendor|supplier)\b/i)) add("supplier.name", "Vendor / Supplier", /\b(?:vendor|supplier)\b/i, 0.76, "The label resembles the supplier identity area.");
+    if (find(/\b(?:requested by|prepared by|processed by)\b/i)) add("processor.name", "Requested / Prepared by", /\b(?:requested by|prepared by|processed by)\b/i, 0.68, "The label resembles a responsible processor field.");
   } else {
-    if (find(/\b(?:invoice\s*(?:no|number)|reference)\b/i)) add("invoice.documentNumber", "Invoice No.", "paragraph", 0.78, "The label resembles an issued client-invoice identifier.");
-    if (find(/\b(?:bill to|customer|client)\b/i)) add("billTo.name", "Bill To / Client", "paragraph", 0.76, "The label resembles the client identity area.");
-    if (find(/\b(?:project|job)\b/i)) add("project.projectName", "Project / Job", "paragraph", 0.6, "The label may identify the project context.");
+    if (find(/\b(?:invoice\s*(?:no|number)|reference)\b/i)) add("invoice.documentNumber", "Invoice No.", /\b(?:invoice\s*(?:no|number)|reference)\b/i, 0.78, "The label resembles an issued client-invoice identifier.");
+    if (find(/\b(?:bill to|customer|client)\b/i)) add("billTo.name", "Bill To / Client", /\b(?:bill to|customer|client)\b/i, 0.76, "The label resembles the client identity area.");
+    if (find(/\b(?:project|job)\b/i)) add("project.projectName", "Project / Job", /\b(?:project|job)\b/i, 0.6, "The label may identify the project context.");
   }
-  const lineTable = structure.tables.find((table) => table.rows.some((row) => row.some((cell) => /description|qty|quantity|unit|price|amount|total/i.test(cell))));
+  const lineTable = inventory.lineTable;
   const lineTableProposal = lineTable ? {
-    location: "table",
+    location: lineTable.id,
+    candidateId: lineTable.id,
     confidence: 0.65,
-    fieldKeys: (documentType === "PURCHASE_ORDER"
-      ? ["lines.lineNumber", "lines.quantity", "lines.unit", "lines.description", "lines.unitPrice", "lines.amount"]
-      : ["lines.lineNumber", "lines.description", "lines.amount"]).filter((key) => getDocumentTemplateFields(documentType).some((field) => field.key === key)),
+    fieldKeys: lineTable.columns.flatMap((column) => column.suggestedFieldKey ? [column.suggestedFieldKey] : []).filter((key) => getDocumentTemplateFields(documentType).some((field) => field.key === key)),
+    columns: lineTable.columns.flatMap((column) => column.suggestedFieldKey && getDocumentTemplateFields(documentType).some((field) => field.key === column.suggestedFieldKey) ? [{ columnIndex: column.columnIndex, fieldKey: column.suggestedFieldKey }] : []),
   } : undefined;
   return {
     confidence: mappings.length || lineTableProposal ? 0.55 : 0.2,
     mappings,
     ...(lineTableProposal ? { lineTable: lineTableProposal } : {}),
     unresolved: lineTable ? [] : ["No repeating line-item table was confidently identified."],
-    warnings: ["AI mappings are proposals. Confirm them and place supported merge tags in Word before activation."],
+    warnings: ["AI mappings are proposals. Review them and use Prepare template before activation."],
   };
 }
 
@@ -738,9 +743,9 @@ const mappingAnalysisSchema = {
     suggestedDocumentType: { type: Type.STRING, nullable: true },
     confidence: { type: Type.NUMBER },
     mappings: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: {
-      fieldKey: { type: Type.STRING, nullable: true }, sourceLabel: { type: Type.STRING }, location: { type: Type.STRING }, confidence: { type: Type.NUMBER }, reason: { type: Type.STRING }, unresolved: { type: Type.BOOLEAN },
+       fieldKey: { type: Type.STRING, nullable: true }, sourceLabel: { type: Type.STRING }, location: { type: Type.STRING }, anchorId: { type: Type.STRING, nullable: true }, targetText: { type: Type.STRING, nullable: true }, confidence: { type: Type.NUMBER }, reason: { type: Type.STRING }, unresolved: { type: Type.BOOLEAN },
     }, required: ["fieldKey", "sourceLabel", "location", "confidence", "reason", "unresolved"] } },
-    lineTable: { type: Type.OBJECT, nullable: true, properties: { location: { type: Type.STRING }, confidence: { type: Type.NUMBER }, fieldKeys: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ["location", "confidence", "fieldKeys"] },
+     lineTable: { type: Type.OBJECT, nullable: true, properties: { location: { type: Type.STRING }, candidateId: { type: Type.STRING, nullable: true }, confidence: { type: Type.NUMBER }, fieldKeys: { type: Type.ARRAY, items: { type: Type.STRING } }, columns: { type: Type.ARRAY, nullable: true, items: { type: Type.OBJECT, properties: { columnIndex: { type: Type.INTEGER }, fieldKey: { type: Type.STRING }, confidence: { type: Type.NUMBER, nullable: true } }, required: ["columnIndex", "fieldKey"] } } }, required: ["location", "confidence", "fieldKeys"] },
     unresolved: { type: Type.ARRAY, items: { type: Type.STRING } },
     warnings: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
@@ -926,15 +931,37 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const { version } = await readTemplateVersion(auth, options, versionId);
       const { bytes } = await readTemplateBytes(auth, options, version);
       const structure = extractDocxStructure(bytes, version.sourceFilename || "template.docx");
-      const heuristic = heuristicAnalysis(version.documentType, structure);
-      const safeStructure = { paragraphs: structure.paragraphs.slice(0, 200), tables: structure.tables.slice(0, 50), text: structure.text.slice(0, MAX_ANALYSIS_TEXT), tags: structure.tags };
+      const inventory = extractDocumentTemplateAnchorInventory(bytes, version.sourceFilename || "template.docx");
+      const heuristic = heuristicAnalysis(version.documentType, structure, inventory);
+      const safeStructure = {
+        paragraphs: structure.paragraphs.slice(0, 200),
+        tables: structure.tables.slice(0, 50),
+        text: structure.text.slice(0, MAX_ANALYSIS_TEXT),
+        tags: structure.tags,
+        anchors: inventory.anchors.slice(0, 400).map((anchor) => ({
+          id: anchor.id,
+          partName: anchor.partName,
+          kind: anchor.kind,
+          paragraphIndex: anchor.paragraphIndex,
+          ...(anchor.tableIndex === undefined ? {} : { tableIndex: anchor.tableIndex }),
+          ...(anchor.rowIndex === undefined ? {} : { rowIndex: anchor.rowIndex }),
+          ...(anchor.cellIndex === undefined ? {} : { cellIndex: anchor.cellIndex }),
+          text: anchor.text,
+          ...(anchor.targetText ? { targetText: anchor.targetText } : {}),
+          occurrence: anchor.occurrence,
+        })),
+        lineTableCandidates: inventory.lineTableCandidates.slice(0, 20),
+        ...(inventory.lineTable ? { lineTable: inventory.lineTable } : {}),
+      };
       try {
-        const generated = await aiJson(auth, `<DOCUMENT_DATA>\n${JSON.stringify(safeStructure)}\n</DOCUMENT_DATA>\n<ALLOWED_FIELDS>\n${getDocumentTemplateFields(version.documentType).map((field) => `${field.key} — ${field.label}`).join("\n")}\n</ALLOWED_FIELDS>\nRequested document type: ${version.documentType}\nReturn only cautious proposed mappings. Mark uncertain items unresolved and do not invent bindings.`, mappingAnalysisSchema);
+        const generated = await aiJson(auth, `<DOCUMENT_DATA>\n${JSON.stringify(safeStructure)}\n</DOCUMENT_DATA>\n<ALLOWED_FIELDS>\n${getDocumentTemplateFields(version.documentType).map((field) => `${field.key} — ${field.label}`).join("\n")}\n</ALLOWED_FIELDS>\nRequested document type: ${version.documentType}\nMap only the supplied anchorId and line-table candidateId values. Return targetText exactly as supplied for every resolved scalar mapping. Return only cautious proposed mappings. Mark uncertain items unresolved and do not invent bindings.`, mappingAnalysisSchema);
         let decoded: unknown;
         try { decoded = JSON.parse(generated.text || "{}"); } catch { throw new Error("AI response JSON was malformed."); }
         const validated = validateTemplateMappingAnalysis(decoded, version.documentType);
         if (!validated.ok) throw new Error("AI response failed the application-owned mapping schema.");
-        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "AVAILABLE", model: generated.model, analysis: validated.analysis, heuristic } });
+        const anchored = validateTemplateMappingAnalysisAgainstInventory(validated.analysis, inventory, version.documentType);
+        if (!anchored.ok) throw new Error("AI response referenced an unknown or ambiguous document location.");
+        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "AVAILABLE", model: generated.model, analysis: anchored.analysis, heuristic } });
       } catch (error) {
         const safe = error instanceof CompanyAiError ? "AI assistance is unavailable for this analysis." : "AI analysis was rejected because its response was malformed or unsafe.";
         return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "UNAVAILABLE", message: safe, analysis: heuristic, heuristic } });
