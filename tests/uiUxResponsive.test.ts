@@ -29,3 +29,14 @@ test("narrow operational registers use progressive disclosure instead of forced 
   const equipment = source("src/components/equipment/EquipmentPage.tsx");
   assert.match(equipment, /minmax\(160px,1\.3fr\)_100px_110px_minmax\(130px,1fr\)_100px_minmax\(150px,1fr\)/);
 });
+
+test("remaining workspaces keep secondary framing behind the working surface", () => {
+  const projects = source("src/components/projects/ProjectsPage.tsx");
+  const settings = source("src/components/Settings.tsx");
+  const warehouse = source("src/components/inventory/WarehouseInventoryPage.tsx");
+  const equipment = source("src/components/equipment/EquipmentPage.tsx");
+  assert.match(projects, /<details aria-label="Portfolio Management Summary"/);
+  assert.ok(settings.indexOf("<CompanyDocumentTemplatesSettings") < settings.indexOf("<ProductFeaturesRoadmap"));
+  assert.ok(warehouse.indexOf("Search inventory items") < warehouse.indexOf("Movement-derived stock truth"));
+  assert.ok(equipment.indexOf("Search Equipment") < equipment.indexOf("Assignment authority is separate"));
+});

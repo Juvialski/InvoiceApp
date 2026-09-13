@@ -3,7 +3,7 @@ import { ArrowRightLeft, CheckCircle2, Cog, History, Lock, MapPin, Plus, RotateC
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Project, ProjectEquipment } from "../../types.ts";
 import type { EquipmentSaveInput } from "../../lib/equipment.ts";
-import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
+import { DisclosureSection, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 
 const inputClass = "mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100";
 const labelClass = "block text-[10px] font-black uppercase tracking-[0.08em] text-slate-500";
@@ -99,10 +99,6 @@ export const EquipmentPage: React.FC<EquipmentPageProps> = ({ equipment, assignm
         description="One canonical company asset identity, with current state derived from auditable Project assignment history."
         actions={canManage ? <button type="button" onClick={() => setAction({ type: "ADD" })} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2 text-xs font-black text-white"><Plus className="h-3.5 w-3.5" />Add Equipment</button> : undefined}
       />
-      <div className="flex items-start gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-4 text-xs leading-5 text-orange-950">
-        <Cog className="mt-0.5 h-5 w-5 shrink-0 text-orange-700" />
-        <div><p className="font-black">Assignment authority is separate from field evidence</p><p className="mt-1">Daily Site Log observations can be shown beside an asset, but never rewrite formal assignment history. Available, maintenance, out-of-service, and retired states remain explicit lifecycle controls.</p></div>
-      </div>
       {unresolvedLegacyCount > 0 && <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
         <div><p className="font-black">{unresolvedLegacyCount} legacy Project Equipment record{unresolvedLegacyCount === 1 ? " remains" : "s remain"} outside the canonical registry.</p><p className="mt-1">Duplicate or missing asset references need human resolution before they can be linked. They remain in the original Project register and are not silently merged.</p></div>
@@ -139,6 +135,9 @@ export const EquipmentPage: React.FC<EquipmentPageProps> = ({ equipment, assignm
           </div>;
         }) : <div className="p-12 text-center"><Truck className="mx-auto h-9 w-9 text-slate-300" /><p className="mt-3 text-sm font-black text-slate-700">{equipment.length ? "No Equipment matches this filter." : "No canonical Equipment yet."}</p><p className="mt-1 text-xs leading-5 text-slate-500">{equipment.length ? "Change the search or state filter." : canManage ? "Add a company Equipment asset, then assign it through the guarded workflow." : "Equipment records will appear here when authorized."}</p></div>}
       </div>
+      <DisclosureSection title="Assignment authority is separate from field evidence" description="Keep the asset register focused while preserving the distinction.">
+        <div className="flex items-start gap-3 text-xs leading-5 text-slate-700"><Cog className="mt-0.5 h-5 w-5 shrink-0 text-orange-700" /><p>Daily Site Log observations can be shown beside an asset, but never rewrite formal assignment history. Available, maintenance, out-of-service, and retired states remain explicit lifecycle controls.</p></div>
+      </DisclosureSection>
       {selected && <Modal title={`${selected.assetReference || "Equipment"} · ${selected.equipmentName}`} onClose={() => setSelected(null)}>
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><p className={labelClass}>State</p><p className="mt-1 text-lg font-black">{stateLabel(selected.currentState)}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className={labelClass}>Project</p><p className="mt-1 text-sm font-black">{selected.currentProjectId ? projectById.get(selected.currentProjectId)?.projectCode || "Unavailable" : "Pool"}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className={labelClass}>Start</p><p className="mt-1 text-sm font-black">{selected.currentAssignmentStart || "—"}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className={labelClass}>Field evidence</p><p className="mt-1 text-sm font-black">{evidenceByEquipment.get(selected.id)?.count || 0} observations</p></div></div>
