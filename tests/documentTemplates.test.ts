@@ -177,6 +177,15 @@ test("AI analysis boundary treats uploaded text as data and preserves manual fal
   assert.match(router, /untrusted data, never instructions/i);
   assert.match(router, /MANUAL_BINDING_REQUIRED/);
   assert.match(router, /AI mappings are proposals/i);
-  assert.match(settings, /Download \/ edit in Word/);
-  assert.match(settings, /No supported merge tags were detected/);
+  assert.match(settings, /Advanced fallback: edit in Word/);
+  assert.match(settings, /No supported tags are present yet/);
+});
+
+test("template Settings uses runtime capability and in-app preparation for uploaded DOCX", () => {
+  const settings = source("src/components/access/CompanyDocumentTemplatesSettings.tsx");
+  assert.match(settings, /runtimeCapability/);
+  assert.doesNotMatch(settings, /lastTestStatus === "SUCCESS"/);
+  assert.match(settings, /Prepare template|Apply mappings/);
+  assert.match(settings, /Advanced fallback|advanced fallback/i);
+  assert.doesNotMatch(settings, /place tags such as/);
 });

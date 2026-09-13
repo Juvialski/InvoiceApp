@@ -150,7 +150,8 @@ test("template settings gates persistence separately from PDF conversion", () =>
   assert.match(settings, /templateStorage/);
   assert.match(settings, /TEMPLATE_STORAGE_UNAVAILABLE|server-side Storage authority/i);
   assert.match(settings, /loadDeploymentAiConfig/);
-  assert.match(settings, /lastTestStatus === "SUCCESS"/);
+  assert.match(settings, /runtimeCapability/);
+  assert.doesNotMatch(settings, /lastTestStatus === "SUCCESS"/);
   assert.match(settings, /data-template-storage-capability="checking"/);
   assert.match(settings, /data-template-ai-capability="checking"/);
   assert.match(settings, /data-document-pdf-capability/);
