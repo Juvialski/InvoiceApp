@@ -1,281 +1,126 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UI/UX ROUND 2 IMPLEMENTATION IN PROGRESS / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI CONFIGURATION BLOCKED IN LOCAL-QA / PDF CONVERTER UNAVAILABLE / LAST APPLICATION-BEARING MAIN HOSTED-QA CERTIFIED / SUPPLIER PAYABLES CERTIFIED / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — UI/UX ROUND 2 COMPLETE / WAVE 4D MESSAGING-PROVIDER INTEGRATION & COMPLETION NEXT / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / LAST HOSTED-CERTIFIED APPLICATION SHA REMAINS EARLIER / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Date: **2026-09-13**
 Repository: `Juvialski/InvoiceApp`
 
 ## Authoritative current baseline
 
-The documentation reprioritization in this handoff was prepared from `main` at:
+UI/UX Round 2 was implemented from `main` at:
 
-`28f063c365fea287b5aa07c3ea7d94af05f3651c`
+`746a4aacda9ccceff88a5093bfeb678b8b1046a8`
 
-The last application-bearing SHA currently covered by the successful hosted application certification remains:
+The final application-bearing implementation head before documentation-only finalization was:
+
+`486d8cd594eade2ad6399ed3160b6f0a227a17b8`
+
+That exact application head passed the protected application/build, browser/demo, and workflow-map checks applicable to this phase. The protected database workflow correctly fast-passed after classifying the diff as database-unaffected. Documentation-only finalization commits may advance the PR head without changing the reviewed application code.
+
+The last application-bearing SHA currently covered by the earlier successful hosted application certification remains:
 
 `e4ee4ebde489629ee74429b4e37abb511943a51e`
 
-That application SHA is merged PR #158, **fix supplier payable settlement truth**. The later `28f063c...` commit is documentation-only and does not itself change the deployed application contract.
+That hosted evidence belongs to the earlier certified application state and must not be generalized blindly to the newer UI/UX Round 2 application code.
 
 Read this handoff with:
 
 - `AGENTS.md`;
 - `docs/AGENTS_BASELINE_20260909.md`;
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
-- **`docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md` — authoritative design for the immediate next phase**;
+- `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md` — completed UI/UX Round 2 design/acceptance record and standing UI baseline;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
+- **`docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the exact next product phase**;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
-- `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` for the incomplete Wave 4D contract;
 - `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and deployment runbook when release/migration operations matter.
 
 Live repository state and `AGENTS.md` override remembered chat summaries.
 
 ---
 
-## Explicit user reprioritization — 2026-09-12
+## UI/UX Round 2 — completed 2026-09-13
 
-The user reviewed several authenticated HydroQualiSense screens and determined that the application still contains too many confusing, technical, oversized, cramped, or weakly prioritized interfaces despite the earlier UI/UX pass.
+The user approved a second broad usability phase and allowed navigation/tab restructuring when that improved and simplified the product without weakening important features, permissions, financial truth, audit history, source ownership, or workflow correctness.
 
-The user explicitly approved a second, broader UI/UX phase and explicitly allowed navigation/tab restructuring when that improves and simplifies the experience.
+PR #161 completed that phase.
 
-### New immediate phase
+### Final implementation state
 
-**UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture**
+The implementation delivers grouped authenticated shell navigation, shared task-first controls/disclosures, mandatory Documents/Expenses/Project Allocation/Payroll improvements, and targeted hierarchy changes for Dashboard, Supplier Invoices, Projects, Warehouse, Equipment, and Settings. The changes preserve the existing route vocabulary, deep-link query contracts, permission checks, source ownership, financial boundaries, immutable history, and Assistant confirmation model. No database migration or schema contract changed.
 
-Authoritative phase design:
+The mandatory regression areas were explicitly rechecked:
 
-`docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`
+- **Project Allocation** uses readable responsive allocation views so large values, units, remaining amounts, and selection/action semantics are no longer forced into one narrow row.
+- **Documents** is search/list-first and keeps common open/preview/handoff work ahead of secondary registry/provenance framing.
+- **Expenses** keeps the Expense register primary while Supplier Invoice/source documents remain supporting context and the linked Expense retains payable/cost authority.
+- **Payroll** is grouped around Overview, People, Attendance & Time, Payroll Runs, and Imports & Setup instead of the former flat equal-priority tab strip.
 
-This phase now comes **before continuing the remaining Wave 4D messaging-provider integration/readiness work**.
+The final authenticated Local-QA route matrix recorded **59/59 PASS** with zero page-overflow, dialog-overflow, or interactive-overflow failures. The recorded authenticated visual-certification pass produced **80 route/state captures across desktop, constrained laptop, tablet, and phone, plus corrected Projects captures at desktop/tablet/phone**. Exact-head GitHub browser QA independently captured 78 demo screenshots/scenarios across 34 routes and four viewport classes with zero failed scenarios, navigation failures, console errors, page errors, failed requests, or overflow failures.
 
-Wave 4D is not cancelled. After UI/UX Round 2 is completed and merged, return to Wave 4D unless the user explicitly reprioritizes again.
+The focused template/UI/harness suite passed 38/38. At the final application-bearing implementation head, `test:affected:agent` selected 871 tests with 870 pass, 0 fail, and 1 skipped; lint and production build passed. Workflow Map/source consistency passed. No database migration/RLS/RPC/trigger change or production write occurred.
 
-Worker Registration remains paused and must not be suggested as the next phase.
+### Document Templates capability truth
 
-### Current implementation branch state
+The critical Document Templates investigation traced Starter, Upload, and AI persistence through the shared server Storage path. After the private `SUPABASE_STORAGE_SERVER_KEY` was configured locally, the restarted authenticated Local-QA capability endpoint returned `templateStorage.status=AVAILABLE`.
 
-This implementation branch started from the freshly synchronized `main` SHA:
+Purchase Order and Client Invoice Starter plus safe Upload each:
 
-`746a4aacda9ccceff88a5093bfeb678b8b1046a8`
+- persisted immutable template metadata/version records;
+- survived Settings refresh;
+- returned retrievable DOCX bytes.
 
-The branch implements the grouped authenticated shell navigation, shared task-first controls/disclosures, mandatory Documents/Expenses/Project Allocation/Payroll improvements, and targeted hierarchy changes for Dashboard, Supplier Invoices, Projects, Warehouse, Equipment, and Settings. The changes preserve the existing route vocabulary, deep-link query contracts, permission checks, source ownership, financial boundaries, immutable history, and Assistant confirmation model. No database migration or schema contract changed.
+The Starter generator now emits the declared `company.vatTin` tag so activation validation is `VALID`.
 
-The critical Document Templates investigation traced Starter, Upload, and AI persistence through the shared server Storage path. After the private `SUPABASE_STORAGE_SERVER_KEY` was configured locally, the restarted authenticated Local-QA capability endpoint returned `templateStorage.status=AVAILABLE`. Purchase Order and Client Invoice Starter plus safe Upload each persisted immutable metadata/version records, survived Settings refresh, and returned retrievable DOCX bytes; the Starter generator now emits the declared `company.vatTin` tag so activation validation is `VALID`. AI remains separately **NOT CERTIFIED**: `/api/deployment/company-ai` returned `503 AI_CREDENTIALS_SERVER_MISCONFIGURED` because the local QA runtime lacks its separate AI server configuration, and no AI generation was attempted. PDF conversion remains independently `UNAVAILABLE`. The fresh route matrix recorded 59/59 PASS with zero overflow categories; the functional sweep recorded 8 PASS and 1 BLOCKED for AI configuration.
+AI template generation remains separately **NOT CERTIFIED**. `/api/deployment/company-ai` returned `503 AI_CREDENTIALS_SERVER_MISCONFIGURED` because the Local-QA runtime lacks its separate AI server configuration. AI generation was not attempted and this blocker must not be attributed to Storage.
 
----
+High-fidelity company-template PDF conversion remains independently `UNAVAILABLE`. The existing programmatic PDF fallback remains a separate capability.
 
-## UI/UX Round 2 purpose
+The final Local-QA functional sweep recorded **8 PASS, 0 FAIL, 1 BLOCKED**, where the only blocked case was the separate AI configuration prerequisite.
 
-The app should continue to expose its large feature set, but it must become much easier to understand and operate.
+No secret was returned to the browser. No uncontrolled email/SMS send and no production mutation occurred.
 
-This is not a theme/color/spacing-only cleanup. It is a **workflow-first information-architecture and usability restructuring pass**.
+### Standing UI baseline
 
-The approved product rules are:
+Later product phases must preserve the completed workflow-first rules:
 
 - task first, system architecture second;
-- keep important functionality, reduce cognitive load;
+- keep important functionality while reducing cognitive load;
 - one obvious primary action per context;
 - actual working content/register before long explanations or oversized summary regions;
 - progressive disclosure for provenance, audit metadata, raw IDs, and advanced/rare actions;
 - business-facing wording instead of engineering/source-of-truth jargon in ordinary UI;
-- compact, useful summaries instead of card walls and dead space;
-- common filters visible and compact, advanced filters progressively disclosed where appropriate;
-- consistent page/action/filter/table/form/navigation grammar across modules;
-- navigation/tabs may be renamed, regrouped, reordered, or restructured if that genuinely simplifies the user journey;
-- preserve established routes/deep links wherever practical, with deliberate compatibility handling when views move;
-- responsive layouts may reorganize workflows instead of merely shrinking desktop layouts;
+- compact useful summaries and filters;
+- consistent page/action/filter/table/form/navigation grammar;
+- routes/deep links remain compatible wherever practical;
+- responsive layouts may reorganize workflows rather than merely shrinking desktop layouts;
 - simplification must never weaken permissions, financial truth, audit history, source ownership, company isolation, or Assistant confirmation boundaries.
 
-### Primary usability acceptance test
-
-For every major authenticated screen, a first-time company user should be able to determine within a few seconds:
-
-1. What is this page for?
-2. What needs my attention?
-3. What can I do next?
-
-A screen is not complete merely because it loads cleanly or has no horizontal overflow.
-
 ---
 
-## Mandatory known regression examples
+## Exact next phase — Wave 4D messaging-provider integration/completion
 
-These user-observed classes must be explicitly rechecked during implementation.
+UI/UX Round 2 is complete. Wave 4D is no longer temporarily sequenced behind it and is now the exact next product phase unless the user explicitly reprioritizes again.
 
-### Project Allocation
+Wave 4D remains **partially implemented but not complete**. Resume from the existing contract and implementation; do not rebuild the completed Email/SMS or Documents workspaces from scratch.
 
-Current/observed dense allocation presentation can compress project, large values, units, balance, allocation semantics, and action into a difficult strip. Redesign the flow so the user's decision sequence is obvious and large values remain readable at normal laptop widths.
+Approved provider direction remains:
 
-### Documents
+- **Company SIM Gateway — primary/recommended**;
+- **PhilSMS — optional hosted Philippine fallback**.
 
-The document list/workspace should be the primary working experience. Oversized summary/registry framing must not push common find/open/preview/handoff tasks far down the screen without a strong reason. Canonical ownership remains in source domains; Documents remains an index/workspace, not a competing source of truth.
+The next implementation should:
 
-### Expenses
+- inspect the live Wave 4D contract, current provider-neutral SMS scaffolding, delivery-intent/history model, Gmail implementation, permissions, and completed task-first Email/SMS/Documents UI before changing code;
+- implement or finish the approved server-side provider path without exposing provider credentials to the browser;
+- preserve one reviewed transactional recipient per SMS send and human review/confirmation before consequential outbound sends;
+- keep SMS truthfully unavailable/unverified until controlled provider-backed runtime QA succeeds;
+- preserve inbound Gmail intake and existing issued-document Gmail delivery/history behavior;
+- reconnect/certify Gmail as needed for exact-state provider evidence rather than assuming old authorization is current;
+- preserve append-only/company-bound delivery history, idempotency/reconciliation boundaries, and source document ownership;
+- keep AI/provider prerequisites separately truthful; the current `AI_CREDENTIALS_SERVER_MISCONFIGURED` condition is not a Storage failure;
+- preserve the completed UI/UX Round 2 hierarchy while adding provider capability;
+- close the remaining Wave 4D provider/AI/recovery/readiness evidence before any Worker Registration work.
 
-The Expense register should behave as the main Expense workspace. Supplier Invoice evidence remains linked supporting context. Technical language such as record ownership/authority should not dominate the normal view, though the actual financial/source semantics must remain intact.
-
-### Payroll
-
-The current long flat navigation must be reviewed and reorganized around a clearer user mental model. A likely direction is higher-level grouping around overview, people, attendance/time, payroll runs, and imports/admin, but final grouping must come from live route responsibilities rather than blindly copying proposed labels.
-
-These examples seed the audit. Fixing only these examples is insufficient.
-
----
-
-## Required app-wide scope
-
-Codex must inspect and simplify the authenticated application as a coherent product, not as isolated screenshots.
-
-Coverage includes at minimum:
-
-- Dashboard/Home;
-- Projects and project sub-workspaces;
-- Procurement/RFQ/Purchase Orders;
-- Supplier Invoices;
-- Expenses/payables;
-- Client Billing/Client Invoices;
-- Collections;
-- Cash & Banking;
-- Inventory/Warehouse/project allocation;
-- Payroll/Workers/Attendance/Time/Runs/Imports;
-- Documents;
-- Email/SMS;
-- Engineering;
-- Equipment;
-- Reports where they share affected layout/navigation patterns;
-- Settings/Admin where advanced configuration properly belongs;
-- other authenticated top-level routes and important child/detail/modal/drawer states derived from the live router.
-
-Do not trust an old hardcoded route count. Derive the route inventory from current source.
-
----
-
-## Shared UI grammar to enforce
-
-Major operational pages should generally converge on:
-
-1. page title + concise context;
-2. primary action/next step;
-3. only decision-relevant summary/state;
-4. main working surface;
-5. supporting context;
-6. advanced/provenance/audit details.
-
-Shared patterns should be reviewed centrally where possible:
-
-- page headers;
-- section headers;
-- cards/stat tiles;
-- buttons and action hierarchy;
-- badges/status chips;
-- filters/search;
-- tables/registers;
-- form groups;
-- local navigation/tabs;
-- dialogs/drawers;
-- helper text;
-- empty/loading/error/unavailable states;
-- pagination;
-- responsive action patterns.
-
-Do not patch each route independently when a reusable component is the root cause.
-
----
-
-## Terminology / formatting direction
-
-Audit the app for technical or awkward user-facing language including:
-
-- UUID/hash-first identity;
-- raw enums;
-- source-of-truth/authority jargon;
-- `owns cost`-style wording;
-- `preserved source evidence`-style wording;
-- ambiguous `Uncoded`-style labels;
-- inconsistent money/quantity/unit formatting;
-- verbose explanatory copy placed ahead of the work itself.
-
-Use human-readable business identity first and technical IDs/details second.
-
-Money should be presented in readable currency-aware formatting while preserving original currency and without inventing FX.
-
----
-
-## Local-QA implementation loop
-
-This phase should heavily use the existing authenticated Local-QA harness because it allows a branch to be exercised against the isolated QA backend before merge.
-
-Intended development loop:
-
-`fresh branch from current main -> local app -> isolated QA backend -> authenticated workflow -> inspect rendered behavior -> fix -> focused regression`
-
-Use the already approved QA environment/account configuration via local environment/test configuration. Never hardcode passwords, service-role credentials, or browser-unsafe privileged keys in repository files.
-
-Local-QA is pre-merge functional evidence. It is not permission to modify production.
-
-### Primarily application/UI scope
-
-Do not add DB migrations/RLS/RPC/financial-guard changes simply to make the redesign easier.
-
-If a genuine backend defect is exposed, identify it explicitly and use the repository's DB validation rules if it must be corrected. Do not silently redefine business truth inside UI code.
-
----
-
-## Required workflow regression coverage
-
-Do not limit validation to route loading and screenshots.
-
-Exercise the workflows materially touched by the restructure, including applicable existing coverage for:
-
-- supplier document -> verification -> linked Expense -> Cash & Banking;
-- procurement/RFQ -> PO -> receipt -> Warehouse;
-- Client Invoice -> Collection -> Cash & Banking;
-- Payroll people/time/attendance -> run/calculation -> approval navigation and freshness;
-- Documents -> preview/open -> Compose/review without uncontrolled sending;
-- Project allocation and project-context handoffs;
-- Inventory/project allocation and receiving handoffs;
-- deep-link/stale-record recovery where navigation changes affect them.
-
-If fixture/provider limitations prevent a workflow, report it as blocked/not-tested rather than as pass.
-
----
-
-## Responsive / accessibility expectations
-
-Deliberately exercise at least:
-
-- normal desktop;
-- laptop / constrained-height desktop;
-- tablet width;
-- phone/mobile width.
-
-Check more than page overflow:
-
-- no clipped critical controls;
-- no unusably compressed money/quantity/select fields;
-- primary actions remain discoverable;
-- navigation remains understandable;
-- actual working content is not buried beneath oversized header/card regions;
-- dialogs/drawers remain operable;
-- keyboard/focus/labels/touch targets remain reasonable;
-- do not replace understandable text actions with ambiguous icon-only controls merely to save space.
-
----
-
-## Validation ladder for this phase
-
-Use the repository's proportional implementation workflow:
-
-1. new/edited tests;
-2. focused UI/domain tests;
-3. `npm.cmd run test:affected:agent`;
-4. production build because broad UI/application integration changes are expected;
-5. targeted authenticated Local-QA/browser coverage for affected routes/workflows;
-6. Workflow Map only when mapped/generated contracts change;
-7. Docker/local Supabase only if DB/security/integrity contracts change;
-8. `test:full` only if impact fallback, broad shared-contract risk, failures, release/deep-regression need, or explicit request justifies it;
-9. exact integrated diff review for accidental feature loss, financial/security drift, broken routes, and scope creep.
-
-Codex must not self-merge its implementation PR.
+Worker Registration remains paused and must not be suggested as the immediate next phase.
 
 ---
 
@@ -283,7 +128,7 @@ Codex must not self-merge its implementation PR.
 
 ### First comprehensive Local-QA UI/UX pass — complete
 
-PR #150 previously established broad authenticated route/responsive coverage and fixed concrete UI issues. That pass remains valid evidence for what it tested, but it did not prove the app was optimally understandable. UI/UX Round 2 intentionally raises the bar from structural correctness to usability/information hierarchy.
+PR #150 previously established broad authenticated route/responsive coverage and fixed concrete UI issues. UI/UX Round 2 then raised the bar from structural correctness to workflow clarity and information hierarchy.
 
 ### Programmatic PDF visual certification — complete
 
@@ -293,7 +138,7 @@ Company-template high-fidelity conversion remains a separate capability and must
 
 ### Functional Local-QA sweep — complete for supported/fixture-backed workflows
 
-The earlier integrated Local-QA sweep exercised key RFQ/PO/Warehouse, supplier payable, client receivable, payroll, Documents->Compose, and stale-record flows. Subcontract settlement remained fixture-blocked where no safe fixture existed.
+The integrated Local-QA sweep exercises key RFQ/PO/Warehouse, supplier payable, client receivable, payroll, Documents->Compose, stale-record, and now Document Templates Starter/Upload persistence/retrieval flows. Subcontract settlement remains fixture-blocked where no safe fixture exists. AI template generation remains blocked by separate server AI configuration.
 
 ### Supplier Payables Settlement Truth & Consistency — complete
 
@@ -306,17 +151,17 @@ Merged PR #158 established and certified the corrected supplier settlement model
 - reversal restores outstanding while preserving history;
 - project/source linkage and cost truth remain intact.
 
-Do not weaken those semantics during UI simplification.
+Do not weaken those semantics during Wave 4D or later UI work.
 
 ---
 
 ## Hosted exact-SHA QA evidence
 
-Certified application SHA:
+Earlier hosted-certified application SHA:
 
 `e4ee4ebde489629ee74429b4e37abb511943a51e`
 
-At certification:
+At that certification:
 
 - Render QA served the exact intended SHA;
 - QA deployment identity/environment matched expectations;
@@ -330,7 +175,7 @@ At certification:
 - synthetic financial certification fixtures were rolled back/cleaned;
 - no uncontrolled email or SMS was sent.
 
-This evidence belongs to that application SHA and must not be generalized blindly to the future UI/UX Round 2 head.
+That hosted evidence belongs to that earlier application SHA. The newer UI/UX Round 2 application code has strong Local-QA and exact-head CI/browser evidence, but still needs later hosted exact-SHA evidence before release-readiness claims can move forward.
 
 ---
 
@@ -338,7 +183,7 @@ This evidence belongs to that application SHA and must not be generalized blindl
 
 ### Gmail
 
-Exact-state hosted provider proof may require reauthorization. Compose/review remains conceptually separate from uncontrolled send. UI work must preserve the human review/confirmation boundary.
+Exact-state hosted provider proof may require reauthorization. Compose/review remains separate from uncontrolled send. Wave 4D must preserve the human review/confirmation boundary.
 
 ### SMS
 
@@ -347,11 +192,16 @@ Approved provider direction remains:
 - Company SIM Gateway — primary/recommended;
 - PhilSMS — optional hosted fallback.
 
-The provider work is **temporarily sequenced after UI/UX Round 2**, not cancelled. Real SMS remains unavailable/unverified until controlled provider-backed QA succeeds.
+Provider implementation/completion is now the **next active product phase**. Real SMS remains unavailable/unverified until controlled provider-backed QA succeeds.
 
-### Company-template upload/conversion
+### Company-template Storage / AI / conversion
 
-Programmatic PDF fallback is separate from company-template DOCX/finalized converter-backed PDF. Do not represent converter scaffolding as runtime certification where the supported converter/server authority is unavailable.
+- Starter and safe Upload Storage authority is **AVAILABLE and locally certified** for Purchase Order and Client Invoice persistence/retrieval.
+- AI template generation is **NOT CERTIFIED** because the separate server AI prerequisite currently returns `AI_CREDENTIALS_SERVER_MISCONFIGURED` in Local-QA.
+- Programmatic PDF fallback is separate and already certified for exercised records.
+- Company-template high-fidelity converter-backed PDF remains independently `UNAVAILABLE`.
+
+Do not collapse these four capability states into one generic template/PDF/AI status.
 
 ### Subcontract settlement
 
@@ -363,9 +213,9 @@ Remains fixture-limited/not-tested where no safe subcontract/claim fixture exist
 
 `QA CERTIFICATION: NOT READY`
 
-The hosted application and supplier-payables evidence are strong but narrower than full readiness.
+The hosted application and supplier-payables evidence are strong but narrower than full readiness. UI/UX Round 2 adds strong pre-merge authenticated Local-QA and exact-head CI/browser evidence, but the newer application-bearing state is not yet a replacement for hosted exact-SHA certification.
 
-Overall QA remains not ready because remaining provider/readiness limitations still exist and because the upcoming UI/UX Round 2 will produce a new application-bearing head requiring appropriate new evidence.
+Overall QA remains not ready because remaining provider/readiness limitations still exist, including incomplete Wave 4D provider-backed runtime evidence.
 
 Production is read-only unless the user separately and explicitly authorizes a production operation under the migration/operator policy.
 
@@ -382,7 +232,7 @@ Never infer production authorization from:
 
 ## Permanent financial / security / history invariants
 
-Preserve throughout UI/UX Round 2 and subsequent work:
+Preserve throughout resumed Wave 4D and subsequent work:
 
 - one deployment -> one client company;
 - active membership, RLS, RBAC, capability-based authorization, and company isolation;
@@ -397,19 +247,19 @@ Preserve throughout UI/UX Round 2 and subsequent work:
 - immutable issued/finalized document snapshots and provenance remain intact;
 - delivery history remains append-only/company-bound;
 - Assistant consequential actions retain `prepare -> review -> human confirm -> execute`;
-- navigation simplification is never authorization simplification.
+- provider capability states remain truthful when unavailable/unverified;
+- completed UI/UX simplification is never authorization simplification.
 
 ---
 
 ## Required sequence from this handoff
 
-1. **UI/UX Round 2 — NEXT / ACTIVE**
-2. **Resume Wave 4D messaging-provider integration/completion**
-3. **Wave 4D remaining readiness/completion evidence**
-4. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
-5. Site Attendance
-6. Face Recognition only after design/privacy/security work
-7. Final pre-production security/data-integrity certification
+1. **Wave 4D messaging-provider integration/completion — NEXT / ACTIVE**
+2. **Wave 4D remaining provider/AI/recovery/readiness evidence**
+3. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
+4. Site Attendance
+5. Face Recognition only after design/privacy/security work
+6. Final pre-production security/data-integrity certification
 
 Do not skip directly to Worker Registration.
 
@@ -417,25 +267,26 @@ Do not skip directly to Worker Registration.
 
 ## Fresh implementation handoff instructions
 
-For UI/UX Round 2, Codex should:
+For the next Wave 4D implementation run, Codex should:
 
 - first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
-- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, and `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`;
+- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`;
+- read the completed UI/UX Round 2 design record only as needed to preserve the new interaction baseline;
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
 - use at most one bounded context packet when useful;
-- inspect the live router/application shell/shared primitives before deciding navigation changes;
-- derive the current authenticated route/workflow inventory from source;
-- use authenticated Local-QA repeatedly while implementing;
-- fix shared UI causes centrally where appropriate;
-- preserve all business/security/history invariants;
-- run focused -> affected -> relevant build/browser validation;
+- inspect the existing Email/SMS workspace, Documents workspace, provider-neutral SMS scaffolding, Gmail delivery implementation, delivery history/intents, permissions, Settings/product-truth surfaces, and current provider capability handling before designing changes;
+- keep Company SIM Gateway primary and PhilSMS optional fallback unless the user explicitly changes provider direction;
+- preserve human review/confirmation and company-bound append-only delivery history;
+- keep SMS unavailable/unverified until controlled provider-backed runtime QA succeeds;
+- keep current AI-template misconfiguration separate from Storage and SMS provider truth;
+- run focused -> affected -> relevant build/browser/provider validation;
 - use Docker/Supabase only if the change genuinely crosses DB/security/integrity contracts;
 - review the complete final diff;
-- update roadmap/handoff/design/client-facing roadmap truth only to match actual final capability;
+- synchronize roadmap/handoff/client-facing feature truth to actual final capability;
 - push/open PR and stop; Codex must not merge its own PR.
 
 ## Stop boundary
 
-Do not let UI/UX Round 2 expand into provider deployment, Worker Registration, Site Attendance, Face Recognition, broad CRM, new accounting policy, or unrelated DB redesign.
+Do not let resumed Wave 4D expand into Worker Registration, Site Attendance, Face Recognition, broad CRM, new accounting policy, or unrelated DB redesign.
 
-When the UI/UX implementation is safely merged, return to Wave 4D provider integration unless the user explicitly changes priorities again.
+Complete and certify the approved messaging-provider work first. Worker Registration remains paused until Wave 4D is genuinely complete and the user explicitly resumes it.
