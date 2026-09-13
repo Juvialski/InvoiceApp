@@ -17,6 +17,8 @@ import {
   validateDocxTemplateBytes,
   DocumentTemplateValidationError,
 } from "../src/server/documentTemplates/documentTemplateEngine.ts";
+import { documentTemplateAiErrorMessage } from "../src/server/documentTemplates/documentTemplateRouter.ts";
+import { CompanyAiError } from "../src/server/ai/companyAiTypes.ts";
 
 function source(path: string) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -188,4 +190,19 @@ test("template Settings uses runtime capability and in-app preparation for uploa
   assert.match(settings, /Prepare template|Apply mappings/);
   assert.match(settings, /Advanced fallback|advanced fallback/i);
   assert.doesNotMatch(settings, /place tags such as/);
+});
+
+test("Generate AI errors keep safe provider categories and never become Storage failures", () => {
+  const cases = [
+    ["AI_QUOTA_LIMITED", /quota|rate limit/i],
+    ["AI_PROVIDER_ACCESS_DENIED", /access/i],
+    ["AI_NETWORK_ERROR", /reach Gemini|network/i],
+    ["AI_CREDENTIAL_INVALID", /credential|key/i],
+  ] as const;
+  for (const [code, expected] of cases) {
+    const message = documentTemplateAiErrorMessage(new CompanyAiError(code, "raw provider response secret-value", 503));
+    assert.match(message, expected);
+    assert.doesNotMatch(message, /raw provider|secret-value|Storage/i);
+    assert.match(message, /No financial record was changed/i);
+  }
 });

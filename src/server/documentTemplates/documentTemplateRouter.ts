@@ -178,6 +178,26 @@ function apiErrorPayload(error: any, fallback: string) {
   return { success: false, code: apiErrorCode(error), error: apiMessage(error, fallback) };
 }
 
+const DOCUMENT_TEMPLATE_AI_FAILURE_MESSAGES: Readonly<Record<string, string>> = {
+  AI_NOT_CONFIGURED_FOR_COMPANY: "Company AI is not configured for this deployment company. An authorized operator must configure it.",
+  AI_DISABLED_FOR_COMPANY: "Company AI is disabled for this deployment company.",
+  AI_CONFIG_UNAVAILABLE: "Company AI configuration could not be verified safely.",
+  AI_CREDENTIALS_SERVER_MISCONFIGURED: "Server-side AI credential configuration is incomplete. An operator must configure it.",
+  AI_CREDENTIAL_INVALID: "The configured Gemini credential was rejected. Rotate or reconnect the company credential.",
+  AI_CREDENTIAL_UNAVAILABLE: "The company AI credential could not be opened safely.",
+  AI_PROVIDER_ACCESS_DENIED: "Gemini denied access to the configured model or project.",
+  AI_MODEL_UNAVAILABLE: "The configured Gemini model is currently unavailable.",
+  AI_QUOTA_LIMITED: "Gemini quota or rate limit was reached. Try again later.",
+  AI_PROVIDER_UNAVAILABLE: "Gemini is temporarily unavailable. Try again later.",
+  AI_REQUEST_REJECTED: "Gemini rejected the document-AI request configuration.",
+  AI_TIMEOUT: "The document-AI request timed out. Try again later.",
+  AI_NETWORK_ERROR: "The server could not reach Gemini. Try again later.",
+};
+
+export function documentTemplateAiErrorMessage(error: CompanyAiError): string {
+  return `${DOCUMENT_TEMPLATE_AI_FAILURE_MESSAGES[error.code] || "Document AI could not complete the request safely."} No financial record was changed.`;
+}
+
 function logTemplateFailure(stage: string, error: unknown) {
   if (!String(process.env.HYDROQUALISENSE_ENVIRONMENT || process.env.VITE_HYDROQUALISENSE_ENVIRONMENT || "").trim()) return;
   console.warn("document-template-failure", {
@@ -952,7 +972,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       logTemplateFailure("generate-ai", error);
       const normalized = error instanceof CompanyAiError ? error : error;
       const status = normalized instanceof CompanyAiError ? normalized.status : error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 502 : 503;
-      const message = normalized instanceof CompanyAiError ? "AI template generation is unavailable. Use a starter or manual DOCX template; no financial record was changed." : apiMessage(error, "The AI template could not be generated safely.");
+      const message = normalized instanceof CompanyAiError ? documentTemplateAiErrorMessage(normalized) : apiMessage(error, "The AI template could not be generated safely.");
       return res.status(status).json({ success: false, code: apiErrorCode(error, "AI_TEMPLATE_GENERATION_FAILED"), error: message, ...(normalized instanceof CompanyAiError ? { reference: normalized.correlationRef } : {}) });
     }
   });
