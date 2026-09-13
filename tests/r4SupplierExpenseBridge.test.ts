@@ -85,6 +85,12 @@ test("R4 bridge uses the existing guarded RPC and does not auto-post from page r
   assert.match(migration, /on conflict \(company_id, source_type, source_id\) do nothing/i);
 });
 
+test("Expense register is the primary workspace and uses business-facing source wording", () => {
+  assert.ok(expensesPage.indexOf("Expense register") < expensesPage.indexOf("Supplier document work"));
+  assert.doesNotMatch(expensesPage, /owns cost/);
+  assert.doesNotMatch(expensesPage, /preserved source evidence/);
+});
+
 test("supplier link repair reuses the canonical post-Warehouse percentage projection", () => {
   const projectId = "project-percentage";
   const projected = supplierExpenseProjectProjection({

@@ -97,6 +97,7 @@ export function FilterBar({
   hasActiveFilters = false,
   onReset,
   resetLabel = "Clear filters",
+  ariaLabel = "Filters",
   className = "",
 }: {
   children: React.ReactNode;
@@ -104,10 +105,11 @@ export function FilterBar({
   hasActiveFilters?: boolean;
   onReset?: () => void;
   resetLabel?: string;
+  ariaLabel?: string;
   className?: string;
 }) {
   return (
-    <section className={"rounded-xl border border-slate-200 bg-white p-3 sm:p-4 " + className} aria-label="Filters">
+    <section className={"rounded-xl border border-slate-200 bg-white p-3 sm:p-4 " + className} aria-label={ariaLabel}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
         <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">{children}</div>
         {(resultLabel || (hasActiveFilters && onReset)) && (
