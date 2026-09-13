@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { buildDocumentRegister } from "../src/lib/documentRegister.ts";
-import { PERMISSION_KEYS } from "../src/utils/accessControl.ts";
+import { canAccessAppTab, PERMISSION_KEYS } from "../src/utils/accessControl.ts";
 
 const documentsRoute = readFileSync(new URL("../src/app/routes/DocumentsRoute.tsx", import.meta.url), "utf8");
 const appRouter = readFileSync(new URL("../src/app/routes/AppRouter.tsx", import.meta.url), "utf8");
@@ -17,6 +17,10 @@ test("Documents route exposes the Library, Create, and Templates workspace views
   assert.match(documentsRoute, /data-document-center-nav/);
   assert.match(documentsRoute, /CompanyDocumentTemplatesSettings/);
   assert.match(appRouter, /documentWorkspaceContextFromSearch/);
+});
+
+test("settings readers retain access to Documents after template administration moves there", () => {
+  assert.equal(canAccessAppTab("documents", [PERMISSION_KEYS.settingsRead]), true);
 });
 
 test("Document Create uses business destinations and permission keys", () => {
