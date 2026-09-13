@@ -74,5 +74,34 @@ test("Local-QA runner includes the broader functional sweep and keeps its failur
   assert.match(functional, /functional-payroll-approval-settlement/);
   assert.match(functional, /functional-documents-email-review/);
   assert.match(functional, /functional-deep-link-recovery/);
-  assert.doesNotMatch(functional, /Confirm & Send[\s\S]*?click\(\)/);
+  assert.match(functional, /functional-document-template-storage/);
+  assert.match(functional, /template-storage-capability/);
+  assert.match(functional, /waitForTemplateCapability/);
+  assert.match(functional, /setInputFiles/);
+  assert.match(functional, /NOT_CERTIFIED|not certified/i);
+  const documentsWorkflow = functional.slice(functional.indexOf("async function runDocumentsEmailWorkflow"), functional.indexOf("type TemplateDocumentType"));
+  assert.doesNotMatch(documentsWorkflow, /Confirm & Send[\s\S]*?click\(\)/);
+});
+
+test("Projects Local-QA accepts the disclosed portfolio summary semantics", () => {
+  const scenarios = readFileSync(new URL("../scripts/qa/localQaScenarios.ts", import.meta.url), "utf8");
+  assert.match(scenarios, /page\.locator\("\[aria-label='Portfolio Management Summary'\]"\)/);
+  assert.doesNotMatch(scenarios, /getByRole\("region", \{ name: "Portfolio Management Summary" \}\)/);
+});
+
+test("supplier payable Local-QA preserves verified supplier-derived DRAFT settlement eligibility", () => {
+  const functional = readFileSync(new URL("../scripts/qa/localQaFunctionalSweep.ts", import.meta.url), "utf8");
+  assert.match(functional, /verified supplier-derived DRAFT remains payable through Cash & Banking/);
+  assert.match(functional, /Record Payment/);
+  assert.doesNotMatch(functional, /if \(!\/Payment settlement is unavailable while this expense is DRAFT\/i\.test\(expenseBody\)\)/);
+});
+
+test("document-template AI Local-QA covers both Purchase Order and Client Invoice", () => {
+  const functional = readFileSync(new URL("../scripts/qa/localQaFunctionalSweep.ts", import.meta.url), "utf8");
+  const start = functional.indexOf("async function runDocumentTemplateAiWorkflow");
+  const end = functional.indexOf("async function runDeepLinkWorkflow", start);
+  assert.ok(start >= 0 && end > start, "AI template workflow should remain an isolated functional step.");
+  const aiWorkflow = functional.slice(start, end);
+  assert.match(aiWorkflow, /for \(const documentType of \["PURCHASE_ORDER", "CLIENT_INVOICE"\] as const\)/);
+  assert.match(aiWorkflow, /selectTemplateType\(page, documentType\)/);
 });

@@ -1,4 +1,6 @@
 import { normalizeErrorMessage } from "./structuredEvidence.ts";
+import { readFile } from "node:fs/promises";
+import { buildStarterDocxTemplate, DOCX_MIME_TYPE } from "../../src/server/documentTemplates/documentTemplateEngine.ts";
 
 export type LocalQaFunctionalStatus = "PASS" | "FAIL" | "BLOCKED" | "NOT_TESTED";
 
@@ -64,6 +66,11 @@ async function closeDialog(page: any) {
   if (await page.getByRole("dialog").count() === 0) return;
   await page.keyboard.press("Escape");
   await page.waitForTimeout(100);
+}
+
+async function waitForTemplateCapability(page: any, kind: "storage" | "ai", timeoutMs: number) {
+  const selector = `[data-template-${kind}-capability="checking"]`;
+  await page.waitForFunction((checkingSelector: string) => !document.querySelector(checkingSelector), selector, { timeout: timeoutMs });
 }
 
 async function runWorkflow(
@@ -237,8 +244,9 @@ async function runSupplierInvoiceExpenseWorkflow(options: LocalQaFunctionalSweep
   if (!new URL(page.url()).pathname.startsWith("/expenses")) throw new Error("Supplier invoice did not navigate to Expenses.");
   const expenseBody = await bodyText(page);
   if (!/This Expense originated from supplier invoice evidence|Source invoice preserved|Authoritative Expense/i.test(expenseBody)) throw new Error("Expense did not preserve supplier-invoice provenance.");
-  if (!/Payment settlement is unavailable while this expense is DRAFT/i.test(expenseBody)) throw new Error("Ineligible linked Expense did not explain why payment is unavailable.");
-  workflow.actions.push("Return to Expense and confirm DRAFT lifecycle blocks settlement without changing invoice truth");
+  if (!/Record Payment/i.test(expenseBody)) throw new Error("Verified supplier-derived DRAFT Expense did not expose its Cash & Banking payment continuation.");
+  if (/Payment settlement is unavailable while this expense is DRAFT/i.test(expenseBody)) throw new Error("Verified supplier-derived DRAFT Expense was incorrectly treated as ineligible for settlement.");
+  workflow.actions.push("Return to Expense and confirm verified supplier-derived DRAFT remains payable through Cash & Banking without changing invoice truth");
 
   await navigate(options, `/expenses?expenseId=${APPROVED_EXPENSE_ID}&from=%2Fexpenses`);
   const approvedBody = await bodyText(page);
@@ -332,6 +340,139 @@ async function runDocumentsEmailWorkflow(options: LocalQaFunctionalSweepOptions,
   setObserved(workflow, "Documents remained a permission-filtered projection; Compose opened with explicit review/confirmation and no automatic send.");
 }
 
+type TemplateDocumentType = "PURCHASE_ORDER" | "CLIENT_INVOICE";
+
+async function selectTemplateType(page: any, documentType: TemplateDocumentType) {
+  const label = documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice";
+  const selector = page.getByRole("button", { name: label, exact: true });
+  if (await selector.count() === 0) throw new Error(label + " template selector is unavailable.");
+  await selector.first().click();
+  await page.waitForTimeout(200);
+}
+
+async function downloadTemplateArtifact(page: any, button: any, timeoutMs: number) {
+  const downloadPromise = page.waitForEvent("download", { timeout: timeoutMs });
+  await button.click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  if (!downloadPath) throw new Error("The browser did not expose the downloaded DOCX artifact.");
+  const bytes = await readFile(downloadPath);
+  if (bytes.length < 100) throw new Error("The downloaded DOCX artifact was empty or unexpectedly small.");
+  return { fileName: download.suggestedFilename(), size: bytes.length };
+}
+
+async function runDocumentTemplateStorageWorkflow(options: LocalQaFunctionalSweepOptions, workflow: MutableWorkflowEvidence) {
+  const { page } = options;
+  await navigate(options, "/settings");
+  const settings = page.locator("[data-document-template-settings]");
+  await settings.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+  await waitForTemplateCapability(page, "storage", options.timeoutMs || DEFAULT_TIMEOUT_MS);
+  const storageCapability = page.locator("[data-template-storage-capability]").last();
+  if (await storageCapability.count() > 0 && await storageCapability.getAttribute("data-template-storage-capability") === "unavailable") {
+    workflow.status = "BLOCKED";
+    workflow.actions.push("Inspect the server-side template Storage capability before attempting a write");
+    setObserved(workflow, "Starter and Upload are blocked because the isolated QA deployment reports: " + await storageCapability.innerText());
+    return;
+  }
+  if (await page.getByRole("button", { name: "Use starter", exact: true }).count() === 0) throw new Error("Template Starter action is not available.");
+
+  for (const documentType of ["PURCHASE_ORDER", "CLIENT_INVOICE"] as const) {
+    await selectTemplateType(page, documentType);
+    const starter = page.getByRole("button", { name: "Use starter", exact: true }).first();
+    if (await starter.isDisabled()) throw new Error(documentType + " Starter action is disabled without an explicit capability explanation.");
+    await starter.click();
+    const editor = page.locator("[data-document-template-editor]").first();
+    await editor.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    workflow.actions.push("Create a " + documentType + " Starter DOCX through the authenticated server route");
+    const activate = editor.getByRole("button", { name: "Activate", exact: true });
+    if (await activate.count() === 0) throw new Error(documentType + " Starter did not produce an activatable validated draft.");
+    await activate.click();
+    await page.waitForTimeout(800);
+    if (!/Active v/i.test(await page.locator("[data-document-template-type='" + documentType + "']").innerText())) throw new Error(documentType + " Starter did not become the selected active version.");
+    const starterDownload = await downloadTemplateArtifact(page, editor.getByRole("button", { name: "Download / edit in Word", exact: true }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    workflow.actions.push("Retrieve the persisted " + documentType + " Starter DOCX after activation (" + starterDownload.fileName + ", " + starterDownload.size + " bytes)");
+    await page.reload({ waitUntil: "domcontentloaded", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    await options.waitForApp(page);
+    await settings.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    await selectTemplateType(page, documentType);
+    if (!/Active v/i.test(await page.locator("[data-document-template-type='" + documentType + "']").innerText())) throw new Error(documentType + " Starter activation did not persist after refresh.");
+
+    const uploadButton = page.getByRole("button", { name: /Upload DOCX|Upload existing DOCX/ }).first();
+    if (await uploadButton.count() === 0 || await uploadButton.isDisabled()) throw new Error(documentType + " Upload action is unavailable after Storage capability passed.");
+    const uploadedFileName = "QA-UIUX-" + documentType + "-template.docx";
+    const built = await buildStarterDocxTemplate(documentType);
+    await uploadButton.click();
+    await page.locator("input[type=file]").setInputFiles({ name: uploadedFileName, mimeType: DOCX_MIME_TYPE, buffer: Buffer.from(built.bytes) });
+    await editor.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    if (!/UPLOADED/i.test(await editor.innerText())) throw new Error(documentType + " Upload did not create an uploaded template version.");
+    const uploadedDownload = await downloadTemplateArtifact(page, editor.getByRole("button", { name: "Download / edit in Word", exact: true }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    workflow.actions.push("Upload, validate, persist, and retrieve a safe " + documentType + " DOCX (" + uploadedDownload.fileName + ", " + uploadedDownload.size + " bytes)");
+    await page.reload({ waitUntil: "domcontentloaded", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    await options.waitForApp(page);
+    await settings.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    await selectTemplateType(page, documentType);
+    const history = page.locator("summary").filter({ hasText: "Version history" }).first();
+    if (await history.count() > 0) await history.click();
+    if (!(await settings.innerText()).includes(uploadedFileName.replace(/\.docx$/i, ""))) throw new Error(documentType + " uploaded version did not remain visible after refresh.");
+  }
+  setObserved(workflow, "Authenticated Starter and safe Upload completed for Purchase Order and Client Invoice, each produced a persisted version, returned a retrievable DOCX, and remained visible after refresh.");
+}
+
+async function runDocumentTemplateAiWorkflow(options: LocalQaFunctionalSweepOptions, workflow: MutableWorkflowEvidence) {
+  const { page } = options;
+  await navigate(options, "/settings");
+  const settings = page.locator("[data-document-template-settings]");
+  await settings.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+  await waitForTemplateCapability(page, "storage", options.timeoutMs || DEFAULT_TIMEOUT_MS);
+  await waitForTemplateCapability(page, "ai", options.timeoutMs || DEFAULT_TIMEOUT_MS);
+  const storageCapability = page.locator("[data-template-storage-capability='unavailable']").last();
+  const aiCapability = page.locator("[data-template-ai-capability='unavailable']").last();
+  if (await storageCapability.count() > 0) {
+    workflow.status = "BLOCKED";
+    workflow.actions.push("Check template Storage before the AI persistence path");
+    setObserved(workflow, "AI template generation is NOT_CERTIFIED because the shared template Storage prerequisite is unavailable.");
+    return;
+  }
+  if (await aiCapability.count() > 0) {
+    workflow.status = "BLOCKED";
+    workflow.actions.push("Check the configured company AI provider capability");
+    setObserved(workflow, "AI template generation is NOT_CERTIFIED: " + await aiCapability.innerText());
+    return;
+  }
+  const generatedArtifacts: string[] = [];
+  for (const documentType of ["PURCHASE_ORDER", "CLIENT_INVOICE"] as const) {
+    await selectTemplateType(page, documentType);
+    const aiButton = page.getByRole("button", { name: "Generate with AI", exact: true }).first();
+    if (await aiButton.count() === 0 || await aiButton.isDisabled()) {
+      throw new Error(documentType + " AI template action is not enabled after the provider capability check.");
+    }
+    await aiButton.click();
+    const prompt = settings.locator("textarea").first();
+    const label = documentType === "PURCHASE_ORDER" ? "purchase order" : "client invoice";
+    await prompt.fill("Create a concise professional " + label + " template with company, parties, project, line items, totals, terms, and approval/signature areas.");
+    await settings.getByRole("button", { name: "Create draft DOCX", exact: true }).click();
+    const editor = page.locator("[data-document-template-editor]").first();
+    await editor.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    if (!/AI_GENERATED/i.test(await editor.innerText())) throw new Error(documentType + " AI generation did not create an AI-generated template version.");
+    const download = await downloadTemplateArtifact(page, editor.getByRole("button", { name: "Download / edit in Word", exact: true }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    generatedArtifacts.push(documentType + " " + download.fileName + " (" + download.size + " bytes)");
+    workflow.actions.push("Generate, persist, and retrieve a provider-backed AI " + (documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice") + " DOCX");
+
+    await page.reload({ waitUntil: "domcontentloaded", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    await options.waitForApp(page);
+    await settings.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    await waitForTemplateCapability(page, "storage", options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    await waitForTemplateCapability(page, "ai", options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    await selectTemplateType(page, documentType);
+    const history = page.locator("summary").filter({ hasText: "Version history" }).first();
+    if (await history.count() === 0) throw new Error(documentType + " AI version history is unavailable after refresh.");
+    await history.click();
+    if (!/AI_GENERATED/i.test(await settings.innerText())) throw new Error(documentType + " AI-generated version did not remain visible after refresh.");
+    workflow.actions.push("Refresh Settings and verify the persisted AI " + (documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice") + " version remains in history");
+  }
+  setObserved(workflow, "Configured AI generation created, persisted, refreshed, and retrieved both Purchase Order and Client Invoice DOCX versions (" + generatedArtifacts.join("; ") + ").");
+}
+
 async function runDeepLinkWorkflow(options: LocalQaFunctionalSweepOptions, workflow: MutableWorkflowEvidence) {
   const { page } = options;
   await navigate(options, "/invoices/not-a-real-invoice");
@@ -353,6 +494,8 @@ export async function runLocalQaFunctionalSweep(options: LocalQaFunctionalSweepO
     ["functional-supplier-invoice-expense-cash", "Supplier invoice remains evidence; Expense owns payable settlement and preserves exact Cash target routing.", (workflow) => runSupplierInvoiceExpenseWorkflow(options, workflow)],
     ["functional-client-invoice-collection-cash", "Client Invoice/Collection truth stays separate from exact Cash evidence and navigation.", (workflow) => runClientCollectionWorkflow(options, workflow)],
     ["functional-payroll-approval-settlement", "Payroll requires fresh calculation before approval and never exposes direct PAID mutation.", (workflow) => runPayrollWorkflow(options, workflow)],
+    ["functional-document-template-storage", "Starter and safe Upload persist and retrieve both Purchase Order and Client Invoice templates.", (workflow) => runDocumentTemplateStorageWorkflow(options, workflow)],
+    ["functional-document-template-ai", "AI template generation is provider-gated and certified only when it persists and retrieves an editable DOCX.", (workflow) => runDocumentTemplateAiWorkflow(options, workflow)],
     ["functional-documents-email-review", "Documents owner/preview handoff to Compose preserves human review and does not send automatically.", (workflow) => runDocumentsEmailWorkflow(options, workflow)],
     ["functional-deep-link-recovery", "Stale identifiers recover safely to nearest authorized registers.", (workflow) => runDeepLinkWorkflow(options, workflow)],
   ];

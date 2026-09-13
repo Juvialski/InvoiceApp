@@ -52,6 +52,15 @@ test("Documents route admits every permission that can expose a projected record
   }
 });
 
+test("Documents presents its working list and filters before secondary summary framing", () => {
+  const filterIndex = documentsRoute.indexOf('ariaLabel="Document filters"');
+  const summaryIndex = documentsRoute.indexOf("visible records");
+  assert.ok(filterIndex >= 0, "Documents filters should be present");
+  assert.ok(summaryIndex >= 0, "Documents summary should remain available");
+  assert.ok(filterIndex < summaryIndex, "Common document work should precede optional summary metrics");
+  assert.match(documentsRoute, /data-documents-list/);
+});
+
 test("Email / SMS document handoff is exact and does not embed message content in URLs", () => {
   const path = appPathForEmailWorkspace("compose", { documentType: "CLIENT_INVOICE", documentId: "billing-1", returnTo: "/documents" });
   assert.equal(path, "/email-sms?view=compose&documentType=CLIENT_INVOICE&documentId=billing-1&from=%2Fdocuments");

@@ -27,6 +27,7 @@ import {
 } from "../../lib/documentTemplateRegistry.ts";
 import type { FinancialDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import { downloadPdfBytes } from "../../lib/documentGeneration.ts";
+import { loadDeploymentAiConfig } from "../../lib/deploymentAiApi.ts";
 import { PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { SectionHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 
@@ -36,6 +37,7 @@ interface CompanyDocumentTemplatesSettingsProps {
 
 type Notice = { tone: "success" | "error" | "info"; text: string } | null;
 type PdfCapabilityState = "CHECKING" | "AVAILABLE" | "UNAVAILABLE";
+type TemplateActionCapability = { state: "CHECKING" | "AVAILABLE" | "UNAVAILABLE"; code?: string; message: string };
 
 function typeLabel(documentType: DocumentTemplateType) {
   return documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice";
@@ -85,14 +87,20 @@ function bindingDraft(version: DocumentTemplateVersion, tags: readonly string[])
 function TemplateCard({
   root,
   canManage,
+  storageCapability,
+  aiCapability,
   onAction,
 }: {
   root: DocumentTemplateRoot;
   canManage: boolean;
+  storageCapability: TemplateActionCapability;
+  aiCapability: TemplateActionCapability;
   onAction: (action: string, version?: DocumentTemplateVersion) => void;
 }) {
   const active = root.versions.find((version) => version.status === "ACTIVE");
   const latest = root.versions[0];
+  const storageReady = storageCapability.state === "AVAILABLE";
+  const aiReady = aiCapability.state === "AVAILABLE";
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-document-template-type={root.documentType}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -110,10 +118,10 @@ function TemplateCard({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" disabled={!canManage} onClick={() => onAction("starter")} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-black text-white disabled:cursor-not-allowed disabled:opacity-45"><FilePlus2 className="h-3.5 w-3.5" />Use starter</button>
-        <button type="button" disabled={!canManage} onClick={() => onAction("upload")} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-[11px] font-black text-indigo-700 disabled:cursor-not-allowed disabled:opacity-45"><Upload className="h-3.5 w-3.5" />Upload DOCX</button>
-        <button type="button" disabled={!canManage} onClick={() => onAction("ai")} className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-45"><WandSparkles className="h-3.5 w-3.5" />Generate with AI</button>
-        {latest && <button type="button" disabled={!canManage} onClick={() => onAction("duplicate", latest)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45"><Copy className="h-3.5 w-3.5" />Duplicate latest</button>}
+        <button type="button" disabled={!canManage || !storageReady} title={!storageReady ? storageCapability.message : undefined} onClick={() => onAction("starter")} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-black text-white disabled:cursor-not-allowed disabled:opacity-45"><FilePlus2 className="h-3.5 w-3.5" />Use starter</button>
+        <button type="button" disabled={!canManage || !storageReady} title={!storageReady ? storageCapability.message : undefined} onClick={() => onAction("upload")} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-[11px] font-black text-indigo-700 disabled:cursor-not-allowed disabled:opacity-45"><Upload className="h-3.5 w-3.5" />Upload DOCX</button>
+        <button type="button" disabled={!canManage || !storageReady || !aiReady} title={!aiReady ? aiCapability.message : !storageReady ? storageCapability.message : undefined} onClick={() => onAction("ai")} className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] font-black text-violet-700 disabled:cursor-not-allowed disabled:opacity-45"><WandSparkles className="h-3.5 w-3.5" />Generate with AI</button>
+        {latest && <button type="button" disabled={!canManage || !storageReady} title={!storageReady ? storageCapability.message : undefined} onClick={() => onAction("duplicate", latest)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-45"><Copy className="h-3.5 w-3.5" />Duplicate latest</button>}
       </div>
       {active && <button type="button" onClick={() => onAction("select", active)} className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-black text-indigo-700 hover:text-indigo-900"><FilePenLine className="h-3.5 w-3.5" />Inspect mappings and test active version</button>}
       {!canManage && <p className="mt-3 inline-flex items-center gap-1.5 text-[10px] text-slate-500"><LockKeyhole className="h-3 w-3" />Template administration is read-only for this account.</p>}
@@ -138,6 +146,8 @@ export function CompanyDocumentTemplatesSettings({ demoMode = false }: CompanyDo
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [pdfCapability, setPdfCapability] = useState<{ state: PdfCapabilityState; version?: string; message?: string }>({ state: "CHECKING" });
+  const [templateStorageCapability, setTemplateStorageCapability] = useState<TemplateActionCapability>({ state: "CHECKING", message: "Checking template storage capability…" });
+  const [aiCapability, setAiCapability] = useState<TemplateActionCapability>({ state: "CHECKING", message: "Checking AI provider capability…" });
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploadType, setUploadType] = useState<DocumentTemplateType>("PURCHASE_ORDER");
 
@@ -162,14 +172,52 @@ export function CompanyDocumentTemplatesSettings({ demoMode = false }: CompanyDo
       .then((capability) => {
         if (cancelled) return;
         setPdfCapability({ state: capability.status, version: capability.converterVersion, message: capability.message });
+        setTemplateStorageCapability(capability.templateStorage
+          ? { state: capability.templateStorage.status, code: capability.templateStorage.code, message: capability.templateStorage.message }
+          : { state: "UNAVAILABLE", code: "TEMPLATE_STORAGE_UNAVAILABLE", message: "This deployment did not report a usable server-side Storage capability." });
       })
       .catch(() => {
-        if (!cancelled) setPdfCapability({ state: "UNAVAILABLE", message: "The deployment could not verify its PDF converter." });
+        if (!cancelled) {
+          setPdfCapability({ state: "UNAVAILABLE", message: "The deployment could not verify its PDF converter." });
+          setTemplateStorageCapability({ state: "UNAVAILABLE", code: "TEMPLATE_STORAGE_UNAVAILABLE", message: "The deployment could not verify server-side template storage." });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [company?.id, demoMode, canRead]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!company || demoMode || !canRead) {
+      setAiCapability({ state: "UNAVAILABLE", message: "AI template generation is not available in the demo workspace." });
+      return () => { cancelled = true; };
+    }
+    setAiCapability({ state: "CHECKING", message: "Checking AI provider capability…" });
+    void loadDeploymentAiConfig(company.id)
+      .then((config) => {
+        if (cancelled) return;
+        const available = config.status === "ACTIVE"
+          && config.enabled
+          && config.credentialConfigured
+          && config.lastTestStatus === "SUCCESS";
+        setAiCapability({
+          state: available ? "AVAILABLE" : "UNAVAILABLE",
+          message: available
+            ? "AI template generation is available."
+            : "AI template generation is unavailable until Gemini is configured and provider-validated.",
+        });
+      })
+      .catch((error) => {
+        if (!cancelled) setAiCapability({
+          state: "UNAVAILABLE",
+          message: error instanceof Error ? error.message : "AI configuration status is unavailable.",
+        });
       });
     return () => { cancelled = true; };
   }, [company?.id, demoMode, canRead]);
 
   const visibleRoots = useMemo(() => templates.filter((root) => root.documentType === selectedType && (!query.trim() || `${root.displayName} ${root.variantKey}`.toLowerCase().includes(query.trim().toLowerCase()))), [query, selectedType, templates]);
+  const templateStorageReady = templateStorageCapability.state === "AVAILABLE";
+  const aiReady = aiCapability.state === "AVAILABLE";
 
   if (!company || !canRead) return null;
 
@@ -214,13 +262,17 @@ export function CompanyDocumentTemplatesSettings({ demoMode = false }: CompanyDo
       </div>
 
       {demoMode && <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 text-[11px] leading-5 text-indigo-950">Demo preview: template administration is shown for discoverability, while DOCX persistence and company data remain disabled in the local sample workspace.</div>}
+      {!demoMode && templateStorageCapability.state === "CHECKING" && <div role="status" className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700" data-template-storage-capability="checking">Checking server-side template storage before enabling template actions…</div>}
+      {!demoMode && templateStorageCapability.state === "UNAVAILABLE" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-950" data-template-storage-capability="unavailable"><strong>Template storage is unavailable.</strong> {templateStorageCapability.message} Starter creation, DOCX upload, and template duplication are disabled until the deployment prerequisite is restored.</div>}
+      {!demoMode && aiCapability.state === "CHECKING" && <div role="status" className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700" data-template-ai-capability="checking">Checking the configured AI provider before enabling AI template generation…</div>}
+      {!demoMode && aiCapability.state === "UNAVAILABLE" && <div role="status" className="mt-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs leading-5 text-violet-950" data-template-ai-capability="unavailable"><strong>AI template generation is unavailable.</strong> {aiCapability.message} Starter and Upload remain separate from this provider.</div>}
       {notice && <div role={notice.tone === "error" ? "alert" : "status"} className={`mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs leading-5 ${notice.tone === "error" ? "border-rose-200 bg-rose-50 text-rose-800" : notice.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-indigo-200 bg-indigo-50 text-indigo-900"}`}>{notice.tone === "error" ? <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />}<span>{notice.text}</span></div>}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5" data-document-pdf-capability={pdfCapability.state.toLowerCase()}><div><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Final PDF conversion</p><p className="mt-1 text-[11px] text-slate-600">{pdfCapability.state === "UNAVAILABLE" ? (pdfCapability.message || "High-fidelity PDF conversion is unavailable on this deployment. Use the existing programmatic PDF fallback for final PDF output.") : "Uses the exact merged DOCX on the server; the existing programmatic PDF fallback remains available when needed."}</p></div><StatusBadge tone={pdfCapability.state === "AVAILABLE" ? "success" : pdfCapability.state === "CHECKING" ? "neutral" : "warning"}>{pdfCapability.state === "AVAILABLE" ? `Available${pdfCapability.version ? ` · ${pdfCapability.version}` : ""}` : pdfCapability.state === "CHECKING" ? "Checking" : "Unavailable"}</StatusBadge></div>
       <div className="mt-5 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3"><div className="flex rounded-lg bg-slate-100 p-1">{DOCUMENT_TEMPLATE_TYPES.map((type) => <button key={type} type="button" onClick={() => { setSelectedType(type); setSelectedVersion(null); setAnalysis(null); }} className={`rounded-md px-3 py-1.5 text-[11px] font-black ${selectedType === type ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"}`}>{typeLabel(type)}</button>)}</div><label className="ml-auto flex min-w-[200px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5"><Search className="h-3.5 w-3.5 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search templates" className="w-full bg-transparent text-[11px] outline-none" /></label></div>
 
       {demoMode ? <div className="mt-4 grid gap-3 lg:grid-cols-2">{DOCUMENT_TEMPLATE_TYPES.map((type) => <article key={type} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4"><p className="text-[10px] font-black uppercase tracking-wide text-indigo-600">{typeLabel(type)}</p><h3 className="mt-1 text-sm font-black text-slate-900">HydroQualiSense starter</h3><p className="mt-1 text-[11px] leading-5 text-slate-600">Editable DOCX foundation with company, {type === "PURCHASE_ORDER" ? "supplier, project, and line-item" : "client, project, and invoice"} bindings.</p><div className="mt-3 flex flex-wrap gap-2"><StatusBadge tone="success">Available</StatusBadge><StatusBadge tone="neutral">Word editable</StatusBadge></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-black text-white opacity-50"><FilePlus2 className="h-3.5 w-3.5" />Use starter</button><button type="button" disabled className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-500 opacity-60"><Upload className="h-3.5 w-3.5" />Upload existing DOCX</button><button type="button" disabled className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] font-black text-violet-700 opacity-60"><Sparkles className="h-3.5 w-3.5" />Generate with AI</button></div></article>)}</div>
-        : visibleRoots.length ? <div className="mt-4 grid gap-3 lg:grid-cols-2">{visibleRoots.map((root) => <TemplateCard key={root.id} root={root} canManage={canManage} onAction={(action, version) => { if (action === "starter") createStarter(); else if (action === "upload") { setUploadType(root.documentType); inputRef.current?.click(); } else if (action === "ai") { setSelectedType(root.documentType); setAiOpen(true); } else if (action === "duplicate" && version) duplicate(version); else if (action === "select" && version) inspect(version); }} />)}</div>
-          : <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-8 text-center"><FilePenLine className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-black text-slate-700">No {typeLabel(selectedType)} template yet</p><p className="mt-1 text-xs text-slate-500">Start with a professional HydroQualiSense DOCX, upload the company’s Word form, or ask AI for an editable draft.</p><div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" disabled={!canManage || busy} onClick={createStarter} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-black text-white disabled:opacity-45"><FilePlus2 className="h-3.5 w-3.5" />Use starter</button><button type="button" disabled={!canManage || busy} onClick={() => { setUploadType(selectedType); inputRef.current?.click(); }} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-[11px] font-black text-indigo-700 disabled:opacity-45"><Upload className="h-3.5 w-3.5" />Upload existing DOCX</button><button type="button" disabled={!canManage || busy} onClick={() => setAiOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] font-black text-violet-700 disabled:opacity-45"><WandSparkles className="h-3.5 w-3.5" />Generate with AI</button></div></div>}
+        : visibleRoots.length ? <div className="mt-4 grid gap-3 lg:grid-cols-2">{visibleRoots.map((root) => <TemplateCard key={root.id} root={root} canManage={canManage} storageCapability={templateStorageCapability} aiCapability={aiCapability} onAction={(action, version) => { if (action === "starter") createStarter(); else if (action === "upload") { setUploadType(root.documentType); inputRef.current?.click(); } else if (action === "ai") { setSelectedType(root.documentType); setAiOpen(true); } else if (action === "duplicate" && version) duplicate(version); else if (action === "select" && version) inspect(version); }} />)}</div>
+          : <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-8 text-center"><FilePenLine className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-black text-slate-700">No {typeLabel(selectedType)} template yet</p><p className="mt-1 text-xs text-slate-500">Start with a professional HydroQualiSense DOCX, upload the company’s Word form, or ask AI for an editable draft.</p><div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" disabled={!canManage || busy || !templateStorageReady} title={!templateStorageReady ? templateStorageCapability.message : undefined} onClick={createStarter} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-black text-white disabled:opacity-45"><FilePlus2 className="h-3.5 w-3.5" />Use starter</button><button type="button" disabled={!canManage || busy || !templateStorageReady} title={!templateStorageReady ? templateStorageCapability.message : undefined} onClick={() => { setUploadType(selectedType); inputRef.current?.click(); }} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-[11px] font-black text-indigo-700 disabled:opacity-45"><Upload className="h-3.5 w-3.5" />Upload existing DOCX</button><button type="button" disabled={!canManage || busy || !templateStorageReady || !aiReady} title={!aiReady ? aiCapability.message : !templateStorageReady ? templateStorageCapability.message : undefined} onClick={() => setAiOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] font-black text-violet-700 disabled:opacity-45"><WandSparkles className="h-3.5 w-3.5" />Generate with AI</button></div></div>}
 
       <input ref={inputRef} type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void upload(file); }} />
 

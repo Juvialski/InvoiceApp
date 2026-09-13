@@ -606,6 +606,7 @@ export async function buildDocxTemplateFromBlueprint(input: unknown, requestedTy
   if (blueprint.includeCompanyProfile) {
     scalarChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "{{company.legalName}}", bold: true, size: 30, color: "173B73" })] }));
     scalarChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "{{company.address}} · {{company.contactNumber}} · {{company.email}}", size: 16, color: "173B73" })] }));
+    scalarChildren.push(templateParagraph("VAT/TIN", "company.vatTin"));
   }
   scalarChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 160, after: 120 }, children: [new TextRun({ text: blueprint.title, bold: true, size: 28, color: "173B73" })] }));
   scalarChildren.push(templateParagraph(isPo ? "No." : "Invoice no.", isPo ? "purchaseOrder.documentNumber" : "invoice.documentNumber"));

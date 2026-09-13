@@ -43,6 +43,40 @@ function partyName(invoice: InvoiceData) { return invoice.vendor?.name || invoic
 
 function allocationAmount(invoice: InvoiceData, allocation: InvoiceProjectAllocation) { return normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation); }
 
+const ProjectInvoiceCard: React.FC<{
+  row: InvoiceRow;
+  project: Project;
+  onOpen: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}> = ({ row, project, onOpen, onEdit, onRemove }) => {
+  const currency = row.invoice.currency || project.currency;
+  const stateLabel = row.state === "FULLY_ALLOCATED" ? "Fully allocated" : "Partially allocated";
+  return (
+    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-project-invoice-card="true">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-slate-900">{partyName(row.invoice)}</p>
+          <p className="mt-1 truncate text-xs text-slate-600">{row.invoice.invoiceNumber || "No invoice number"}</p>
+          <p className="mt-1 break-words text-[10px] text-slate-500">{row.invoice.projectReference || "No project reference"} · {row.invoice.invoiceDate || "Date not recorded"}</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${row.state === "FULLY_ALLOCATED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{stateLabel}</span>
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-3 text-xs" aria-label={`${row.invoice.invoiceNumber || "Invoice"} allocation amounts`}>
+        <div><dt className="text-slate-500">Current project amount</dt><dd className="mt-1 break-words font-black tabular-nums text-slate-900">{money(row.currentAmount, currency)}</dd></div>
+        <div><dt className="text-slate-500">Remaining invoice amount</dt><dd className="mt-1 break-words font-black tabular-nums text-slate-700">{money(row.remainingAmount, currency)}</dd></div>
+        <div><dt className="text-slate-500">Allocated across projects</dt><dd className="mt-1 break-words font-semibold tabular-nums text-slate-700">{money(row.allocatedAmount, currency)} of {money(row.invoice.grandTotal, currency)}</dd></div>
+        <div><dt className="text-slate-500">Payment / review</dt><dd className="mt-1 break-words font-semibold text-slate-700">{row.paymentState.replaceAll("_", " ")} · {row.invoice.reviewStatus === "VERIFIED" ? "Verified" : "Needs review"}</dd></div>
+      </dl>
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+        <button type="button" onClick={onOpen} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white"><ExternalLink className="h-3.5 w-3.5" />Open invoice</button>
+        <button type="button" onClick={onEdit} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700"><Edit3 className="h-3.5 w-3.5" />Edit allocation</button>
+        <button type="button" onClick={onRemove} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700"><Trash2 className="h-3.5 w-3.5" />Remove from project</button>
+      </div>
+    </article>
+  );
+};
+
 const AllocationEditor: React.FC<{
   project: Project;
   invoice: InvoiceData;
@@ -107,9 +141,19 @@ export const ProjectInvoices: React.FC<ProjectInvoicesProps> = ({ project, invoi
   const totalsByCurrency = filteredRows.reduce<Record<string, number>>((result, row) => { const currency = String(row.invoice.currency || project.currency).toUpperCase(); result[currency] = (result[currency] || 0) + row.currentAmount; return result; }, {});
   const totalLabel = Object.entries(totalsByCurrency).map(([currency, amount]) => money(Number(amount), currency)).join(" · ") || money(0, project.currency);
 
-  return <>
+  return <div data-project-invoice-workspace="true">
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-black">Project invoices</h3><p className="mt-1 text-xs text-slate-500">Current project amount and remaining invoice capacity stay visible for historical cost review.</p></div><div className="flex flex-wrap gap-2">{onUploadInvoice && <button type="button" onClick={onUploadInvoice} className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700"><Plus className="h-3.5 w-3.5" /> Upload new invoice</button>}<button type="button" onClick={() => setPickerOpen(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white"><Plus className="h-3.5 w-3.5" /> Add existing invoices</button></div></div><div className="mt-4 flex flex-col gap-2 lg:flex-row"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><Search className="h-4 w-4 shrink-0 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search invoice, vendor, project reference..." className="w-full bg-transparent text-xs outline-none" /></label><label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><Filter className="h-3.5 w-3.5 text-slate-400" /><select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)} className="bg-transparent text-xs font-semibold outline-none"><option value="ALL">All payment states</option><option value="PAID">Paid</option><option value="PARTIALLY_PAID">Partially paid</option><option value="UNPAID">Unpaid</option><option value="OVERDUE">Overdue</option></select></label><select value={allocationFilter} onChange={(event) => setAllocationFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold"><option value="ALL">All allocation states</option><option value="FULLY_ALLOCATED">Fully allocated</option><option value="PARTIALLY_ALLOCATED">Partially allocated</option></select><select value={currencyFilter} onChange={(event) => setCurrencyFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold"><option value="ALL">All currencies</option>{currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></div></div>{filteredRows.length > 0 && <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-2.5 text-[10px] font-semibold text-slate-500"><span>{filteredRows.length} invoice{filteredRows.length === 1 ? "" : "s"} shown</span><span className="font-black tabular-nums text-slate-700">Current project total {totalLabel}</span></div>}{linkedRows.length > 0 && filteredRows.length === 0 && <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-3 text-xs text-amber-800"><AlertCircle className="h-3.5 w-3.5" /> No project invoices match these filters.</div>}{filteredRows.length ? <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Vendor / invoice</th><th className="px-5 py-3">Reference / date</th><th className="px-5 py-3">Allocation state</th><th className="px-5 py-3 text-right">Current project amount</th><th className="px-5 py-3 text-right">Remaining invoice amount</th><th className="px-5 py-3">Payment / review</th><th className="px-5 py-3" /></tr></thead><tbody className="divide-y divide-slate-100">{filteredRows.map((row) => <tr key={row.invoice.id} className="hover:bg-slate-50"><td className="px-5 py-3"><p className="font-bold">{partyName(row.invoice)}</p><p className="text-[10px] text-slate-500">{row.invoice.invoiceNumber || "No invoice number"}</p></td><td className="px-5 py-3 text-slate-600"><p>{row.invoice.projectReference || "No project reference"}</p><p className="text-[10px] text-slate-400">{row.invoice.invoiceDate || "Date not recorded"}</p></td><td className="px-5 py-3"><span className={`font-black ${row.state === "FULLY_ALLOCATED" ? "text-emerald-700" : "text-amber-700"}`}>{row.state === "FULLY_ALLOCATED" ? "Fully allocated" : "Partially allocated"}</span><p className="text-[10px] text-slate-400">{money(row.allocatedAmount, row.invoice.currency || project.currency)} of {money(row.invoice.grandTotal, row.invoice.currency || project.currency)} across projects</p></td><td className="px-5 py-3 text-right font-black tabular-nums">{money(row.currentAmount, row.invoice.currency || project.currency)}</td><td className="px-5 py-3 text-right font-black tabular-nums text-slate-600">{money(row.remainingAmount, row.invoice.currency || project.currency)}</td><td className="px-5 py-3 text-[10px] font-bold text-slate-600">{row.paymentState.replaceAll("_", " ")} · <span className={row.invoice.reviewStatus === "VERIFIED" ? "text-emerald-700" : "text-amber-700"}>{row.invoice.reviewStatus === "VERIFIED" ? "Verified" : "Needs review"}</span></td><td className="px-5 py-3"><div className="flex items-center justify-end gap-1"><button type="button" onClick={() => onOpenInvoice(row.invoice)} className="rounded-lg p-2 text-indigo-600 hover:bg-indigo-50" aria-label="Open invoice"><ExternalLink className="h-3.5 w-3.5" /></button><button type="button" onClick={() => setEditingInvoice(row.invoice)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Edit allocation"><Edit3 className="h-3.5 w-3.5" /></button><button type="button" onClick={() => { if (window.confirm("Remove this invoice from the project? Allocations to other projects will be preserved.")) void onSaveAllocations(row.invoice, allocations.filter((allocation) => allocation.invoiceId !== row.invoice.id || allocation.projectId !== project.id)).catch(() => undefined); }} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50" aria-label="Remove invoice from this project"><Trash2 className="h-3.5 w-3.5" /></button></div></td></tr>)}</tbody></table></div> : <div className="p-10 text-center"><FileText className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">{linkedRows.length ? "No invoices match these filters." : "No invoices assigned to this project."}</p><p className="mt-1 text-xs text-slate-500">Add existing invoices using their remaining capacity, or upload a new project-context invoice.</p></div>}</section>
+    {filteredRows.length > 0 && <div className="mt-3 space-y-2 lg:hidden" aria-label="Project invoice cards">
+      {filteredRows.map((row) => <ProjectInvoiceCard
+        key={`mobile-${row.invoice.id}`}
+        row={row}
+        project={project}
+        onOpen={() => onOpenInvoice(row.invoice)}
+        onEdit={() => setEditingInvoice(row.invoice)}
+        onRemove={() => { if (window.confirm("Remove this invoice from the project? Allocations to other projects will be preserved.")) void onSaveAllocations(row.invoice, allocations.filter((allocation) => allocation.invoiceId !== row.invoice.id || allocation.projectId !== project.id)).catch(() => undefined); }}
+      />)}
+    </div>}
     {pickerOpen && <ExistingInvoicePicker project={project} invoices={invoices} allocations={allocations} settlementProjections={settlementProjections} today={today} costCodes={costCodes} onAssign={onSaveAllocations} onClose={() => setPickerOpen(false)} />}
     {editingInvoice && <AllocationEditor project={project} invoice={editingInvoice} allocations={allocations.filter((allocation) => allocation.invoiceId === editingInvoice.id)} costCodes={costCodes} onSave={(nextAllocations) => onSaveAllocations(editingInvoice, nextAllocations)} onClose={() => setEditingInvoice(null)} />}
-  </>;
+  </div>;
 };

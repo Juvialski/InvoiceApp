@@ -50,3 +50,17 @@ test("demo project Documents is injected into the shared project shell", () => {
   assert.match(demoWorkspace, /onProjectTabChange=\{openProjectView\}/);
   assert.doesNotMatch(demoWorkspace, /tab === "documents" \? onNavigate/);
 });
+
+test("project allocation decisions expose readable identity, balances, and actions", () => {
+  const picker = source("src/components/projects/ExistingInvoicePicker.tsx");
+  for (const label of ["Invoice total", "Allocated", "Remaining", "Cost code", "Amount to assign"]) assert.match(picker, new RegExp(label));
+  assert.match(picker, /data-project-allocation-row/);
+  assert.match(picker, /Assign \$\{selectedCount/);
+});
+
+test("project invoice register provides a readable narrow-screen decision view", () => {
+  const invoices = source("src/components/projects/ProjectInvoices.tsx");
+  assert.match(invoices, /data-project-invoice-card/);
+  for (const label of ["Current project amount", "Remaining invoice amount", "Payment \/ review", "Open invoice", "Edit allocation"]) assert.match(invoices, new RegExp(label));
+  assert.ok(invoices.indexOf("Search invoice, vendor") < invoices.lastIndexOf("<ProjectInvoiceCard"));
+});

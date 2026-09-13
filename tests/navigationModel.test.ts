@@ -33,6 +33,22 @@ test("exposes Email / SMS and Documents as primary modules while keeping setting
   });
 });
 
+test("groups visible modules by business workflow without duplicating routes", () => {
+  const model = getNavigationModel();
+  assert.deepEqual(model.groups.map((group) => group.id), ["operations", "finance", "people", "communications"]);
+  const groupedModules = model.groups.flatMap((group) => group.modules.map((module) => module.id));
+  assert.deepEqual(new Set(groupedModules), new Set(model.modules.map((module) => module.id)));
+  assert.equal(new Set(groupedModules).size, groupedModules.length);
+  assert.equal(model.settingsRoute?.id, "settings");
+});
+
+test("navigation grouping never bypasses permission filtering", () => {
+  const model = getNavigationModel({ permissions: [PERMISSION_KEYS.payrollRead] });
+  assert.deepEqual(model.modules.map((module) => module.id), ["payroll"]);
+  assert.deepEqual(model.groups.flatMap((group) => group.modules.map((module) => module.id)), ["payroll"]);
+  assert.deepEqual(model.groups.map((group) => group.id), ["people"]);
+});
+
 test("filters modules and invoice subtabs by permissions", () => {
   const model = getNavigationModel({ permissions: [PERMISSION_KEYS.invoicesExtract] });
   assert.deepEqual(model.modules.map((module) => module.id), ["invoices"]);

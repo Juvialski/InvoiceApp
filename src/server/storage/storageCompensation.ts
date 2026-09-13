@@ -18,6 +18,45 @@ export interface CompensationInput {
   serverSupabaseSupplier?: () => SupabaseClient;
 }
 
+export interface StorageServerAuthorityStatus {
+  status: "AVAILABLE" | "UNAVAILABLE";
+  code?: "TEMPLATE_STORAGE_UNAVAILABLE";
+  message: string;
+}
+
+function environmentValue(environment: Readonly<Record<string, string | undefined>>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = String(environment[key] || "").trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+export function getStorageServerAuthorityStatus(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): StorageServerAuthorityStatus {
+  const url = environmentValue(environment, "SUPABASE_URL", "VITE_SUPABASE_URL");
+  const serverKey = environmentValue(environment, "SUPABASE_STORAGE_SERVER_KEY", "SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !serverKey) {
+    return {
+      status: "UNAVAILABLE",
+      code: "TEMPLATE_STORAGE_UNAVAILABLE",
+      message: "Server-side Storage authority is not configured for document templates. An operator must configure the private Supabase Storage server key.",
+    };
+  }
+  if (/^pk_|^anon_|_anon_|^sb_publishable_|publishable/i.test(serverKey)) {
+    return {
+      status: "UNAVAILABLE",
+      code: "TEMPLATE_STORAGE_UNAVAILABLE",
+      message: "Server-side Storage authority is invalid because a publishable Supabase key cannot write document templates.",
+    };
+  }
+  return {
+    status: "AVAILABLE",
+    message: "Server-side Storage authority is configured for document templates.",
+  };
+}
+
 /**
  * Creates a server-only privileged Supabase client for storage compensation cleanup.
  * Strictly uses server-side service-role key and rejects public/publishable keys.
@@ -30,16 +69,17 @@ export function getStorageServerServiceRoleClient(): SupabaseClient {
     ""
   ).trim();
 
-  if (!url || !serviceKey) {
+  const authority = getStorageServerAuthorityStatus({ SUPABASE_URL: url, SUPABASE_STORAGE_SERVER_KEY: serviceKey });
+  if (authority.status !== "AVAILABLE") {
     throw new StorageError(
-      "Privileged Supabase storage cleanup client is not configured on the server (missing server service role key).",
+      "Privileged Supabase storage cleanup client is not configured on the server.",
       "SERVER_CLEANUP_UNAVAILABLE",
       503,
     );
   }
 
   // Reject public/publishable/anon keys from being misused as service keys
-  if (/^pk_|^anon_|_anon_|publishable/i.test(serviceKey)) {
+  if (/^pk_|^anon_|_anon_|^sb_publishable_|publishable/i.test(serviceKey)) {
     throw new StorageError(
       "Invalid storage server key: cannot use publishable/anon key for privileged storage compensation.",
       "INVALID_SERVER_KEY",

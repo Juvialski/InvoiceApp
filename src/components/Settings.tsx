@@ -31,6 +31,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
         description={`This ${BRAND.productName} deployment belongs to one client company. Roles and permissions control what each company user can access.`}
       />
 
+      <CompanyDocumentTemplatesSettings demoMode={!showDeploymentAccessManagement} />
+
       <div className="grid gap-6 lg:grid-cols-2">
         {showDeploymentAccessManagement ? (
           <CompanyProfileSettings />
@@ -113,8 +115,6 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
       </div>
 
       <ProductFeaturesRoadmap />
-
-      <CompanyDocumentTemplatesSettings demoMode={!showDeploymentAccessManagement} />
 
       {showDeploymentAccessManagement && <CompanyDocumentProfileSettings />}
 

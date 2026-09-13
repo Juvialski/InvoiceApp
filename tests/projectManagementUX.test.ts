@@ -84,7 +84,7 @@ test("ProjectsPage passes financial data completeness to project management view
 
 test("ProjectsPage enforces portfolio summary, responsive desktop table and mobile cards", () => {
   // Check Portfolio Summary structure
-  assert.match(projectsPageSource, /aria-label="Portfolio Management Summary"/);
+  assert.match(projectsPageSource, /(?:<details|<section) aria-label="Portfolio Management Summary"/);
   assert.match(projectsPageSource, /buildPortfolioManagementSummary\(projectViews\)/);
   assert.match(projectsPageSource, /portfolio\.currencies\.map/);
   assert.match(projectsPageSource, /Attention Signals/);

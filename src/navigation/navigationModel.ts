@@ -30,6 +30,8 @@ export type PrimaryModuleId =
   | "reports"
   | "engineering-documents";
 
+export type NavigationGroupId = "operations" | "finance" | "people" | "communications";
+
 export interface NavigationFilter {
   /** Omit for an unauthenticated/browser-only workspace with no permission filtering. */
   readonly permissions?: Iterable<PermissionKey> | null;
@@ -55,8 +57,19 @@ export interface NavigationModule extends NavigationModuleDefinition {
   readonly defaultRoute: NavigationRoute | undefined;
 }
 
+export interface NavigationGroupDefinition {
+  readonly id: NavigationGroupId;
+  readonly label: string;
+  readonly moduleIds: readonly PrimaryModuleId[];
+}
+
+export interface NavigationGroup extends NavigationGroupDefinition {
+  readonly modules: readonly NavigationModule[];
+}
+
 export interface NavigationModel {
   readonly modules: readonly NavigationModule[];
+  readonly groups: readonly NavigationGroup[];
   readonly settingsRoute: NavigationRoute | undefined;
 }
 
@@ -85,6 +98,13 @@ export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.
   { id: "expenses", label: "Expenses", routeIds: ["expenses"], defaultRouteId: "expenses" },
   { id: "payroll", label: "Payroll", routeIds: ["payroll"], defaultRouteId: "payroll" },
   { id: "reports", label: "Reports", routeIds: ["reports"], defaultRouteId: "reports" },
+]);
+
+export const NAVIGATION_GROUPS: readonly NavigationGroupDefinition[] = Object.freeze([
+  { id: "operations", label: "Operations", moduleIds: ["dashboard", "projects", "procurement", "warehouse", "equipment"] },
+  { id: "finance", label: "Finance", moduleIds: ["cash", "invoices", "expenses", "reports"] },
+  { id: "people", label: "People", moduleIds: ["payroll"] },
+  { id: "communications", label: "Communications", moduleIds: ["email-sms", "documents"] },
 ]);
 
 function contextualLabel(route: RouteDefinition) {
@@ -164,9 +184,19 @@ export function getNavigationModel(filter: NavigationFilter = {}): NavigationMod
     })
     .filter((module) => module.routes.length > 0);
 
+  const modulesById = new Map(modules.map((module) => [module.id, module]));
+  const groups = NAVIGATION_GROUPS
+    .map((definition): NavigationGroup => ({
+      ...definition,
+      modules: definition.moduleIds
+        .map((moduleId) => modulesById.get(moduleId))
+        .filter((module): module is NavigationModule => Boolean(module)),
+    }))
+    .filter((group) => group.modules.length > 0);
   const settings = getRouteDefinition("settings");
   return {
     modules,
+    groups,
     settingsRoute: settings && moduleIsVisible("settings", filter) && routeIsVisible(settings, filter)
       ? asNavigationRoute(settings)
       : undefined,

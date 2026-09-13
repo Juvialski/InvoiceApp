@@ -434,18 +434,13 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       )}
 
       {/* Top Portfolio Management Summary: one compact decision surface. */}
-      <section aria-label="Portfolio Management Summary" className="space-y-3">
+      <details aria-label="Portfolio Management Summary" className="group rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 [&::-webkit-details-marker]:hidden">
+          <span>Portfolio snapshot</span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800"><ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />Attention Signals: {portfolio.projectsNeedingAttentionCount}</span>
+        </summary>
+        <div className="space-y-3 border-t border-slate-100 p-3">
         <Card className="p-4 shadow-sm" elevation="low">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-black text-slate-950">Portfolio snapshot</h2>
-              <p className="mt-1 text-[10px] leading-4 text-slate-500">Counts show the current register; attention counts are project and signal counts.</p>
-            </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800">
-              <ShieldAlert className="h-3 w-3" aria-hidden="true" />
-              Attention Signals: {portfolio.projectsNeedingAttentionCount}
-            </span>
-          </div>
           <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-4" aria-label="Project counts">
             <div><dt className="text-slate-500">Total projects</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-950">{isHydrating ? "…" : portfolio.totalProjects}</dd></div>
             <div><dt className="text-slate-500">Active</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-emerald-700">{isHydrating ? "…" : portfolio.activeProjects}</dd></div>
@@ -498,13 +493,14 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             </div>
           </details>
         )}
-      </section>
+        </div>
+      </details>
 
       {/* Filter and Search Toolbar */}
       <Card className="p-4 shadow-sm space-y-3" elevation="low">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
           {/* Search Query */}
-          <div className="relative">
+          <div className="relative xl:col-span-2">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
             <input
               type="text"
@@ -544,7 +540,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
           </div>
 
-          <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-2 xl:col-span-4">
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-2 xl:col-span-3">
             <summary className="cursor-pointer list-none text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">More filters <span className="ml-1 text-[10px] font-semibold text-slate-500">manager, currency, attention</span></summary>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
 
@@ -625,7 +621,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           </details>
 
           {/* Sort Selector */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 xl:col-span-2">
             <div className="relative flex-1">
               <select
                 value={sortField}

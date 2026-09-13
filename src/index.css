@@ -36,6 +36,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ops-table thead { font-size: 0.75rem; line-height: 1.1rem; }
 .ops-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
 
+/* Project invoice decisions use cards on narrow screens; keep the legacy
+   register table available at laptop widths without rendering both views. */
+@media (max-width: 1023px) {
+  [data-project-invoice-workspace] > section > .overflow-x-auto { display: none; }
+}
+
 /* The first operations-workspace pass used micro-type as a default. Keep
    metadata compact while making meaningful labels readable at a glance. */
 .text-\[9px\] { font-size: 0.6875rem !important; line-height: 1rem !important; }

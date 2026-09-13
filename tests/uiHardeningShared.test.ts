@@ -18,6 +18,14 @@ test("shared operations UI exposes intentional surface, loading, error, and metr
   assert.match(operationsUi, /<header className=/);
 });
 
+test("shared operations UI exposes compact action, filter, and disclosure grammar", () => {
+  assert.match(operationsUi, /export function PageActionBar/);
+  assert.match(operationsUi, /export function FilterBar/);
+  assert.match(operationsUi, /export function DisclosureSection/);
+  assert.match(operationsUi, /aria-expanded/);
+  assert.match(operationsUi, /aria-controls/);
+});
+
 test("shell rendering failures use safe recovery copy and retain a bounded content frame", () => {
   assert.match(shell, /This workspace section could not be displayed/);
   assert.match(shell, /reload the page if the problem continues/);

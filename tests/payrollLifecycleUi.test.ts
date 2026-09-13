@@ -7,6 +7,7 @@ const assignments = readFileSync(new URL("../src/components/payroll/ProjectAssig
 const profiles = readFileSync(new URL("../src/components/payroll/PayrollProfiles.tsx", import.meta.url), "utf8");
 const sources = readFileSync(new URL("../src/components/payroll/TimeEntries.tsx", import.meta.url), "utf8");
 const attendance = readFileSync(new URL("../src/components/payroll/AttendanceWorkspace.tsx", import.meta.url), "utf8");
+const payrollPage = readFileSync(new URL("../src/components/payroll/PayrollPageV2.tsx", import.meta.url), "utf8");
 
 test("worker UI names lifecycle outcomes instead of exposing an ambiguous delete action", () => {
   assert.match(workers, /Offboard/);
@@ -35,4 +36,13 @@ test("work and attendance UI distinguishes draft deletion from void/cancel corre
   assert.match(attendance, /Void/);
   assert.match(attendance, /Cancel this leave request/);
   assert.match(attendance, /source will remain in history/);
+});
+
+test("payroll navigation groups routes by the user's work sequence", () => {
+  assert.match(payrollPage, /data-payroll-navigation-group="people"/);
+  assert.match(payrollPage, /data-payroll-navigation-group="attendance-time"/);
+  assert.match(payrollPage, /Attendance &amp; Time/);
+  assert.match(payrollPage, /Payroll Runs/);
+  assert.match(payrollPage, /Imports &amp; Setup/);
+  assert.match(payrollPage, /Calendar/);
 });
