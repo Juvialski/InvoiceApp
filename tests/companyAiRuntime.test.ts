@@ -12,6 +12,7 @@ import {
   isCompanyAiFallbackEligible,
   isCompanyAiAuthenticationError,
   resolveCompanyAiRuntime,
+  resolveCompanyAiRuntimeCapability,
   testCompanyAiRuntime,
   withCompanyAiRuntime,
 } from "../src/server/ai/companyAiRuntime.ts";
@@ -125,6 +126,37 @@ test("Settings metadata and Assistant runtime agree for configured but untested 
     (error: any) => error.code === "AI_CONFIG_UNAVAILABLE"
       && error.message === "Company AI configuration is temporarily unavailable.",
   );
+});
+
+test("runtime capability follows the resolvable company runtime instead of stale provider-test metadata", async () => {
+  clearCompanyAiRuntimeCache();
+  const fake = fakeSupabase(new Map([[COMPANY_A, activeCredential(COMPANY_A, "Key-A-secret-value", 1)]]));
+  const capability = await resolveCompanyAiRuntimeCapability({
+    supabase: fake.client,
+    credentialSupabase: fake.client,
+    companyId: COMPANY_A,
+    environment: ENVIRONMENT,
+  });
+  assert.equal(capability.status, "AVAILABLE");
+  assert.equal(capability.provider, "GEMINI");
+  assert.equal(capability.primaryModel, "gemini-3.5-flash-lite");
+  assert.match(capability.message, /ready/i);
+  assert.doesNotMatch(JSON.stringify(capability), /Key-A-secret-value|ciphertext|plaintext/i);
+});
+
+test("runtime capability fails closed with safe configuration messaging", async () => {
+  clearCompanyAiRuntimeCache();
+  const fake = fakeSupabase(new Map([[COMPANY_A, { company_id: COMPANY_A, provider: "GEMINI", enabled: false, status: "DISABLED", credential_version: 1 }]]));
+  const capability = await resolveCompanyAiRuntimeCapability({
+    supabase: fake.client,
+    credentialSupabase: fake.client,
+    companyId: COMPANY_A,
+    environment: ENVIRONMENT,
+  });
+  assert.equal(capability.status, "UNAVAILABLE");
+  assert.equal(capability.code, "AI_DISABLED_FOR_COMPANY");
+  assert.match(capability.message, /disabled/i);
+  assert.doesNotMatch(JSON.stringify(capability), /Key-|ciphertext|plaintext|provider response/i);
 });
 
 test("a mismatched resolver row fails closed instead of being relabeled to the requested company", async () => {

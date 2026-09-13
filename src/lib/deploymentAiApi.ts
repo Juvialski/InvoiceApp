@@ -1,6 +1,6 @@
 import { companyApiRequest } from "./companyApi.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
-import type { CompanyAiConfigMetadata, CompanyAiStatus, CompanyAiTestStatus } from "../server/ai/companyAiTypes.ts";
+import type { CompanyAiConfigMetadata, CompanyAiRuntimeCapability, CompanyAiStatus, CompanyAiTestStatus } from "../server/ai/companyAiTypes.ts";
 import { DEPLOYMENT_AI_STATUS_UNAVAILABLE } from "./deploymentAiPresentation.ts";
 
 function normalizeMetadata(value: unknown, companyId: string): CompanyAiConfigMetadata {
@@ -14,6 +14,20 @@ function normalizeMetadata(value: unknown, companyId: string): CompanyAiConfigMe
   const testStatus = testStatusValue === "SUCCESS" || testStatusValue === "INVALID_CREDENTIAL" || testStatusValue === "QUOTA_LIMITED" || testStatusValue === "PROVIDER_UNAVAILABLE" || testStatusValue === "PROVIDER_ACCESS_DENIED" || testStatusValue === "MODEL_UNAVAILABLE"
     ? testStatusValue
     : "NOT_TESTED" as CompanyAiTestStatus;
+  const capabilitySource = source.runtimeCapability && typeof source.runtimeCapability === "object" && !Array.isArray(source.runtimeCapability)
+    ? source.runtimeCapability as Record<string, unknown>
+    : undefined;
+  const capabilityStatus = capabilitySource?.status === "AVAILABLE" || capabilitySource?.status === "UNAVAILABLE" ? capabilitySource.status : undefined;
+  const runtimeCapability: CompanyAiRuntimeCapability | undefined = capabilityStatus
+    ? {
+      status: capabilityStatus,
+      provider: "GEMINI",
+      primaryModel: capabilitySource.primaryModel === "gemini-3.5-flash-lite" ? capabilitySource.primaryModel : "gemini-3.5-flash-lite",
+      ...(capabilitySource.fallbackModel === "gemini-3.7-flash" ? { fallbackModel: capabilitySource.fallbackModel } : {}),
+      ...(typeof capabilitySource.code === "string" && capabilitySource.code.trim() ? { code: capabilitySource.code.slice(0, 120) } : {}),
+      message: typeof capabilitySource.message === "string" && capabilitySource.message.trim() ? capabilitySource.message.slice(0, 400) : "AI runtime capability is unavailable.",
+    }
+    : undefined;
   return {
     companyId,
     provider: "GEMINI",
@@ -27,6 +41,7 @@ function normalizeMetadata(value: unknown, companyId: string): CompanyAiConfigMe
     bootstrapAuthorized: source.bootstrapAuthorized === true || source.bootstrap_authorized === true,
     lastTestedAt: typeof (source.lastTestedAt ?? source.last_tested_at) === "string" ? String(source.lastTestedAt ?? source.last_tested_at) : undefined,
     lastTestStatus: testStatus,
+    ...(runtimeCapability ? { runtimeCapability } : {}),
     updatedAt: typeof (source.updatedAt ?? source.updated_at) === "string" ? String(source.updatedAt ?? source.updated_at) : undefined,
   };
 }
