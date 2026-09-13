@@ -47,3 +47,12 @@ test("restricted dashboard keeps its purpose visible before completeness warning
   assert.ok(incompleteBranch >= 0);
   assert.ok(dashboard.indexOf("<PageHeader", incompleteBranch) > incompleteBranch);
 });
+
+test("supplier invoice register precedes supporting settlement overview", () => {
+  const invoices = source("src/app/routes/InvoicesRoute.tsx");
+  const register = invoices.lastIndexOf("<InvoiceDirectory");
+  const settlement = invoices.lastIndexOf("<InvoiceSettlementDirectoryPanel");
+  assert.ok(register >= 0);
+  assert.ok(settlement >= 0);
+  assert.ok(register < settlement);
+});
