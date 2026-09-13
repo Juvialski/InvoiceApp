@@ -51,8 +51,10 @@ test("navigation grouping never bypasses permission filtering", () => {
 
 test("filters modules and invoice subtabs by permissions", () => {
   const model = getNavigationModel({ permissions: [PERMISSION_KEYS.invoicesExtract] });
-  assert.deepEqual(model.modules.map((module) => module.id), ["invoices"]);
-  assert.deepEqual(model.modules[0]?.routes.map((route) => [route.id, route.label]), [["extract", "Upload supplier invoice"]]);
+  assert.deepEqual(model.modules.map((module) => module.id), ["documents", "invoices"]);
+  const invoiceModule = model.modules.find((module) => module.id === "invoices");
+  assert.deepEqual(invoiceModule?.routes.map((route) => [route.id, route.label]), [["extract", "Upload supplier invoice"]]);
+  assert.deepEqual(model.modules.find((module) => module.id === "documents")?.routes.map((route) => route.id), ["documents"]);
   assert.equal(model.settingsRoute, undefined);
 
   const financeModel = getNavigationModel({ permissions: [PERMISSION_KEYS.invoicesRead] });
