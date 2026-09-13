@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UI/UX ROUND 2 APPROVED AS NEXT IMPLEMENTATION PHASE / LAST APPLICATION-BEARING MAIN HOSTED-QA CERTIFIED / SUPPLIER PAYABLES CERTIFIED / WAVE 4D INCOMPLETE AND TEMPORARILY SEQUENCED AFTER UI/UX ROUND 2 / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**  
-Date: **2026-09-12**  
+Status: **CURRENT — UI/UX ROUND 2 IMPLEMENTATION IN PROGRESS / DOCUMENT-TEMPLATE STORAGE AUTHORITY BLOCKED IN LOCAL-QA / LAST APPLICATION-BEARING MAIN HOSTED-QA CERTIFIED / SUPPLIER PAYABLES CERTIFIED / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**  
+Date: **2026-09-13**  
 Repository: `Juvialski/InvoiceApp`
 
 ## Authoritative current baseline
@@ -50,6 +50,16 @@ This phase now comes **before continuing the remaining Wave 4D messaging-provide
 Wave 4D is not cancelled. After UI/UX Round 2 is completed and merged, return to Wave 4D unless the user explicitly reprioritizes again.
 
 Worker Registration remains paused and must not be suggested as the next phase.
+
+### Current implementation branch state
+
+This implementation branch started from the freshly synchronized `main` SHA:
+
+`746a4aacda9ccceff88a5093bfeb678b8b1046a8`
+
+The branch implements the grouped authenticated shell navigation, shared task-first controls/disclosures, mandatory Documents/Expenses/Project Allocation/Payroll improvements, and targeted hierarchy changes for Dashboard, Supplier Invoices, Projects, Warehouse, Equipment, and Settings. The changes preserve the existing route vocabulary, deep-link query contracts, permission checks, source ownership, financial boundaries, immutable history, and Assistant confirmation model. No database migration or schema contract changed.
+
+The critical Document Templates investigation traced Starter, Upload, and AI persistence through the shared server Storage path. Authenticated Local-QA reached the real isolated backend and returned `TEMPLATE_STORAGE_UNAVAILABLE`: the QA server lacks the private `SUPABASE_STORAGE_SERVER_KEY`. The capability response and Settings UI now distinguish this server prerequisite from PDF converter health, gate persistence actions until Storage authority is available, and keep AI separately provider-gated. Starter/Upload/AI are not certified PASS on this branch: secure QA server configuration and the complete authenticated persistence/retrieval workflow are still required. The broader Local-QA harness was started but stalled before completion and was stopped, so it is recorded as incomplete rather than passed.
 
 ---
 
