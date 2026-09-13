@@ -76,6 +76,7 @@ test("Local-QA runner includes the broader functional sweep and keeps its failur
   assert.match(functional, /functional-deep-link-recovery/);
   assert.match(functional, /functional-document-template-storage/);
   assert.match(functional, /template-storage-capability/);
+  assert.match(functional, /waitForTemplateCapability/);
   assert.match(functional, /setInputFiles/);
   assert.match(functional, /NOT_CERTIFIED|not certified/i);
   const documentsWorkflow = functional.slice(functional.indexOf("async function runDocumentsEmailWorkflow"), functional.indexOf("type TemplateDocumentType"));

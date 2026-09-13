@@ -68,6 +68,11 @@ async function closeDialog(page: any) {
   await page.waitForTimeout(100);
 }
 
+async function waitForTemplateCapability(page: any, kind: "storage" | "ai", timeoutMs: number) {
+  const selector = `[data-template-${kind}-capability="checking"]`;
+  await page.waitForFunction((checkingSelector: string) => !document.querySelector(checkingSelector), selector, { timeout: timeoutMs });
+}
+
 async function runWorkflow(
   options: LocalQaFunctionalSweepOptions,
   id: string,
@@ -360,6 +365,7 @@ async function runDocumentTemplateStorageWorkflow(options: LocalQaFunctionalSwee
   await navigate(options, "/settings");
   const settings = page.locator("[data-document-template-settings]");
   await settings.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+  await waitForTemplateCapability(page, "storage", options.timeoutMs || DEFAULT_TIMEOUT_MS);
   const storageCapability = page.locator("[data-template-storage-capability]").last();
   if (await storageCapability.count() > 0 && await storageCapability.getAttribute("data-template-storage-capability") === "unavailable") {
     workflow.status = "BLOCKED";
@@ -416,6 +422,8 @@ async function runDocumentTemplateAiWorkflow(options: LocalQaFunctionalSweepOpti
   await navigate(options, "/settings");
   const settings = page.locator("[data-document-template-settings]");
   await settings.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+  await waitForTemplateCapability(page, "storage", options.timeoutMs || DEFAULT_TIMEOUT_MS);
+  await waitForTemplateCapability(page, "ai", options.timeoutMs || DEFAULT_TIMEOUT_MS);
   const storageCapability = page.locator("[data-template-storage-capability='unavailable']").last();
   const aiCapability = page.locator("[data-template-ai-capability='unavailable']").last();
   if (await storageCapability.count() > 0) {
