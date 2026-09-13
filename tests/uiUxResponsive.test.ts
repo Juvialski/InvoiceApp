@@ -40,3 +40,10 @@ test("remaining workspaces keep secondary framing behind the working surface", (
   assert.ok(warehouse.indexOf("Search inventory items") < warehouse.indexOf("Movement-derived stock truth"));
   assert.ok(equipment.indexOf("Search Equipment") < equipment.indexOf("Assignment authority is separate"));
 });
+
+test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
+  const dashboard = source("src/app/routes/DashboardRoute.tsx");
+  const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');
+  assert.ok(incompleteBranch >= 0);
+  assert.ok(dashboard.indexOf("<PageHeader", incompleteBranch) > incompleteBranch);
+});

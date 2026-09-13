@@ -57,3 +57,10 @@ test("project allocation decisions expose readable identity, balances, and actio
   assert.match(picker, /data-project-allocation-row/);
   assert.match(picker, /Assign \$\{selectedCount/);
 });
+
+test("project invoice register provides a readable narrow-screen decision view", () => {
+  const invoices = source("src/components/projects/ProjectInvoices.tsx");
+  assert.match(invoices, /data-project-invoice-card/);
+  for (const label of ["Current project amount", "Remaining invoice amount", "Payment \/ review", "Open invoice", "Edit allocation"]) assert.match(invoices, new RegExp(label));
+  assert.ok(invoices.indexOf("Search invoice, vendor") < invoices.lastIndexOf("<ProjectInvoiceCard"));
+});
