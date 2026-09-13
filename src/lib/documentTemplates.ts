@@ -147,12 +147,39 @@ export interface DocumentTemplatePreparationResult {
   structure: DocumentTemplateAnalysisResult["structure"];
 }
 
+type FlatDocumentTemplatePreparationResult = DocumentTemplateVersion & {
+  preparation: "AI_AUTO_TAGGED";
+  report: TemplateValidationReport;
+  structure: DocumentTemplateAnalysisResult["structure"];
+};
+
+export function normalizeDocumentTemplatePreparationResult(
+  payload: DocumentTemplatePreparationResult | FlatDocumentTemplatePreparationResult,
+): DocumentTemplatePreparationResult {
+  const candidate = payload as any;
+  if (candidate?.version && Array.isArray(candidate.version.bindings)) return candidate as DocumentTemplatePreparationResult;
+  if (!candidate || candidate.preparation !== "AI_AUTO_TAGGED" || !Array.isArray(candidate.bindings) || !candidate.report || !candidate.structure) {
+    throw new DocumentTemplateApiError(
+      "The prepared template response was invalid. Refresh the templates and try again.",
+      "INVALID_TEMPLATE_RESPONSE",
+      502,
+    );
+  }
+  return {
+    version: candidate as DocumentTemplateVersion,
+    preparation: candidate.preparation,
+    report: candidate.report as TemplateValidationReport,
+    structure: candidate.structure as DocumentTemplateAnalysisResult["structure"],
+  };
+}
+
 export async function prepareDocumentTemplate(companyId: string, versionId: string, plan: DocumentTemplatePreparationPlan, displayName?: string): Promise<DocumentTemplatePreparationResult> {
-  return requestJson(`/api/document-templates/${encodeURIComponent(versionId)}/prepare`, {
+  const payload = await requestJson<DocumentTemplatePreparationResult | FlatDocumentTemplatePreparationResult>(`/api/document-templates/${encodeURIComponent(versionId)}/prepare`, {
     companyId,
     method: "POST",
     body: { plan, ...(displayName ? { displayName } : {}) },
   });
+  return normalizeDocumentTemplatePreparationResult(payload);
 }
 
 export async function updateDocumentTemplateBindings(companyId: string, versionId: string, bindings: readonly DocumentTemplateBinding[]): Promise<{ version: DocumentTemplateVersion; report: TemplateValidationReport }> {
