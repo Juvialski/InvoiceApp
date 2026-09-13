@@ -6,18 +6,20 @@ import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.tsx";
 import { CompanyProfileSettings } from "./access/CompanyProfileSettings.tsx";
 import { CompanyDocumentProfileSettings } from "./access/CompanyDocumentProfileSettings.tsx";
-import { CompanyDocumentTemplatesSettings } from "./access/CompanyDocumentTemplatesSettings.tsx";
 import { DeploymentAiBootstrapSettings } from "./access/DeploymentAiBootstrapSettings.tsx";
 import { UserDocumentIdentitySettings } from "./access/UserDocumentIdentitySettings.tsx";
 import { ProductFeaturesRoadmap } from "./ProductFeaturesRoadmap.tsx";
+import { appPathForDocumentsWorkspace } from "../utils/appRouting.ts";
+import type { AppNavigate } from "../utils/clientNavigation.ts";
 
 interface SettingsProps {
   settings: RegionalSettings;
   onChange: (settings: RegionalSettings) => void;
   showDeploymentAccessManagement?: boolean;
+  onNavigatePath?: AppNavigate;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDeploymentAccessManagement = true }) => {
+export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDeploymentAccessManagement = true, onNavigatePath }) => {
   const isDeploymentProfile = settings.country === DEFAULT_COUNTRY
     && settings.locale === DEFAULT_LOCALE
     && settings.currency === DEFAULT_CURRENCY
@@ -31,7 +33,15 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
         description={`This ${BRAND.productName} deployment belongs to one client company. Roles and permissions control what each company user can access.`}
       />
 
-      <CompanyDocumentTemplatesSettings demoMode={!showDeploymentAccessManagement} />
+      <section className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 shadow-sm sm:p-5" aria-labelledby="settings-document-templates-title" data-settings-document-templates-link="true">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p id="settings-document-templates-title" className="text-sm font-black text-slate-950">Document templates</p>
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-600">Manage approved Word designs, mappings, versions, and activation from Documents.</p>
+          </div>
+          <button type="button" onClick={() => { const path = appPathForDocumentsWorkspace("templates"); if (onNavigatePath) onNavigatePath(path); else if (typeof window !== "undefined") window.location.assign(path); }} className="inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white hover:bg-indigo-700">Manage Document Templates</button>
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {showDeploymentAccessManagement ? (
