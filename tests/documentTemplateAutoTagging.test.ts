@@ -100,8 +100,7 @@ test("anchored mapping validation rejects stale, unknown, and duplicate source l
     warnings: [],
   };
   const valid = validateTemplateMappingAnalysis(analysis, "PURCHASE_ORDER");
-  assert.equal(valid.ok, true);
-  if (valid.ok === false) return;
+  if (valid.ok === false) throw new Error(valid.errors.join(" "));
   assert.equal(validateTemplateMappingAnalysisAgainstInventory(valid.analysis, inventory, "PURCHASE_ORDER").ok, true);
 
   const stale = validateTemplateMappingAnalysisAgainstInventory({
@@ -148,8 +147,7 @@ test("anchored line-table validation requires an existing candidate and allowlis
     unresolved: [],
     warnings: [],
   }, "PURCHASE_ORDER");
-  assert.equal(analysis.ok, true);
-  if (analysis.ok === false) return;
+  if (analysis.ok === false) throw new Error(analysis.errors.join(" "));
   assert.equal(validateTemplateMappingAnalysisAgainstInventory(analysis.analysis, inventory, "PURCHASE_ORDER").ok, true);
 
   const invalid = validateTemplateMappingAnalysisAgainstInventory({
@@ -168,16 +166,17 @@ function purchaseOrderPreparationPlan(bytes: Uint8Array): DocumentTemplatePrepar
   const inventory = extractDocumentTemplateAnchorInventory(bytes, "HSC P.O.Template.docx");
   const anchorFor = (predicate: (text: string) => boolean) => {
     const anchor = inventory.anchors.find((candidate) => predicate(candidate.text) && candidate.targetText);
-    assert.ok(anchor);
+    if (!anchor) throw new Error("Expected a matching preparation anchor.");
     return anchor;
   };
-  const mappings = [
+  const mappingEntries: readonly (readonly [string, typeof inventory.anchors[number]])[] = [
     ["company.legalName", anchorFor((text) => text.includes("HYDROQUALISENSE SOLUTIONS CORP"))],
     ["purchaseOrder.documentNumber", anchorFor((text) => text.startsWith("No.:"))],
     ["purchaseOrder.currency", anchorFor((text) => text.startsWith("Currency:"))],
     ["purchaseOrder.totalAmount", anchorFor((text) => text.includes("PHP 3900.00"))],
     ["supplier.name", anchorFor((text) => text.startsWith("Supplier name:"))],
-  ].map(([fieldKey, anchor]) => ({ fieldKey, anchorId: anchor.id, targetText: anchor.targetText, confirmed: true }));
+  ];
+  const mappings = mappingEntries.map(([fieldKey, anchor]) => ({ fieldKey, anchorId: anchor.id, targetText: anchor.targetText!, confirmed: true }));
   assert.ok(inventory.lineTable);
   return {
     documentType: "PURCHASE_ORDER",
