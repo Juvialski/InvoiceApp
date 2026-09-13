@@ -968,6 +968,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <DocumentsRoute
         view={documentWorkspaceContextFromSearch(route.search).view}
+        demoMode={!showDeploymentAccessManagement}
         invoices={invoices}
         clientBillings={clientBillings}
         purchaseOrders={purchaseOrders}

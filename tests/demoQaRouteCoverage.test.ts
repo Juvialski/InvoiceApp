@@ -26,3 +26,12 @@ test("demo settings does not mount production company access management", () => 
   assert.match(demoWorkspace, /showDeploymentAccessManagement=\{false\}/);
   assert.match(settings, /showDeploymentAccessManagement && <DeploymentAccessManagement \/>/);
 });
+
+test("demo Documents coverage includes the three Document Center views", () => {
+  const states = DEMO_QA_SCENARIOS
+    .filter((scenario) => scenario.route.id === "documents")
+    .map((scenario) => scenario.interactionState);
+  assert.ok(states.includes("unified document Library rendered"));
+  assert.ok(states.includes("Document Center Create rendered"));
+  assert.ok(states.includes("Document Center Templates rendered"));
+});

@@ -18,6 +18,7 @@ import { DisclosureSection, FilterBar, PageHeader } from "../../components/ui/Op
 
 export interface DocumentsRouteProps {
   readonly view?: DocumentWorkspaceView;
+  readonly demoMode?: boolean;
   readonly invoices: readonly InvoiceData[];
   readonly clientBillings: readonly ClientBilling[];
   readonly purchaseOrders: readonly PurchaseOrder[];
@@ -72,6 +73,7 @@ function statusLabel(status: string) {
 
 export function DocumentsRoute({
   view = "library",
+  demoMode = false,
   invoices,
   clientBillings,
   purchaseOrders,
@@ -120,7 +122,8 @@ export function DocumentsRoute({
   }, [counterpartyFilter, entries, kindFilter, moduleFilter, originFilter, projectFilter, search, statusFilter]);
 
   const canSend = hasPermission(permissions, PERMISSION_KEYS.documentSend);
-  const canReadTemplates = Boolean(companyAccess?.guestMode)
+  const canReadTemplates = demoMode
+    || Boolean(companyAccess?.guestMode)
     || hasPermission(permissions, PERMISSION_KEYS.settingsRead)
     || hasPermission(permissions, PERMISSION_KEYS.companyManage);
   const navigateView = (nextView: DocumentWorkspaceView) => go(appPathForDocumentsWorkspace(nextView), onNavigatePath);
@@ -142,7 +145,7 @@ export function DocumentsRoute({
 
       {view === "create" && <DocumentCreateView onNavigatePath={onNavigatePath} />}
 
-      {view === "templates" && <div data-document-templates-view="true">{canReadTemplates ? <CompanyDocumentTemplatesSettings demoMode={Boolean(companyAccess?.guestMode)} /> : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center" role="status"><LockKeyhole className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-2 text-sm font-black text-slate-800">Template administration is restricted</p><p className="mt-1 text-xs leading-5 text-slate-500">Ask a company settings administrator to review or manage approved Word templates.</p></div>}</div>}
+      {view === "templates" && <div data-document-templates-view="true">{canReadTemplates ? <CompanyDocumentTemplatesSettings demoMode={demoMode || Boolean(companyAccess?.guestMode)} /> : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center" role="status"><LockKeyhole className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-2 text-sm font-black text-slate-800">Template administration is restricted</p><p className="mt-1 text-xs leading-5 text-slate-500">Ask a company settings administrator to review or manage approved Word templates.</p></div>}</div>}
 
       {view === "library" && <>
         <FilterBar ariaLabel="Document filters" resultLabel={filteredEntries.length + " of " + entries.length + " documents"} hasActiveFilters={hasActiveFilters} onReset={() => { setSearch(""); setKindFilter("ALL"); setModuleFilter("ALL"); setOriginFilter("ALL"); setStatusFilter("ALL"); setProjectFilter("ALL"); setCounterpartyFilter("ALL"); }}>

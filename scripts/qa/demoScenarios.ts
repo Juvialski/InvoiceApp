@@ -271,12 +271,46 @@ const verifyDocumentsWorkspace: QaScenarioAction = async (page) => {
   const workspace = await page.locator('[data-documents-workspace]').count();
   const entries = await page.locator('[data-document-register-entry]').count();
   const ownerLinks = await page.getByRole("button", { name: "Open owning record", exact: true }).count();
-  const templateLink = await page.getByRole("button", { name: "Document templates", exact: true }).count();
+  const libraryTab = await page.locator('[data-document-center-view="library"][aria-selected="true"]').count();
+  const createTab = await page.getByRole("tab", { name: /Create/ }).count();
+  const templatesTab = await page.getByRole("tab", { name: /Templates/ }).count();
   return [
     { id: "documents-workspace-visible", passed: workspace === 1, details: `Documents workspace surfaces: ${workspace}` },
     { id: "documents-register-populated", passed: entries > 0, details: `document register entries: ${entries}` },
     { id: "documents-owner-navigation-visible", passed: ownerLinks > 0, details: `owner navigation controls: ${ownerLinks}` },
-    { id: "documents-template-management-link-visible", passed: templateLink === 1, details: `template management controls: ${templateLink}` },
+    { id: "documents-library-default-visible", passed: libraryTab === 1, details: `selected Library tabs: ${libraryTab}` },
+    { id: "documents-create-view-link-visible", passed: createTab === 1, details: `Create tabs: ${createTab}` },
+    { id: "documents-templates-view-link-visible", passed: templatesTab === 1, details: `Templates tabs: ${templatesTab}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyDocumentsCreateWorkspace: QaScenarioAction = async (page) => {
+  await page.getByRole("tab", { name: /Create/ }).click();
+  await waitForVisible(page, '[data-document-create-view]');
+  const workspace = await page.locator('[data-document-create-view]').count();
+  const availableOptions = await page.locator('[data-document-create-option]').count();
+  const preparationRequired = await page.locator('[data-document-create-status="preparation-required"]').count();
+  const businessLabels = await page.getByText("Purchase Order", { exact: true }).count();
+  return [
+    { id: "documents-create-view-visible", passed: workspace === 1, details: `Create view surfaces: ${workspace}` },
+    { id: "documents-create-options-visible", passed: availableOptions > 0, details: `supported Create options: ${availableOptions}` },
+    { id: "documents-create-business-label-visible", passed: businessLabels > 0, details: `Purchase Order labels: ${businessLabels}` },
+    { id: "documents-create-preparation-state-visible", passed: preparationRequired === 3, details: `preparation-required states: ${preparationRequired}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyDocumentsTemplatesWorkspace: QaScenarioAction = async (page) => {
+  await page.getByRole("tab", { name: /Templates/ }).click();
+  await waitForVisible(page, '[data-document-templates-view]');
+  const view = await page.locator('[data-document-templates-view]').count();
+  const templateSettings = await page.locator('[data-document-template-settings]').count();
+  const documentTemplates = await page.getByText("Document templates", { exact: true }).count();
+  const settingsLink = await page.getByRole("tab", { name: /Templates/ }).count();
+  return [
+    { id: "documents-templates-view-visible", passed: view === 1, details: `Templates view surfaces: ${view}` },
+    { id: "documents-template-settings-visible", passed: templateSettings === 1, details: `template administration surfaces: ${templateSettings}` },
+    { id: "documents-template-heading-visible", passed: documentTemplates > 0, details: `Document templates headings: ${documentTemplates}` },
+    { id: "documents-template-tab-remains-visible", passed: settingsLink === 1, details: `Templates tabs after navigation: ${settingsLink}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -483,7 +517,8 @@ const verifySettingsScreen: QaScenarioAction = async (page) => {
   const plannedWorkerRegistration = await page.locator('[data-product-feature-id="worker-registration"][data-product-feature-status="PLANNED"]').count();
   const futureFaceAttendance = await page.locator('[data-product-feature-id="face-recognition-attendance"][data-product-feature-status="FUTURE_DESIGN"]').count();
   const internalFeatureRegistry = await page.locator('[aria-label="Internal feature registry"]').count();
-  const templatePdfCapability = await page.locator('[data-document-pdf-capability="unavailable"]').count();
+  const templateLink = await page.getByRole("button", { name: "Manage Document Templates", exact: true }).count();
+  const fullTemplateSurface = await page.locator('[data-document-template-settings]').count();
   return [
     { id: "settings-heading-visible", passed: settingsHeading === 1, details: `settings headings: ${settingsHeading}` },
     { id: "regional-preferences-visible", passed: regionalPreferences === 1, details: `regional preference headings: ${regionalPreferences}` },
@@ -491,7 +526,8 @@ const verifySettingsScreen: QaScenarioAction = async (page) => {
     { id: "planned-worker-registration-visible", passed: plannedWorkerRegistration === 1, details: `Worker Registration cards: ${plannedWorkerRegistration}` },
     { id: "future-face-attendance-visible", passed: futureFaceAttendance === 1, details: `Future / Design Stage cards: ${futureFaceAttendance}` },
     { id: "internal-feature-registry-hidden", passed: internalFeatureRegistry === 0, details: `internal feature registry panels: ${internalFeatureRegistry}` },
-    { id: "template-pdf-capability-truthful", passed: templatePdfCapability === 1, details: `template PDF unavailable states: ${templatePdfCapability}` },
+    { id: "settings-template-link-visible", passed: templateLink === 1, details: `template navigation links: ${templateLink}` },
+    { id: "settings-full-template-surface-relocated", passed: fullTemplateSurface === 0, details: `full template panels in Settings: ${fullTemplateSurface}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -528,9 +564,13 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "project-workspace", route: route("project-documents", "/projects/:projectId/documents"), path: `${PROJECT_ROOT}/documents`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "project-workspace", route: route("project-documents", "/projects/:projectId/documents"), path: `${PROJECT_ROOT}/documents`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.mobile }),
   defineQaScenario({ feature: "engineering-documents", route: route("blueprint-viewer", "/projects/:projectId/documents"), path: `${PROJECT_ROOT}/documents`, interactionState: "demo drawing preview opened", viewport: QA_VIEWPORTS.desktop, action: openDemoDrawingPreview }),
-  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document register rendered", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsWorkspace }),
-  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document register rendered", viewport: QA_VIEWPORTS.tablet, action: verifyDocumentsWorkspace }),
-  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document register rendered", viewport: QA_VIEWPORTS.mobile, action: verifyDocumentsWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document Library rendered", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document Library rendered", viewport: QA_VIEWPORTS.tablet, action: verifyDocumentsWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document Library rendered", viewport: QA_VIEWPORTS.mobile, action: verifyDocumentsWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "Document Center Create rendered", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsCreateWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "Document Center Create rendered", viewport: QA_VIEWPORTS.mobile, action: verifyDocumentsCreateWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "Document Center Templates rendered", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsTemplatesWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "Document Center Templates rendered", viewport: QA_VIEWPORTS.mobile, action: verifyDocumentsTemplatesWorkspace }),
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "exact document handoff to Email / SMS compose", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsToEmailHandoff }),
   defineQaScenario({ feature: "engineering-documents", route: route("engineering-documents", "/documents"), path: "/demo/app/documents", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "rfis", route: route("rfis", "/projects/:projectId/rfis"), path: `${PROJECT_ROOT}/rfis`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
