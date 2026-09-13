@@ -49,13 +49,13 @@ interface HostedRouteContract {
 const ROUTE_CONTRACTS: readonly HostedRouteContract[] = [
   { route: "/dashboard", heading: "Executive Dashboard", requiredText: ["Supplier document operations"] },
   { route: "/projects", heading: "Portfolio Management", requiredText: ["Portfolio snapshot"] },
-  { route: "/expenses", heading: "Expenses", requiredText: ["Supplier invoices remain preserved evidence"] },
+  { route: "/expenses", heading: "Expenses", requiredText: ["Supplier invoice documents remain supporting context"] },
   { route: "/procurement", heading: "Procurement & Purchase Orders", requiredText: ["Purchase Orders"] },
   { route: "/warehouse", heading: "Warehouse Inventory", requiredText: ["Movement-derived stock truth"] },
   { route: "/payroll", heading: "Payroll & labor", requiredText: ["Active workers"] },
   { route: "/settings", heading: "Operational settings", requiredText: ["Regional display preferences", "AI configuration"] },
   { route: "/email-sms", heading: "Email / SMS", requiredText: ["Inbox / Intake", "Read-only Gmail intake"] },
-  { route: "/documents", heading: "Documents", requiredText: ["Unified access surface", "Procurement"] },
+  { route: "/documents", heading: "Documents", requiredText: ["Find, preview, and continue work on document records", "Procurement"] },
 ];
 
 interface HostedRouteEvidence {
@@ -396,7 +396,7 @@ async function runStorageProbe(context: any) : Promise<HostedQaManifest["storage
         bucket,
         wrongCompanyProbe: "NOT_RUN",
         cleanup: "NOT_RUN",
-        failure: createHostedQaStorageFailure("session", "auth-session-error", "SESSION_INCOMPLETE", "Authenticated browser session storage was incomplete."),
+        failure: createHostedQaStorageFailure("session", "auth-session-error", "SESSION_INCOMPLETE", "Authenticated browser session storage was incomplete for the Storage probe."),
       };
     }
     const client = createClient(supabaseUrl, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
