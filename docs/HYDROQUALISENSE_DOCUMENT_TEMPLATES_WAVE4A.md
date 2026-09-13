@@ -1,6 +1,6 @@
 # HydroQualiSense Document Templates — Wave 4A
 
-Status: **COMPLETE through merged PR #134**
+Status: **COMPLETE through merged PR #134; integrated into the Wide Documents Phase**
 
 Wave 4A adds a company-bound DOCX template foundation for `PURCHASE_ORDER` and `CLIENT_INVOICE`. It does not replace the existing programmatic PDF fallback, Gmail send contract, or authoritative financial snapshot builders.
 
@@ -33,6 +33,12 @@ Template roots and versions are company-bound. Versions start as `DRAFT`, can be
 Issued DOCX generation stores immutable evidence tying the issued snapshot, template version/hash and generated artifact/hash together. Wave 4B extended this contract to optional server-side high-fidelity PDF finalization; Wave 4C extends the same evidence into outbound delivery and history.
 
 See `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4B.md` for the completed PDF architecture and runtime requirement.
+
+## Documents workspace entry point — 2026-09-14
+
+Normal company template administration is now discoverable under `Documents -> Templates`. Settings retains a compact `Manage Document Templates` link for compatibility and configuration discoverability; it no longer mounts a competing full template-management surface. The underlying company-bound Storage, AI capability, immutable version, mapping, activation, issuance, and PDF capability contracts remain unchanged.
+
+The broader Wide Documents Phase is still incomplete. The next template slice will extend this contract to the supplied HSC Purchase Order, Equipment / Materials Checklist, and Warranty Certificate DOCX files without replacing their actual Word layouts or approved wording.
 
 ## 2026-09-13 corrective extension — AI capability and uploaded-template preparation
 

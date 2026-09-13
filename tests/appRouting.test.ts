@@ -16,6 +16,7 @@ import {
   appPathForProject,
   appPathForReviewInvoice,
   appPathForEmailWorkspace,
+  appPathForDocumentsWorkspace,
   appPathForTab,
   appTabForLocation,
   isKnownWorkspaceLocation,
@@ -28,10 +29,21 @@ import {
   payrollPeriodIdFromSearch,
   payrollRunIdFromSearch,
   emailWorkspaceContextFromSearch,
+  documentWorkspaceContextFromSearch,
 } from "../src/utils/appRouting.ts";
 import { pathForAssistantAction } from "../src/assistant/assistantNavigation.ts";
 
 const payrollRouteSource = readFileSync(new URL("../src/app/routes/PayrollRoute.tsx", import.meta.url), "utf8");
+
+test("Documents workspace view links default safely to Library", () => {
+  assert.deepEqual(documentWorkspaceContextFromSearch(""), { view: "library" });
+  assert.deepEqual(documentWorkspaceContextFromSearch("?view=create"), { view: "create" });
+  assert.deepEqual(documentWorkspaceContextFromSearch("view=templates"), { view: "templates" });
+  assert.deepEqual(documentWorkspaceContextFromSearch("?view=unknown"), { view: "library" });
+  assert.equal(appPathForDocumentsWorkspace(), "/documents");
+  assert.equal(appPathForDocumentsWorkspace("create"), "/documents?view=create");
+  assert.equal(appPathForDocumentsWorkspace("templates"), "/documents?view=templates");
+});
 
 test("parses project and project-subview deep links", () => {
   assert.deepEqual(parseAppLocation("/projects/project-42/invoices"), {

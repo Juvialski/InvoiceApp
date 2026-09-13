@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { cashSettlementTargetContextFromSearch, emailWorkspaceContextFromSearch, financialTransactionIdFromSearch, procurementContextFromSearch, warehouseContextFromSearch, type AppLocation } from "../../utils/appRouting";
+import { cashSettlementTargetContextFromSearch, documentWorkspaceContextFromSearch, emailWorkspaceContextFromSearch, financialTransactionIdFromSearch, procurementContextFromSearch, warehouseContextFromSearch, type AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
 import type {
@@ -967,6 +967,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   if (routeTarget === "documents") {
     return lazyRoute(
       <DocumentsRoute
+        view={documentWorkspaceContextFromSearch(route.search).view}
+        demoMode={!showDeploymentAccessManagement}
         invoices={invoices}
         clientBillings={clientBillings}
         purchaseOrders={purchaseOrders}
@@ -1246,7 +1248,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 9. Settings Route
   if (routeTarget === "settings") {
-    return lazyRoute(<SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} showDeploymentAccessManagement={showDeploymentAccessManagement} />);
+    return lazyRoute(<SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} showDeploymentAccessManagement={showDeploymentAccessManagement} onNavigatePath={onNavigatePath} />);
   }
 
   return null;

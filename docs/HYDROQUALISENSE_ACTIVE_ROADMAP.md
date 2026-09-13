@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — UI/UX ROUND 2 COMPLETE / DOCUMENT TEMPLATE AI AUTO-TAGGING + AI CAPABILITY CORRECTION ACTIVE BEFORE WAVE 4D / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / HOSTED EXACT-SHA QA PASS EXISTS FOR LAST HOSTED-CERTIFIED APPLICATION SHA / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — WIDE DOCUMENTS PHASE SLICE 1 IMPLEMENTED / UI/UX ROUND 2 COMPLETE / DOCUMENT TEMPLATE AI CORRECTION MERGED AS FOUNDATION / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / HOSTED EXACT-SHA QA PASS EXISTS FOR LAST HOSTED-CERTIFIED APPLICATION SHA / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-13**
 
@@ -76,7 +76,7 @@ Real authenticated Local-QA AI-template evidence is now obtained separately from
 
 The broad Local-QA route matrix still requires separate harness cleanup/reconciliation because its long sweep recorded unrelated route/session failures; the isolated authenticated AI/template workflow itself passed. No uncontrolled email/SMS send and no production mutation occurred.
 
-UI/UX Round 2 is therefore complete. The exact next implementation is now the active Document Template AI Auto-Tagging + AI Capability Correction. Wave 4D messaging-provider integration/completion resumes only after this correction is safely merged/certified. Worker Registration remains paused.
+UI/UX Round 2 and the Document Template AI corrective phase are complete foundations on the current merged baseline. The user has now explicitly reprioritized the next product work to the Wide Documents Phase. Worker Registration remains paused.
 
 ## 2026-09-13 Document Template AI corrective phase
 
@@ -127,28 +127,40 @@ The phase was not a cosmetic polish pass. It was an app-wide **workflow-first us
 
 These rules remain the UI baseline for later phases, including resumed Wave 4D work.
 
+## 2026-09-14 Wide Documents Phase reprioritization and Slice 1
+
+The user explicitly reprioritized the next product work to a Wide Documents Phase: Documents should become the central company Document Center, while preserving each owning domain as the source of truth. Official generated Word documents remain template-first and the actual approved DOCX remains the visual layout source of truth. XLSX remains programmatic by default.
+
+Slice 1 is implemented in the current feature branch as an application-only change. `/documents` now provides durable `Library`, `Create`, and `Templates` views; Library remains a permission-filtered projection over existing owning records; Create presents business-language links to supported owning workflows and clearly labels Warranty Certificate, Equipment / Materials Checklist, and general uploads as preparation-required; and Settings keeps only a link to Documents -> Templates. No database, RLS, RPC, Storage, or financial source-of-truth contract changed.
+
+The durable contract is recorded in `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` and the implementation design/plan are recorded in `docs/superpowers/specs/2026-09-14-unified-document-center-design.md` and `docs/superpowers/plans/2026-09-14-unified-document-center-slice1.md`.
+
+The exact next implementation slice is template-first managed document generation for the supplied HSC Purchase Order, HSC Equipment / Materials Checklist, and Warranty Certificate DOCX files. Their original bytes and approved wording remain acceptance fixtures; this Slice 1 does not claim that those managed document generators exist yet.
+
 ## Immediate implementation sequence
 
 Unless the user explicitly reprioritizes again, proceed in this order:
 
-1. **Wave 4D messaging-provider integration/completion — NEXT / ACTIVE**
-   - UI/UX Round 2 does not cancel or redesign the approved provider direction;
+1. **Wide Documents Phase — ACTIVE**
+   - complete template-first managed document generation for the supplied HSC DOCX fixtures;
+   - then add managed uploads, retained generated artifacts, project discovery, and permission-safe report/XLSX registration in focused slices;
+   - preserve the completed task-first Documents hierarchy and all source-ownership, financial, payroll, history, and Storage boundaries;
+   - do not mark the broad phase complete until its managed-document, artifact, and permission criteria are actually verified.
+
+2. **Wave 4D messaging-provider integration/completion — NEXT after Wide Documents**
    - Company SIM Gateway remains primary/recommended;
    - PhilSMS remains the optional hosted Philippine fallback;
-   - use the shared server-side provider adapter and durable delivery intent/audit contract;
    - keep SMS truthful as unavailable/unverified until controlled provider-backed runtime QA exists;
-   - reconnect/certify Gmail as needed for exact-state provider evidence;
-   - preserve the completed task-first Email/SMS and Documents information architecture;
-   - close remaining Wave 4D provider/AI/recovery/readiness evidence without beginning Worker Registration.
+   - preserve the existing Email/SMS delivery, Gmail intake, AI confirmation, and idempotency contracts.
 
-2. **Worker Registration — PAUSED**
+3. **Worker Registration — PAUSED**
    - do not start until Wave 4D is genuinely complete and the user explicitly resumes it.
 
-3. **Site Attendance state machine + registered site/device** after Worker Registration.
+4. **Site Attendance state machine + registered site/device** after Worker Registration.
 
-4. **Face-Recognition Attendance** only after explicit identity/privacy/consent/retention/liveness/confidence/fallback/security design.
+5. **Face-Recognition Attendance** only after explicit identity/privacy/consent/retention/liveness/confidence/fallback/security design.
 
-5. **Final pre-production security/data-integrity certification** before broad rollout.
+6. **Final pre-production security/data-integrity certification** before broad rollout.
 
 ## Completed UI/UX Round 2 implementation boundary
 
