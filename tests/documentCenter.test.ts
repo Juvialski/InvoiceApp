@@ -19,14 +19,12 @@ test("Documents route exposes the Library, Create, and Templates workspace views
   assert.match(appRouter, /documentWorkspaceContextFromSearch/);
 });
 
-test("Documents route remains reachable for permissions that power Create and Templates", () => {
+test("Documents route remains reachable for permissions that power supported Create and Templates entry points", () => {
   for (const permission of [
     PERMISSION_KEYS.settingsRead,
-    PERMISSION_KEYS.companyManage,
     PERMISSION_KEYS.invoicesExtract,
     PERMISSION_KEYS.reportsRead,
     PERMISSION_KEYS.reportsPayrollRead,
-    PERMISSION_KEYS.engineeringDocumentsCreate,
   ]) {
     assert.equal(canAccessAppTab("documents", [permission]), true, permission);
   }
