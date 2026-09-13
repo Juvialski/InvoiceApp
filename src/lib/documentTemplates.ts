@@ -1,5 +1,6 @@
 import { companyApiRequest } from "./companyApi.ts";
 import type { DocumentTemplateBinding, DocumentTemplateMappingAnalysis, DocumentTemplateType, TemplateValidationReport } from "./documentTemplateRegistry.ts";
+import type { DocumentTemplateAnchor, DocumentTemplateLineTableCandidate, DocumentTemplatePreparationPlan, DocumentTemplateUniqueLineTable } from "../server/documentTemplates/documentTemplateAutoTagger.ts";
 
 export interface DocumentTemplateVersion {
   id: string;
@@ -43,7 +44,7 @@ export interface DocumentTemplateRoot {
 export interface DocumentTemplateAnalysisResult {
   versionId: string;
   documentType: DocumentTemplateType;
-  structure: { paragraphs: readonly string[]; tables: readonly { rows: readonly (readonly string[])[] }[]; text: string; tags: readonly string[] };
+  structure: { paragraphs: readonly string[]; tables: readonly { rows: readonly (readonly string[])[] }[]; text: string; tags: readonly string[]; anchors?: readonly DocumentTemplateAnchor[]; lineTableCandidates?: readonly DocumentTemplateLineTableCandidate[]; lineTable?: DocumentTemplateUniqueLineTable; warnings?: readonly string[] };
   aiStatus: "AVAILABLE" | "UNAVAILABLE";
   message?: string;
   analysis: DocumentTemplateMappingAnalysis;
@@ -137,6 +138,21 @@ export async function generateDocumentTemplateWithAi(companyId: string, input: {
 
 export async function analyzeDocumentTemplate(companyId: string, versionId: string): Promise<DocumentTemplateAnalysisResult> {
   return requestJson(`/api/document-templates/${encodeURIComponent(versionId)}/analyze`, { companyId, method: "POST", body: {} });
+}
+
+export interface DocumentTemplatePreparationResult {
+  version: DocumentTemplateVersion;
+  preparation: "AI_AUTO_TAGGED";
+  report: TemplateValidationReport;
+  structure: DocumentTemplateAnalysisResult["structure"];
+}
+
+export async function prepareDocumentTemplate(companyId: string, versionId: string, plan: DocumentTemplatePreparationPlan, displayName?: string): Promise<DocumentTemplatePreparationResult> {
+  return requestJson(`/api/document-templates/${encodeURIComponent(versionId)}/prepare`, {
+    companyId,
+    method: "POST",
+    body: { plan, ...(displayName ? { displayName } : {}) },
+  });
 }
 
 export async function updateDocumentTemplateBindings(companyId: string, versionId: string, bindings: readonly DocumentTemplateBinding[]): Promise<{ version: DocumentTemplateVersion; report: TemplateValidationReport }> {

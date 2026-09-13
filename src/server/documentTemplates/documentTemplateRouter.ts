@@ -46,6 +46,14 @@ import {
   validateDocxTemplateBytes,
 } from "./documentTemplateEngine.ts";
 import {
+  extractDocumentTemplateAnchorInventory,
+  prepareDocxTemplate,
+  validateDocumentTemplatePreparationPlan,
+  validateTemplateMappingAnalysisAgainstInventory,
+  DocumentTemplatePreparationError,
+  type DocumentTemplatePreparationPlan,
+} from "./documentTemplateAutoTagger.ts";
+import {
   createDocumentPdfConverter,
   DOCUMENT_PDF_UNAVAILABLE_MESSAGE,
   finalizeMergedDocxToPdf,
@@ -159,6 +167,7 @@ function apiErrorCode(error: any, fallback = "TEMPLATE_OPERATION_FAILED"): strin
     if (error.code === "SERVER_CLEANUP_UNAVAILABLE" || error.code === "INVALID_SERVER_KEY" || error.code === "STORAGE_CONFIGURATION_ERROR") return "TEMPLATE_STORAGE_UNAVAILABLE";
     return "TEMPLATE_STORAGE_FAILED";
   }
+  if (error instanceof DocumentTemplatePreparationError) return error.code;
   if (error instanceof DocumentTemplateValidationError) return "DOCX_SECURITY_REJECTED";
   if (error instanceof DocumentPdfFinalizationError) return error.code;
   if (error instanceof CompanyAiError) return error.code;
@@ -168,6 +177,41 @@ function apiErrorCode(error: any, fallback = "TEMPLATE_OPERATION_FAILED"): strin
 function apiErrorPayload(error: any, fallback: string) {
   return { success: false, code: apiErrorCode(error), error: apiMessage(error, fallback) };
 }
+
+const DOCUMENT_TEMPLATE_AI_FAILURE_MESSAGES: Readonly<Record<string, string>> = {
+  AI_NOT_CONFIGURED_FOR_COMPANY: "Company AI is not configured for this deployment company. An authorized operator must configure it.",
+  AI_DISABLED_FOR_COMPANY: "Company AI is disabled for this deployment company.",
+  AI_CONFIG_UNAVAILABLE: "Company AI configuration could not be verified safely.",
+  AI_CREDENTIALS_SERVER_MISCONFIGURED: "Server-side AI credential configuration is incomplete. An operator must configure it.",
+  AI_CREDENTIAL_INVALID: "The configured Gemini credential was rejected. Rotate or reconnect the company credential.",
+  AI_CREDENTIAL_UNAVAILABLE: "The company AI credential could not be opened safely.",
+  AI_PROVIDER_ACCESS_DENIED: "Gemini denied access to the configured model or project.",
+  AI_MODEL_UNAVAILABLE: "The configured Gemini model is currently unavailable.",
+  AI_QUOTA_LIMITED: "Gemini quota or rate limit was reached. Try again later.",
+  AI_PROVIDER_UNAVAILABLE: "Gemini is temporarily unavailable. Try again later.",
+  AI_REQUEST_REJECTED: "Gemini rejected the document-AI request configuration.",
+  AI_TIMEOUT: "The document-AI request timed out. Try again later.",
+  AI_NETWORK_ERROR: "The server could not reach Gemini. Try again later.",
+};
+
+export function documentTemplateAiErrorMessage(error: CompanyAiError): string {
+  return `${DOCUMENT_TEMPLATE_AI_FAILURE_MESSAGES[error.code] || "Document AI could not complete the request safely."} No financial record was changed.`;
+}
+
+function documentTemplateAnalysisFailureCode(error: unknown): string {
+  if (error instanceof CompanyAiError) return error.code;
+  const message = error instanceof Error ? error.message : "";
+  if (/AI response JSON was malformed/i.test(message)) return "AI_ANALYSIS_INVALID_JSON";
+  if (/mapping schema/i.test(message)) return "AI_ANALYSIS_SCHEMA_INVALID";
+  if (/unknown source anchor/i.test(message)) return "AI_ANALYSIS_UNKNOWN_ANCHOR";
+  if (/no longer matches/i.test(message)) return "AI_ANALYSIS_SOURCE_MISMATCH";
+  if (/duplicates a source anchor/i.test(message)) return "AI_ANALYSIS_DUPLICATE_ANCHOR";
+  if (/line-table|line-item table/i.test(message)) return "AI_ANALYSIS_LINE_TABLE_REJECTED";
+  if (/unknown or ambiguous document location/i.test(message)) return "AI_ANALYSIS_ANCHOR_REJECTED";
+  if (error instanceof DocumentTemplateValidationError) return "AI_ANALYSIS_VALIDATION_REJECTED";
+  return "AI_ANALYSIS_REJECTED";
+}
+
 
 function logTemplateFailure(stage: string, error: unknown) {
   if (!String(process.env.HYDROQUALISENSE_ENVIRONMENT || process.env.VITE_HYDROQUALISENSE_ENVIRONMENT || "").trim()) return;
@@ -655,8 +699,8 @@ async function persistVersion(
   const hash = sha256Hex(input.bytes);
   const provider = primaryProvider(auth, options);
   const writer = serverWriteProvider(options, provider);
-  const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : undefined;
-  const put = await writer.putObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: path, bytes: input.bytes, contentType: DOCX_MIME_TYPE, sha256: hash, upsert: false });
+  const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : "";
+  const put = await writer.putObject({ companyId: auth.companyId, bucket, key: path, bytes: input.bytes, contentType: DOCX_MIME_TYPE, sha256: hash, upsert: false });
   try {
     const mutationClient = serverSupabase(options);
     const { data, error } = await mutationClient.rpc("server_create_document_template_version", {
@@ -697,38 +741,75 @@ async function persistVersion(
   }
 }
 
-function heuristicAnalysis(documentType: DocumentTemplateType, structure: { paragraphs: readonly string[]; tables: readonly { rows: readonly (readonly string[])[] }[] }): DocumentTemplateMappingAnalysis {
+function heuristicAnalysis(documentType: DocumentTemplateType, structure: { paragraphs: readonly string[]; tables: readonly { rows: readonly (readonly string[])[] }[] }, inventory: ReturnType<typeof extractDocumentTemplateAnchorInventory>): DocumentTemplateMappingAnalysis {
   const mappings: Array<{ fieldKey: string; sourceLabel: string; location: string; confidence: number; reason: string; unresolved: boolean }> = [];
-  const add = (fieldKey: string, sourceLabel: string, location: string, confidence: number, reason: string) => {
+  const add = (fieldKey: string, sourceLabel: string, pattern: RegExp, confidence: number, reason: string) => {
     if (!getDocumentTemplateFields(documentType).some((field) => field.key === fieldKey)) return;
-    mappings.push({ fieldKey, sourceLabel, location, confidence, reason, unresolved: false });
+    const anchor = inventory.anchors.find((candidate) => pattern.test(candidate.text));
+    mappings.push({ fieldKey, sourceLabel, location: anchor?.id || "unresolved", confidence, reason, unresolved: !anchor, ...(anchor ? { anchorId: anchor.id, targetText: anchor.targetText } : {}) } as any);
+  };
+  const addFromAnchor = (fieldKey: string, sourceLabel: string, anchor: ReturnType<typeof extractDocumentTemplateAnchorInventory>["anchors"][number] | undefined, confidence: number, reason: string) => {
+    if (!anchor || !getDocumentTemplateFields(documentType).some((field) => field.key === fieldKey)) return;
+    mappings.push({ fieldKey, sourceLabel, location: anchor.id, confidence, reason, unresolved: false, anchorId: anchor.id, targetText: anchor.targetText } as any);
   };
   const paragraphs = structure.paragraphs.map((value) => value.trim()).filter(Boolean);
   const find = (pattern: RegExp) => paragraphs.find((value) => pattern.test(value));
   if (documentType === "PURCHASE_ORDER") {
-    if (find(/\b(?:po\s*(?:no|number)|purchase order reference)\b/i)) add("purchaseOrder.documentNumber", "PO No.", "paragraph", 0.78, "The label resembles a purchase-order identifier.");
-    if (find(/\b(?:job site|project location|deliver to)\b/i)) add("project.deliverTo", "Job Site / Deliver to", "paragraph", 0.7, "The label resembles a project delivery location.");
-    if (find(/\b(?:vendor|supplier)\b/i)) add("supplier.name", "Vendor / Supplier", "paragraph", 0.76, "The label resembles the supplier identity area.");
-    if (find(/\b(?:requested by|prepared by|processed by)\b/i)) add("processor.name", "Requested / Prepared by", "paragraph", 0.68, "The label resembles a responsible processor field.");
+    if (find(/\b(?:po\s*(?:no|number)|purchase order reference)\b/i)) add("purchaseOrder.documentNumber", "PO No.", /\b(?:po\s*(?:no|number)|purchase order reference)\b/i, 0.78, "The label resembles a purchase-order identifier.");
+    if (find(/\b(?:job site|project location|deliver to)\b/i)) add("project.deliverTo", "Job Site / Deliver to", /\b(?:job site|project location|deliver to)\b/i, 0.7, "The label resembles a project delivery location.");
+    if (find(/\b(?:vendor|supplier)\b/i)) add("supplier.name", "Vendor / Supplier", /\b(?:vendor|supplier)\b/i, 0.76, "The label resembles the supplier identity area.");
+    if (find(/\b(?:requested by|prepared by|processed by)\b/i)) add("processor.name", "Requested / Prepared by", /\b(?:requested by|prepared by|processed by)\b/i, 0.68, "The label resembles a responsible processor field.");
   } else {
-    if (find(/\b(?:invoice\s*(?:no|number)|reference)\b/i)) add("invoice.documentNumber", "Invoice No.", "paragraph", 0.78, "The label resembles an issued client-invoice identifier.");
-    if (find(/\b(?:bill to|customer|client)\b/i)) add("billTo.name", "Bill To / Client", "paragraph", 0.76, "The label resembles the client identity area.");
-    if (find(/\b(?:project|job)\b/i)) add("project.projectName", "Project / Job", "paragraph", 0.6, "The label may identify the project context.");
+    if (find(/\b(?:invoice\s*(?:no|number)|reference)\b/i)) add("invoice.documentNumber", "Invoice No.", /\b(?:invoice\s*(?:no|number)|reference)\b/i, 0.78, "The label resembles an issued client-invoice identifier.");
+    if (find(/\b(?:bill to|customer|client)\b/i)) add("billTo.name", "Bill To / Client", /\b(?:bill to|customer|client)\b/i, 0.76, "The label resembles the client identity area.");
+    if (find(/\b(?:project|job)\b/i)) add("project.projectName", "Project / Job", /\b(?:project|job)\b/i, 0.6, "The label may identify the project context.");
   }
-  const lineTable = structure.tables.find((table) => table.rows.some((row) => row.some((cell) => /description|qty|quantity|unit|price|amount|total/i.test(cell))));
+  const currencyField = documentType === "PURCHASE_ORDER" ? "purchaseOrder.currency" : "invoice.currency";
+  const totalField = documentType === "PURCHASE_ORDER" ? "purchaseOrder.totalAmount" : "invoice.totalAmount";
+  addFromAnchor(currencyField, "Currency label", inventory.anchors.find((anchor) => anchor.insertionMode === "REPLACE" && /^php$/i.test(anchor.targetText || "")), 0.72, "The application derived a safe currency slot from the document label.");
+  addFromAnchor(totalField, "Document total", inventory.anchors.find((anchor) => anchor.insertionMode === "ADJACENT_CELL" && /\btotal\b/i.test(anchor.text)), 0.72, "The application derived a safe adjacent total-value slot from the document table.");
+  const lineTable = inventory.lineTable;
   const lineTableProposal = lineTable ? {
-    location: "table",
+    location: lineTable.id,
+    candidateId: lineTable.id,
     confidence: 0.65,
-    fieldKeys: (documentType === "PURCHASE_ORDER"
-      ? ["lines.lineNumber", "lines.quantity", "lines.unit", "lines.description", "lines.unitPrice", "lines.amount"]
-      : ["lines.lineNumber", "lines.description", "lines.amount"]).filter((key) => getDocumentTemplateFields(documentType).some((field) => field.key === key)),
+    fieldKeys: lineTable.columns.flatMap((column) => column.suggestedFieldKey ? [column.suggestedFieldKey] : []).filter((key) => getDocumentTemplateFields(documentType).some((field) => field.key === key)),
+    columns: lineTable.columns.flatMap((column) => column.suggestedFieldKey && getDocumentTemplateFields(documentType).some((field) => field.key === column.suggestedFieldKey) ? [{ columnIndex: column.columnIndex, fieldKey: column.suggestedFieldKey }] : []),
   } : undefined;
   return {
     confidence: mappings.length || lineTableProposal ? 0.55 : 0.2,
     mappings,
     ...(lineTableProposal ? { lineTable: lineTableProposal } : {}),
     unresolved: lineTable ? [] : ["No repeating line-item table was confidently identified."],
-    warnings: ["AI mappings are proposals. Confirm them and place supported merge tags in Word before activation."],
+    warnings: ["AI mappings are proposals. Review them and use Prepare template before activation."],
+  };
+}
+
+function requestedPreparationPlan(value: unknown, documentType: DocumentTemplateType): DocumentTemplatePreparationPlan {
+  const source = record(value);
+  const mappings = arrayValue<Record<string, unknown>>(source.mappings).slice(0, 100).map((mapping) => ({
+    fieldKey: String(mapping.fieldKey || "").trim(),
+    anchorId: String(mapping.anchorId || "").trim(),
+    targetText: String(mapping.targetText || ""),
+    ...(typeof mapping.confidence === "number" ? { confidence: mapping.confidence } : {}),
+    ...(typeof mapping.sourceLabel === "string" ? { sourceLabel: mapping.sourceLabel.slice(0, 160) } : {}),
+    ...(typeof mapping.reason === "string" ? { reason: mapping.reason.slice(0, 400) } : {}),
+    confirmed: mapping.confirmed !== false,
+  }));
+  const rawLineTable = record(source.lineTable);
+  const rawColumns = arrayValue<Record<string, unknown>>(rawLineTable.columns).slice(0, 20).map((column) => ({
+    columnIndex: Number(column.columnIndex),
+    fieldKey: String(column.fieldKey || "").trim(),
+  }));
+  return {
+    documentType,
+    mappings,
+    ...(source.lineTable && typeof source.lineTable === "object" && !Array.isArray(source.lineTable) ? {
+      lineTable: {
+        candidateId: String(rawLineTable.candidateId || "").trim(),
+        columns: rawColumns,
+      },
+    } : {}),
   };
 }
 
@@ -738,9 +819,9 @@ const mappingAnalysisSchema = {
     suggestedDocumentType: { type: Type.STRING, nullable: true },
     confidence: { type: Type.NUMBER },
     mappings: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: {
-      fieldKey: { type: Type.STRING, nullable: true }, sourceLabel: { type: Type.STRING }, location: { type: Type.STRING }, confidence: { type: Type.NUMBER }, reason: { type: Type.STRING }, unresolved: { type: Type.BOOLEAN },
-    }, required: ["fieldKey", "sourceLabel", "location", "confidence", "reason", "unresolved"] } },
-    lineTable: { type: Type.OBJECT, nullable: true, properties: { location: { type: Type.STRING }, confidence: { type: Type.NUMBER }, fieldKeys: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ["location", "confidence", "fieldKeys"] },
+       fieldKey: { type: Type.STRING, nullable: true }, sourceLabel: { type: Type.STRING }, location: { type: Type.STRING }, anchorId: { type: Type.STRING, nullable: true }, targetText: { type: Type.STRING, nullable: true }, confidence: { type: Type.NUMBER }, reason: { type: Type.STRING }, unresolved: { type: Type.BOOLEAN },
+     }, required: ["fieldKey", "sourceLabel", "location", "anchorId", "targetText", "confidence", "reason", "unresolved"] } },
+     lineTable: { type: Type.OBJECT, nullable: true, properties: { location: { type: Type.STRING }, candidateId: { type: Type.STRING, nullable: true }, confidence: { type: Type.NUMBER }, fieldKeys: { type: Type.ARRAY, items: { type: Type.STRING } }, columns: { type: Type.ARRAY, nullable: true, items: { type: Type.OBJECT, properties: { columnIndex: { type: Type.INTEGER }, fieldKey: { type: Type.STRING }, confidence: { type: Type.NUMBER, nullable: true } }, required: ["columnIndex", "fieldKey", "confidence"] } } }, required: ["location", "candidateId", "confidence", "fieldKeys", "columns"] },
     unresolved: { type: Type.ARRAY, items: { type: Type.STRING } },
     warnings: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
@@ -890,7 +971,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const profile = record(profileResult.data);
       const allowedFields = getDocumentTemplateFields(documentType).map((field) => `${field.key} — ${field.label} — ${field.type}${field.collection ? " (repeating line)" : ""}`).join("\n");
       const generated = await aiJson(auth, `<USER_REQUEST>\n${prompt}\n</USER_REQUEST>\n<COMPANY_PROFILE>\nlegalName: ${String(profile.legal_name || "")}`
-        + `\naddress: ${String(profile.address || "")}\ncontactNumber: ${String(profile.contact_number || "")}\n</COMPANY_PROFILE>\n<ALLOWED_FIELDS>\n${allowedFields}\n</ALLOWED_FIELDS>\nRequested document type: ${documentType}\nCreate a structured, presentation-only TemplateBlueprint. Do not calculate totals, tax, FX, payment state, document numbers, suppliers, clients, or project facts.`, blueprintSchema);
+        + `\naddress: ${String(profile.address || "")}\ncontactNumber: ${String(profile.contact_number || "")}\n</COMPANY_PROFILE>\n<ALLOWED_FIELDS>\n${allowedFields}\n</ALLOWED_FIELDS>\nRequested document type: ${documentType}\nCreate a structured, presentation-only TemplateBlueprint. schemaVersion must be exactly 1; documentType must be exactly ${documentType}; style must be exactly one of PROFESSIONAL, COMPACT, or FORMAL. Include every required blueprint property: sections, lineColumns, includeCompanyProfile, includePaymentInstructions, includeTerms, signatureLabels, and footerText (use null when no footer is requested). Do not calculate totals, tax, FX, payment state, document numbers, suppliers, clients, or project facts.`, blueprintSchema);
       let decoded: unknown;
       try { decoded = JSON.parse(generated.text || "{}"); } catch { throw new StorageApiError(502, "AI_INVALID_RESPONSE", "The AI template response was not valid structured JSON. Use the starter or manual route."); }
       const built = await buildDocxTemplateFromBlueprint(decoded, documentType);
@@ -914,7 +995,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       logTemplateFailure("generate-ai", error);
       const normalized = error instanceof CompanyAiError ? error : error;
       const status = normalized instanceof CompanyAiError ? normalized.status : error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 502 : 503;
-      const message = normalized instanceof CompanyAiError ? "AI template generation is unavailable. Use a starter or manual DOCX template; no financial record was changed." : apiMessage(error, "The AI template could not be generated safely.");
+      const message = normalized instanceof CompanyAiError ? documentTemplateAiErrorMessage(normalized) : apiMessage(error, "The AI template could not be generated safely.");
       return res.status(status).json({ success: false, code: apiErrorCode(error, "AI_TEMPLATE_GENERATION_FAILED"), error: message, ...(normalized instanceof CompanyAiError ? { reference: normalized.correlationRef } : {}) });
     }
   });
@@ -926,21 +1007,87 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const { version } = await readTemplateVersion(auth, options, versionId);
       const { bytes } = await readTemplateBytes(auth, options, version);
       const structure = extractDocxStructure(bytes, version.sourceFilename || "template.docx");
-      const heuristic = heuristicAnalysis(version.documentType, structure);
-      const safeStructure = { paragraphs: structure.paragraphs.slice(0, 200), tables: structure.tables.slice(0, 50), text: structure.text.slice(0, MAX_ANALYSIS_TEXT), tags: structure.tags };
+      const inventory = extractDocumentTemplateAnchorInventory(bytes, version.sourceFilename || "template.docx");
+      const heuristic = heuristicAnalysis(version.documentType, structure, inventory);
+      const safeStructure = {
+        paragraphs: structure.paragraphs.slice(0, 200),
+        tables: structure.tables.slice(0, 50),
+        text: structure.text.slice(0, MAX_ANALYSIS_TEXT),
+        tags: structure.tags,
+        anchors: inventory.anchors.slice(0, 400).map((anchor) => ({
+          id: anchor.id,
+          partName: anchor.partName,
+          kind: anchor.kind,
+          paragraphIndex: anchor.paragraphIndex,
+          ...(anchor.tableIndex === undefined ? {} : { tableIndex: anchor.tableIndex }),
+          ...(anchor.rowIndex === undefined ? {} : { rowIndex: anchor.rowIndex }),
+          ...(anchor.cellIndex === undefined ? {} : { cellIndex: anchor.cellIndex }),
+          text: anchor.text,
+          ...(anchor.targetText ? { targetText: anchor.targetText } : {}),
+          ...(anchor.insertionMode ? { insertionMode: anchor.insertionMode } : {}),
+          ...(anchor.relatedCellIndex === undefined ? {} : { relatedCellIndex: anchor.relatedCellIndex }),
+          occurrence: anchor.occurrence,
+        })),
+        lineTableCandidates: inventory.lineTableCandidates.slice(0, 20),
+        ...(inventory.lineTable ? { lineTable: inventory.lineTable } : {}),
+      };
       try {
-        const generated = await aiJson(auth, `<DOCUMENT_DATA>\n${JSON.stringify(safeStructure)}\n</DOCUMENT_DATA>\n<ALLOWED_FIELDS>\n${getDocumentTemplateFields(version.documentType).map((field) => `${field.key} — ${field.label}`).join("\n")}\n</ALLOWED_FIELDS>\nRequested document type: ${version.documentType}\nReturn only cautious proposed mappings. Mark uncertain items unresolved and do not invent bindings.`, mappingAnalysisSchema);
+        const generated = await aiJson(auth, `<DOCUMENT_DATA>\n${JSON.stringify(safeStructure)}\n</DOCUMENT_DATA>\n<ALLOWED_FIELDS>\n${getDocumentTemplateFields(version.documentType).map((field) => `${field.key} — ${field.label}`).join("\n")}\n</ALLOWED_FIELDS>\nRequested document type: ${version.documentType}\nMap only the supplied anchorId and line-table candidateId values. For every resolved mapping, anchorId and targetText are mandatory and must exactly match the supplied anchor. For unresolved mappings, set fieldKey, anchorId, and targetText to null and set unresolved true. For a resolved line table, candidateId and columns are mandatory. Return only cautious proposed mappings. Mark uncertain items unresolved and do not invent bindings.`, mappingAnalysisSchema);
         let decoded: unknown;
         try { decoded = JSON.parse(generated.text || "{}"); } catch { throw new Error("AI response JSON was malformed."); }
         const validated = validateTemplateMappingAnalysis(decoded, version.documentType);
         if (!validated.ok) throw new Error("AI response failed the application-owned mapping schema.");
-        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "AVAILABLE", model: generated.model, analysis: validated.analysis, heuristic } });
+        const anchored = validateTemplateMappingAnalysisAgainstInventory(validated.analysis, inventory, version.documentType);
+        if (anchored.ok === false) throw new Error(`AI response anchor validation failed: ${anchored.errors.slice(0, 4).join(" ")}`);
+        const existingFieldKeys = new Set(anchored.analysis.mappings.filter((mapping) => !mapping.unresolved && mapping.fieldKey).map((mapping) => mapping.fieldKey));
+        const supplementalMappings = heuristic.mappings.filter((mapping) => !mapping.unresolved && mapping.fieldKey && mapping.anchorId && mapping.targetText && !existingFieldKeys.has(mapping.fieldKey));
+        const completedAnalysis = {
+          ...anchored.analysis,
+          mappings: [...anchored.analysis.mappings, ...supplementalMappings],
+          ...(anchored.analysis.lineTable || !heuristic.lineTable ? {} : { lineTable: heuristic.lineTable }),
+          ...(supplementalMappings.length ? { warnings: [...anchored.analysis.warnings, "Some safe required-field slots were supplied by deterministic application analysis for human review."] } : {}),
+        };
+        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "AVAILABLE", model: generated.model, analysis: completedAnalysis, heuristic } });
       } catch (error) {
         const safe = error instanceof CompanyAiError ? "AI assistance is unavailable for this analysis." : "AI analysis was rejected because its response was malformed or unsafe.";
-        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "UNAVAILABLE", message: safe, analysis: heuristic, heuristic } });
+        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "UNAVAILABLE", message: safe, failureCode: documentTemplateAnalysisFailureCode(error), analysis: heuristic, heuristic } });
       }
     } catch (error: any) {
       return res.status(error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 400 : 503).json({ success: false, error: apiMessage(error, "The document template could not be analyzed safely.") });
+    }
+  });
+
+  router.post("/:versionId/prepare", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "company.settings.manage");
+      const versionId = requestedUuid(req.params.versionId, "Template version ID");
+      const { version } = await readTemplateVersion(auth, options, versionId);
+      const { bytes } = await readTemplateBytes(auth, options, version);
+      const plan = requestedPreparationPlan(req.body?.plan, version.documentType);
+      const inventory = extractDocumentTemplateAnchorInventory(bytes, version.sourceFilename || "template.docx");
+      const planValidation = validateDocumentTemplatePreparationPlan(plan, inventory);
+      if (planValidation.ok === false) throw new DocumentTemplatePreparationError("INVALID_PREPARATION_PLAN", planValidation.errors.join(" "));
+      const prepared = prepareDocxTemplate(bytes, version.sourceFilename || "template.docx", version.documentType, plan);
+      if (prepared.report.state === "BLOCKED") {
+        return res.status(422).json({ success: false, code: "TEMPLATE_PREPARATION_BLOCKED", error: "The prepared template still has unresolved required fields. Review the mappings and try again.", report: prepared.report });
+      }
+      const result = await persistVersion(auth, options, {
+        templateId: version.templateId,
+        documentType: version.documentType,
+        displayName: requestedName(req.body?.displayName, `${version.displayName} · Prepared`),
+        origin: "DUPLICATED",
+        sourceFilename: version.sourceFilename || generatedTemplateFileName(version.documentType, "Prepared template"),
+        bytes: prepared.bytes,
+        bindings: prepared.bindings,
+        validationState: prepared.report.state,
+        validationReport: prepared.report as unknown as Record<string, unknown>,
+        parentVersionId: version.id,
+      });
+      const structure = extractDocxStructure(prepared.bytes, version.sourceFilename || "template.docx");
+      return res.status(201).json({ success: true, data: { ...result.version, preparation: "AI_AUTO_TAGGED", report: prepared.report, structure } });
+    } catch (error: any) {
+      logTemplateFailure("prepare", error);
+      return res.status(apiStatus(error)).json(apiErrorPayload(error, "The uploaded DOCX could not be prepared safely."));
     }
   });
 

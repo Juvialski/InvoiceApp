@@ -26,6 +26,8 @@ test("company AI endpoints are internal-operator scoped and metadata-only", () =
   assert.match(credentials, /platform_store_company_ai_credential/);
   assert.match(credentials, /isDeploymentAiBootstrapAuthorized/);
   assert.match(server, /bootstrapAuthorized/);
+  assert.match(server, /resolveCompanyAiRuntimeCapability/);
+  assert.match(server, /runtimeCapability/);
   assert.match(server, /invalidateCompanyAiRuntime/);
   assert.doesNotMatch(server, /res\.json\([^\n]*apiKey/i);
   assert.doesNotMatch(server, /console\.(?:log|info|warn|error)\([\s\S]{0,300}(?:apiKey|ciphertext|authTag|plaintext)/i);

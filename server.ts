@@ -17,7 +17,7 @@ import { getStorageHealth } from "./src/lib/storage/index.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
 import { companyAiServerSupabase } from "./src/server/ai/companyAiServerSupabase.ts";
 import { bootstrapDeploymentCompanyAiCredential, canBootstrapDeploymentCompanyAiCredential, disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, loadServerCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, recordServerCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
-import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, isCompanyAiFallbackEligible, logCompanyAiFailure, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
+import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, isCompanyAiFallbackEligible, logCompanyAiFailure, resolveCompanyAiRuntime, resolveCompanyAiRuntimeCapability, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
 import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
 import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyInvitationEmail, invitationRedirectUrl } from "./src/server/access/invitationDelivery.ts";
 import { validatePublicProspectSubmission } from "./src/lib/publicProspect.ts";
@@ -872,10 +872,11 @@ app.get("/api/deployment/company-ai", async (req, res) => {
     const auth = await authorizeCompanyRequest(req, "company.settings.read");
     const serverClient = companyAiServerSupabase();
     const data = await loadServerCompanyAiConfig(serverClient, auth.companyId);
+    const runtimeCapability = await resolveCompanyAiRuntimeCapability({ supabase: auth.supabase, credentialSupabase: serverClient, companyId: auth.companyId });
     const bootstrapAuthorized = !data.credentialConfigured || data.status === "INVALID"
       ? await canBootstrapDeploymentCompanyAiCredential(serverClient, auth.companyId, auth.user.id, data)
       : false;
-    return res.json({ success: true, data: { ...data, bootstrapAuthorized } });
+    return res.json({ success: true, data: { ...data, bootstrapAuthorized, runtimeCapability } });
   } catch (error) {
     return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "Deployment AI configuration could not be loaded safely."), ...apiAiErrorDetails(error) });
   }

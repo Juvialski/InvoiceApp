@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UI/UX ROUND 2 COMPLETE / WAVE 4D MESSAGING-PROVIDER INTEGRATION & COMPLETION NEXT / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / LAST HOSTED-CERTIFIED APPLICATION SHA REMAINS EARLIER / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — UI/UX ROUND 2 COMPLETE / DOCUMENT TEMPLATE AI AUTO-TAGGING + AI CAPABILITY CORRECTION ACTIVE BEFORE WAVE 4D / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / LAST HOSTED-CERTIFIED APPLICATION SHA REMAINS EARLIER / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Date: **2026-09-13**
 Repository: `Juvialski/InvoiceApp`
 
@@ -29,7 +29,9 @@ Read this handoff with:
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 - `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md` — completed UI/UX Round 2 design/acceptance record and standing UI baseline;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-- **`docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the exact next product phase**;
+- **`docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — active corrective design for the current implementation phase**;
+- `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
+- `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the next product phase after this correction;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
 - `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and deployment runbook when release/migration operations matter.
 
@@ -70,11 +72,11 @@ Purchase Order and Client Invoice Starter plus safe Upload each:
 
 The Starter generator now emits the declared `company.vatTin` tag so activation validation is `VALID`.
 
-AI template generation remains separately **NOT CERTIFIED**. `/api/deployment/company-ai` returned `503 AI_CREDENTIALS_SERVER_MISCONFIGURED` because the Local-QA runtime lacks its separate AI server configuration. AI generation was not attempted and this blocker must not be attributed to Storage.
+Real authenticated Local-QA AI-template evidence is now obtained separately from Storage. `/api/deployment/company-ai` returned HTTP 200 with `runtimeCapability.status=AVAILABLE` while persisted `lastTestStatus` remained `NOT_TESTED`; no credential material was returned. The HSC Purchase Order Analyze request returned `aiStatus=AVAILABLE` with model `gemini-3.5-flash-lite`. The reviewed UI Prepare action created a VALID immutable `DUPLICATED` descendant from the uploaded HSC version, preserved the original SHA, and Test DOCX rendered both synthetic lines. The separate Generate with AI Settings workflow passed for Purchase Order and Client Invoice, persisted VALID AI drafts, survived refresh, downloaded AI DOCX artifacts, and their Test DOCX outputs rendered both synthetic lines.
 
 High-fidelity company-template PDF conversion remains independently `UNAVAILABLE`. The existing programmatic PDF fallback remains a separate capability.
 
-The final Local-QA functional sweep recorded **8 PASS, 0 FAIL, 1 BLOCKED**, where the only blocked case was the separate AI configuration prerequisite.
+The broad Local-QA route matrix still needs separate harness cleanup/reconciliation because its long sweep recorded unrelated route/session failures; the isolated authenticated AI/template workflow passed. This is pre-merge QA evidence, not hosted exact-SHA release certification.
 
 No secret was returned to the browser. No uncontrolled email/SMS send and no production mutation occurred.
 
@@ -96,9 +98,24 @@ Later product phases must preserve the completed workflow-first rules:
 
 ---
 
-## Exact next phase — Wave 4D messaging-provider integration/completion
+## Immediate corrective phase — Document Template AI Auto-Tagging + AI Capability Correction
 
-UI/UX Round 2 is complete. Wave 4D is no longer temporarily sequenced behind it and is now the exact next product phase unless the user explicitly reprioritizes again.
+The user explicitly inserted this corrective phase before Wave 4D resumes. Its design is `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md`.
+
+The implementation corrects the stale deployment `lastTestStatus` gate by exposing a server-derived company AI runtime capability from the same resolver used by Analyze/Generate. It also adds deterministic server-owned anchors, allowlisted mapping validation, in-app `Prepare template`, repeating-row tagging, immutable descendant version creation, and safe provider-error wording. Original uploaded bytes remain unchanged; activation remains separate.
+
+Focused local implementation evidence obtained so far:
+
+- capability, DOCX anchor, mapping, transformer, immutable-version, UI-contract, AI-error, compatibility, storage-boundary, security-boundary, and company-AI tests pass;
+- TypeScript lint passes;
+- local DB-runtime checks remain skipped when their explicit runtime flag is absent;
+- no hosted/provider AI certification, production mutation, or uncontrolled email/SMS send has occurred.
+
+The branch still requires the affected-test selector, production build, final diff review, roadmap reconciliation, push, and PR update before handoff. Real authenticated non-production AI/template runtime evidence is obtained; hosted exact-SHA certification, production authorization, and high-fidelity PDF conversion remain separate and incomplete.
+
+## Exact next product phase after the correction — Wave 4D messaging-provider integration/completion
+
+UI/UX Round 2 is complete. Once the corrective phase above is safely merged/certified, Wave 4D resumes as the exact next product phase unless the user explicitly reprioritizes again.
 
 Wave 4D remains **partially implemented but not complete**. Resume from the existing contract and implementation; do not rebuild the completed Email/SMS or Documents workspaces from scratch.
 
@@ -116,7 +133,7 @@ The next implementation should:
 - preserve inbound Gmail intake and existing issued-document Gmail delivery/history behavior;
 - reconnect/certify Gmail as needed for exact-state provider evidence rather than assuming old authorization is current;
 - preserve append-only/company-bound delivery history, idempotency/reconciliation boundaries, and source document ownership;
-- keep AI/provider prerequisites separately truthful; the current `AI_CREDENTIALS_SERVER_MISCONFIGURED` condition is not a Storage failure;
+- keep AI/provider prerequisites separately truthful; the exercised QA runtime is now available while hosted/provider/release evidence remains separate from Storage and PDF converter truth;
 - preserve the completed UI/UX Round 2 hierarchy while adding provider capability;
 - close the remaining Wave 4D provider/AI/recovery/readiness evidence before any Worker Registration work.
 
@@ -138,7 +155,7 @@ Company-template high-fidelity conversion remains a separate capability and must
 
 ### Functional Local-QA sweep — complete for supported/fixture-backed workflows
 
-The integrated Local-QA sweep exercises key RFQ/PO/Warehouse, supplier payable, client receivable, payroll, Documents->Compose, stale-record, and now Document Templates Starter/Upload persistence/retrieval flows. Subcontract settlement remains fixture-blocked where no safe fixture exists. AI template generation remains blocked by separate server AI configuration.
+The integrated Local-QA sweep exercises key RFQ/PO/Warehouse, supplier payable, client receivable, payroll, Documents->Compose, stale-record, and Document Templates Starter/Upload persistence/retrieval flows. Subcontract settlement remains fixture-blocked where no safe fixture exists. The isolated authenticated AI/template workflow now passes separately; the broad harness still needs route/session cleanup before an overall PASS claim.
 
 ### Supplier Payables Settlement Truth & Consistency — complete
 
@@ -197,7 +214,7 @@ Provider implementation/completion is now the **next active product phase**. Rea
 ### Company-template Storage / AI / conversion
 
 - Starter and safe Upload Storage authority is **AVAILABLE and locally certified** for Purchase Order and Client Invoice persistence/retrieval.
-- AI template generation is **NOT CERTIFIED** because the separate server AI prerequisite currently returns `AI_CREDENTIALS_SERVER_MISCONFIGURED` in Local-QA.
+- Real authenticated Local-QA AI template generation is **PASSED for the exercised QA workflow**: runtime capability AVAILABLE, HSC Analyze AVAILABLE, immutable Prepare VALID, Test DOCX passed, and Purchase Order/Client Invoice Generate + persist + refresh + download + Test DOCX passed. Hosted exact-SHA certification remains separate.
 - Programmatic PDF fallback is separate and already certified for exercised records.
 - Company-template high-fidelity converter-backed PDF remains independently `UNAVAILABLE`.
 

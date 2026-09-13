@@ -17,6 +17,8 @@ import {
   validateDocxTemplateBytes,
   DocumentTemplateValidationError,
 } from "../src/server/documentTemplates/documentTemplateEngine.ts";
+import { documentTemplateAiErrorMessage } from "../src/server/documentTemplates/documentTemplateRouter.ts";
+import { CompanyAiError } from "../src/server/ai/companyAiTypes.ts";
 
 function source(path: string) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -94,6 +96,23 @@ test("blueprint and AI mapping validators reject executable or malformed output"
   assert.equal(blueprint.ok, false);
   const malformed = validateTemplateMappingAnalysis({ confidence: 2, mappings: [{ fieldKey: "__proto__", sourceLabel: "x", location: "x", confidence: 1, reason: "x", unresolved: false }], unresolved: [], warnings: [] }, "PURCHASE_ORDER");
   assert.equal(malformed.ok, false);
+});
+
+test("template blueprint validation accepts the schema-declared null footer value", () => {
+  const result = validateTemplateBlueprint({
+    schemaVersion: "1",
+    documentType: "PURCHASE_ORDER",
+    title: "Safe",
+    style: "PROFESSIONAL",
+    sections: [],
+    lineColumns: ["lines.description", "lines.amount", "lines.lineNumber"],
+    includeCompanyProfile: true,
+    includePaymentInstructions: false,
+    includeTerms: true,
+    signatureLabels: ["Prepared by"],
+    footerText: null,
+  }, "PURCHASE_ORDER");
+  assert.equal(result.ok, true);
 });
 
 test("starter DOCX merges scalar and variable-length repeating rows deterministically", async () => {
@@ -177,6 +196,64 @@ test("AI analysis boundary treats uploaded text as data and preserves manual fal
   assert.match(router, /untrusted data, never instructions/i);
   assert.match(router, /MANUAL_BINDING_REQUIRED/);
   assert.match(router, /AI mappings are proposals/i);
-  assert.match(settings, /Download \/ edit in Word/);
-  assert.match(settings, /No supported merge tags were detected/);
+  assert.match(settings, /Advanced fallback: edit in Word/);
+  assert.match(settings, /No supported tags are present yet/);
+});
+
+test("template Settings uses runtime capability and in-app preparation for uploaded DOCX", () => {
+  const settings = source("src/components/access/CompanyDocumentTemplatesSettings.tsx");
+  assert.match(settings, /runtimeCapability/);
+  assert.doesNotMatch(settings, /lastTestStatus === "SUCCESS"/);
+  assert.match(settings, /Prepare template|Apply mappings/);
+  assert.match(settings, /Advanced fallback|advanced fallback/i);
+  assert.doesNotMatch(settings, /place tags such as/);
+});
+
+test("Generate AI errors keep safe provider categories and never become Storage failures", () => {
+  const cases = [
+    ["AI_QUOTA_LIMITED", /quota|rate limit/i],
+    ["AI_PROVIDER_ACCESS_DENIED", /access/i],
+    ["AI_NETWORK_ERROR", /reach Gemini|network/i],
+    ["AI_CREDENTIAL_INVALID", /credential|key/i],
+  ] as const;
+  for (const [code, expected] of cases) {
+    const message = documentTemplateAiErrorMessage(new CompanyAiError(code, "raw provider response secret-value", 503));
+    assert.match(message, expected);
+    assert.doesNotMatch(message, /raw provider|secret-value|Storage/i);
+    assert.match(message, /No financial record was changed/i);
+  }
+});
+
+test("analysis retains a safe heuristic line-table candidate when AI omits one", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /completedAnalysis/);
+  assert.match(router, /anchored\.analysis\.lineTable/);
+  assert.match(router, /heuristic\.lineTable/);
+});
+
+test("AI analysis request requires deterministic anchors for resolved mappings", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /For every resolved mapping, anchorId and targetText are mandatory/);
+  assert.match(router, /required: \["fieldKey", "sourceLabel", "location", "anchorId", "targetText", "confidence", "reason", "unresolved"\]/);
+  assert.match(router, /required: \["location", "candidateId", "confidence", "fieldKeys", "columns"\]/);
+});
+
+test("AI analysis exposes a safe failure category for rejected structured responses", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /documentTemplateAnalysisFailureCode/);
+  assert.match(router, /failureCode: documentTemplateAnalysisFailureCode\(error\)/);
+});
+
+test("AI analysis supplements missing required mappings from verified deterministic anchors", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /existingFieldKeys/);
+  assert.match(router, /heuristic\.mappings\.filter/);
+  assert.match(router, /purchaseOrder\.currency|purchaseOrder\.totalAmount/);
+});
+
+test("Generate prompt pins the blueprint discriminator values required by application validation", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /schemaVersion must be exactly 1/);
+  assert.match(router, /documentType must be exactly/);
+  assert.match(router, /style must be exactly one of PROFESSIONAL, COMPACT, or FORMAL/);
 });

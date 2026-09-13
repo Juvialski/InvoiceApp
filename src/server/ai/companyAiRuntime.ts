@@ -10,6 +10,7 @@ import {
   CompanyAiError,
   type CompanyAiConfigMetadata,
   type CompanyAiErrorCode,
+  type CompanyAiRuntimeCapability,
   type CompanyAiRuntime,
   type CompanyAiTestStatus,
 } from "./companyAiTypes.ts";
@@ -102,6 +103,52 @@ export async function resolveCompanyAiRuntime(options: { supabase: SupabaseClien
   }
   pruneRuntimeCache(now);
   return runtime;
+}
+
+function runtimeCapabilityFailure(error: unknown): CompanyAiRuntimeCapability {
+  if (error instanceof CompanyAiError) {
+    return {
+      status: "UNAVAILABLE",
+      provider: COMPANY_AI_PROVIDER,
+      primaryModel: COMPANY_AI_PRIMARY_MODEL,
+      fallbackModel: COMPANY_AI_FALLBACK_MODEL,
+      code: error.code,
+      message: error.message,
+    };
+  }
+  return {
+    status: "UNAVAILABLE",
+    provider: COMPANY_AI_PROVIDER,
+    primaryModel: COMPANY_AI_PRIMARY_MODEL,
+    fallbackModel: COMPANY_AI_FALLBACK_MODEL,
+    code: "AI_CONFIG_UNAVAILABLE",
+    message: "Company AI runtime capability could not be verified safely.",
+  };
+}
+
+/**
+ * Resolve the same company-scoped runtime used by AI operations without
+ * treating persisted provider-test metadata as an authority or exposing
+ * credential material to callers.
+ */
+export async function resolveCompanyAiRuntimeCapability(options: {
+  supabase: SupabaseClient;
+  credentialSupabase?: SupabaseClient;
+  companyId: string;
+  environment?: NodeJS.ProcessEnv;
+}): Promise<CompanyAiRuntimeCapability> {
+  try {
+    const runtime = await resolveCompanyAiRuntime(options);
+    return {
+      status: "AVAILABLE",
+      provider: runtime.provider,
+      primaryModel: runtime.primaryModel,
+      fallbackModel: runtime.fallbackModel,
+      message: "AI runtime is ready for this company.",
+    };
+  } catch (error) {
+    return runtimeCapabilityFailure(error);
+  }
 }
 
 export function invalidateCompanyAiRuntime(companyId: string) {

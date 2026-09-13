@@ -51,12 +51,19 @@ test("deployment AI metadata preserves configured provider health and server eli
       credentialVersion: 1,
       status: "ACTIVE",
       lastTestStatus: "SUCCESS",
+      runtimeCapability: {
+        status: "AVAILABLE",
+        provider: "GEMINI",
+        primaryModel: "gemini-3.5-flash-lite",
+        message: "AI runtime is ready for this company.",
+      },
       bootstrapAuthorized: false,
     },
   }), { status: 200 }), COMPANY_ID, "load");
   assert.equal(parsed.credentialConfigured, true);
   assert.equal(parsed.status, "ACTIVE");
   assert.equal(parsed.lastTestStatus, "SUCCESS");
+  assert.equal(parsed.runtimeCapability?.status, "AVAILABLE");
   assert.equal(parsed.bootstrapAuthorized, false);
   assert.equal(shouldShowDeploymentAiBootstrap({ kind: "loaded", config: parsed }, Boolean(parsed.bootstrapAuthorized)), false);
 });

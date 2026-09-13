@@ -7,6 +7,7 @@ export const COMPANY_AI_ENCRYPTION_VERSION = 1 as const;
 
 export type CompanyAiStatus = "NOT_CONFIGURED" | "ACTIVE" | "DISABLED" | "INVALID";
 export type CompanyAiTestStatus = "SUCCESS" | "INVALID_CREDENTIAL" | "QUOTA_LIMITED" | "PROVIDER_UNAVAILABLE" | "PROVIDER_ACCESS_DENIED" | "MODEL_UNAVAILABLE" | "NOT_TESTED";
+export type CompanyAiRuntimeCapabilityStatus = "AVAILABLE" | "UNAVAILABLE";
 export type CompanyAiErrorCode =
   | "AI_CREDENTIAL_INVALID"
   | "AI_QUOTA_LIMITED"
@@ -43,6 +44,17 @@ export interface CompanyAiConfigMetadata {
   lastTestErrorCode?: string;
   lastTestReference?: string;
   updatedAt?: string;
+  /** Server-derived runtime readiness; persisted provider-test metadata is informational. */
+  runtimeCapability?: CompanyAiRuntimeCapability;
+}
+
+export interface CompanyAiRuntimeCapability {
+  status: CompanyAiRuntimeCapabilityStatus;
+  provider: typeof COMPANY_AI_PROVIDER;
+  primaryModel: typeof COMPANY_AI_PRIMARY_MODEL;
+  fallbackModel?: typeof COMPANY_AI_FALLBACK_MODEL;
+  code?: string;
+  message: string;
 }
 
 export interface CompanyAiCredentialEnvelope {

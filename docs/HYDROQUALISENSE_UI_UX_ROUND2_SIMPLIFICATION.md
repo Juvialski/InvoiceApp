@@ -489,14 +489,14 @@ Storage authority remains server-only. The capability response does not expose t
 
 ### AI and PDF capability truth
 
-AI template generation remains **NOT CERTIFIED**. The Local-QA deployment AI endpoint returned HTTP 503 with `AI_CREDENTIALS_SERVER_MISCONFIGURED` because the separate server AI configuration was absent. AI generation was not attempted and must not be represented as a Storage failure.
+The later Document Template AI corrective phase obtained real authenticated Local-QA evidence: the deployment AI endpoint returned HTTP 200 with `runtimeCapability.status=AVAILABLE` while persisted provider-test metadata remained `NOT_TESTED`; HSC Purchase Order Analyze returned `aiStatus=AVAILABLE`; reviewed Prepare created a VALID immutable descendant with unchanged original bytes; Test DOCX rendered multiple demo lines; and Purchase Order/Client Invoice Generate with AI persisted VALID drafts, survived refresh, downloaded, and passed Test DOCX. This evidence is separate from hosted exact-SHA release certification and must not be attributed to Storage.
 
 High-fidelity company-template PDF conversion remains independently `UNAVAILABLE`. The existing programmatic PDF fallback remains a separate capability.
 
 These capability states must remain distinct:
 
 1. Starter/Upload Storage persistence — **AVAILABLE and locally certified**;
-2. AI template generation — **NOT CERTIFIED / blocked by separate AI server configuration**;
+2. AI template generation — **authenticated Local-QA workflow PASSED for the exercised QA target; hosted exact-SHA release certification remains separate**;
 3. programmatic PDF fallback — separately certified for exercised records;
 4. company-template converter-backed high-fidelity PDF — **UNAVAILABLE**.
 
