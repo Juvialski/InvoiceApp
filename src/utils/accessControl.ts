@@ -104,7 +104,6 @@ export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, read
     PERMISSION_KEYS.procurementRead,
     PERMISSION_KEYS.expensesRead,
     PERMISSION_KEYS.engineeringDocumentsRead,
-    PERMISSION_KEYS.engineeringDocumentsCreate,
     PERMISSION_KEYS.cashSummaryRead,
     PERMISSION_KEYS.cashImport,
     PERMISSION_KEYS.documentSend,
@@ -112,7 +111,6 @@ export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, read
     PERMISSION_KEYS.reportsRead,
     PERMISSION_KEYS.reportsPayrollRead,
     PERMISSION_KEYS.settingsRead,
-    PERMISSION_KEYS.companyManage,
   ],
 });
 
