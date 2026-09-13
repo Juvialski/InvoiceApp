@@ -39,7 +39,7 @@ Prompt creators should put the pull-first instruction at the top of every normal
 
 ## Current product sequence — explicit 2026-09-12 reprioritization
 
-The broad `Email/SMS + Documents` phase remains incomplete, but the user has explicitly inserted a second app-wide UI/UX simplification round before the remaining Wave 4D provider/readiness work.
+The broad `Email/SMS + Documents` phase remains incomplete. The explicitly inserted second app-wide UI/UX simplification round is now complete, so the remaining Wave 4D provider/readiness work resumes as the next product phase.
 
 Current sequence:
 
@@ -51,24 +51,24 @@ Current sequence:
 6. Wave 4B — high-fidelity PDF finalization foundation — complete for the programmatic fallback; converter-backed company-template capability remains separately constrained/certified.
 7. Wave 4C — issued-document Gmail delivery/history foundation — complete.
 8. Wave 4D — Email/SMS Workspace + Documents Workspace — partially implemented but **not complete**.
-9. **UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture — NEXT / ACTIVE.** This phase temporarily preempts the remaining Wave 4D provider implementation/readiness work.
-10. Resume **Wave 4D messaging-provider integration/completion** after UI/UX Round 2 is safely merged and stabilized, unless the user explicitly reprioritizes again.
+9. **UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture — COMPLETE in PR #161.** Its workflow-first information architecture and usability rules remain the application UI baseline.
+10. **Wave 4D messaging-provider integration/completion — NEXT / ACTIVE** after UI/UX Round 2 finalization, unless the user explicitly reprioritizes again.
 11. Worker Registration — **PAUSED by explicit user instruction** until Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
 12. Site Attendance follows Worker Registration.
 13. Face-Recognition Attendance follows only after explicit privacy/security design.
 14. Final pre-production certification follows the major product domains.
 
-The authoritative UI/UX Round 2 design is:
+The completed UI/UX Round 2 design and acceptance record is:
 
 `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`
 
-For any implementation handoff while that phase is active, read that document in full. It is intentionally independent of the original screenshots and records the known defects, approved information-architecture direction, module scope, validation strategy, and stop boundary.
+Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the next implementation phase, also read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` because Wave 4D provider integration/completion is now the active unfinished product work.
 
-This reprioritization does **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved for later resumption.
+The 2026-09-12 reprioritization did **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved during the resumed Wave 4D work.
 
 The user explicitly permits UI navigation/tab restructuring when it improves and simplifies the product, provided important features, deep links where practical, permission boundaries, financial/source semantics, audit history, and workflow correctness are preserved.
 
-The current UI/UX Round 2 standard is stronger than a no-overflow pass: major screens must make it apparent what the page is for, what needs attention, and what the user can do next without requiring knowledge of HydroQualiSense internals.
+The completed UI/UX Round 2 standard remains stronger than a no-overflow pass: major screens must make it apparent what the page is for, what needs attention, and what the user can do next without requiring knowledge of HydroQualiSense internals.
 
 ### Email/SMS + Documents completion gate
 
@@ -83,11 +83,11 @@ Do **not** suggest, prepare, or start Worker Registration as the next product ph
 
 Wave 4A-4C are supporting foundations for the broader Email/SMS + Documents product phase. They must not be represented as satisfying this completion gate by themselves.
 
-UI/UX Round 2 now executes before the remaining provider/readiness work, but it must preserve the incomplete Wave 4D contract so that provider work can resume immediately afterward.
+UI/UX Round 2 is complete. Resume the remaining Wave 4D provider/readiness work while preserving the completed workflow-first UI baseline and all existing provider boundaries.
 
 QA certification/recovery/provider/deployment work remains a **parallel release/readiness track**. Do not represent unfinished QA certification as complete merely because product development continues, and do not infer production authorization from QA or merge success.
 
-Read the active roadmap, current handoff, UI/UX Round 2 design, and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` before preparing later provider work.
+Read the active roadmap, current handoff, completed UI/UX Round 2 design record, and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` before preparing the resumed provider work.
 
 All permanent financial, audit, RLS, company-isolation, inventory-history, document-history, payroll/privacy, AI confirmation, and migration-forward-only invariants in the preserved baseline remain in force.
 
