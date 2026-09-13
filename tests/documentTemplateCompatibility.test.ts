@@ -17,6 +17,7 @@ import {
   DocumentTemplateValidationError,
 } from "../src/server/documentTemplates/documentTemplateEngine.ts";
 import { starterTemplateBlueprint, validateDocumentTemplateBindings } from "../src/lib/documentTemplateRegistry.ts";
+import { extractDocumentTemplateAnchorInventory, type DocumentTemplatePreparationPlan } from "../src/server/documentTemplates/documentTemplateAutoTagger.ts";
 import { createDocumentTemplateRouter } from "../src/server/documentTemplates/documentTemplateRouter.ts";
 
 const COMPANY_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -253,14 +254,26 @@ function emptyQuery() {
 
 async function startUploadServer(options: { metadataError?: boolean } = {}) {
   const storage = new MemoryStorageProvider();
-  const authSupabase: any = { from: () => emptyQuery() };
+  let latestVersion: any = null;
+  const latestVersionQuery = () => {
+    const query: any = {
+      select: () => query,
+      eq: () => query,
+      maybeSingle: async () => ({ data: latestVersion, error: null }),
+    };
+    return query;
+  };
+  const authSupabase: any = {
+    from: (table: string) => table === "document_template_versions"
+      ? latestVersionQuery()
+      : emptyQuery(),
+  };
   const serverSupabase: any = {
     rpc: async (name: string, args: any) => {
       if (name !== "server_create_document_template_version") return { data: null, error: null };
       if (options.metadataError) return { data: null, error: { code: "42501", message: "synthetic metadata rejection" } };
       const payload = args.p_payload;
-      return {
-        data: {
+      const data = {
           id: payload.versionId,
           template_id: payload.templateId,
           company_id: payload.companyId,
@@ -280,8 +293,12 @@ async function startUploadServer(options: { metadataError?: boolean } = {}) {
           bindings: payload.bindings,
           validation_state: payload.validationState,
           validation_report: payload.validationReport,
+          parent_version_id: payload.parentVersionId,
           status: "DRAFT",
-        },
+        };
+      latestVersion = data;
+      return {
+        data,
         error: null,
       };
     },
@@ -304,6 +321,20 @@ async function startUploadServer(options: { metadataError?: boolean } = {}) {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address() as { port: number };
   return { server, storage, url: `http://127.0.0.1:${address.port}` };
+}
+
+async function taglessUploadedPurchaseOrderBytes(): Promise<Uint8Array> {
+  const built = await starterBytes("PURCHASE_ORDER");
+  const zip = new PizZip(built);
+  const documentFile = zip.file("word/document.xml");
+  assert.ok(documentFile);
+  let xml = documentFile.asText();
+  for (const tag of extractDocxStructure(built, "starter.docx").tags) {
+    const replacement = tag.startsWith("#") || tag.startsWith("/") ? "" : `SOURCE_${tag}`;
+    xml = xml.replaceAll(`{{${tag}}}`, replacement);
+  }
+  zip.file("word/document.xml", xml);
+  return new Uint8Array(zip.generate({ type: "uint8array" }));
 }
 
 async function closeServer(server: http.Server) {
@@ -362,4 +393,54 @@ test("template download, analysis, binding update, duplicate, generation, and fi
   assert.match(router, /router\.post\("\/:versionId\/activate"[\s\S]*readTemplateBytes/);
   assert.match(router, /router\.post\("\/:versionId\/generate"[\s\S]*readTemplateBytes/);
   assert.match(router, /router\.post\("\/:versionId\/finalize-pdf"[\s\S]*readTemplateBytes/);
+});
+
+test("prepared upload persists a new immutable descendant and keeps the original bytes", async () => {
+  const fixture = await startUploadServer();
+  try {
+    const originalBytes = await taglessUploadedPurchaseOrderBytes();
+    const uploadResponse = await fetch(`${fixture.url}/api/document-templates/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer synthetic-token" },
+      body: JSON.stringify({ documentType: "PURCHASE_ORDER", fileName: "tagless.docx", fileData: Buffer.from(originalBytes).toString("base64") }),
+    });
+    assert.equal(uploadResponse.status, 201);
+    const uploaded = (await uploadResponse.json()).data;
+    const inventory = extractDocumentTemplateAnchorInventory(originalBytes, "tagless.docx");
+    const anchorFor = (fieldKey: string) => {
+      const anchor = inventory.anchors.find((candidate) => candidate.targetText === `SOURCE_${fieldKey}`);
+      assert.ok(anchor, fieldKey);
+      return anchor;
+    };
+    const mappings = ["company.legalName", "purchaseOrder.documentNumber", "purchaseOrder.currency", "purchaseOrder.totalAmount", "supplier.name"].map((fieldKey) => {
+      const anchor = anchorFor(fieldKey);
+      return { fieldKey, anchorId: anchor.id, targetText: anchor.targetText, confirmed: true };
+    });
+    assert.ok(inventory.lineTable);
+    const plan: DocumentTemplatePreparationPlan = {
+      documentType: "PURCHASE_ORDER",
+      mappings,
+      lineTable: {
+        candidateId: inventory.lineTable!.id,
+        columns: inventory.lineTable!.columns.flatMap((column) => column.suggestedFieldKey ? [{ columnIndex: column.columnIndex, fieldKey: column.suggestedFieldKey }] : []),
+      },
+    };
+    const preparedResponse = await fetch(`${fixture.url}/api/document-templates/${uploaded.id}/prepare`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer synthetic-token" },
+      body: JSON.stringify({ plan }),
+    });
+    const preparedBody = await preparedResponse.json();
+    assert.equal(preparedResponse.status, 201, JSON.stringify(preparedBody));
+    assert.notEqual(preparedBody.data.id, uploaded.id);
+    assert.equal(preparedBody.data.parentVersionId, uploaded.id);
+    assert.equal(preparedBody.data.status, "DRAFT");
+    assert.equal(preparedBody.data.preparation, "AI_AUTO_TAGGED");
+    assert.equal(preparedBody.data.validationState, "VALID");
+    assert.equal(fixture.storage.size(), 2);
+    const originalStored = await fixture.storage.getObject({ companyId: COMPANY_ID, bucket: "", key: uploaded.contentStoragePath });
+    assert.deepEqual([...originalStored.bytes], [...originalBytes]);
+  } finally {
+    await closeServer(fixture.server);
+  }
 });

@@ -47,7 +47,11 @@ import {
 } from "./documentTemplateEngine.ts";
 import {
   extractDocumentTemplateAnchorInventory,
+  prepareDocxTemplate,
+  validateDocumentTemplatePreparationPlan,
   validateTemplateMappingAnalysisAgainstInventory,
+  DocumentTemplatePreparationError,
+  type DocumentTemplatePreparationPlan,
 } from "./documentTemplateAutoTagger.ts";
 import {
   createDocumentPdfConverter,
@@ -163,6 +167,7 @@ function apiErrorCode(error: any, fallback = "TEMPLATE_OPERATION_FAILED"): strin
     if (error.code === "SERVER_CLEANUP_UNAVAILABLE" || error.code === "INVALID_SERVER_KEY" || error.code === "STORAGE_CONFIGURATION_ERROR") return "TEMPLATE_STORAGE_UNAVAILABLE";
     return "TEMPLATE_STORAGE_FAILED";
   }
+  if (error instanceof DocumentTemplatePreparationError) return error.code;
   if (error instanceof DocumentTemplateValidationError) return "DOCX_SECURITY_REJECTED";
   if (error instanceof DocumentPdfFinalizationError) return error.code;
   if (error instanceof CompanyAiError) return error.code;
@@ -659,8 +664,8 @@ async function persistVersion(
   const hash = sha256Hex(input.bytes);
   const provider = primaryProvider(auth, options);
   const writer = serverWriteProvider(options, provider);
-  const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : undefined;
-  const put = await writer.putObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: path, bytes: input.bytes, contentType: DOCX_MIME_TYPE, sha256: hash, upsert: false });
+  const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : "";
+  const put = await writer.putObject({ companyId: auth.companyId, bucket, key: path, bytes: input.bytes, contentType: DOCX_MIME_TYPE, sha256: hash, upsert: false });
   try {
     const mutationClient = serverSupabase(options);
     const { data, error } = await mutationClient.rpc("server_create_document_template_version", {
@@ -734,6 +739,34 @@ function heuristicAnalysis(documentType: DocumentTemplateType, structure: { para
     ...(lineTableProposal ? { lineTable: lineTableProposal } : {}),
     unresolved: lineTable ? [] : ["No repeating line-item table was confidently identified."],
     warnings: ["AI mappings are proposals. Review them and use Prepare template before activation."],
+  };
+}
+
+function requestedPreparationPlan(value: unknown, documentType: DocumentTemplateType): DocumentTemplatePreparationPlan {
+  const source = record(value);
+  const mappings = arrayValue<Record<string, unknown>>(source.mappings).slice(0, 100).map((mapping) => ({
+    fieldKey: String(mapping.fieldKey || "").trim(),
+    anchorId: String(mapping.anchorId || "").trim(),
+    targetText: String(mapping.targetText || ""),
+    ...(typeof mapping.confidence === "number" ? { confidence: mapping.confidence } : {}),
+    ...(typeof mapping.sourceLabel === "string" ? { sourceLabel: mapping.sourceLabel.slice(0, 160) } : {}),
+    ...(typeof mapping.reason === "string" ? { reason: mapping.reason.slice(0, 400) } : {}),
+    confirmed: mapping.confirmed !== false,
+  }));
+  const rawLineTable = record(source.lineTable);
+  const rawColumns = arrayValue<Record<string, unknown>>(rawLineTable.columns).slice(0, 20).map((column) => ({
+    columnIndex: Number(column.columnIndex),
+    fieldKey: String(column.fieldKey || "").trim(),
+  }));
+  return {
+    documentType,
+    mappings,
+    ...(source.lineTable && typeof source.lineTable === "object" && !Array.isArray(source.lineTable) ? {
+      lineTable: {
+        candidateId: String(rawLineTable.candidateId || "").trim(),
+        columns: rawColumns,
+      },
+    } : {}),
   };
 }
 
@@ -968,6 +1001,40 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       }
     } catch (error: any) {
       return res.status(error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 400 : 503).json({ success: false, error: apiMessage(error, "The document template could not be analyzed safely.") });
+    }
+  });
+
+  router.post("/:versionId/prepare", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "company.settings.manage");
+      const versionId = requestedUuid(req.params.versionId, "Template version ID");
+      const { version } = await readTemplateVersion(auth, options, versionId);
+      const { bytes } = await readTemplateBytes(auth, options, version);
+      const plan = requestedPreparationPlan(req.body?.plan, version.documentType);
+      const inventory = extractDocumentTemplateAnchorInventory(bytes, version.sourceFilename || "template.docx");
+      const planValidation = validateDocumentTemplatePreparationPlan(plan, inventory);
+      if (planValidation.ok === false) throw new DocumentTemplatePreparationError("INVALID_PREPARATION_PLAN", planValidation.errors.join(" "));
+      const prepared = prepareDocxTemplate(bytes, version.sourceFilename || "template.docx", version.documentType, plan);
+      if (prepared.report.state === "BLOCKED") {
+        return res.status(422).json({ success: false, code: "TEMPLATE_PREPARATION_BLOCKED", error: "The prepared template still has unresolved required fields. Review the mappings and try again.", report: prepared.report });
+      }
+      const result = await persistVersion(auth, options, {
+        templateId: version.templateId,
+        documentType: version.documentType,
+        displayName: requestedName(req.body?.displayName, `${version.displayName} · Prepared`),
+        origin: "DUPLICATED",
+        sourceFilename: version.sourceFilename || generatedTemplateFileName(version.documentType, "Prepared template"),
+        bytes: prepared.bytes,
+        bindings: prepared.bindings,
+        validationState: prepared.report.state,
+        validationReport: prepared.report as unknown as Record<string, unknown>,
+        parentVersionId: version.id,
+      });
+      const structure = extractDocxStructure(prepared.bytes, version.sourceFilename || "template.docx");
+      return res.status(201).json({ success: true, data: { ...result.version, preparation: "AI_AUTO_TAGGED", report: prepared.report, structure } });
+    } catch (error: any) {
+      logTemplateFailure("prepare", error);
+      return res.status(apiStatus(error)).json(apiErrorPayload(error, "The uploaded DOCX could not be prepared safely."));
     }
   });
 
