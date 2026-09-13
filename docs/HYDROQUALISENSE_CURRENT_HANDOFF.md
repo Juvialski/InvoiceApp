@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UI/UX ROUND 2 IMPLEMENTATION IN PROGRESS / DOCUMENT-TEMPLATE STORAGE AUTHORITY BLOCKED IN LOCAL-QA / LAST APPLICATION-BEARING MAIN HOSTED-QA CERTIFIED / SUPPLIER PAYABLES CERTIFIED / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — UI/UX ROUND 2 IMPLEMENTATION IN PROGRESS / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI CONFIGURATION BLOCKED IN LOCAL-QA / PDF CONVERTER UNAVAILABLE / LAST APPLICATION-BEARING MAIN HOSTED-QA CERTIFIED / SUPPLIER PAYABLES CERTIFIED / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Date: **2026-09-13**
 Repository: `Juvialski/InvoiceApp`
 
@@ -59,7 +59,7 @@ This implementation branch started from the freshly synchronized `main` SHA:
 
 The branch implements the grouped authenticated shell navigation, shared task-first controls/disclosures, mandatory Documents/Expenses/Project Allocation/Payroll improvements, and targeted hierarchy changes for Dashboard, Supplier Invoices, Projects, Warehouse, Equipment, and Settings. The changes preserve the existing route vocabulary, deep-link query contracts, permission checks, source ownership, financial boundaries, immutable history, and Assistant confirmation model. No database migration or schema contract changed.
 
-The critical Document Templates investigation traced Starter, Upload, and AI persistence through the shared server Storage path. Authenticated Local-QA reached the real isolated backend and returned `TEMPLATE_STORAGE_UNAVAILABLE`: the QA server lacks the private `SUPABASE_STORAGE_SERVER_KEY`. The capability response and Settings UI now distinguish this server prerequisite from PDF converter health, gate persistence actions until Storage authority is available, and keep AI separately provider-gated. Starter/Upload/AI are not certified PASS on this branch: secure QA server configuration and the complete authenticated persistence/retrieval workflow are still required. The broader Local-QA harness was started but stalled before completion and was stopped, so it is recorded as incomplete rather than passed.
+The critical Document Templates investigation traced Starter, Upload, and AI persistence through the shared server Storage path. After the private `SUPABASE_STORAGE_SERVER_KEY` was configured locally, the restarted authenticated Local-QA capability endpoint returned `templateStorage.status=AVAILABLE`. Purchase Order and Client Invoice Starter plus safe Upload each persisted immutable metadata/version records, survived Settings refresh, and returned retrievable DOCX bytes; the Starter generator now emits the declared `company.vatTin` tag so activation validation is `VALID`. AI remains separately **NOT CERTIFIED**: `/api/deployment/company-ai` returned `503 AI_CREDENTIALS_SERVER_MISCONFIGURED` because the local QA runtime lacks its separate AI server configuration, and no AI generation was attempted. PDF conversion remains independently `UNAVAILABLE`. The fresh route matrix recorded 59/59 PASS with zero overflow categories; the functional sweep recorded 8 PASS and 1 BLOCKED for AI configuration.
 
 ---
 

@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — UI/UX ROUND 2 IMPLEMENTATION IN PROGRESS / DOCUMENT-TEMPLATE STORAGE AUTHORITY BLOCKED IN LOCAL-QA / HOSTED EXACT-SHA QA PASS EXISTS FOR LAST APPLICATION-BEARING MAIN / SUPPLIER PAYABLES CERTIFIED / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — UI/UX ROUND 2 IMPLEMENTATION IN PROGRESS / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI CONFIGURATION BLOCKED IN LOCAL-QA / PDF CONVERTER UNAVAILABLE / HOSTED EXACT-SHA QA PASS EXISTS FOR LAST APPLICATION-BEARING MAIN / SUPPLIER PAYABLES CERTIFIED / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-13**
 
@@ -56,9 +56,9 @@ The implementation branch was synchronized from `origin/main` at:
 
 The branch adds grouped authenticated navigation, shared task-first layout primitives, list-first Documents and Expenses surfaces, readable project allocation views, grouped Payroll navigation, and targeted hierarchy improvements across Dashboard, Supplier Invoices, Projects, Warehouse, Equipment, and Settings. Existing route IDs, deep-link query contracts, permissions, financial/source ownership, history, and provider boundaries remain unchanged. No database schema, RLS, RPC, trigger, or migration change is part of this UI/application work.
 
-The Document Templates blocker is now explicit but remains an environment prerequisite, not a claimed feature completion. Authenticated Local-QA reproduced the real server response as `TEMPLATE_STORAGE_UNAVAILABLE` because the isolated server runtime does not have the private `SUPABASE_STORAGE_SERVER_KEY`. The UI therefore disables Starter, safe DOCX Upload, and duplication with an actionable capability message; AI template generation is **NOT CERTIFIED** because its provider/storage prerequisites were not runtime-validated. PDF converter availability remains a separate status and does not gate DOCX persistence in code. Starter, Upload, and AI must not be marked PASS until the secure QA server authority is configured and the full click-to-persist-to-retrieve workflows complete.
+The Document Templates capability was rechecked after the isolated QA server received the private `SUPABASE_STORAGE_SERVER_KEY`. The restarted authenticated Local-QA server returned `templateStorage.status=AVAILABLE`; Purchase Order and Client Invoice Starter plus safe DOCX Upload each persisted immutable metadata/version records, refreshed Settings, and retrieved the stored DOCX successfully. The Starter generator was corrected so its declared `company.vatTin` binding is emitted and activation validation returns `VALID`. AI template generation remains **NOT CERTIFIED** separately: `/api/deployment/company-ai` returned `503 AI_CREDENTIALS_SERVER_MISCONFIGURED` because the local QA runtime lacks the separate AI server configuration; generation was not attempted. PDF converter availability remains a separate `UNAVAILABLE` capability and does not gate DOCX persistence.
 
-The broader authenticated Local-QA run was started against the isolated QA target but did not complete within the observed harness window and was stopped; it is not release or phase-completion evidence. UI/UX Round 2 therefore remains active/incomplete. Wave 4D provider work remains the next product sequence after this phase, and Worker Registration remains paused.
+The fresh authenticated Local-QA route matrix recorded 59/59 passing scenarios with zero overflow, dialog-overflow, or interactive-overflow failures; the functional sweep recorded 8 PASS and 1 BLOCKED for the separate AI configuration prerequisite. UI/UX Round 2 therefore remains active/incomplete pending final PR review and the remaining provider/readiness work. Wave 4D provider work remains the next product sequence after this phase, and Worker Registration remains paused.
 
 ## Explicit 2026-09-12 reprioritization — UI/UX Round 2
 
@@ -197,7 +197,7 @@ Overall QA remains not ready because broader readiness/provider limitations rema
 - SMS has approved provider paths but no controlled configured runtime-certified deployment yet;
 - Gmail exact-state provider proof may require reauthorization;
 - subcontract settlement remains fixture-blocked where no safe fixture exists;
-- optional server-authority company-template upload/converter capability remains environment-limited unless separately enabled/certified;
+- company-template Starter and safe Upload Storage authority is now locally configured and certified; high-fidelity PDF conversion remains unavailable, and AI generation remains blocked by separate server-side AI configuration;
 - UI/UX Round 2 will create a new application-bearing SHA that will require appropriate post-merge evidence before it can inherit release-readiness claims.
 
 Production remains read-only unless separately and explicitly authorized under `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md`.

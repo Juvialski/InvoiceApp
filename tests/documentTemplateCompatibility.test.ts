@@ -16,7 +16,7 @@ import {
   validateDocxTemplateBytes,
   DocumentTemplateValidationError,
 } from "../src/server/documentTemplates/documentTemplateEngine.ts";
-import { starterTemplateBlueprint } from "../src/lib/documentTemplateRegistry.ts";
+import { starterTemplateBlueprint, validateDocumentTemplateBindings } from "../src/lib/documentTemplateRegistry.ts";
 import { createDocumentTemplateRouter } from "../src/server/documentTemplates/documentTemplateRouter.ts";
 
 const COMPANY_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -229,6 +229,16 @@ test("starter and AI-generated DOCX origins for both document types pass the cen
     assert.doesNotThrow(() => validateDocxTemplateBytes(starter.bytes, `starter-${documentType}.docx`, DOCX_MIME_TYPE));
     const aiDraft = await buildDocxTemplateFromBlueprint({ ...starterTemplateBlueprint(documentType), title: `Synthetic AI ${documentType}` }, documentType);
     assert.doesNotThrow(() => validateDocxTemplateBytes(aiDraft.bytes, `ai-${documentType}.docx`, DOCX_MIME_TYPE));
+  }
+});
+
+test("starter DOCX bindings match every emitted tag for both document types", async () => {
+  for (const documentType of ["PURCHASE_ORDER", "CLIENT_INVOICE"] as const) {
+    const built = await buildStarterDocxTemplate(documentType);
+    const structure = extractDocxStructure(built.bytes, `starter-${documentType}.docx`);
+    const report = validateDocumentTemplateBindings(documentType, structure.tags, built.bindings);
+    assert.equal(report.state, "VALID", `${documentType} starter issues: ${JSON.stringify(report.issues)}`);
+    assert.ok(report.tags.includes("company.vatTin"), `${documentType} starter should emit the company VAT/TIN tag.`);
   }
 });
 

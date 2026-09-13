@@ -500,7 +500,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       <Card className="p-4 shadow-sm space-y-3" elevation="low">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
           {/* Search Query */}
-          <div className="relative">
+          <div className="relative xl:col-span-2">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
             <input
               type="text"
@@ -540,7 +540,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
           </div>
 
-          <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-2 xl:col-span-4">
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-2 xl:col-span-3">
             <summary className="cursor-pointer list-none text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">More filters <span className="ml-1 text-[10px] font-semibold text-slate-500">manager, currency, attention</span></summary>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
 
@@ -621,7 +621,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           </details>
 
           {/* Sort Selector */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 xl:col-span-2">
             <div className="relative flex-1">
               <select
                 value={sortField}

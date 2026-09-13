@@ -56,3 +56,22 @@ test("supplier invoice register precedes supporting settlement overview", () => 
   assert.ok(settlement >= 0);
   assert.ok(register < settlement);
 });
+
+test("dashboard hides a zero-valued optional FX warning instead of rendering a stray zero", () => {
+  const dashboard = source("src/components/engineering/EngineeringCostOperationsDashboard.tsx");
+  assert.match(dashboard, /\{data\.invoiceOperations\.phpFxRequired > 0 &&/);
+  assert.doesNotMatch(dashboard, /\{data\.invoiceOperations\.phpFxRequired &&/);
+});
+
+test("desktop Procurement filters reserve readable space for the search field", () => {
+  const procurement = source("src/components/procurement/ProcurementPage.tsx");
+  assert.match(procurement, /grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:grid-cols-\[minmax\(18rem,1fr\)_minmax\(0,auto\)\] xl:items-center/);
+  assert.match(procurement, /flex w-full min-w-0 flex-wrap items-center gap-2 xl:w-auto/);
+});
+
+test("desktop Projects filters reserve readable space for project search", () => {
+  const projects = source("src/components/projects/ProjectsPage.tsx");
+  assert.match(projects, /<div className="relative xl:col-span-2">[\s\S]*aria-label="Search projects"/);
+  assert.match(projects, /<details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-2 xl:col-span-3"/);
+  assert.match(projects, /<div className="flex gap-2 xl:col-span-2">[\s\S]*aria-label="Sort projects by field"/);
+});

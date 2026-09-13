@@ -244,7 +244,7 @@ export const EngineeringCostOperationsDashboard: React.FC<EngineeringCostOperati
       <OperationsMetricCard label="Overdue invoices" value={data.invoiceOperations.overdueCount} detail="Payment status requires action" icon={AlertTriangle} tone={data.invoiceOperations.overdueCount ? "danger" : "success"} emphasis />
     </section>
 
-    {data.invoiceOperations.phpFxRequired && <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><p><strong>{data.invoiceOperations.phpFxRequired} foreign supplier document{data.invoiceOperations.phpFxRequired === 1 ? " is" : "s are"} excluded from PHP tax reporting.</strong> Confirm an explicit transaction FX snapshot before relying on the consolidated value.</p></div>}
+    {data.invoiceOperations.phpFxRequired > 0 && <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><p><strong>{data.invoiceOperations.phpFxRequired} foreign supplier document{data.invoiceOperations.phpFxRequired === 1 ? " is" : "s are"} excluded from PHP tax reporting.</strong> Confirm an explicit transaction FX snapshot before relying on the consolidated value.</p></div>}
 
     {data.cashPosition && <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Cash position">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">

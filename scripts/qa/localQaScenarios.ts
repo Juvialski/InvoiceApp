@@ -276,7 +276,7 @@ async function verifyProjects(page: any, _viewport: QaViewport): Promise<Scenari
   const dialogResult = await openAndCloseDialog(page, page.getByRole("button", { name: "New project", exact: true }), "new-project-dialog", DEFAULT_TIMEOUT_MS);
   return {
     assertions: [
-      assertion("portfolio-summary", await page.getByRole("region", { name: "Portfolio Management Summary" }).count() > 0, "Portfolio summary is present."),
+      assertion("portfolio-summary", await page.locator("[aria-label='Portfolio Management Summary']").count() > 0, "Portfolio summary is present."),
       assertion("responsive-project-register", (await cards.count()) > 0 || (await table.count()) > 0 || (await page.getByText(/No projects match|No projects yet/i).count()) > 0, "A project register or explicit empty state is present."),
       assertion("project-primary-actions-fit", projectActionsFit, "Mobile project primary actions remain inside the viewport."),
       ...(dialogResult.assertions || []),

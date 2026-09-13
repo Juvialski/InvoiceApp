@@ -1351,8 +1351,8 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           </div>
 
           {/* PO Filters Bar */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-1.5 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-1 focus-within:ring-indigo-500">
+          <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:grid-cols-[minmax(18rem,1fr)_minmax(0,auto)] xl:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-1.5 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-1 focus-within:ring-indigo-500">
               <Search className="h-4 w-4 text-slate-400" />
               <input
                 type="text"
@@ -1363,7 +1363,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
               />
             </div>
 
-            <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 xl:w-auto">
               {!selectedProjectId && (
                 <select
                   value={projectFilter}

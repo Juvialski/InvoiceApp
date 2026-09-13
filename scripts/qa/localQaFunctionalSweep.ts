@@ -244,8 +244,9 @@ async function runSupplierInvoiceExpenseWorkflow(options: LocalQaFunctionalSweep
   if (!new URL(page.url()).pathname.startsWith("/expenses")) throw new Error("Supplier invoice did not navigate to Expenses.");
   const expenseBody = await bodyText(page);
   if (!/This Expense originated from supplier invoice evidence|Source invoice preserved|Authoritative Expense/i.test(expenseBody)) throw new Error("Expense did not preserve supplier-invoice provenance.");
-  if (!/Payment settlement is unavailable while this expense is DRAFT/i.test(expenseBody)) throw new Error("Ineligible linked Expense did not explain why payment is unavailable.");
-  workflow.actions.push("Return to Expense and confirm DRAFT lifecycle blocks settlement without changing invoice truth");
+  if (!/Record Payment/i.test(expenseBody)) throw new Error("Verified supplier-derived DRAFT Expense did not expose its Cash & Banking payment continuation.");
+  if (/Payment settlement is unavailable while this expense is DRAFT/i.test(expenseBody)) throw new Error("Verified supplier-derived DRAFT Expense was incorrectly treated as ineligible for settlement.");
+  workflow.actions.push("Return to Expense and confirm verified supplier-derived DRAFT remains payable through Cash & Banking without changing invoice truth");
 
   await navigate(options, `/expenses?expenseId=${APPROVED_EXPENSE_ID}&from=%2Fexpenses`);
   const approvedBody = await bodyText(page);
@@ -438,23 +439,38 @@ async function runDocumentTemplateAiWorkflow(options: LocalQaFunctionalSweepOpti
     setObserved(workflow, "AI template generation is NOT_CERTIFIED: " + await aiCapability.innerText());
     return;
   }
-  const aiButton = page.getByRole("button", { name: "Generate with AI", exact: true }).first();
-  if (await aiButton.count() === 0 || await aiButton.isDisabled()) {
-    workflow.status = "BLOCKED";
-    setObserved(workflow, "AI template generation is NOT_CERTIFIED because the UI did not expose an enabled provider-validated action.");
-    return;
+  const generatedArtifacts: string[] = [];
+  for (const documentType of ["PURCHASE_ORDER", "CLIENT_INVOICE"] as const) {
+    await selectTemplateType(page, documentType);
+    const aiButton = page.getByRole("button", { name: "Generate with AI", exact: true }).first();
+    if (await aiButton.count() === 0 || await aiButton.isDisabled()) {
+      throw new Error(documentType + " AI template action is not enabled after the provider capability check.");
+    }
+    await aiButton.click();
+    const prompt = settings.locator("textarea").first();
+    const label = documentType === "PURCHASE_ORDER" ? "purchase order" : "client invoice";
+    await prompt.fill("Create a concise professional " + label + " template with company, parties, project, line items, totals, terms, and approval/signature areas.");
+    await settings.getByRole("button", { name: "Create draft DOCX", exact: true }).click();
+    const editor = page.locator("[data-document-template-editor]").first();
+    await editor.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    if (!/AI_GENERATED/i.test(await editor.innerText())) throw new Error(documentType + " AI generation did not create an AI-generated template version.");
+    const download = await downloadTemplateArtifact(page, editor.getByRole("button", { name: "Download / edit in Word", exact: true }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    generatedArtifacts.push(documentType + " " + download.fileName + " (" + download.size + " bytes)");
+    workflow.actions.push("Generate, persist, and retrieve a provider-backed AI " + (documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice") + " DOCX");
+
+    await page.reload({ waitUntil: "domcontentloaded", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    await options.waitForApp(page);
+    await settings.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
+    await waitForTemplateCapability(page, "storage", options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    await waitForTemplateCapability(page, "ai", options.timeoutMs || DEFAULT_TIMEOUT_MS);
+    await selectTemplateType(page, documentType);
+    const history = page.locator("summary").filter({ hasText: "Version history" }).first();
+    if (await history.count() === 0) throw new Error(documentType + " AI version history is unavailable after refresh.");
+    await history.click();
+    if (!/AI_GENERATED/i.test(await settings.innerText())) throw new Error(documentType + " AI-generated version did not remain visible after refresh.");
+    workflow.actions.push("Refresh Settings and verify the persisted AI " + (documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice") + " version remains in history");
   }
-  await selectTemplateType(page, "PURCHASE_ORDER");
-  await aiButton.click();
-  const prompt = settings.locator("textarea").first();
-  await prompt.fill("Create a concise professional purchase order template with company, supplier, project, line items, totals, terms, and signature areas.");
-  await settings.getByRole("button", { name: "Create draft DOCX", exact: true }).click();
-  const editor = page.locator("[data-document-template-editor]").first();
-  await editor.waitFor({ state: "visible", timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS });
-  if (!/AI_GENERATED/i.test(await editor.innerText())) throw new Error("AI generation did not create an AI-generated template version.");
-  const download = await downloadTemplateArtifact(page, editor.getByRole("button", { name: "Download / edit in Word", exact: true }), options.timeoutMs || DEFAULT_TIMEOUT_MS);
-  workflow.actions.push("Generate, persist, and retrieve a provider-backed AI Purchase Order DOCX");
-  setObserved(workflow, "Configured AI generation created a persisted editable DOCX version and the artifact was retrieved from the authenticated route (" + download.fileName + ", " + download.size + " bytes).");
+  setObserved(workflow, "Configured AI generation created, persisted, refreshed, and retrieved both Purchase Order and Client Invoice DOCX versions (" + generatedArtifacts.join("; ") + ").");
 }
 
 async function runDeepLinkWorkflow(options: LocalQaFunctionalSweepOptions, workflow: MutableWorkflowEvidence) {
