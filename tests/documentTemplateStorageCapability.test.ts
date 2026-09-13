@@ -8,7 +8,7 @@ import { buildStarterDocxTemplate, DOCX_MIME_TYPE } from "../src/server/document
 import {
   getStorageServerAuthorityStatus,
 } from "../src/server/storage/storageCompensation.ts";
-import { StorageError, type StorageEnvironment } from "../src/lib/storage/types.ts";
+import { StorageError } from "../src/lib/storage/types.ts";
 import type { StorageAuthContext } from "../src/server/storage/storageRouter.ts";
 import { createDocumentTemplateRouter } from "../src/server/documentTemplates/documentTemplateRouter.ts";
 
@@ -61,7 +61,7 @@ async function closeServer(server: http.Server) {
 }
 
 test("server Storage authority capability distinguishes missing and safe server-only keys", () => {
-  const base: StorageEnvironment = { SUPABASE_URL: "https://qa.example.supabase.co" };
+  const base = { SUPABASE_URL: "https://qa.example.supabase.co" };
   const missing = getStorageServerAuthorityStatus(base);
   assert.equal(missing.status, "UNAVAILABLE");
   assert.equal(missing.code, "TEMPLATE_STORAGE_UNAVAILABLE");
