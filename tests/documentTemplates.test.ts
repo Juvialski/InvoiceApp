@@ -206,3 +206,9 @@ test("Generate AI errors keep safe provider categories and never become Storage 
     assert.match(message, /No financial record was changed/i);
   }
 });
+
+test("analysis retains a safe heuristic line-table candidate when AI omits one", () => {
+  const router = source("src/server/documentTemplates/documentTemplateRouter.ts");
+  assert.match(router, /completedAnalysis/);
+  assert.match(router, /!anchored\.analysis\.lineTable && heuristic\.lineTable/);
+});

@@ -1014,7 +1014,8 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
         if (!validated.ok) throw new Error("AI response failed the application-owned mapping schema.");
         const anchored = validateTemplateMappingAnalysisAgainstInventory(validated.analysis, inventory, version.documentType);
         if (!anchored.ok) throw new Error("AI response referenced an unknown or ambiguous document location.");
-        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "AVAILABLE", model: generated.model, analysis: anchored.analysis, heuristic } });
+        const completedAnalysis = !anchored.analysis.lineTable && heuristic.lineTable ? { ...anchored.analysis, lineTable: heuristic.lineTable } : anchored.analysis;
+        return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "AVAILABLE", model: generated.model, analysis: completedAnalysis, heuristic } });
       } catch (error) {
         const safe = error instanceof CompanyAiError ? "AI assistance is unavailable for this analysis." : "AI analysis was rejected because its response was malformed or unsafe.";
         return res.json({ success: true, data: { versionId, documentType: version.documentType, structure: safeStructure, aiStatus: "UNAVAILABLE", message: safe, analysis: heuristic, heuristic } });
