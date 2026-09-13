@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import PizZip from "pizzip";
-import { buildStarterDocxTemplate } from "../src/server/documentTemplates/documentTemplateEngine.ts";
-import { extractDocumentTemplateAnchorInventory, validateTemplateMappingAnalysisAgainstInventory } from "../src/server/documentTemplates/documentTemplateAutoTagger.ts";
+import { buildStarterDocxTemplate, extractDocxStructure, mergeDocxTemplate } from "../src/server/documentTemplates/documentTemplateEngine.ts";
+import { extractDocumentTemplateAnchorInventory, prepareDocxTemplate, validateTemplateMappingAnalysisAgainstInventory, type DocumentTemplatePreparationPlan } from "../src/server/documentTemplates/documentTemplateAutoTagger.ts";
 import { validateTemplateMappingAnalysis } from "../src/lib/documentTemplateRegistry.ts";
 
 const WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -162,4 +162,93 @@ test("anchored line-table validation requires an existing candidate and allowlis
   }, inventory, "PURCHASE_ORDER");
   assert.equal(invalid.ok, false);
   assert.match(JSON.stringify(invalid), /candidate|field|line/i);
+});
+
+function purchaseOrderPreparationPlan(bytes: Uint8Array): DocumentTemplatePreparationPlan {
+  const inventory = extractDocumentTemplateAnchorInventory(bytes, "HSC P.O.Template.docx");
+  const anchorFor = (predicate: (text: string) => boolean) => {
+    const anchor = inventory.anchors.find((candidate) => predicate(candidate.text) && candidate.targetText);
+    assert.ok(anchor);
+    return anchor;
+  };
+  const mappings = [
+    ["company.legalName", anchorFor((text) => text.includes("HYDROQUALISENSE SOLUTIONS CORP"))],
+    ["purchaseOrder.documentNumber", anchorFor((text) => text.startsWith("No.:"))],
+    ["purchaseOrder.currency", anchorFor((text) => text.startsWith("Currency:"))],
+    ["purchaseOrder.totalAmount", anchorFor((text) => text.includes("PHP 3900.00"))],
+    ["supplier.name", anchorFor((text) => text.startsWith("Supplier name:"))],
+  ].map(([fieldKey, anchor]) => ({ fieldKey, anchorId: anchor.id, targetText: anchor.targetText, confirmed: true }));
+  assert.ok(inventory.lineTable);
+  return {
+    documentType: "PURCHASE_ORDER",
+    mappings,
+    lineTable: {
+      candidateId: inventory.lineTable!.id,
+      columns: inventory.lineTable!.columns.flatMap((column) => column.suggestedFieldKey ? [{ columnIndex: column.columnIndex, fieldKey: column.suggestedFieldKey }] : []),
+    },
+  };
+}
+
+function purchaseOrderMergeSnapshot() {
+  return {
+    documentType: "PURCHASE_ORDER" as const,
+    documentId: "prepared-po",
+    documentNumber: "PO-PREPARED-001",
+    status: "ISSUED" as const,
+    issueDate: "2026-09-13",
+    currency: "PHP",
+    description: "Prepared test order",
+    notes: "Synthetic test",
+    termsAndConditions: "Net 30",
+    company: { legalName: "Prepared Company", address: "Prepared address", contactNumber: "09000000000", email: "company@example.com" },
+    supplier: { name: "Prepared Supplier", address: "Supplier address", email: "supplier@example.com", phone: "09170000000", vatTin: "000", attention: "Purchasing" },
+    project: { projectCode: "PREP-001", projectName: "Prepared Project", deliverTo: "Prepared site" },
+    lines: [{ lineNumber: 1, description: "First prepared line", quantity: 2, unit: "pcs", unitPrice: 100, amount: 200 }, { lineNumber: 2, description: "Second prepared line", quantity: 3, unit: "bags", unitPrice: 50, amount: 150 }],
+    totalAmount: 350,
+    amountInWords: "three hundred fifty PHP only",
+    processor: { name: "Prepared User", title: "Coordinator" },
+    templateVersion: "prepared",
+  };
+}
+
+test("preparation inserts allowlisted scalar and repeating tags while preserving unrelated package parts", async () => {
+  const original = await taglessPurchaseOrderFixture();
+  const originalZip = new PizZip(original);
+  const plan = purchaseOrderPreparationPlan(original);
+  const prepared = prepareDocxTemplate(original, "HSC P.O.Template.docx", "PURCHASE_ORDER", plan);
+  const structure = extractDocxStructure(prepared.bytes, "prepared.docx");
+
+  assert.equal(prepared.report.state, "VALID", JSON.stringify(prepared.report.issues));
+  assert.ok(structure.tags.includes("company.legalName"));
+  assert.ok(structure.tags.includes("purchaseOrder.documentNumber"));
+  assert.ok(structure.tags.includes("supplier.name"));
+  assert.ok(structure.tags.includes("#lines"));
+  assert.ok(structure.tags.includes("/lines"));
+  assert.ok(structure.tags.includes("lineNumber"));
+  assert.ok(structure.tags.includes("description"));
+  assert.ok(structure.tags.includes("amount"));
+  assert.match(new PizZip(prepared.bytes).file("word/document.xml")?.asText() || "", /w:tbl/);
+  assert.deepEqual([...new PizZip(prepared.bytes).file("word/media/logo.png")!.asUint8Array()], [...originalZip.file("word/media/logo.png")!.asUint8Array()]);
+  assert.equal(new PizZip(prepared.bytes).file("word/header1.xml")?.asText(), originalZip.file("word/header1.xml")?.asText());
+  assert.equal(new PizZip(prepared.bytes).file("word/footer1.xml")?.asText(), originalZip.file("word/footer1.xml")?.asText());
+
+  const merged = mergeDocxTemplate(prepared.bytes, "prepared.docx", purchaseOrderMergeSnapshot(), prepared.bindings);
+  const mergedStructure = extractDocxStructure(merged, "merged.docx");
+  assert.match(mergedStructure.text, /Prepared Company/);
+  assert.match(mergedStructure.text, /First prepared line/);
+  assert.match(mergedStructure.text, /Second prepared line/);
+});
+
+test("preparation refuses an ambiguous line table without creating transformed bytes", async () => {
+  const original = await taglessPurchaseOrderFixture({ duplicateLineTable: true });
+  const inventory = extractDocumentTemplateAnchorInventory(original, "duplicate.docx");
+  assert.equal(inventory.lineTable, undefined);
+  const firstCandidate = inventory.lineTableCandidates[0];
+  assert.ok(firstCandidate);
+  const plan: DocumentTemplatePreparationPlan = {
+    documentType: "PURCHASE_ORDER",
+    mappings: [],
+    lineTable: { candidateId: firstCandidate.id, columns: [{ columnIndex: 0, fieldKey: "lines.lineNumber" }, { columnIndex: 3, fieldKey: "lines.description" }, { columnIndex: 5, fieldKey: "lines.amount" }] },
+  };
+  assert.throws(() => prepareDocxTemplate(original, "duplicate.docx", "PURCHASE_ORDER", plan), /unknown or ambiguous|uniquely identified/i);
 });

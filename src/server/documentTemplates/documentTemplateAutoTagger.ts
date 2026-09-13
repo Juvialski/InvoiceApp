@@ -2,12 +2,17 @@ import PizZip from "pizzip";
 import {
   DOCX_MIME_TYPE,
   DocumentTemplateValidationError,
+  extractDocxStructure,
   validateDocxTemplateBytes,
 } from "./documentTemplateEngine.ts";
 import {
   getDocumentTemplateField,
   isDocumentTemplateFieldKey,
+  tagForDocumentTemplateField,
+  validateDocumentTemplateBindings,
+  type DocumentTemplateBinding,
   type DocumentTemplateMappingAnalysis,
+  type TemplateValidationReport,
   type DocumentTemplateType,
 } from "../../lib/documentTemplateRegistry.ts";
 
@@ -306,6 +311,248 @@ export function validateTemplateMappingAnalysisAgainstInventory(
   }
   if (analysis.mappings.some((mapping) => mapping.fieldKey?.startsWith("lines.")) && !lineTable) errors.push("Repeating line fields require a uniquely identified line-item table.");
   return errors.length ? { ok: false, errors } : { ok: true, analysis };
+}
+
+function xmlEscapeText(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+interface TextNodeRange {
+  readonly fullStart: number;
+  readonly contentStart: number;
+  readonly contentEnd: number;
+  readonly fullEnd: number;
+  readonly text: string;
+}
+
+function textNodeRanges(xml: string): readonly TextNodeRange[] {
+  return [...xml.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi)].map((match) => {
+    const fullStart = match.index ?? 0;
+    const full = match[0] || "";
+    const contentStart = fullStart + full.indexOf(">") + 1;
+    const contentEnd = fullStart + full.lastIndexOf("<");
+    return { fullStart, contentStart, contentEnd, fullEnd: fullStart + full.length, text: decodeXmlText(match[1] || "") };
+  });
+}
+
+function normalizedSpan(source: string, target: string): readonly [number, number] | undefined {
+  const directPositions: number[] = [];
+  let directOffset = source.indexOf(target);
+  while (directOffset >= 0) {
+    directPositions.push(directOffset);
+    directOffset = source.indexOf(target, directOffset + Math.max(target.length, 1));
+  }
+  if (directPositions.length === 1) return [directPositions[0]!, directPositions[0]! + target.length];
+  if (directPositions.length > 1) throw new DocumentTemplatePreparationError("AMBIGUOUS_SOURCE_TEXT", "The selected source text occurs more than once in the identified Word location.");
+
+  let normalized = "";
+  const starts: number[] = [];
+  const ends: number[] = [];
+  let pendingSpace = false;
+  for (let index = 0; index < source.length; index += 1) {
+    if (/\s/.test(source[index] || "")) {
+      pendingSpace = normalized.length > 0;
+      continue;
+    }
+    if (pendingSpace && normalized && !normalized.endsWith(" ")) {
+      normalized += " ";
+      starts.push(index);
+      ends.push(index);
+    }
+    pendingSpace = false;
+    normalized += source[index];
+    starts.push(index);
+    ends.push(index + 1);
+  }
+  const normalizedTarget = normalizeText(target);
+  const normalizedIndex = normalized.indexOf(normalizedTarget);
+  if (normalizedIndex < 0) return undefined;
+  const second = normalized.indexOf(normalizedTarget, normalizedIndex + Math.max(normalizedTarget.length, 1));
+  if (second >= 0) throw new DocumentTemplatePreparationError("AMBIGUOUS_SOURCE_TEXT", "The selected source text occurs more than once in the identified Word location.");
+  const start = starts[normalizedIndex];
+  const end = ends[normalizedIndex + normalizedTarget.length - 1];
+  return start === undefined || end === undefined ? undefined : [start, end];
+}
+
+function replaceTextSpan(xml: string, targetText: string, replacement: string): string {
+  const nodes = textNodeRanges(xml);
+  const source = nodes.map((node) => node.text).join("");
+  const span = normalizedSpan(source, targetText);
+  if (!span) throw new DocumentTemplatePreparationError("SOURCE_TEXT_MISMATCH", "The selected source text no longer matches the uploaded Word template.");
+  const [start, end] = span;
+  const replacements: Array<readonly [number, number, string]> = [];
+  for (const node of nodes) {
+    const nodeStart = nodes.slice(0, nodes.indexOf(node)).reduce((sum, item) => sum + item.text.length, 0);
+    const nodeEnd = nodeStart + node.text.length;
+    if (nodeEnd <= start || nodeStart >= end) continue;
+    const overlapStart = Math.max(start, nodeStart) - nodeStart;
+    const overlapEnd = Math.min(end, nodeEnd) - nodeStart;
+    let nextText = node.text.slice(0, overlapStart);
+    if (start >= nodeStart && start <= nodeEnd) nextText += replacement;
+    if (end <= nodeEnd) nextText += node.text.slice(overlapEnd);
+    replacements.push([node.contentStart, node.contentEnd, xmlEscapeText(nextText)]);
+  }
+  let result = xml;
+  for (const [replacementStart, replacementEnd, value] of [...replacements].sort((left, right) => right[0] - left[0])) {
+    result = `${result.slice(0, replacementStart)}${value}${result.slice(replacementEnd)}`;
+  }
+  return result;
+}
+
+function replaceRange(source: string, start: number, end: number, replacement: string): string {
+  return `${source.slice(0, start)}${replacement}${source.slice(end)}`;
+}
+
+function replaceCellInRow(rowXml: string, cellIndex: number, replace: (cellXml: string) => string): string {
+  const cells = xmlRanges(rowXml, /<w:tc\b[\s\S]*?<\/w:tc>/gi);
+  const cell = cells[cellIndex];
+  if (!cell) throw new DocumentTemplatePreparationError("CELL_NOT_FOUND", "The selected line-table cell no longer exists in the uploaded Word template.");
+  return replaceRange(rowXml, cell.start, cell.end, replace(cell.text));
+}
+
+function replaceRowInTable(tableXml: string, rowIndex: number, replace: (rowXml: string) => string): string {
+  const rows = rowFragments(tableXml).map((text) => ({ text }));
+  const rowRanges = xmlRanges(tableXml, /<w:tr\b[\s\S]*?<\/w:tr>/gi);
+  const row = rowRanges[rowIndex];
+  if (!row) throw new DocumentTemplatePreparationError("ROW_NOT_FOUND", "The selected line-item row no longer exists in the uploaded Word template.");
+  return replaceRange(tableXml, row.start, row.end, replace(row.text));
+}
+
+function replaceTableInPart(xml: string, tableIndex: number, replace: (tableXml: string) => string): string {
+  const tables = tableFragments(xml);
+  const table = tables[tableIndex];
+  if (!table) throw new DocumentTemplatePreparationError("TABLE_NOT_FOUND", "The selected line-item table no longer exists in the uploaded Word template.");
+  return replaceRange(xml, table.start, table.end, replace(table.text));
+}
+
+function replaceParagraphInPart(xml: string, paragraphIndex: number, replace: (paragraphXml: string) => string): string {
+  const tables = tableFragments(xml);
+  const tableRanges = tables.map((table) => [table.start, table.end] as const);
+  const paragraphs = paragraphFragments(xml).filter((paragraph) => !tableRanges.some(([start, end]) => paragraph.start >= start && paragraph.end <= end));
+  const paragraph = paragraphs[paragraphIndex];
+  if (!paragraph) throw new DocumentTemplatePreparationError("PARAGRAPH_NOT_FOUND", "The selected paragraph no longer exists in the uploaded Word template.");
+  return replaceRange(xml, paragraph.start, paragraph.end, replace(paragraph.text));
+}
+
+function updateFirstTextNode(xml: string, update: (value: string) => string, appendIfEmpty: string): string {
+  const nodes = textNodeRanges(xml);
+  if (!nodes.length) {
+    const paragraphClose = xml.search(/<\/w:p>/i);
+    if (paragraphClose < 0) throw new DocumentTemplatePreparationError("CELL_TEXT_UNSUPPORTED", "The selected Word cell has no supported paragraph content.");
+    return `${xml.slice(0, paragraphClose)}<w:r><w:t>${xmlEscapeText(appendIfEmpty)}</w:t></w:r>${xml.slice(paragraphClose)}`;
+  }
+  const node = nodes[0]!;
+  const next = xmlEscapeText(update(node.text));
+  return `${xml.slice(0, node.contentStart)}${next}${xml.slice(node.contentEnd)}`;
+}
+
+function updateLastTextNode(xml: string, update: (value: string) => string, appendIfEmpty: string): string {
+  const nodes = textNodeRanges(xml);
+  if (!nodes.length) return updateFirstTextNode(xml, () => appendIfEmpty, appendIfEmpty);
+  const node = nodes[nodes.length - 1]!;
+  const next = xmlEscapeText(update(node.text));
+  return `${xml.slice(0, node.contentStart)}${next}${xml.slice(node.contentEnd)}`;
+}
+
+function replaceAnchorInPart(xml: string, anchor: DocumentTemplateAnchor, targetText: string, replacement: string): string {
+  if (anchor.kind === "PARAGRAPH") return replaceParagraphInPart(xml, anchor.paragraphIndex, (paragraphXml) => replaceTextSpan(paragraphXml, targetText, replacement));
+  return replaceTableInPart(xml, anchor.tableIndex!, (tableXml) => replaceRowInTable(tableXml, anchor.rowIndex!, (rowXml) => replaceCellInRow(rowXml, anchor.cellIndex!, (cellXml) => replaceTextSpan(cellXml, targetText, replacement))));
+}
+
+function replaceLineTableInPart(xml: string, candidate: DocumentTemplateUniqueLineTable, columns: readonly DocumentTemplatePreparationLineColumn[]): string {
+  const columnMap = new Map(columns.map((column) => [column.columnIndex, column.fieldKey]));
+  return replaceTableInPart(xml, candidate.tableIndex, (tableXml) => replaceRowInTable(tableXml, candidate.dataRowIndex!, (rowXml) => {
+    let nextRow = rowXml;
+    for (const column of columns) {
+      const field = getDocumentTemplateField("PURCHASE_ORDER", column.fieldKey) || getDocumentTemplateField("CLIENT_INVOICE", column.fieldKey);
+      if (!field?.collection) throw new DocumentTemplatePreparationError("INVALID_LINE_FIELD", `${column.fieldKey} is not an allowed repeating field.`);
+      nextRow = replaceCellInRow(nextRow, column.columnIndex, (cellXml) => {
+        const cellText = normalizeText(textFromWordXml(cellXml));
+        const target = targetTextFor(cellText) || cellText;
+        return target ? replaceTextSpan(cellXml, target, `{{${tagForDocumentTemplateField(column.fieldKey)}}}`) : updateFirstTextNode(cellXml, () => `{{${tagForDocumentTemplateField(column.fieldKey)}}}`, `{{${tagForDocumentTemplateField(column.fieldKey)}}}`);
+      });
+    }
+    const rowCells = xmlRanges(nextRow, /<w:tc\b[\s\S]*?<\/w:tc>/gi);
+    if (!rowCells.length) throw new DocumentTemplatePreparationError("ROW_NOT_FOUND", "The selected line-item row has no supported cells.");
+    nextRow = replaceRange(nextRow, rowCells[0]!.start, rowCells[0]!.end, updateFirstTextNode(rowCells[0]!.text, (value) => value.startsWith("{{#lines}}") ? value : `{{#lines}}${value}`, "{{#lines}}"));
+    const refreshedCells = xmlRanges(nextRow, /<w:tc\b[\s\S]*?<\/w:tc>/gi);
+    const lastIndex = refreshedCells.length - 1;
+    nextRow = replaceRange(nextRow, refreshedCells[lastIndex]!.start, refreshedCells[lastIndex]!.end, updateLastTextNode(refreshedCells[lastIndex]!.text, (value) => value.endsWith("{{/lines}}") ? value : `${value}{{/lines}}`, "{{/lines}}"));
+    return nextRow;
+  }));
+}
+
+export function validateDocumentTemplatePreparationPlan(
+  plan: DocumentTemplatePreparationPlan,
+  inventory: DocumentTemplateAnchorInventory,
+): { ok: true; plan: DocumentTemplatePreparationPlan } | { ok: false; errors: readonly string[] } {
+  const errors: string[] = [];
+  const usedAnchors = new Set<string>();
+  const usedFields = new Set<string>();
+  for (const [index, mapping] of plan.mappings.entries()) {
+    const field = getDocumentTemplateField(plan.documentType, mapping.fieldKey);
+    const anchor = inventory.anchors.find((candidate) => candidate.id === mapping.anchorId);
+    if (!field || field.collection) errors.push(`mapping ${index + 1} references an unavailable scalar field.`);
+    if (!anchor) errors.push(`mapping ${index + 1} references an unknown source anchor.`);
+    if (usedAnchors.has(mapping.anchorId)) errors.push(`mapping ${index + 1} duplicates a source anchor.`);
+    if (usedFields.has(mapping.fieldKey)) errors.push(`mapping ${index + 1} duplicates an application field.`);
+    if (mapping.confirmed === false) errors.push(`mapping ${index + 1} has not been confirmed.`);
+    if (anchor && (!mapping.targetText || anchor.targetText !== mapping.targetText)) errors.push(`mapping ${index + 1} does not match the current source text.`);
+    usedAnchors.add(mapping.anchorId);
+    usedFields.add(mapping.fieldKey);
+  }
+  if (plan.lineTable) {
+    const candidate = inventory.lineTableCandidates.find((item) => item.id === plan.lineTable?.candidateId);
+    if (!candidate || !inventory.lineTable || inventory.lineTable.id !== plan.lineTable.candidateId) errors.push("The selected line-item table is unknown or ambiguous.");
+    const usedColumns = new Set<number>();
+    const usedLineFields = new Set<string>();
+    for (const [index, column] of plan.lineTable.columns.entries()) {
+      if (!candidate?.columns.some((item) => item.columnIndex === column.columnIndex)) errors.push(`line-table mapping ${index + 1} references an unknown column.`);
+      const field = getDocumentTemplateField(plan.documentType, column.fieldKey);
+      if (!field?.collection) errors.push(`line-table mapping ${index + 1} references an unavailable repeating field.`);
+      if (usedColumns.has(column.columnIndex)) errors.push(`line-table mapping ${index + 1} duplicates a column.`);
+      if (usedLineFields.has(column.fieldKey)) errors.push(`line-table mapping ${index + 1} duplicates a repeating field.`);
+      usedColumns.add(column.columnIndex);
+      usedLineFields.add(column.fieldKey);
+    }
+    if (!plan.lineTable.columns.length) errors.push("The selected line-item table has no reviewed column mappings.");
+  }
+  return errors.length ? { ok: false, errors } : { ok: true, plan };
+}
+
+export function prepareDocxTemplate(
+  bytes: Uint8Array,
+  fileName: string,
+  documentType: DocumentTemplateType,
+  plan: DocumentTemplatePreparationPlan,
+): { bytes: Uint8Array; bindings: readonly DocumentTemplateBinding[]; inventory: DocumentTemplateAnchorInventory; report: TemplateValidationReport } {
+  const inventory = extractDocumentTemplateAnchorInventory(bytes, fileName);
+  if (plan.documentType !== documentType) throw new DocumentTemplatePreparationError("DOCUMENT_TYPE_MISMATCH", "The preparation plan does not match the uploaded document type.");
+  const validatedPlan = validateDocumentTemplatePreparationPlan(plan, inventory);
+  if (validatedPlan.ok === false) throw new DocumentTemplatePreparationError("INVALID_PREPARATION_PLAN", validatedPlan.errors.join(" "));
+  const zip = new PizZip(bytes, { checkCRC32: true });
+  for (const mapping of plan.mappings) {
+    const anchor = inventory.anchors.find((candidate) => candidate.id === mapping.anchorId);
+    if (!anchor) throw new DocumentTemplatePreparationError("ANCHOR_NOT_FOUND", "The selected source anchor no longer exists.");
+    const part = zip.file(anchor.partName);
+    if (!part) throw new DocumentTemplatePreparationError("PART_NOT_FOUND", "The selected Word package part no longer exists.");
+    const nextXml = replaceAnchorInPart(part.asText(), anchor, mapping.targetText, `{{${mapping.fieldKey}}}`);
+    zip.file(anchor.partName, nextXml);
+  }
+  const lineTable = plan.lineTable ? inventory.lineTable : undefined;
+  if (plan.lineTable && !lineTable) throw new DocumentTemplatePreparationError("LINE_TABLE_NOT_UNIQUE", "The selected repeating line-item table is no longer uniquely identified.");
+  if (plan.lineTable && lineTable) {
+    const part = zip.file(lineTable.partName);
+    if (!part) throw new DocumentTemplatePreparationError("PART_NOT_FOUND", "The selected Word package part no longer exists.");
+    zip.file(lineTable.partName, replaceLineTableInPart(part.asText(), lineTable, plan.lineTable.columns));
+  }
+  const preparedBytes = new Uint8Array(zip.generate({ type: "uint8array", compression: "DEFLATE" }));
+  validateDocxTemplateBytes(preparedBytes, fileName, DOCX_MIME_TYPE);
+  const structure = extractDocxStructure(preparedBytes, fileName);
+  const bindings: DocumentTemplateBinding[] = plan.mappings.map((mapping) => ({ tag: mapping.fieldKey, fieldKey: mapping.fieldKey, ...(mapping.sourceLabel ? { sourceLabel: mapping.sourceLabel } : {}), ...(mapping.confidence === undefined ? {} : { confidence: mapping.confidence }), confirmed: true }));
+  if (plan.lineTable) for (const column of plan.lineTable.columns) bindings.push({ tag: tagForDocumentTemplateField(column.fieldKey), fieldKey: column.fieldKey, confirmed: true });
+  const report = validateDocumentTemplateBindings(documentType, structure.tags, bindings);
+  return { bytes: preparedBytes, bindings, inventory: extractDocumentTemplateAnchorInventory(preparedBytes, fileName), report };
 }
 
 export class DocumentTemplatePreparationError extends DocumentTemplateValidationError {
