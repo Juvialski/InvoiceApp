@@ -1754,20 +1754,25 @@
         "routeId": "documents",
         "canonicalPath": "/documents",
         "pathPattern": "/documents",
+        "queryKeys": [
+          "view"
+        ],
         "scope": "production-and-demo"
       },
-      "description": "Unified company document index route over existing authoritative records and immutable artifacts; owning domains retain lifecycle authority.",
+      "description": "Unified company document center route with Library, Create, and Templates views over existing authoritative records; owning domains retain lifecycle authority.",
       "fileRefs": [
         "src/utils/routes.ts",
         "src/utils/appRouteContracts.ts",
         "src/utils/appRouting.ts",
         "src/app/routes/AppRouter.tsx",
         "src/app/routes/DocumentsRoute.tsx",
+        "src/components/documents/DocumentCreateView.tsx",
         "src/lib/documentRegister.ts"
       ],
       "testRefs": [
         "tests/navigationRoutes.test.ts",
         "tests/appRouting.test.ts",
+        "tests/documentCenter.test.ts",
         "tests/emailSmsDocumentsWorkspace.test.ts"
       ]
     },
@@ -1814,10 +1819,12 @@
       "description": "Permission-filtered projection over Procurement, Client Billing, supplier evidence, Expenses, Cash & Banking, and Engineering records with canonical owner links and eligible send handoff.",
       "fileRefs": [
         "src/app/routes/DocumentsRoute.tsx",
+        "src/components/documents/DocumentCreateView.tsx",
         "src/lib/documentRegister.ts",
         "src/components/DocumentPreviewModal.tsx"
       ],
       "testRefs": [
+        "tests/documentCenter.test.ts",
         "tests/emailSmsDocumentsWorkspace.test.ts",
         "tests/documentDelivery.test.ts"
       ],

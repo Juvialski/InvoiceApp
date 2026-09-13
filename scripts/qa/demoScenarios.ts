@@ -290,7 +290,7 @@ const verifyDocumentsCreateWorkspace: QaScenarioAction = async (page) => {
   const workspace = await page.locator('[data-document-create-view]').count();
   const availableOptions = await page.locator('[data-document-create-option]').count();
   const preparationRequired = await page.locator('[data-document-create-status="preparation-required"]').count();
-  const businessLabels = await page.getByText("Purchase Order", { exact: true }).count();
+  const businessLabels = await page.locator("text=Purchase Order").count();
   return [
     { id: "documents-create-view-visible", passed: workspace === 1, details: `Create view surfaces: ${workspace}` },
     { id: "documents-create-options-visible", passed: availableOptions > 0, details: `supported Create options: ${availableOptions}` },
@@ -304,7 +304,7 @@ const verifyDocumentsTemplatesWorkspace: QaScenarioAction = async (page) => {
   await waitForVisible(page, '[data-document-templates-view]');
   const view = await page.locator('[data-document-templates-view]').count();
   const templateSettings = await page.locator('[data-document-template-settings]').count();
-  const documentTemplates = await page.getByText("Document templates", { exact: true }).count();
+  const documentTemplates = await page.locator("text=Document templates").count();
   const settingsLink = await page.getByRole("tab", { name: /Templates/ }).count();
   return [
     { id: "documents-templates-view-visible", passed: view === 1, details: `Templates view surfaces: ${view}` },

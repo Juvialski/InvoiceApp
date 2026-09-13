@@ -115,6 +115,8 @@ Focused local implementation evidence obtained so far:
 
 The corrective branch is merged into the current baseline. Its real authenticated non-production AI/template runtime evidence remains valid, while hosted exact-SHA certification, production authorization, and high-fidelity PDF conversion remain separate and incomplete.
 
+The server-only company AI boundary remains unchanged: the configured Supabase server key may use the modern `sb_secret_` form or an approved legacy JWT `service_role`-compatible key, and neither belongs in browser state. Before configuration, QA metadata may truthfully report `NOT_CONFIGURED`; application deployment and database migration promotion remain separate operator actions, and production remains read-only unless explicitly authorized.
+
 ## Wide Documents Phase — Slice 1 implemented 2026-09-14
 
 The user explicitly reprioritized the next product work to the Wide Documents Phase. Slice 1 makes Documents the central application entry point for document discovery and supported creation without creating a duplicate business-record owner.
@@ -228,7 +230,7 @@ Approved provider direction remains:
 - Company SIM Gateway — primary/recommended;
 - PhilSMS — optional hosted fallback.
 
-Provider implementation/completion is now the **next active product phase**. Real SMS remains unavailable/unverified until controlled provider-backed QA succeeds.
+Provider implementation/completion remains a later Wave 4D phase after the Wide Documents work. Real SMS remains unavailable/unverified until controlled provider-backed QA succeeds.
 
 ### Company-template Storage / AI / conversion
 
