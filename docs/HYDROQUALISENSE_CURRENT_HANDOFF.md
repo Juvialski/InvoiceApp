@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UI/UX ROUND 2 COMPLETE / DOCUMENT TEMPLATE AI AUTO-TAGGING + AI CAPABILITY CORRECTION ACTIVE BEFORE WAVE 4D / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / LAST HOSTED-CERTIFIED APPLICATION SHA REMAINS EARLIER / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
-Date: **2026-09-13**
+Status: **CURRENT — WIDE DOCUMENTS PHASE SLICE 1 IMPLEMENTED / UI/UX ROUND 2 COMPLETE / DOCUMENT TEMPLATE AI CORRECTION MERGED AS FOUNDATION / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / LAST HOSTED-CERTIFIED APPLICATION SHA REMAINS EARLIER / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Date: **2026-09-14**
 Repository: `Juvialski/InvoiceApp`
 
 ## Authoritative current baseline
@@ -29,7 +29,9 @@ Read this handoff with:
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 - `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md` — completed UI/UX Round 2 design/acceptance record and standing UI baseline;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-- **`docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — active corrective design for the current implementation phase**;
+- **`docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` — active Wide Documents Phase contract**;
+- **`docs/superpowers/specs/2026-09-14-unified-document-center-design.md` — Slice 1 design**;
+- `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — completed corrective foundation;
 - `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
 - `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the next product phase after this correction;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
@@ -111,13 +113,30 @@ Focused local implementation evidence obtained so far:
 - local DB-runtime checks remain skipped when their explicit runtime flag is absent;
 - no hosted/provider AI certification, production mutation, or uncontrolled email/SMS send has occurred.
 
-The branch still requires the affected-test selector, production build, final diff review, roadmap reconciliation, push, and PR update before handoff. Real authenticated non-production AI/template runtime evidence is obtained; hosted exact-SHA certification, production authorization, and high-fidelity PDF conversion remain separate and incomplete.
+The corrective branch is merged into the current baseline. Its real authenticated non-production AI/template runtime evidence remains valid, while hosted exact-SHA certification, production authorization, and high-fidelity PDF conversion remain separate and incomplete.
 
-## Exact next product phase after the correction — Wave 4D messaging-provider integration/completion
+## Wide Documents Phase — Slice 1 implemented 2026-09-14
 
-UI/UX Round 2 is complete. Once the corrective phase above is safely merged/certified, Wave 4D resumes as the exact next product phase unless the user explicitly reprioritizes again.
+The user explicitly reprioritized the next product work to the Wide Documents Phase. Slice 1 makes Documents the central application entry point for document discovery and supported creation without creating a duplicate business-record owner.
 
-Wave 4D remains **partially implemented but not complete**. Resume from the existing contract and implementation; do not rebuild the completed Email/SMS or Documents workspaces from scratch.
+The current implementation provides:
+
+- `/documents` as the default Library view;
+- durable `/documents?view=library|create|templates` navigation with invalid values defaulting to Library;
+- permission-filtered Library projection over existing Purchase Order, Client Invoice, Supplier Invoice, Expense receipt, Bank statement, and Engineering Document sources;
+- compact common search/type filters plus progressive project, counterparty, module, origin, and status filters;
+- business-language Create links to existing owning workflows, with payroll and engineering options permission-filtered;
+- explicit preparation-required states for Warranty Certificate, Equipment / Materials Checklist, and general company uploads rather than fake generators;
+- full existing template administration discoverable at Documents -> Templates;
+- a small Settings -> Documents template link instead of a competing full template-management surface.
+
+No database, RLS, RPC, Storage, financial, payroll, or provider contract changed in Slice 1. The original owning record routes, Email/SMS handoffs, template capability gates, and existing source-history boundaries remain intact.
+
+The exact next implementation slice is template-first managed document generation for the three supplied HSC DOCX fixtures. It must generalize the allowlisted merge context, preserve the original bytes and warranty wording, support repeating PO/checklist rows, and add structured managed-document data only where a genuine ownership gap is proven. The full Wide Documents Phase remains incomplete.
+
+## Exact next product phase after the Wide Documents Phase — Wave 4D messaging-provider integration/completion
+
+Wave 4D remains **partially implemented but not complete**. Resume it only after the Wide Documents Phase is genuinely complete; do not rebuild the existing Email/SMS workspace or Slice 1 Documents shell.
 
 Approved provider direction remains:
 
@@ -271,8 +290,8 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Wave 4D messaging-provider integration/completion — NEXT / ACTIVE**
-2. **Wave 4D remaining provider/AI/recovery/readiness evidence**
+1. **Wide Documents Phase — ACTIVE; complete the HSC/template-first and managed-document slices**
+2. **Wave 4D messaging-provider integration/completion and remaining provider/AI/recovery/readiness evidence**
 3. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
 4. Site Attendance
 5. Face Recognition only after design/privacy/security work
@@ -284,19 +303,17 @@ Do not skip directly to Worker Registration.
 
 ## Fresh implementation handoff instructions
 
-For the next Wave 4D implementation run, Codex should:
+For the next Wide Documents implementation run, Codex should:
 
 - first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
-- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`;
+- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md`, the current Wide Documents design/plan, and the Wave 4A/template contract;
 - read the completed UI/UX Round 2 design record only as needed to preserve the new interaction baseline;
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
 - use at most one bounded context packet when useful;
-- inspect the existing Email/SMS workspace, Documents workspace, provider-neutral SMS scaffolding, Gmail delivery implementation, delivery history/intents, permissions, Settings/product-truth surfaces, and current provider capability handling before designing changes;
-- keep Company SIM Gateway primary and PhilSMS optional fallback unless the user explicitly changes provider direction;
-- preserve human review/confirmation and company-bound append-only delivery history;
-- keep SMS unavailable/unverified until controlled provider-backed runtime QA succeeds;
-- keep current AI-template misconfiguration separate from Storage and SMS provider truth;
-- run focused -> affected -> relevant build/browser/provider validation;
+- inspect the existing Documents shell, template registry/engine, Storage authority, source-backed register, project/engineering document contracts, report/XLSX generators, and permission surfaces before designing changes;
+- preserve the actual supplied HSC DOCX files as layout/content fixtures and keep official Word output template-first;
+- preserve source-backed ownership and do not add a generic document truth merely to populate the Library;
+- run focused -> affected -> relevant build/browser/template-fidelity validation;
 - use Docker/Supabase only if the change genuinely crosses DB/security/integrity contracts;
 - review the complete final diff;
 - synchronize roadmap/handoff/client-facing feature truth to actual final capability;
@@ -306,4 +323,4 @@ For the next Wave 4D implementation run, Codex should:
 
 Do not let resumed Wave 4D expand into Worker Registration, Site Attendance, Face Recognition, broad CRM, new accounting policy, or unrelated DB redesign.
 
-Complete and certify the approved messaging-provider work first. Worker Registration remains paused until Wave 4D is genuinely complete and the user explicitly resumes it.
+Complete the Wide Documents Phase and then certify the approved messaging-provider work. Worker Registration remains paused until Wave 4D is genuinely complete and the user explicitly resumes it.
