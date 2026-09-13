@@ -107,6 +107,7 @@ export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, read
     PERMISSION_KEYS.cashSummaryRead,
     PERMISSION_KEYS.cashImport,
     PERMISSION_KEYS.documentSend,
+    PERMISSION_KEYS.settingsRead,
   ],
 });
 
