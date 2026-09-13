@@ -22,7 +22,7 @@ The basic workflow uses no paid document-processing vendor or proprietary module
 
 ## Upload and preparation boundary
 
-Uploaded files are accepted only as standard `.docx` packages after size, archive-entry, compression-ratio, path, CRC, OOXML-structure and macro checks. Original bytes are preserved in company-prefixed private Storage. Arbitrary existing layouts are not destructively rewritten. If a file has no supported merge tags, the UI reports that manual Word binding is required and keeps starter/manual setup available.
+Uploaded files are accepted only as standard `.docx` packages after size, archive-entry, compression-ratio, path, CRC, OOXML-structure and macro checks. Original bytes are preserved in company-prefixed private Storage. Arbitrary existing layouts are not destructively rewritten. If a file has no supported merge tags, the UI analyzes application-derived anchors and offers a reviewed in-app preparation step. Manual Word editing remains an advanced fallback for unsupported or ambiguous structures.
 
 AI analysis receives bounded normalized structure/text marked as untrusted document data and returns schema-validated proposals. Proposals never activate a mapping. AI-generated templates use a schema-validated `TemplateBlueprint` and a deterministic DOCX builder; the model never writes binary DOCX bytes or financial values.
 
@@ -33,3 +33,13 @@ Template roots and versions are company-bound. Versions start as `DRAFT`, can be
 Issued DOCX generation stores immutable evidence tying the issued snapshot, template version/hash and generated artifact/hash together. Wave 4B extended this contract to optional server-side high-fidelity PDF finalization; Wave 4C extends the same evidence into outbound delivery and history.
 
 See `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4B.md` for the completed PDF architecture and runtime requirement.
+
+## 2026-09-13 corrective extension — AI capability and uploaded-template preparation
+
+The urgent corrective phase before Wave 4D is specified in `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md`.
+
+Analyze and Generate now use a server-derived company AI runtime capability rather than treating persisted `lastTestStatus` as the action authority. The runtime capability does not expose credentials or claim provider certification; actual provider failures remain actionable and separate from Storage/PDF capability.
+
+For supported uploaded layouts, the application derives deterministic paragraph/cell/header/footer anchors and line-table candidates. AI returns only allowlisted semantic mappings to those anchors. After human review, the server-owned transformer inserts supported scalar and repeating-row tags while preserving unrelated package content and creates a new immutable `DUPLICATED` descendant linked through `parentVersionId`. The original upload remains unchanged and activation remains deliberate.
+
+This extension is not a hosted/provider AI certification and does not complete Wave 4D. It must retain the existing authoritative snapshot, company isolation, DOCX security, AI budget, and immutable issuance/provenance boundaries.

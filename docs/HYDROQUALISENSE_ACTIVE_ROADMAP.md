@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — UI/UX ROUND 2 COMPLETE / WAVE 4D MESSAGING-PROVIDER INTEGRATION & COMPLETION NEXT / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / HOSTED EXACT-SHA QA PASS EXISTS FOR LAST HOSTED-CERTIFIED APPLICATION SHA / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — UI/UX ROUND 2 COMPLETE / DOCUMENT TEMPLATE AI AUTO-TAGGING + AI CAPABILITY CORRECTION ACTIVE BEFORE WAVE 4D / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / HOSTED EXACT-SHA QA PASS EXISTS FOR LAST HOSTED-CERTIFIED APPLICATION SHA / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-13**
 
@@ -9,7 +9,9 @@ Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`
 Completed UI/UX Round 2 design/acceptance record: `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`  
 Local-QA/UI/PDF staged plan: `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md`  
 Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md`  
-**Next-phase Wave 4D contract:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`  
+**Active corrective design:** `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md`
+
+**Next-phase Wave 4D contract after correction:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
@@ -74,7 +76,26 @@ AI template generation remains **NOT CERTIFIED** separately: `/api/deployment/co
 
 The functional Local-QA sweep recorded **8 PASS, 0 FAIL, 1 BLOCKED**, with the one blocked case being only the separate AI configuration prerequisite. No uncontrolled email/SMS send and no production mutation occurred.
 
-UI/UX Round 2 is therefore complete. **Wave 4D messaging-provider integration/completion is the exact next product phase.** Worker Registration remains paused.
+UI/UX Round 2 is therefore complete. The exact next implementation is now the active Document Template AI Auto-Tagging + AI Capability Correction. Wave 4D messaging-provider integration/completion resumes only after this correction is safely merged/certified. Worker Registration remains paused.
+
+## 2026-09-13 Document Template AI corrective phase
+
+This urgent corrective phase executes before the remaining Wave 4D provider/readiness work because authenticated QA demonstrated that Analyze with AI could use the company runtime while Settings still disabled Generate from stale `lastTestStatus` metadata, and because tagless uploaded DOCX files could not be prepared inside the application.
+
+The implementation contract is recorded in:
+
+`docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md`
+
+The corrective scope is:
+
+- server-owned runtime capability shared by Analyze and Generate; persisted provider-test metadata remains informational;
+- deterministic application-owned DOCX anchor discovery and allowlisted semantic mapping plans;
+- human-reviewed in-app preparation of supported scalar fields and repeating line rows;
+- immutable descendant draft creation through the existing version/parent model;
+- fail-closed ambiguity, OOXML security, company isolation, AI budgeting, and financial snapshot boundaries;
+- truthful Generate errors that remain distinct from Storage, PDF fallback, and converter capability.
+
+Current implementation validation is local focused tests and TypeScript lint. No hosted/provider AI certification, production mutation, or claim of certified AI generation is recorded here. Authenticated Local-QA template acceptance remains required after the branch is deployed to a proven non-production target.
 
 ## Explicit 2026-09-12 reprioritization — UI/UX Round 2
 

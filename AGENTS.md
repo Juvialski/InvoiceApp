@@ -39,7 +39,7 @@ Prompt creators should put the pull-first instruction at the top of every normal
 
 ## Current product sequence — explicit 2026-09-12 reprioritization
 
-The broad `Email/SMS + Documents` phase remains incomplete. The explicitly inserted second app-wide UI/UX simplification round is now complete, so the remaining Wave 4D provider/readiness work resumes as the next product phase.
+The broad `Email/SMS + Documents` phase remains incomplete. The explicitly inserted second app-wide UI/UX simplification round is complete, but an urgent corrective phase for Document Template AI Auto-Tagging and AI capability truth now executes before the remaining Wave 4D provider/readiness work.
 
 Current sequence:
 
@@ -52,17 +52,18 @@ Current sequence:
 7. Wave 4C — issued-document Gmail delivery/history foundation — complete.
 8. Wave 4D — Email/SMS Workspace + Documents Workspace — partially implemented but **not complete**.
 9. **UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture — COMPLETE in PR #161.** Its workflow-first information architecture and usability rules remain the application UI baseline.
-10. **Wave 4D messaging-provider integration/completion — NEXT / ACTIVE** after UI/UX Round 2 finalization, unless the user explicitly reprioritizes again.
-11. Worker Registration — **PAUSED by explicit user instruction** until Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
-12. Site Attendance follows Worker Registration.
-13. Face-Recognition Attendance follows only after explicit privacy/security design.
-14. Final pre-production certification follows the major product domains.
+10. **Document Template AI Auto-Tagging + AI Capability Correction — IMMEDIATE / ACTIVE.** Resolve the stale runtime-capability gate and complete deterministic, human-reviewed preparation of supported uploaded DOCX templates before resuming Wave 4D.
+11. **Wave 4D messaging-provider integration/completion — NEXT after the corrective phase is safely merged/certified.**
+12. Worker Registration — **PAUSED by explicit user instruction** until Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
+13. Site Attendance follows Worker Registration.
+14. Face-Recognition Attendance follows only after explicit privacy/security design.
+15. Final pre-production certification follows the major product domains.
 
 The completed UI/UX Round 2 design and acceptance record is:
 
 `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`
 
-Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the next implementation phase, also read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` because Wave 4D provider integration/completion is now the active unfinished product work.
+Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the active corrective phase, read `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` and the Wave 4A template contract. Read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` when preparing the next Wave 4D provider phase.
 
 The 2026-09-12 reprioritization did **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved during the resumed Wave 4D work.
 
@@ -83,7 +84,7 @@ Do **not** suggest, prepare, or start Worker Registration as the next product ph
 
 Wave 4A-4C are supporting foundations for the broader Email/SMS + Documents product phase. They must not be represented as satisfying this completion gate by themselves.
 
-UI/UX Round 2 is complete. Resume the remaining Wave 4D provider/readiness work while preserving the completed workflow-first UI baseline and all existing provider boundaries.
+UI/UX Round 2 is complete. Complete the active Document Template AI corrective phase before resuming Wave 4D provider/readiness work, while preserving the completed workflow-first UI baseline and all existing provider boundaries.
 
 QA certification/recovery/provider/deployment work remains a **parallel release/readiness track**. Do not represent unfinished QA certification as complete merely because product development continues, and do not infer production authorization from QA or merge success.
 
