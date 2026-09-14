@@ -18,6 +18,13 @@ test("dynamic template migration creates a company-bound type definition contrac
   assert.match(migration, /document_templates_type_definition_fk/i);
 });
 
+test("dynamic template type creation preserves bounded descriptive metadata", () => {
+  const createBlock = migration.match(/create or replace function public\.create_document_template_type[\s\S]*?\$\$;/i)?.[0] || "";
+  assert.match(createBlock, /v_description text := nullif\(left\(btrim\(coalesce\(p_payload->>'description', ''\)\), 500\), ''\)/i);
+  assert.match(createBlock, /v_category text := nullif\(left\(btrim\(coalesce\(p_payload->>'category', ''\)\), 100\), ''\)/i);
+  assert.match(createBlock, /v_output_prefix text := nullif\(left\(btrim\(coalesce\(p_payload->>'outputFilenamePrefix', p_payload->>'output_filename_prefix', ''\)\), 80\), ''\)/i);
+});
+
 test("dynamic template migration preserves server-only mutation and safe read boundaries", () => {
   assert.match(migration, /create or replace function public\.server_create_document_template_type/i);
   assert.match(migration, /create or replace function public\.server_update_document_template_type/i);
