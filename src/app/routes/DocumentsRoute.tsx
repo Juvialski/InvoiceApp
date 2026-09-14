@@ -143,7 +143,7 @@ export function DocumentsRoute({
         {DOCUMENT_VIEWS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={view === item.id} aria-current={view === item.id ? "page" : undefined} onClick={() => navigateView(item.id)} className={`min-w-[8rem] flex-1 rounded-lg px-3 py-2 text-left transition sm:flex-none ${view === item.id ? "bg-indigo-50 text-indigo-800" : "text-slate-600 hover:bg-slate-50"}`} data-document-center-view={item.id}><span className="block text-xs font-black">{item.label}</span><span className="mt-0.5 block text-[10px] text-current/70">{item.description}</span></button>)}
       </nav>
 
-      {view === "create" && <DocumentCreateView onNavigatePath={onNavigatePath} />}
+      {view === "create" && <DocumentCreateView onNavigatePath={onNavigatePath} projects={projects} purchaseOrders={purchaseOrders} />}
 
       {view === "templates" && <div data-document-templates-view="true">{canReadTemplates ? <CompanyDocumentTemplatesSettings demoMode={demoMode || Boolean(companyAccess?.guestMode)} /> : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center" role="status"><LockKeyhole className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-2 text-sm font-black text-slate-800">Template administration is restricted</p><p className="mt-1 text-xs leading-5 text-slate-500">Ask a company settings administrator to review or manage approved Word templates.</p></div>}</div>}
 
