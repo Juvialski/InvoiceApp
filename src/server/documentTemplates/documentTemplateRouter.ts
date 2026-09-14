@@ -256,11 +256,13 @@ function mapVersion(row: Record<string, any>): DocumentTemplateVersionApi {
       confirmed: binding.confirmed !== false,
     } as DocumentTemplateBinding];
   });
+  const rawDocumentType = String(row.document_type || row.documentType || "");
+  const documentType = isSystemDocumentType(rawDocumentType.toUpperCase()) ? rawDocumentType.toUpperCase() : rawDocumentType;
   return {
     id: String(row.id || ""),
     templateId: String(row.template_id || row.templateId || ""),
     companyId: String(row.company_id || row.companyId || ""),
-    documentType: String(row.document_type || row.documentType || "").toUpperCase() as DocumentTemplateType,
+    documentType: documentType as DocumentTemplateType,
     displayName: String(row.display_name || row.displayName || "Document template"),
     origin: String(row.origin || "UPLOADED").toUpperCase() as DocumentTemplateOrigin,
     versionNumber: Number(row.version_number || row.versionNumber || 0),
@@ -286,10 +288,12 @@ function mapVersion(row: Record<string, any>): DocumentTemplateVersionApi {
 }
 
 function mapRoot(row: Record<string, any>, versions: readonly DocumentTemplateVersionApi[]): DocumentTemplateRootApi {
+  const rawDocumentType = String(row.document_type || row.documentType || "");
+  const documentType = isSystemDocumentType(rawDocumentType.toUpperCase()) ? rawDocumentType.toUpperCase() : rawDocumentType;
   return {
     id: String(row.id || ""),
     companyId: String(row.company_id || row.companyId || ""),
-    documentType: String(row.document_type || row.documentType || "").toUpperCase() as DocumentTemplateType,
+    documentType: documentType as DocumentTemplateType,
     displayName: String(row.display_name || row.displayName || "Document template"),
     variantKey: String(row.variant_key || row.variantKey || "STANDARD"),
     isDefault: row.is_default === true || row.isDefault === true,
@@ -323,7 +327,8 @@ function mapTypeDefinition(row: Record<string, any>): DocumentTemplateTypeDefini
 }
 
 function requestedDocumentType(value: unknown): DocumentTemplateType {
-  const documentType = String(value || "").trim().toUpperCase();
+  const raw = String(value || "").trim();
+  const documentType = isSystemDocumentType(raw.toUpperCase()) ? raw.toUpperCase() : raw;
   if (!isDocumentTemplateType(documentType)) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", "A supported document-template type is required.");
   return documentType;
 }
