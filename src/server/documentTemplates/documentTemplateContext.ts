@@ -1,13 +1,14 @@
-import { buildPurchaseOrderDocumentSnapshot, type FinancialDocumentSnapshot } from "../../lib/documentGeneration.ts";
+import { buildClientInvoiceDocumentSnapshot, buildPurchaseOrderDocumentSnapshot, type FinancialDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import { companyDocumentProfileFromRow } from "../../lib/companyDocumentProfile.ts";
 import { purchaseOrderFromRow } from "../../lib/purchaseOrders.ts";
-import type { DocumentTemplateTypeDefinition, DocumentTemplateCustomFieldDefinition } from "../../lib/documentTemplateTypes.ts";
+import type { DocumentTemplateTypeDefinition, DocumentTemplateCustomFieldDefinition, DocumentTemplateSourceContext } from "../../lib/documentTemplateTypes.ts";
 import {
   getDocumentTemplateFields,
   resolveDocumentTemplateFieldValue,
   type DocumentTemplateBinding,
   type DocumentTemplateType,
 } from "../../lib/documentTemplateRegistry.ts";
+import { StorageApiError, type StoragePermissionKey } from "../storage/storageRouter.ts";
 
 export interface DocumentTemplateRenderContext {
   readonly typeKey: string;
@@ -121,6 +122,11 @@ function stringValue(value: unknown): string {
   return value === undefined || value === null ? "" : String(value);
 }
 
+function optionalText(value: unknown): string | undefined {
+  const result = stringValue(value).trim();
+  return result || undefined;
+}
+
 function projectValues(row: Record<string, unknown> | undefined): Record<string, string> {
   return {
     "project.projectCode": stringValue(row?.project_code),
@@ -135,6 +141,81 @@ function projectValues(row: Record<string, unknown> | undefined): Record<string,
   };
 }
 
+function permissionForTrustedSourceContext(sourceContext: DocumentTemplateSourceContext): StoragePermissionKey {
+  if (sourceContext === "PURCHASE_ORDER") return "procurement.read";
+  if (sourceContext === "CLIENT_INVOICE" || sourceContext === "PROJECT") return "projects.read";
+  return "company.settings.read";
+}
+
+async function requireTrustedSourcePermission(auth: ManagedAuth, sourceContext: DocumentTemplateSourceContext) {
+  const permission = permissionForTrustedSourceContext(sourceContext);
+  const { data, error } = await auth.supabase.rpc("has_company_permission", {
+    p_company_id: auth.companyId,
+    p_permission_key: permission,
+  });
+  if (error) throw new StorageApiError(503, "SERVER_AUTH_UNAVAILABLE", "Company document authorization is temporarily unavailable.");
+  if (data !== true) throw new StorageApiError(403, "FORBIDDEN", "You do not have permission to use the selected document source.");
+}
+
+function processorFromAuth(auth: ManagedAuth) {
+  return {
+    name: optionalText(auth.user.user_metadata?.full_name || auth.user.email),
+    title: optionalText(auth.user.user_metadata?.job_title),
+  };
+}
+
+function clientBillingFromRows(row: Record<string, unknown>, lineRows: readonly Record<string, unknown>[]) {
+  return {
+    id: stringValue(row.id),
+    companyId: optionalText(row.company_id),
+    projectId: stringValue(row.project_id),
+    billingNumber: stringValue(row.billing_number),
+    billingDate: stringValue(row.billing_date),
+    dueDate: optionalText(row.due_date),
+    paymentTerms: optionalText(row.payment_terms),
+    periodStart: optionalText(row.period_start),
+    periodEnd: optionalText(row.period_end),
+    clientNameSnapshot: optionalText(row.client_name_snapshot),
+    clientReferenceSnapshot: optionalText(row.client_reference_snapshot),
+    billingContactName: optionalText(row.billing_contact_name),
+    billingEmail: optionalText(row.billing_email),
+    billingAddress: optionalText(row.billing_address),
+    currency: stringValue(row.currency || "PHP").toUpperCase(),
+    taxTreatment: row.tax_treatment as any,
+    status: stringValue(row.status || "DRAFT") as any,
+    notes: optionalText(row.notes),
+    lines: lineRows.map((line, index) => ({
+      id: stringValue(line.id),
+      billingId: stringValue(line.billing_id || row.id),
+      lineNumber: Math.max(1, Math.trunc(Number(line.line_number) || index + 1)),
+      description: stringValue(line.description),
+      amount: Number.isFinite(Number(line.amount)) ? Number(line.amount) : 0,
+      notes: optionalText(line.notes),
+      createdAt: optionalText(line.created_at),
+      updatedAt: optionalText(line.updated_at),
+    })),
+    createdAt: stringValue(row.created_at || new Date().toISOString()),
+    updatedAt: stringValue(row.updated_at || new Date().toISOString()),
+  } as any;
+}
+
+function projectForFinancialSnapshot(row: Record<string, unknown> | undefined) {
+  if (!row) return undefined;
+  return {
+    id: stringValue(row.id),
+    projectCode: stringValue(row.project_code),
+    projectName: stringValue(row.project_name),
+    clientName: optionalText(row.client_name),
+    clientReference: optionalText(row.client_reference),
+    billingContactName: optionalText(row.billing_contact_name),
+    billingEmail: optionalText(row.billing_email),
+    billingAddress: optionalText(row.billing_address),
+    siteAddress: optionalText(row.site_address),
+    location: optionalText(row.location),
+    taxTreatment: row.tax_treatment as any,
+  } as any;
+}
+
 export async function buildManagedTemplateRenderContext(
   auth: ManagedAuth,
   options: ManagedOptions,
@@ -142,8 +223,10 @@ export async function buildManagedTemplateRenderContext(
   sourceId: unknown,
   input: ManagedDocumentInputs,
 ): Promise<DocumentTemplateRenderContext> {
+  await requireTrustedSourcePermission(auth, definition.sourceContext);
   const client = sourceClient(auth, options);
   const profileResult = await client.from("company_document_profiles").select("*").eq("company_id", auth.companyId).maybeSingle();
+  if (profileResult?.error) throw new StorageApiError(503, "DATABASE_ERROR", "The company document profile could not be loaded safely.");
   const profile = companyDocumentProfileFromRow(profileResult?.data || null);
   const scalarValues: Record<string, string> = {
     "company.legalName": profile.legalName,
@@ -154,41 +237,60 @@ export async function buildManagedTemplateRenderContext(
     "currentUser.name": stringValue(auth.user.user_metadata?.full_name || auth.user.email),
     "currentUser.title": stringValue(auth.user.user_metadata?.job_title),
   };
+  const collections: Record<string, readonly Readonly<Record<string, string>>[]> = {};
+  let projectAssetSourceId = "";
 
   if (definition.sourceContext === "PURCHASE_ORDER") {
     const source = String(sourceId || "").trim();
-    if (!source) throw new Error("A Purchase Order source is required for this document type.");
+    if (!source) throw new StorageApiError(400, "DOCUMENT_SOURCE_REQUIRED", "A Purchase Order source is required for this document type.");
     const poResult = await client.from("purchase_orders").select("*, purchase_order_lines(*)").eq("company_id", auth.companyId).eq("id", source).maybeSingle();
-    if (poResult?.error || !poResult?.data) throw new Error("The selected Purchase Order is not available in this company workspace.");
+    if (poResult?.error || !poResult?.data) throw new StorageApiError(404, "DOCUMENT_SOURCE_NOT_FOUND", "The selected Purchase Order is not available in this company workspace.");
     const po = purchaseOrderFromRow(poResult.data as Record<string, unknown>, Array.isArray(poResult.data.purchase_order_lines) ? poResult.data.purchase_order_lines as Record<string, unknown>[] : []);
     const [vendorResult, projectResult] = await Promise.all([
       client.from("vendors").select("*").eq("company_id", auth.companyId).eq("id", po.vendorId).maybeSingle(),
       client.from("projects").select("*").eq("company_id", auth.companyId).eq("id", po.projectId).maybeSingle(),
     ]);
-    const snapshot = buildPurchaseOrderDocumentSnapshot(po, vendorResult?.data as any, projectResult?.data as any, profile);
-    return buildFinancialTemplateRenderContext(snapshot);
-  }
-
-  if (definition.sourceContext === "PROJECT") {
+    if (vendorResult?.error || projectResult?.error) throw new StorageApiError(503, "DATABASE_ERROR", "Purchase Order document context could not be loaded safely.");
+    const snapshot = buildPurchaseOrderDocumentSnapshot(po, vendorResult?.data as any, projectForFinancialSnapshot(projectResult?.data as Record<string, unknown> | undefined), profile, processorFromAuth(auth));
+    const financial = buildFinancialTemplateRenderContext(snapshot);
+    Object.assign(scalarValues, financial.scalarValues);
+    Object.assign(collections, financial.collections);
+  } else if (definition.sourceContext === "CLIENT_INVOICE") {
+    const source = String(sourceId || "").trim();
+    if (!source) throw new StorageApiError(400, "DOCUMENT_SOURCE_REQUIRED", "A Client Invoice source is required for this document type.");
+    const billingResult = await client.from("client_billings").select("*").eq("company_id", auth.companyId).eq("id", source).maybeSingle();
+    if (billingResult?.error || !billingResult?.data) throw new StorageApiError(404, "DOCUMENT_SOURCE_NOT_FOUND", "The selected Client Invoice is not available in this company workspace.");
+    const lineResult = await client.from("client_billing_lines").select("*").eq("company_id", auth.companyId).eq("billing_id", source).order("line_number", { ascending: true });
+    if (lineResult?.error) throw new StorageApiError(503, "DATABASE_ERROR", "Client Invoice line context could not be loaded safely.");
+    const projectResult = await client.from("projects").select("*").eq("company_id", auth.companyId).eq("id", billingResult.data.project_id).maybeSingle();
+    if (projectResult?.error) throw new StorageApiError(503, "DATABASE_ERROR", "Client Invoice project context could not be loaded safely.");
+    const billing = clientBillingFromRows(billingResult.data as Record<string, unknown>, (lineResult?.data || []) as Record<string, unknown>[]);
+    const snapshot = buildClientInvoiceDocumentSnapshot(billing, projectForFinancialSnapshot(projectResult?.data as Record<string, unknown> | undefined), profile, processorFromAuth(auth));
+    const financial = buildFinancialTemplateRenderContext(snapshot);
+    Object.assign(scalarValues, financial.scalarValues);
+    Object.assign(collections, financial.collections);
+  } else if (definition.sourceContext === "PROJECT") {
     const projectId = String(sourceId || "").trim();
-    if (!projectId) throw new Error("A project source is required for this document type.");
+    if (!projectId) throw new StorageApiError(400, "DOCUMENT_SOURCE_REQUIRED", "A project source is required for this document type.");
     const projectResult = await client.from("projects").select("*").eq("company_id", auth.companyId).eq("id", projectId).maybeSingle();
-    if (projectResult?.error || !projectResult?.data) throw new Error("The selected project is not available in this company workspace.");
+    if (projectResult?.error || !projectResult?.data) throw new StorageApiError(404, "DOCUMENT_SOURCE_NOT_FOUND", "The selected project is not available in this company workspace.");
     Object.assign(scalarValues, projectValues(projectResult.data as Record<string, unknown>));
+    projectAssetSourceId = projectId;
   }
 
   for (const [key, value] of Object.entries(input.fields)) scalarValues[key] = stringValue(value);
-  const collections: Record<string, readonly Readonly<Record<string, string>>[]> = {};
   for (const section of definition.repeatSections) {
+    if (collections[section.key]) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", `The repeating section ${section.label} conflicts with an authoritative source collection.`);
     const rows: Array<Record<string, string>> = [];
     if (section.source === "INPUT") {
       for (const row of input.repeats[section.key] || []) rows.push(Object.fromEntries(Object.entries(row).map(([key, value]) => [section.key + "." + key, stringValue(value)])));
     } else {
-      const projectId = String(sourceId || "").trim();
+      if (definition.sourceContext !== "PROJECT" || !projectAssetSourceId) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", "Project-asset sections require an authorized Project source context.");
       const [materials, equipment] = await Promise.all([
-        client.from("engineering_project_materials").select("id,material_name,unit,required_quantity,notes").eq("company_id", auth.companyId).eq("project_id", projectId).order("updated_at", { ascending: true }),
-        client.from("engineering_project_equipment").select("id,equipment_name,equipment_type,equipment_source,provider_name,notes").eq("company_id", auth.companyId).eq("project_id", projectId).order("updated_at", { ascending: true }),
+        client.from("engineering_project_materials").select("id,material_name,unit,required_quantity,notes").eq("company_id", auth.companyId).eq("project_id", projectAssetSourceId).order("updated_at", { ascending: true }),
+        client.from("engineering_project_equipment").select("id,equipment_name,equipment_type,equipment_source,provider_name,notes").eq("company_id", auth.companyId).eq("project_id", projectAssetSourceId).order("updated_at", { ascending: true }),
       ]);
+      if (materials?.error || equipment?.error) throw new StorageApiError(503, "DATABASE_ERROR", "Project asset document context could not be loaded safely.");
       const assets = [
         ...(materials?.data || []).map((row: Record<string, unknown>) => ({ sourceId: stringValue(row.id), item: stringValue(row.material_name), notes: stringValue(row.notes), sourceType: "Material", quantity: stringValue(row.required_quantity), unit: stringValue(row.unit) })),
         ...(equipment?.data || []).map((row: Record<string, unknown>) => ({ sourceId: stringValue(row.id), item: stringValue(row.equipment_name), notes: stringValue(row.notes), sourceType: stringValue(row.equipment_source), quantity: "", unit: stringValue(row.equipment_type || row.provider_name) })),
