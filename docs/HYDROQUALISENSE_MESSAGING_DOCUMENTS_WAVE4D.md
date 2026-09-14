@@ -1,7 +1,7 @@
 # HydroQualiSense Wave 4D — Email/SMS Workspace + Documents Workspace
 
-Status: **ACTIVE — SMS PROVIDER IMPLEMENTATION IN PROGRESS / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / BLOCKING BEFORE WORKER REGISTRATION**
-Date: **2026-09-12**
+Status: **ACTIVE — EMAIL/SMS RELIABILITY + PUBLIC OAUTH SURFACES IMPLEMENTED IN BRANCH / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / BLOCKING BEFORE WORKER REGISTRATION**
+Date: **2026-09-14**
 Repository: `Juvialski/InvoiceApp`  
 Starting product baseline: merged `main` at `3fd73039afd018b1bb630bfee2a68a38c6d37fcc` (PR #136)
 
@@ -47,6 +47,39 @@ Wave 4C did **not** implement a unified communications workspace or a real SMS p
 The supplier-payables settlement correction is merged on current `main` at `e4ee4ebde489629ee74429b4e37abb511943a51e`. The exact-SHA hosted QA recovery passed after a same-SHA authentication retry, and the canonical QA migration `20260912082656_supplier_payables_settlement_consistency` is promoted with independent parity verification. Authenticated QA supplier-payables certification passed 12/12 assertions, including linked `DRAFT` Expense authority, cash-only payment truth, partial/full/reversed settlement, legacy invoice-match projection, generic-DRAFT and cross-company denials, and permission grants.
 
 This evidence does not complete Wave 4D. SMS remains `Not configured`/unavailable because no approved provider credentials or device runtime are available for QA, Gmail currently needs reauthorization, and Worker Registration remains paused. The production migration was separately promoted under explicit authorization; this checkpoint performed no production write.
+
+## 2026-09-14 Email/SMS reliability and public OAuth additions
+
+The current implementation adds the following focused reliability and usability
+work while keeping the broader Wave 4D completion gate open:
+
+- Inbox / Intake now puts page identity, Gmail status, Sync, Scan, Intake Rules,
+  filters, and the review queue ahead of a closed `How intake works` disclosure.
+  Forwarded supplier-invoice intake remains available and SMS setup language stays
+  in the SMS section.
+- Compose and Sent / Delivery History use compact task-first descriptions while
+  retaining explicit human review, delivery history, idempotency, reconciliation,
+  and owning-document actions.
+- Gmail OAuth callback material is captured once, removed from the React session
+  object, and sent only to an authenticated server endpoint. The server stores a
+  company/user-scoped AES-GCM envelope using a dedicated server-only key, refreshes
+  access tokens server-side, accepts rotated refresh tokens, retries one expired
+  access token once, and classifies scope, permission, quota, transient, setup, and
+  revoked-authorization outcomes separately. Provider tokens are not stored in
+  ordinary browser local storage or returned in API responses.
+- The public `/privacy` and `/terms` pages are session-free and linked from the
+  public homepage and sign-in screen. The public homepage remains deliberately
+  deployment-gated; the repository does not claim that the canonical domain is
+  currently configured or that Google's publishing/verification process is done.
+- SMS remains limited to Company SIM Gateway and PhilSMS. Its normal status view
+  is compact, setup detail is collapsed, and configuration/readiness continues to
+  be reported truthfully until provider-backed QA evidence exists.
+
+The durable Gmail migration is additive and requires the server-only
+`SUPABASE_GMAIL_SERVER_KEY`, `GMAIL_CREDENTIALS_MASTER_KEY`, and matching Google
+OAuth client values described in `SUPABASE_GMAIL_SETUP.md`. Missing external
+configuration remains an operator blocker; it is not represented as a healthy
+Gmail or SMS capability.
 
 ## Target top-level navigation
 
@@ -185,7 +218,7 @@ At minimum:
 - outbound email/SMS requires dedicated send authority consistent with existing `documents.send` semantics or an explicitly designed messaging permission that does not broaden authority accidentally;
 - Documents visibility is the union of records/artifacts the user is already authorized to read, never a bypass around domain permissions;
 - cross-company leakage is forbidden;
-- credentials/tokens remain server-side or in the existing OAuth provider-token path as designed;
+- Google and SMS provider credentials remain server-side; Gmail callback refresh material is persisted only through the encrypted server credential path;
 - no AI prompt or assistant tool may reveal inaccessible contacts/documents/history;
 - immutable issued/finalized document history remains intact.
 

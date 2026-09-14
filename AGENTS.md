@@ -37,9 +37,9 @@ For a new Codex implementation task:
 
 Prompt creators should put the pull-first instruction at the top of every normal Codex implementation prompt. Avoid wording that tells Codex to spend time independently establishing the latest green remote baseline before pulling; **pull latest `main`, record the SHA once, then work**.
 
-## Current product sequence — explicit 2026-09-12 reprioritization
+## Current product sequence — explicit 2026-09-14 reprioritization
 
-The broad `Email/SMS + Documents` phase remains incomplete. The explicitly inserted second app-wide UI/UX simplification round and the Document Template AI corrective phase are complete on the current merged baseline. The user has now explicitly reprioritized the remaining work into the Wide Documents Phase, beginning with the unified Document Center.
+The broad `Email/SMS + Documents` phase remains incomplete. The explicitly inserted second app-wide UI/UX simplification round and the Document Template AI corrective phase are complete on the current merged baseline. The user has now explicitly reprioritized the current implementation run to Email/SMS Reliability & UX Completion; the remaining Wide Documents managed slices are deferred.
 
 Current sequence:
 
@@ -52,18 +52,19 @@ Current sequence:
 7. Wave 4C — issued-document Gmail delivery/history foundation — complete.
 8. Wave 4D — Email/SMS Workspace + Documents Workspace — partially implemented but **not complete**.
 9. **UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture — COMPLETE in PR #161.** Its workflow-first information architecture and usability rules remain the application UI baseline.
-10. **Wide Documents Phase — ACTIVE by explicit user reprioritization.** Build the unified Document Center in focused slices: Library/Create/Templates first, then template-first managed document generation using the supplied HSC DOCX templates, then managed uploads and retained artifacts.
-11. **Wave 4D messaging-provider integration/completion — NEXT after the Wide Documents Phase is genuinely complete.**
-12. Worker Registration — **PAUSED by explicit user instruction** until Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
-13. Site Attendance follows Worker Registration.
-14. Face-Recognition Attendance follows only after explicit privacy/security design.
-15. Final pre-production certification follows the major product domains.
+10. **Wide Documents Phase — DEFERRED by explicit 2026-09-14 user reprioritization.** Its remaining managed-upload/artifact slices remain incomplete and must be resumed deliberately.
+11. **Email/SMS Reliability & UX Completion — ACTIVE by explicit user approval.** Complete communications declutter, durable Gmail authorization recovery, public OAuth identity/policy surfaces, and approved SMS configuration/runtime work without marking unavailable providers ready.
+12. **Remaining Wave 4D provider/readiness completion — follows the active reliability slice while any approved provider-backed criteria remain incomplete.**
+13. Worker Registration — **PAUSED by explicit user instruction** until broader Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
+14. Site Attendance follows Worker Registration.
+15. Face-Recognition Attendance follows only after explicit privacy/security design.
+16. Final pre-production certification follows the major product domains.
 
 The completed UI/UX Round 2 design and acceptance record is:
 
 `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`
 
-Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the active Wide Documents Phase, read `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md`, `docs/superpowers/specs/2026-09-14-unified-document-center-design.md`, the Wave 4A template contract, and the 2026-09-13 document-template AI correction design as a completed foundation. Read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` only when preparing the later Wave 4D provider phase.
+Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the active Email/SMS phase, read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `SUPABASE_GMAIL_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts. Read the Wide Documents contract when that deferred phase is deliberately resumed.
 
 The 2026-09-12 reprioritization did **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved during the resumed Wave 4D work.
 
@@ -84,7 +85,7 @@ Do **not** suggest, prepare, or start Worker Registration as the next product ph
 
 Wave 4A-4C are supporting foundations for the broader Email/SMS + Documents product phase. They must not be represented as satisfying this completion gate by themselves.
 
-UI/UX Round 2 and the Document Template AI corrective phase are complete foundations. Complete the active Wide Documents Phase before resuming Wave 4D provider/readiness work, while preserving the workflow-first UI baseline and all existing provider boundaries.
+UI/UX Round 2 and the Document Template AI corrective phase are complete foundations. Complete the active Email/SMS Reliability & UX slice and the broader Wave 4D provider/readiness gate before Worker Registration, while preserving the workflow-first UI baseline and all existing provider boundaries.
 
 QA certification/recovery/provider/deployment work remains a **parallel release/readiness track**. Do not represent unfinished QA certification as complete merely because product development continues, and do not infer production authorization from QA or merge success.
 

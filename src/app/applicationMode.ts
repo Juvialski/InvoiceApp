@@ -57,12 +57,18 @@ export function isPublicFunnelApplicationPath(
   hash?: string | null,
 ): boolean {
   const normalized = normalizePathname(pathname);
+  if (normalized === "/privacy" || normalized === "/terms") return true;
   if (normalized === "/request-demo" || normalized === "/contact") return true;
   if (normalized !== "/") return false;
 
   // Password-recovery links historically use /?auth=reset (or a Supabase
   // recovery hash). Keep those links in the authenticated AuthScreen flow.
   return !isPasswordRecoveryPath(normalized, search, hash);
+}
+
+export function isPublicPolicyApplicationPath(pathname: string | null | undefined): boolean {
+  const normalized = normalizePathname(pathname);
+  return normalized === "/privacy" || normalized === "/terms";
 }
 
 function publicFunnelEnabledFromBuildEnv(): boolean {
@@ -81,5 +87,8 @@ export function applicationModeForPath(
     return "workflow-map";
   }
   if (isDemoApplicationPath(pathname)) return "demo";
+  // Legal/policy pages remain reachable from the sign-in experience even
+  // when the bounded prospect funnel is disabled for an operational client.
+  if (isPublicPolicyApplicationPath(pathname)) return "public";
   return publicFunnelEnabled && isPublicFunnelApplicationPath(pathname, search, hash) ? "public" : "production";
 }

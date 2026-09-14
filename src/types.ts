@@ -572,6 +572,8 @@ export interface GmailImportedMessage extends GmailMessageCandidate {
   attachments: GmailImportedAttachment[];
 }
 
+export type GmailCredentialStatus = "ACTIVE" | "MISSING" | "INVALID" | "REVOKED" | "UNAVAILABLE";
+
 export interface GmailConnectionInfo {
   configured: boolean;
   signedIn: boolean;
@@ -581,6 +583,7 @@ export interface GmailConnectionInfo {
   lastSyncedAt?: string;
   lastHistoryId?: string;
   authError?: string;
+  credentialStatus?: GmailCredentialStatus;
 }
 
 export interface GmailScanWindow {

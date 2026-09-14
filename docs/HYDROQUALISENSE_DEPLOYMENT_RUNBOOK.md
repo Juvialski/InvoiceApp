@@ -16,6 +16,11 @@ The application keeps `company_id`, membership/RBAC, RLS, company-bound integrit
 
 The public product/requirements funnel is **disabled by default** so merging shared product code does not replace an operational client's root application with a marketing surface or turn a client database into a prospect-intake database accidentally.
 
+The public Privacy Policy and Terms of Service pages are presentation-only and
+remain reachable at `/privacy` and `/terms` without a session. They do not read
+company data or use the prospect database gate. The public homepage and
+`/request-demo` / `/contact` requirements flow remain deployment-gated below.
+
 A deployment intended to host the public funnel must be enabled deliberately at both layers:
 
 1. Set the non-secret build variable `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=true` for that platform/QA deployment and rebuild it.
@@ -29,6 +34,12 @@ where singleton = true;
 ```
 
 Do not enable either switch on an operational client production deployment merely because the shared code contains the public funnel. Client production remains an authenticated operational application unless an explicit deployment decision says otherwise. If the browser switch is enabled while the database gate is still disabled, submissions fail closed and no prospect record is inserted.
+
+For the canonical public Hydroqualisense deployment, the operator must confirm
+that the public build serves `https://hydroqualisense.com`, with the Google OAuth
+homepage at `/`, Privacy Policy at `/privacy`, and Terms of Service at `/terms`.
+The repository does not claim that the external Google publishing or verification
+process is complete.
 
 Before exposing the form broadly on the public internet, verify the hosting platform's reverse-proxy/client-IP behavior for the process-local rate limiter or replace it with an appropriate provider-level abuse-control mechanism.
 
@@ -173,11 +184,25 @@ Settings reads safe AI metadata separately from credential administration. A con
 
 The Email / SMS workspace supports read-only Gmail search/sync, source-preserving import into the existing invoice, statement, and expense review workflows, saved sender rules, a forwarded-invoice fallback, and the bounded SMS paths below. It does not represent broadcast automation. Issued-document email delivery remains owned by the issued-document workflow.
 
+### Gmail provider authorization configuration
+
+Gmail callback provider tokens are not a browser persistence mechanism. The
+authenticated callback hands the Google refresh token to the server, which stores
+an encrypted company/user-scoped envelope and refreshes short-lived Gmail access
+tokens server-side. Configure the dedicated server-only `SUPABASE_GMAIL_SERVER_KEY`,
+`GMAIL_CREDENTIALS_MASTER_KEY`, `GMAIL_GOOGLE_CLIENT_ID`, and
+`GMAIL_GOOGLE_CLIENT_SECRET` values described in `SUPABASE_GMAIL_SETUP.md`; keep
+them separate from AI and Storage keys and out of all `VITE_` variables. A 401 is
+refreshed once before reconnect is requested. Missing scopes, invalid/revoked
+authorization, provider policy errors, quota/rate limits, transient failures, and
+deployment setup failures remain distinct safe states, and provider credentials
+are never returned in status, delivery history, logs, or errors.
+
 ### SMS provider configuration
 
 The communications workspace exposes exactly two supported SMS paths:
 
-1. **Company SIM Gateway — recommended.** Use the maintained [Android SMS Gateway private-server guide](https://docs.sms-gate.app/getting-started/private-server/) with the client's company SIM and a private HTTPS gateway server. Configure the application with the private server's `/api/mobile/v1` URL and private token. Configure HydroQualiSense only with the server-side `SMS_PROVIDER=ANDROID_SIM_GATEWAY`, `SMS_GATEWAY_BASE_URL`, `SMS_GATEWAY_USERNAME`, and `SMS_GATEWAY_PASSWORD` values. `SMS_GATEWAY_SIM_NUMBER` and `SMS_GATEWAY_DEVICE_ID` are optional bounded selectors; leave them unset when the device's OS default is the approved route. The HydroQualiSense adapter sends to the private server's `/api/3rdparty/v1/messages` endpoint with Basic Auth and a stable provider message identity derived from the durable send key. The Android app may be minimized or the phone locked while it remains connected, but OEM battery management, internet connectivity, cellular signal, and SIM load/plan remain operational dependencies.
+1. **Company SIM Gateway — recommended.** Use the maintained [Android SMS Gateway private-server guide](https://docs.sms-gate.app/getting-started/private-server/) with the client's company SIM and a private HTTPS gateway server. Configure the application with the private server's `/api/3rdparty/v1` URL and private credentials. Configure HydroQualiSense only with the server-side `SMS_PROVIDER=ANDROID_SIM_GATEWAY`, `SMS_GATEWAY_BASE_URL`, `SMS_GATEWAY_USERNAME`, and `SMS_GATEWAY_PASSWORD` values. `SMS_GATEWAY_SIM_NUMBER` and `SMS_GATEWAY_DEVICE_ID` are optional bounded selectors; leave them unset when the device's OS default is the approved route. The HydroQualiSense adapter sends to the private server's `/api/3rdparty/v1/messages` endpoint with Basic Auth and a stable provider message identity derived from the durable send key. The Android app may be minimized or the phone locked while it remains connected, but OEM battery management, internet connectivity, cellular signal, and SIM load/plan remain operational dependencies.
 2. **PhilSMS — hosted fallback.** Configure `SMS_PROVIDER=PHILSMS`, `PHILSMS_API_TOKEN`, and `PHILSMS_SENDER_ID` in the isolated server secret store. The [current official PhilSMS API documentation](https://app.philsms.com/developers/documentation) describes the `https://app.philsms.com/api/v3` API; the adapter uses Bearer authentication, one canonical Philippine recipient, `plain` or `unicode` text, and the provider's message status endpoint. The Standard offering is described by PhilSMS as having no minimum top-up; account pricing, SMS credits, route availability, and Sender ID approval must be checked against the live provider account and are never inferred by the application.
 
 Never put these values in `VITE_` variables, browser storage, delivery history, deployment inventory, logs, command arguments, or screenshots. `GET /api/messaging/status` reports `NOT_CONFIGURED`, `CONFIGURED_UNVERIFIED`, `READY`, or `DEGRADED` only after the selected provider's server-side configuration and bounded health check are evaluated. `READY` is not a substitute for controlled QA delivery evidence, and the product remains unavailable until QA runtime proof exists. SMS is restricted to one reviewed transactional recipient per send; there is no campaign, bulk, scheduled, attachment, MMS, OTP, or automatic retry path.

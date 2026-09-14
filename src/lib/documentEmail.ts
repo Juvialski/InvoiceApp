@@ -1,6 +1,6 @@
 import { companyApiRequest } from "./companyApi.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
-import { getGoogleProviderToken } from "./supabase.ts";
+import { clearGoogleProviderTokens } from "./supabase.ts";
 import type { FinancialDocumentSnapshot } from "./documentGeneration.ts";
 import type { DocumentDeliveryAttachmentSource } from "./documentDelivery.ts";
 
@@ -54,15 +54,12 @@ function recipients(value: string) {
 }
 
 export async function sendEmailMessageByGmail(input: SendEmailMessageInput): Promise<DocumentSendResult> {
-  const token = getGoogleProviderToken();
-  if (!token) throw new DocumentSendError("Google + Gmail sending is not connected. Reconnect Gmail and grant send permission before sending.", { code: "GMAIL_NOT_CONNECTED", status: 401 });
   let response: Response;
   try {
     response = await companyApiRequest("/api/gmail/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       companyId: requireActiveCompanyId(),
-      googleAccessToken: token,
       body: JSON.stringify({
         documentType: input.snapshot?.documentType || "GENERAL_EMAIL",
         ...(input.snapshot?.documentId ? { documentId: input.snapshot.documentId } : {}),
@@ -81,6 +78,7 @@ export async function sendEmailMessageByGmail(input: SendEmailMessageInput): Pro
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.success) {
     const responseCode = typeof payload.code === "string" ? payload.code : undefined;
+    if (responseCode === "GMAIL_REAUTH_REQUIRED" || responseCode === "GMAIL_DURABLE_CONNECTION_REQUIRED") clearGoogleProviderTokens();
     const reconciliationRequired = responseCode === "DOCUMENT_SEND_RECONCILE_REQUIRED"
       || response.status >= 500
       || (response.ok && payload.success !== true);

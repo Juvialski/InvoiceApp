@@ -9,10 +9,11 @@ function source(path: string) {
 test("Email / SMS describes the supported inbound Gmail and outbound boundaries", () => {
   const emailInbox = source("src/components/EmailInbox.tsx");
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
-  assert.match(emailInbox, /Supported inbox workflows/);
+  assert.doesNotMatch(emailInbox, /Supported inbox workflows/);
+  assert.match(emailInbox, /How intake works/);
   assert.match(emailInbox, /Read-only Gmail intake/);
   assert.match(emailInbox, /Forwarded supplier invoice fallback/);
-  assert.match(emailInbox, /no SMS provider is configured here/i);
+  assert.doesNotMatch(emailInbox, /SMS boundary\./i);
   assert.match(emailInbox, /canManageMailbox &&/);
   assert.match(dashboard, /Email \/ SMS/);
   assert.match(dashboard, /delivery history/i);

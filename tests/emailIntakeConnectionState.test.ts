@@ -18,6 +18,7 @@ test("Email Intake connection state only treats Gmail authorization failures as 
   assert.equal(isGmailAuthorizationError("invalid_grant: token expired"), true);
   assert.equal(isGmailAuthorizationError("Choose a valid custom Gmail date range."), false);
   assert.equal(isGmailAuthorizationError("Connected mailbox request failed."), false);
+  assert.equal(isGmailAuthorizationError("Gmail server authorization is not configured for this deployment."), false);
 
   assert.equal(
     resolveGmailConnectionStatus(healthyConnection, "Choose a valid custom Gmail date range."),
@@ -31,6 +32,7 @@ test("Email Intake connection state only treats Gmail authorization failures as 
     resolveGmailConnectionStatus(healthyConnection, "Gmail authorization expired or was revoked. Reconnect Gmail."),
     "RECONNECT_REQUIRED",
   );
+  assert.equal(resolveGmailConnectionStatus({ ...healthyConnection, hasGmailToken: false, credentialStatus: "UNAVAILABLE" }), "UNAVAILABLE");
 });
 
 test("Gmail reconnect uses OAuth reauthorization once Google identity is already linked", async () => {

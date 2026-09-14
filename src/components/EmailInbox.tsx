@@ -6,6 +6,7 @@ import {
   Building2,
   CheckCircle2,
   CheckSquare,
+  CircleHelp,
   ChevronDown,
   Clock,
   Copy,
@@ -560,27 +561,13 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         description="Bring supplier invoices, bank statements, and expense receipts from email into their existing review workflows. Original messages and attachments remain preserved as source evidence."
       />
 
-      <section aria-label="Email and intake capabilities" className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 text-xs text-indigo-950 shadow-sm sm:p-5">
-        <div className="flex items-start gap-3">
-          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-indigo-700" />
-          <div className="min-w-0">
-            <h2 className="font-black">Supported inbox workflows</h2>
-            <div className="mt-2 grid gap-2 text-[11px] leading-5 text-indigo-900 sm:grid-cols-3">
-              <p><strong>Read-only Gmail intake.</strong> Search and sync finance-related messages after the user authorizes Gmail.</p>
-              <p><strong>Reviewable source records.</strong> Choose which messages or attachments to preserve and route for invoice, statement, or expense review.</p>
-              <p><strong>Forwarded-email fallback.</strong> Paste a supplier invoice email or attach its source file when a connected mailbox is not available.</p>
-              <p><strong>SMS boundary.</strong> No SMS provider is configured here; sending remains unavailable until an approved provider is configured and runtime-tested in QA.</p>
-            </div>
-            <p className="mt-3 border-t border-indigo-200/70 pt-3 text-[10px] leading-4 text-indigo-800"><strong>Inbox access: read-only.</strong> Outbound email is sent from Compose and recorded in Delivery History; SMS is not configured here.</p>
-          </div>
-        </div>
-      </section>
-
       {/* Gmail Connection & Scan Control Header */}
       <section
         className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition ${
           connectionStatus === "RECONNECT_REQUIRED"
             ? "border-amber-300 bg-amber-50/70 text-amber-950"
+            : connectionStatus === "UNAVAILABLE"
+              ? "border-rose-200 bg-rose-50/60 text-rose-950"
             : "border-slate-200 bg-white"
         }`}
       >
@@ -592,18 +579,22 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                   ? "bg-emerald-50 text-emerald-600"
                   : connectionStatus === "RECONNECT_REQUIRED"
                     ? "bg-amber-100 text-amber-700"
+                    : connectionStatus === "UNAVAILABLE"
+                      ? "bg-rose-100 text-rose-700"
                     : "bg-indigo-50 text-indigo-600"
               }`}
             >
-              {connectionStatus === "RECONNECT_REQUIRED" ? <AlertCircle className="w-5 h-5" /> : <Mail className="w-5 h-5" />}
+              {connectionStatus === "RECONNECT_REQUIRED" || connectionStatus === "UNAVAILABLE" ? <AlertCircle className="w-5 h-5" /> : <Mail className="w-5 h-5" />}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-black text-slate-900">
                   {connectionStatus === "HEALTHY"
-                    ? "Connected mailbox"
+                    ? "Gmail connected"
                     : connectionStatus === "RECONNECT_REQUIRED"
                       ? "Gmail connection needs attention"
+                      : connectionStatus === "UNAVAILABLE"
+                        ? "Gmail setup is unavailable"
                       : "Connect Gmail"}
                 </h3>
                 <StatusBadge
@@ -618,39 +609,28 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                   {connectionStatus === "HEALTHY"
                     ? "Inbox access: read-only"
                     : connectionStatus === "RECONNECT_REQUIRED"
-                      ? "Authorization expired or revoked"
+                      ? "Reconnect required"
+                      : connectionStatus === "UNAVAILABLE"
+                        ? "Contact your administrator"
                       : "Setup required"}
                 </StatusBadge>
               </div>
 
               {connectionStatus === "HEALTHY" && (
                 <>
-                  <p className="mt-1 text-xs font-semibold text-slate-700">{connection.email || "Authorized Gmail mailbox"}</p>
-                  {lastSyncedAt && <p className="mt-0.5 text-[10px] text-slate-400">Last mailbox sync: {formatDateTime(lastSyncedAt)}</p>}
-                  {connection.displayName && <p className="mt-0.5 text-[10px] text-slate-400">Connected identity: {connection.displayName}</p>}
+                  <p className="mt-1 break-words text-xs font-semibold text-slate-700">{connection.email || "Authorized Gmail mailbox"}{lastSyncedAt ? ` · Last synced ${formatDateTime(lastSyncedAt)}` : ""}</p>
                 </>
               )}
 
               {connectionStatus === "RECONNECT_REQUIRED" && (
-                <>
-                  <p className="mt-1 text-xs font-medium text-amber-900">
-                    {connection.email ? `Previously connected mailbox: ${connection.email}` : "Previous mailbox authorization is no longer valid."}
-                  </p>
-                  <p className="mt-1 text-[11px] text-amber-800">
-                    Gmail authorization expired or was revoked. Your {BRAND.productName} session remains active. Reconnect Gmail below to resume search and routing.
-                  </p>
-                </>
+                <p className="mt-1 text-xs font-medium text-amber-900">Reconnect Gmail to resume syncing. Your {BRAND.productName} session remains active.</p>
               )}
 
               {connectionStatus === "NEVER_CONNECTED" && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Each user authorizes their own mailbox with read-only permissions. Entering an email address alone never grants access.
-                </p>
+                <p className="mt-1 text-xs text-slate-500">Connect the mailbox you are authorized to use for intake.</p>
               )}
 
-              <p className="mt-1 text-[10px] text-slate-400">
-                    Gmail authorization is separate from your {BRAND.productName} sign-in. Reconnecting Gmail does not sign you out of {BRAND.productName}.
-              </p>
+              {connectionStatus === "UNAVAILABLE" && <p className="mt-1 text-xs text-rose-800">The secure Gmail server connection could not be checked. No mailbox data was loaded.</p>}
             </div>
           </div>
 
@@ -681,17 +661,15 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                   <RefreshCw className={`w-3.5 h-3.5 ${gmailBusy ? "animate-spin" : ""}`} />
                   Sync new
                 </button>
-                {canManageMailbox && (
-                  <button
-                    type="button"
-                    onClick={() => void connectMailbox()}
-                    disabled={connectBusy}
-                    className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 inline-flex items-center gap-2 hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${connectBusy ? "animate-spin" : ""}`} />
-                    Reconnect Gmail
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => void runScan(false)}
+                  disabled={gmailBusy}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold inline-flex items-center gap-2 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {gmailBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanSearch className="w-3.5 h-3.5" />}
+                  Scan
+                </button>
               </>
             )}
 
@@ -781,15 +759,6 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                 </label>
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => void runScan(false)}
-              disabled={gmailBusy}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold inline-flex items-center gap-2 hover:bg-slate-800 disabled:opacity-50"
-            >
-              {gmailBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanSearch className="w-4 h-4" />}
-              Scan finance emails
-            </button>
             <p className="text-[10px] text-slate-500 sm:pb-2">
               Bounded by date and finance signals. Discovered candidates are not committed or posted.
             </p>
@@ -797,10 +766,12 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         ) : (
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs text-slate-600 flex items-center justify-between gap-3">
             <div>
-              <strong className="font-semibold text-slate-800">Mailbox scan paused.</strong>{" "}
+              <strong className="font-semibold text-slate-800">{connectionStatus === "UNAVAILABLE" ? "Mailbox status unavailable." : "Mailbox scan paused."}</strong>{" "}
               {connectionStatus === "RECONNECT_REQUIRED"
                 ? "Reconnect Gmail above to search and route finance emails."
-                : "Connect a Gmail account to begin scanning for financial documents."}
+                : connectionStatus === "UNAVAILABLE"
+                  ? "Ask an administrator to complete secure Gmail server setup."
+                  : "Connect a Gmail account to begin scanning for financial documents."}
             </div>
           </div>
         )}
@@ -812,6 +783,19 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           </div>
         )}
       </section>
+
+      <details className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-inbox-help="true">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-black text-slate-800">
+          <span className="inline-flex items-center gap-2"><CircleHelp className="h-4 w-4 text-indigo-600" />How intake works</span>
+          <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+        </summary>
+        <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-600 sm:grid-cols-3">
+          <p><strong className="text-slate-800">Read-only Gmail intake.</strong> Search and sync finance-related messages after the user authorizes the mailbox.</p>
+          <p><strong className="text-slate-800">Source evidence.</strong> Messages and selected attachments remain available when explicitly imported or routed for review.</p>
+          <p><strong className="text-slate-800">Other channels.</strong> Forwarded supplier invoices stay available below; outbound email and SMS use Compose and Sent / Delivery History.</p>
+          {canManageMailbox && <button type="button" onClick={() => void connectMailbox()} disabled={connectBusy} className="justify-self-start text-[11px] font-black text-indigo-700 hover:text-indigo-900 disabled:opacity-50">Reconnect or change Gmail account</button>}
+        </div>
+      </details>
 
       {/* Operations Summary Area Cards */}
       {candidates.length > 0 && (
