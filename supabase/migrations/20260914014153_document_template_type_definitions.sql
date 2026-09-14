@@ -191,12 +191,12 @@ declare
   v_company_id uuid := nullif(btrim(coalesce(p_payload->>'companyId', p_payload->>'company_id', '')), '')::uuid;
   v_type_key text := nullif(btrim(coalesce(p_payload->>'typeKey', p_payload->>'type_key', '')), '');
   v_display_name text := nullif(left(btrim(coalesce(p_payload->>'displayName', p_payload->>'display_name', '')), 160), '');
-  v_description text := nullif(left(btrim(coalesce(p_payload->>'description', '')), 500), '');
-  v_category text := nullif(left(btrim(coalesce(p_payload->>'category', '')), 100), '');
+  v_description text;
+  v_category text;
   v_source_context text := upper(btrim(coalesce(p_payload->>'sourceContext', p_payload->>'source_context', 'GENERAL')));
   v_custom_fields jsonb := coalesce(p_payload->'customFields', p_payload->'custom_fields', '[]'::jsonb);
   v_repeat_sections jsonb := coalesce(p_payload->'repeatSections', p_payload->'repeat_sections', '[]'::jsonb);
-  v_output_prefix text := nullif(left(btrim(coalesce(p_payload->>'outputFilenamePrefix', p_payload->>'output_filename_prefix', '')), 80), '');
+  v_output_prefix text;
   v_row public.document_template_type_definitions;
 begin
   if v_user_id is null then raise exception 'Authentication is required to create a document type' using errcode = '42501'; end if;
@@ -243,6 +243,9 @@ begin
   if not found then raise exception 'Document type was not found in the deployment company' using errcode = '40400'; end if;
   v_custom_fields := coalesce(p_payload->'customFields', p_payload->'custom_fields', v_row.custom_fields);
   v_repeat_sections := coalesce(p_payload->'repeatSections', p_payload->'repeat_sections', v_row.repeat_sections);
+  v_description := case when p_payload ? 'description' then nullif(left(btrim(coalesce(p_payload->>'description', '')), 500), '') else v_row.description end;
+  v_category := case when p_payload ? 'category' then nullif(left(btrim(coalesce(p_payload->>'category', '')), 100), '') else v_row.category end;
+  v_output_prefix := case when p_payload ? 'outputFilenamePrefix' or p_payload ? 'output_filename_prefix' then nullif(left(btrim(coalesce(p_payload->>'outputFilenamePrefix', p_payload->>'output_filename_prefix', '')), 80), '') else v_row.output_filename_prefix end;
   if jsonb_typeof(v_custom_fields) <> 'array' or jsonb_array_length(v_custom_fields) > 40 or jsonb_typeof(v_repeat_sections) <> 'array' or jsonb_array_length(v_repeat_sections) > 5 then raise exception 'Document type field schema is invalid' using errcode = '22023'; end if;
   if exists (select 1 from public.document_template_versions v where v.company_id = v_company_id and v.document_type = p_type_key) and (v_custom_fields <> v_row.custom_fields or v_repeat_sections <> v_row.repeat_sections) then raise exception 'A type with template history cannot change its field schema; create a new type' using errcode = '42501'; end if;
   update public.document_template_type_definitions
