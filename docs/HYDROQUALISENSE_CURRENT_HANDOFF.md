@@ -134,7 +134,9 @@ The current implementation provides:
 
 No database, RLS, RPC, Storage, financial, payroll, or provider contract changed in Slice 1. The original owning record routes, Email/SMS handoffs, template capability gates, and existing source-history boundaries remain intact.
 
-The exact next implementation slice is template-first managed document generation for the three supplied HSC DOCX fixtures. It must generalize the allowlisted merge context, preserve the original bytes and warranty wording, support repeating PO/checklist rows, and add structured managed-document data only where a genuine ownership gap is proven. The full Wide Documents Phase remains incomplete.
+The active Slice 2 implementation generalizes template types beyond hardcoded enums. A company administrator can define a safe business document type, declare bounded custom/repeating inputs and an allowed source context, upload the actual DOCX, review/prepare an immutable version, activate it, and discover it from Documents -> Create. The three supplied HSC DOCX files are exact client fixtures proving the generalized engine: Purchase Order uses the existing Procurement adapter; Checklist and Warranty are ordinary Project-context company-defined examples. The full Wide Documents Phase remains incomplete because retained managed-document/artifact slices are still deferred.
+
+Slice 2 pre-merge evidence is separated by scope: focused dynamic template/Create tests pass 68/68, lint/build and Workflow Map consistency pass, and demo browser QA passes 82/82 responsive scenarios. Authenticated Local-QA records 59/59 route/responsive scenarios with no overflow/errors, but the legacy functional template checks still look for the former Settings-mounted template surface and record 7/9 functional workflows. The new dynamic HSC flow is not represented as authenticated QA-certified because its migration was not promoted to that QA target. Local Docker is unavailable for replay/pgTAP/upgrade validation, and the bundled LibreOffice renderer is unavailable for DOCX visual conversion.
 
 ## Exact next product phase after the Wide Documents Phase — Wave 4D messaging-provider integration/completion
 
@@ -292,7 +294,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Wide Documents Phase — ACTIVE; complete the HSC/template-first and managed-document slices**
+1. **Wide Documents Phase — ACTIVE; complete/certify dynamic template generation, then managed-document/artifact slices**
 2. **Wave 4D messaging-provider integration/completion and remaining provider/AI/recovery/readiness evidence**
 3. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
 4. Site Attendance
@@ -313,7 +315,8 @@ For the next Wide Documents implementation run, Codex should:
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
 - use at most one bounded context packet when useful;
 - inspect the existing Documents shell, template registry/engine, Storage authority, source-backed register, project/engineering document contracts, report/XLSX generators, and permission surfaces before designing changes;
-- preserve the actual supplied HSC DOCX files as layout/content fixtures and keep official Word output template-first;
+- preserve the actual supplied HSC DOCX files as layout/content fixtures; never register them as permanent application enums;
+- keep official Word output template-first and make future company-defined types available without a code deployment;
 - preserve source-backed ownership and do not add a generic document truth merely to populate the Library;
 - run focused -> affected -> relevant build/browser/template-fidelity validation;
 - use Docker/Supabase only if the change genuinely crosses DB/security/integrity contracts;

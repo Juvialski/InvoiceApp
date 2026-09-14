@@ -38,7 +38,7 @@ See `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4B.md` for the completed PDF ar
 
 Normal company template administration is now discoverable under `Documents -> Templates`. Settings retains a compact `Manage Document Templates` link for compatibility and configuration discoverability; it no longer mounts a competing full template-management surface. The underlying company-bound Storage, AI capability, immutable version, mapping, activation, issuance, and PDF capability contracts remain unchanged.
 
-The broader Wide Documents Phase is still incomplete. The next template slice will extend this contract to the supplied HSC Purchase Order, Equipment / Materials Checklist, and Warranty Certificate DOCX files without replacing their actual Word layouts or approved wording.
+The broader Wide Documents Phase is still incomplete. Slice 2 generalizes this contract to company-defined document types with safe source contexts, custom fields, and repeating sections. The supplied HSC Purchase Order, Equipment / Materials Checklist, and Warranty Certificate DOCX files prove that generalized path without becoming permanent application enums or replacing their actual Word layouts/approved wording.
 
 ## 2026-09-13 corrective extension — AI capability and uploaded-template preparation
 

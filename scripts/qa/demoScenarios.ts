@@ -289,13 +289,13 @@ const verifyDocumentsCreateWorkspace: QaScenarioAction = async (page) => {
   await waitForVisible(page, '[data-document-create-view]');
   const workspace = await page.locator('[data-document-create-view]').count();
   const availableOptions = await page.locator('[data-document-create-option]').count();
-  const preparationRequired = await page.locator('[data-document-create-status="preparation-required"]').count();
+  const managedTemplateCreate = await page.locator('[data-managed-document-create]').count();
   const businessLabels = await page.locator("text=Purchase Order").count();
   return [
     { id: "documents-create-view-visible", passed: workspace === 1, details: `Create view surfaces: ${workspace}` },
     { id: "documents-create-options-visible", passed: availableOptions > 0, details: `supported Create options: ${availableOptions}` },
     { id: "documents-create-business-label-visible", passed: businessLabels > 0, details: `Purchase Order labels: ${businessLabels}` },
-    { id: "documents-create-preparation-state-visible", passed: preparationRequired === 3, details: `preparation-required states: ${preparationRequired}` },
+    { id: "documents-create-managed-template-surface-visible", passed: managedTemplateCreate === 1, details: `managed template Create surfaces: ${managedTemplateCreate}` },
   ] satisfies readonly QaAssertion[];
 };
 
