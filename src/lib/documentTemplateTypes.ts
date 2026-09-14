@@ -162,6 +162,8 @@ export function validateDocumentTemplateTypeDefinition(value: unknown): { ok: tr
     repeatSections.push({ key: sectionKey, label, source: sourceKind, fields });
   });
   if (new Set(repeatSections.map((section) => section.key)).size !== repeatSections.length) errors.push("Repeat section keys must be unique.");
+  if (sourceContext !== "PROJECT" && repeatSections.some((section) => section.source === "PROJECT_ASSETS")) errors.push("Project-asset repeating sections require the PROJECT source context.");
+  if ((sourceContext === "PURCHASE_ORDER" || sourceContext === "CLIENT_INVOICE") && repeatSections.some((section) => section.key === "lines")) errors.push("The lines repeating-section key is reserved for the authoritative financial source.");
   if (errors.length) return { ok: false, errors };
   return { ok: true, definition: Object.freeze({ key, displayName: displayName!, ...(source.description ? { description: String(source.description).trim() } : {}), ...(source.category ? { category: String(source.category).trim() } : {}), sourceContext: sourceContext as DocumentTemplateSourceContext, customFields: Object.freeze(customFields), repeatSections: Object.freeze(repeatSections), ...(source.outputFileNamePrefix ? { outputFileNamePrefix: String(source.outputFileNamePrefix).trim() } : {}), status: status as "ACTIVE" | "RETIRED", schemaVersion: typeof source.schemaVersion === "string" ? source.schemaVersion : "1" }) };
 }
