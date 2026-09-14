@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — WIDE DOCUMENTS PHASE SLICE 1 IMPLEMENTED / UI/UX ROUND 2 COMPLETE / DOCUMENT TEMPLATE AI CORRECTION MERGED AS FOUNDATION / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / LAST HOSTED-CERTIFIED APPLICATION SHA REMAINS EARLIER / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — EMAIL/SMS RELIABILITY + UX SLICE IN PROGRESS / PUBLIC OAUTH POLICY PAGES IMPLEMENTED / DURABLE GMAIL PATH IMPLEMENTED BUT EXTERNAL CONFIGURATION NOT CERTIFIED / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Date: **2026-09-14**
 Repository: `Juvialski/InvoiceApp`
 
@@ -29,7 +29,7 @@ Read this handoff with:
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 - `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md` — completed UI/UX Round 2 design/acceptance record and standing UI baseline;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-- **`docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` — active Wide Documents Phase contract**;
+- **`docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` — deferred Wide Documents Phase contract**;
 - **`docs/superpowers/specs/2026-09-14-unified-document-center-design.md` — Slice 1 design**;
 - `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — completed corrective foundation;
 - `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
@@ -134,20 +134,52 @@ The current implementation provides:
 
 No database, RLS, RPC, Storage, financial, payroll, or provider contract changed in Slice 1. The original owning record routes, Email/SMS handoffs, template capability gates, and existing source-history boundaries remain intact.
 
-The active Slice 2 implementation generalizes template types beyond hardcoded enums. A company administrator can define a safe business document type, declare bounded custom/repeating inputs and an allowed source context, upload the actual DOCX, review/prepare an immutable version, activate it, and discover it from Documents -> Create. The three supplied HSC DOCX files are exact client fixtures proving the generalized engine: Purchase Order uses the existing Procurement adapter; Checklist and Warranty are ordinary Project-context company-defined examples. The full Wide Documents Phase remains incomplete because retained managed-document/artifact slices are still deferred.
+The completed Slice 2 implementation generalizes template types beyond hardcoded enums. A company administrator can define a safe business document type, declare bounded custom/repeating inputs and an allowed source context, upload the actual DOCX, review/prepare an immutable version, activate it, and discover it from Documents -> Create. The three supplied HSC DOCX files are exact client fixtures proving the generalized engine: Purchase Order uses the existing Procurement adapter; Checklist and Warranty are ordinary Project-context company-defined examples. The full Wide Documents Phase remains incomplete because retained managed-document/artifact slices are still deferred.
+
+## Active user reprioritization — Email/SMS Reliability & UX Completion
+
+The user explicitly reprioritized the current implementation run to the focused
+Email/SMS Reliability & UX Completion slice. The remaining Wide Documents
+managed-upload/artifact work is deferred, not cancelled.
+
+The implementation adds a compact task-first Inbox / Intake, Compose, Sent /
+Delivery History, and SMS status experience; preserves inbound Gmail, source
+evidence, document ownership, human confirmation, delivery history, idempotency,
+and reconciliation; and keeps SMS limited to Company SIM Gateway and PhilSMS.
+
+Gmail OAuth callback material is captured once, removed from the React session
+object, and submitted only to an authenticated server path. The server encrypts
+the company/user-scoped refresh token with a dedicated key, refreshes access
+tokens server-side, accepts rotation, retries one expired access token, and
+returns distinct safe states for scopes, provider permission, quota/transient
+failures, setup, and revoked authorization. No raw provider credential is kept in
+ordinary browser local storage or returned to the browser.
+
+The public `/privacy` and `/terms` pages are session-free and linked from the
+public and sign-in surfaces. The public homepage remains deployment-gated by the
+existing non-secret funnel setting. The user confirmed Google Auth Platform is in
+TESTING and is moving it toward production; this repository does not claim that
+Google publishing or verification is complete.
+
+Current branch evidence includes focused Gmail/OAuth, public-policy, communications
+UX, server authorization, migration replay, pgTAP, and upgrade-path validation.
+No approved SMS credentials/device runtime or controlled provider-backed QA proof
+is available in the current environment, so SMS remains not configured/unverified.
 
 Slice 2 pre-merge evidence is separated by scope: focused dynamic template/Create tests pass 68/68, lint/build and Workflow Map consistency pass, and demo browser QA passes 82/82 responsive scenarios. Authenticated Local-QA records 59/59 route/responsive scenarios with no overflow/errors, but the legacy functional template checks still look for the former Settings-mounted template surface and record 7/9 functional workflows. The new dynamic HSC flow is not represented as authenticated QA-certified because its migration was not promoted to that QA target. Local Docker is unavailable for replay/pgTAP/upgrade validation, and the bundled LibreOffice renderer is unavailable for DOCX visual conversion.
 
-## Exact next product phase after the Wide Documents Phase — Wave 4D messaging-provider integration/completion
+## Wave 4D messaging-provider integration/completion and readiness gate
 
-Wave 4D remains **partially implemented but not complete**. Resume it only after the Wide Documents Phase is genuinely complete; do not rebuild the existing Email/SMS workspace or Slice 1 Documents shell.
+Wave 4D remains **partially implemented but not complete**. The current approved
+Email/SMS Reliability & UX slice is active; do not rebuild the existing
+communications workspace or Slice 1 Documents shell.
 
 Approved provider direction remains:
 
 - **Company SIM Gateway — primary/recommended**;
 - **PhilSMS — optional hosted Philippine fallback**.
 
-The next implementation should:
+The remaining provider/readiness implementation should:
 
 - inspect the live Wave 4D contract, current provider-neutral SMS scaffolding, delivery-intent/history model, Gmail implementation, permissions, and completed task-first Email/SMS/Documents UI before changing code;
 - implement or finish the approved server-side provider path without exposing provider credentials to the browser;
@@ -232,7 +264,9 @@ Approved provider direction remains:
 - Company SIM Gateway — primary/recommended;
 - PhilSMS — optional hosted fallback.
 
-Provider implementation/completion remains a later Wave 4D phase after the Wide Documents work. Real SMS remains unavailable/unverified until controlled provider-backed QA succeeds.
+The approved provider implementation/completion is active in this reliability
+slice. Real SMS remains unavailable/unverified until controlled provider-backed QA
+succeeds.
 
 ### Company-template Storage / AI / conversion
 
@@ -294,12 +328,13 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Wide Documents Phase — ACTIVE; complete/certify dynamic template generation, then managed-document/artifact slices**
-2. **Wave 4D messaging-provider integration/completion and remaining provider/AI/recovery/readiness evidence**
-3. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
-4. Site Attendance
-5. Face Recognition only after design/privacy/security work
-6. Final pre-production security/data-integrity certification
+1. **Email/SMS Reliability & UX Completion — ACTIVE by explicit user approval**
+2. **Remaining Wave 4D provider/readiness evidence after this reliability slice**
+3. **Wide Documents remaining managed slices — DEFERRED by explicit reprioritization**
+4. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
+5. Site Attendance
+6. Face Recognition only after design/privacy/security work
+7. Final pre-production security/data-integrity certification
 
 Do not skip directly to Worker Registration.
 
@@ -307,18 +342,18 @@ Do not skip directly to Worker Registration.
 
 ## Fresh implementation handoff instructions
 
-For the next Wide Documents implementation run, Codex should:
+For the current Email/SMS implementation run, Codex should:
 
 - first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
-- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md`, the current Wide Documents design/plan, and the Wave 4A/template contract;
+- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `SUPABASE_GMAIL_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts;
 - read the completed UI/UX Round 2 design record only as needed to preserve the new interaction baseline;
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
 - use at most one bounded context packet when useful;
-- inspect the existing Documents shell, template registry/engine, Storage authority, source-backed register, project/engineering document contracts, report/XLSX generators, and permission surfaces before designing changes;
-- preserve the actual supplied HSC DOCX files as layout/content fixtures; never register them as permanent application enums;
-- keep official Word output template-first and make future company-defined types available without a code deployment;
-- preserve source-backed ownership and do not add a generic document truth merely to populate the Library;
-- run focused -> affected -> relevant build/browser/template-fidelity validation;
+- inspect the existing Email/SMS workspace, Gmail/Auth wiring, server Gmail routes, provider-neutral SMS adapter, delivery history/idempotency model, public entry flow, and permission surfaces before designing changes;
+- preserve source-backed document ownership and the existing Wave 4A-4C delivery/history contracts;
+- keep Gmail refresh credentials server-only and SMS limited to the two approved providers;
+- keep the public homepage deployment-gated while Privacy and Terms remain session-free;
+- run focused -> affected -> relevant build/browser/communications and migration validation;
 - use Docker/Supabase only if the change genuinely crosses DB/security/integrity contracts;
 - review the complete final diff;
 - synchronize roadmap/handoff/client-facing feature truth to actual final capability;
@@ -328,4 +363,4 @@ For the next Wide Documents implementation run, Codex should:
 
 Do not let resumed Wave 4D expand into Worker Registration, Site Attendance, Face Recognition, broad CRM, new accounting policy, or unrelated DB redesign.
 
-Complete the Wide Documents Phase and then certify the approved messaging-provider work. Worker Registration remains paused until Wave 4D is genuinely complete and the user explicitly resumes it.
+Complete the current reliability slice and the remaining Wave 4D provider/readiness criteria before returning to deferred Wide Documents work or Worker Registration. Worker Registration remains paused until Wave 4D is genuinely complete and the user explicitly resumes it.

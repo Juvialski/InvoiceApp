@@ -7,6 +7,68 @@ const url = (runtimeEnv.VITE_SUPABASE_URL || "").trim();
 const publishableKey = (runtimeEnv.VITE_SUPABASE_PUBLISHABLE_KEY || runtimeEnv.VITE_SUPABASE_ANON_KEY || "").trim();
 
 export const isSupabaseConfigured = Boolean(url && publishableKey);
+
+// Provider tokens are callback material only. These module captures allow the
+// authenticated app to hand a refresh token to the server after company access
+// is resolved without putting it in React state or ordinary browser storage.
+let memoryProviderToken = "";
+let memoryProviderRefreshToken = "";
+const LEGACY_PROVIDER_STORAGE_KEYS = ["invoice_ops_google_provider_token", "invoice_ops_google_provider_refresh_token"] as const;
+
+function removeLegacyProviderStorage(storage: Storage) {
+  for (const key of LEGACY_PROVIDER_STORAGE_KEYS) storage.removeItem(key);
+}
+
+function isSupabaseAuthStorageKey(key: string) {
+  return key.startsWith("sb-") && key.endsWith("-auth-token");
+}
+
+function sanitizePersistedAuthSession(value: string) {
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    if (parsed.provider_token && typeof parsed.provider_token === "string") memoryProviderToken = parsed.provider_token;
+    if (parsed.provider_refresh_token && typeof parsed.provider_refresh_token === "string" && parsed.provider_refresh_token.trim()) memoryProviderRefreshToken = parsed.provider_refresh_token.trim();
+    if (!("provider_token" in parsed) && !("provider_refresh_token" in parsed)) return value;
+    delete parsed.provider_token;
+    delete parsed.provider_refresh_token;
+    return JSON.stringify(parsed);
+  } catch {
+    return value;
+  }
+}
+
+function secureAuthStorage(): Storage | undefined {
+  if (typeof window === "undefined") return undefined;
+  let storage: Storage;
+  try { storage = window.localStorage; } catch { return undefined; }
+  removeLegacyProviderStorage(storage);
+  // Sanitize an existing Supabase session before any application code can
+  // observe it. This also gives the one-time durable migration path a chance
+  // to capture a refresh token left by an older client release.
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (!key || !isSupabaseAuthStorageKey(key)) continue;
+    const value = storage.getItem(key);
+    if (value === null) continue;
+    const sanitized = sanitizePersistedAuthSession(value);
+    if (sanitized !== value) storage.setItem(key, sanitized);
+  }
+  return {
+    get length() { return storage.length; },
+    clear: () => storage.clear(),
+    key: (index: number) => storage.key(index),
+    getItem: (key: string) => {
+      const value = storage.getItem(key);
+      if (value === null || !isSupabaseAuthStorageKey(key)) return value;
+      const sanitized = sanitizePersistedAuthSession(value);
+      if (sanitized !== value) storage.setItem(key, sanitized);
+      return sanitized;
+    },
+    removeItem: (key: string) => storage.removeItem(key),
+    setItem: (key: string, value: string) => storage.setItem(key, isSupabaseAuthStorageKey(key) ? sanitizePersistedAuthSession(value) : value),
+  };
+}
+
 function fetchWithCompanyContext(input: RequestInfo | URL, init?: RequestInit) {
   const headers = new Headers(init?.headers || {});
   const companyId = getActiveCompanyId();
@@ -20,6 +82,10 @@ export const supabase = isSupabaseConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        ...(() => {
+          const storage = secureAuthStorage();
+          return storage ? { storage } : {};
+        })(),
       },
       global: { fetch: fetchWithCompanyContext },
     })
@@ -53,15 +119,6 @@ export function normalizeAuthEmail(email: string) {
 function requireSupabase() {
   if (!supabase) throw new Error(SUPABASE_CONFIGURATION_ERROR);
   return supabase;
-}
-
-function browserStorage(): Storage | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 /** Build an absolute redirect URL without touching browser globals during SSR/tests. */
@@ -114,49 +171,42 @@ export async function updatePassword(input: PasswordUpdate | string) {
 export const requestPasswordReset = sendPasswordResetEmail;
 export const updateUserPassword = updatePassword;
 
-const ACCESS_TOKEN_KEY = "invoice_ops_google_provider_token";
-const LEGACY_REFRESH_TOKEN_KEY = "invoice_ops_google_provider_refresh_token";
 export const GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT = "engoryx:google-provider-token-cleared";
 
-let memoryProviderToken = "";
-
 export function captureGoogleProviderTokens(session: Session | null): string {
+  if (!session) {
+    memoryProviderToken = "";
+    memoryProviderRefreshToken = "";
+    return "";
+  }
   const providerToken = (session as any)?.provider_token as string | undefined;
-  const storage = browserStorage();
+  const providerRefreshToken = (session as any)?.provider_refresh_token as string | undefined;
   if (providerToken) {
     memoryProviderToken = providerToken;
-    if (storage) {
-      storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
-      storage.setItem(ACCESS_TOKEN_KEY, providerToken);
-    }
-    return providerToken;
   }
-  if (storage) {
-    storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
-    const stored = storage.getItem(ACCESS_TOKEN_KEY);
-    if (stored) {
-      memoryProviderToken = stored;
-      return stored;
-    }
-  }
+  if (providerRefreshToken && providerRefreshToken.trim()) memoryProviderRefreshToken = providerRefreshToken.trim();
+  if (providerToken) return providerToken;
   return memoryProviderToken;
 }
 
 export function getGoogleProviderToken() {
-  const storage = browserStorage();
-  if (storage) {
-    const stored = storage.getItem(ACCESS_TOKEN_KEY);
-    if (stored) return stored;
-  }
   return memoryProviderToken;
+}
+
+/** Read callback refresh material from private module memory while it is handed to the server. */
+export function getCapturedGoogleProviderRefreshToken() {
+  return memoryProviderRefreshToken;
+}
+
+export function clearCapturedGoogleProviderRefreshToken() {
+  memoryProviderRefreshToken = "";
 }
 
 export function clearGoogleProviderTokens() {
   memoryProviderToken = "";
-  const storage = browserStorage();
-  if (storage) {
-    storage.removeItem(ACCESS_TOKEN_KEY);
-    storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+  memoryProviderRefreshToken = "";
+  if (typeof window !== "undefined") {
+    try { removeLegacyProviderStorage(window.localStorage); } catch { /* storage may be blocked */ }
   }
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT));
@@ -178,7 +228,7 @@ export function resolveGoogleGmailConnectionMode(identities: readonly { provider
 
 // Keep the existing allow-listed callback target while the legacy path is
 // supported as an alias for the Email / SMS workspace.
-export async function connectGoogleAndGmail(redirectToPath = "/email-intake") {
+export async function connectGoogleAndGmail(redirectToPath = "/email-sms?view=inbox") {
   const redirectTo = getAuthRedirectUrl(redirectToPath);
   if (!redirectTo) throw new Error("Google sign-in is only available in a browser.");
   const client = requireSupabase();
@@ -255,20 +305,9 @@ export async function getSupabaseAccessToken() {
 
 export interface CompanyApiRequestOptions extends RequestInit {
   companyId?: string | null;
-  gmailAccessToken?: string | null;
 }
 
-function gmailAuthorizationHeader(accessToken: string) {
-  const token = accessToken.trim();
-  if (!token || /^Bearer\s/i.test(token) || /\s/.test(token)) throw new Error("Gmail authorization is missing or expired. Reconnect Google + Gmail.");
-  return `Bearer ${token}`;
-}
-
-/**
- * Call an InvoiceApp API route with the Supabase session as Authorization.
- * Google/Gmail credentials use their own header and are never allowed to act
- * as an InvoiceApp session.
- */
+/** Call an InvoiceApp API route with the Supabase session as Authorization. */
 export async function fetchCompanyApi(path: string, options: CompanyApiRequestOptions = {}) {
   const token = await getSupabaseAccessToken();
   const deploymentCompanyId = getActiveCompanyId();
@@ -283,7 +322,6 @@ export async function fetchCompanyApi(path: string, options: CompanyApiRequestOp
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("X-Company-Id", companyId);
-  if (options.gmailAccessToken) headers.set("X-Gmail-Access-Token", gmailAuthorizationHeader(options.gmailAccessToken));
-  const { companyId: _companyId, gmailAccessToken: _gmailAccessToken, ...requestInit } = options;
+  const { companyId: _companyId, ...requestInit } = options;
   return fetch(path, { ...requestInit, headers });
 }

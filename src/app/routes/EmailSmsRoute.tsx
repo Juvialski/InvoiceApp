@@ -91,6 +91,13 @@ export function EmailSmsRoute({
   const documents = useMemo(() => buildDocumentRegister({ invoices, expenses, clientBillings, purchaseOrders, projects, vendors, importBatches: cashData?.importBatches, engineering: engineeringDocumentsData, visibility }), [cashData?.importBatches, clientBillings, engineeringDocumentsData, expenses, invoices, permissions, projects, purchaseOrders, vendors, visibility]);
 
   const navigateView = (view: "inbox" | "compose" | "sent" | "sms", channel?: "email" | "sms") => go(appPathForEmailWorkspace(view, view === "compose" ? { returnTo: context.returnTo, channel } : {}), onNavigatePath);
+  const sectionDescription = context.view === "inbox"
+    ? "Review authorized Gmail intake and route selected source evidence into the owning workflow."
+    : context.view === "compose"
+      ? context.channel === "sms" ? "Prepare one reviewed transactional SMS." : "Draft an email, choose an eligible document, then review before sending."
+      : context.view === "sent"
+        ? "Review outbound attempts, status, and safe next actions."
+        : "Check approved SMS provider configuration and the next setup action.";
   const buildSnapshot = (entry: typeof documents[number]) => buildFinancialDocumentSnapshot(entry, { purchaseOrders, clientBillings, projects, vendors, profile: DEFAULT_COMPANY_DOCUMENT_PROFILE });
   const openOwningDocument = (entry: { documentType?: "PURCHASE_ORDER" | "CLIENT_INVOICE"; documentId?: string }) => {
     if (!entry.documentType || !entry.documentId) return;
@@ -103,7 +110,7 @@ export function EmailSmsRoute({
 
   return (
     <section className="space-y-5" data-email-sms-workspace="true" aria-label="Email / SMS communications workspace">
-      <PageHeader eyebrow="Company communications" title="Email / SMS" description="Use Inbox / Intake for read-only Gmail access, Compose for outbound email, and Delivery History to track each audited attempt. SMS status stays visible until a provider is configured." actions={<div className="inline-flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-[10px] font-black text-indigo-800"><Mail className="h-3.5 w-3.5" />Connected identity stays server-authorized</div>} />
+      <PageHeader eyebrow="Company communications" title="Email / SMS" description={sectionDescription} actions={<div className="inline-flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-[10px] font-black text-indigo-800"><Mail className="h-3.5 w-3.5" />Company-scoped</div>} />
       <nav className="flex min-w-0 flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Email and SMS workspace sections" data-email-sms-tabs="true">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => navigateView(id)} aria-current={context.view === id ? "page" : undefined} className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition ${context.view === id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}><Icon className="h-3.5 w-3.5" />{label}</button>)}</nav>
 
       {context.view === "inbox" && (canReadInbox ? <EmailInbox invoices={[...invoices]} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onOpenInvoice} onNavigatePath={onNavigatePath} canManageMailbox={hasPermission(permissions, PERMISSION_KEYS.gmailManage)} canProcessInvoices={hasPermission(permissions, PERMISSION_KEYS.invoicesWrite) && hasPermission(permissions, PERMISSION_KEYS.invoicesExtract) && hasPermission(permissions, PERMISSION_KEYS.invoicesVerify)} canImportBankStatements={hasPermission(permissions, PERMISSION_KEYS.cashImport)} canManageExpenses={hasPermission(permissions, PERMISSION_KEYS.expensesWrite)} /> : permissionNotice("Inbox / Intake is restricted", "This access profile does not include Gmail read permission. Ask a company administrator for mailbox access; no mailbox data is loaded here."))}

@@ -763,7 +763,7 @@
       "domain": "platform-tenancy",
       "type": "workflow",
       "scope": "global",
-      "description": "Mounts the public HydroQualiSense landing and bounded requirements/demo-contact form at /, /request-demo, and /contact without CompanyAccessProvider or operational workspace loading.",
+      "description": "Mounts the public HydroQualiSense landing, bounded requirements/demo-contact form, and public Privacy Policy/Terms pages at /, /request-demo, /contact, /privacy, and /terms without CompanyAccessProvider or operational workspace loading.",
       "fileRefs": [
         "src/main.tsx",
         "src/app/applicationMode.ts",
@@ -771,6 +771,7 @@
       ],
       "testRefs": [
         "tests/publicProspect.test.ts",
+        "tests/publicPolicyPages.test.ts",
         "tests/demoWorkspace.test.ts"
       ],
       "invariantIds": [

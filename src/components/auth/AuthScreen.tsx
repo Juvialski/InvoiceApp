@@ -439,6 +439,10 @@ export function AuthScreen({
         <p className="mt-5 text-center text-[10px] leading-5 text-slate-400">
           Your password is handled by Supabase Auth and is never stored in this workspace.
         </p>
+        <nav aria-label="Public policy navigation" className="mt-3 flex justify-center gap-4 text-[10px] font-bold text-slate-500">
+          <a href="/privacy" className="hover:text-slate-900">Privacy Policy</a>
+          <a href="/terms" className="hover:text-slate-900">Terms of Service</a>
+        </nav>
       </section>
     </main>
   );

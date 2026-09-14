@@ -20,9 +20,12 @@ test("company-specific AI and Gmail routes require a database permission check",
     ["/api/extract-invoice", "invoices.extract"],
     ["/api/extract-expense", "expenses.manage"],
     ["/api/gmail/profile", "gmail.read"],
+    ["/api/gmail/status", "gmail.read"],
     ["/api/gmail/scan", "gmail.read"],
     ["/api/gmail/history", "gmail.read"],
     ["/api/gmail/import", "gmail.manage"],
+    ["/api/gmail/provider-credential", "gmail.manage"],
+    ["/api/gmail/provider-credential/revoke", "gmail.manage"],
     ["/api/gmail/send", "documents.send"],
   ] as const) {
     const body = routeBody(path);
@@ -50,7 +53,7 @@ test("browser API helper sends the deployment company and Supabase session", () 
   assert.match(browserClient, /headers\.set\("Authorization", `Bearer \$\{data\.session\.access_token\}`\)/);
   assert.match(browserClient, /assertDeploymentCompanyId\(deploymentCompanyId, options\.companyId/);
   assert.match(browserClient, /headers\.set\("X-Company-Id", deploymentCompanyId\)/);
-  assert.match(browserClient, /X-Gmail-Access-Token/);
+  assert.doesNotMatch(browserClient, /X-Gmail-Access-Token/);
   assert.match(legacyBrowserClient, /const deploymentCompanyId = getActiveCompanyId\(\)/);
   assert.match(legacyBrowserClient, /requestedCompanyId !== deploymentCompanyId/);
   assert.doesNotMatch(legacyBrowserClient, /options\.companyId \|\| getActiveCompanyId/);

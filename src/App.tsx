@@ -33,7 +33,8 @@ import { useCompanyAccess } from "./context/CompanyAccessContext.tsx";
 import { companyApiRequest } from "./lib/companyApi.ts";
 import type { PayrollSchedule } from "./lib/payrollSchedule";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./lib/payrollAutomation";
-import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, supabase } from "./lib/supabase";
+import { clearGoogleProviderTokens, connectGoogleAndGmail, isSupabaseConfigured, supabase } from "./lib/supabase";
+import { getGoogleProviderRefreshToken, loadGmailConnectionStatus, persistGoogleProviderCredential, type GmailConnectionStatusData } from "./lib/gmail.ts";
 import { classifyEmailIntakeCandidate, scanConnectedMailbox, syncConnectedMailbox } from "./lib/emailIntake";
 import {
   applyInvoiceCorrectionInSupabase,
@@ -427,6 +428,8 @@ function InvoiceWorkspace() {
   const guestModeRef = useRef(guestModeState);
   guestModeRef.current = guestModeState;
   const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
+  const [gmailServerStatus, setGmailServerStatus] = useState<GmailConnectionStatusData | null>(null);
+  const persistedGmailRefreshTokenRef = useRef("");
   const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const saveStateRef = useRef<SaveState>("saved");
@@ -1021,12 +1024,40 @@ function InvoiceWorkspace() {
     }
   };
 
-  const [googleProviderToken, setGoogleProviderToken] = useState(() => getGoogleProviderToken());
-
+  const gmailProviderRefreshToken = getGoogleProviderRefreshToken(session);
   useEffect(() => {
-    const token = captureGoogleProviderTokens(session);
-    setGoogleProviderToken(token || getGoogleProviderToken());
-  }, [session]);
+    if (!supabase || !session?.user?.id || !activeCompanyId || access.status !== "ready") {
+      setGmailServerStatus(null);
+      persistedGmailRefreshTokenRef.current = "";
+      return undefined;
+    }
+    if (!hasPermission(permissions, PERMISSION_KEYS.gmailRead)) {
+      setGmailServerStatus(null);
+      return undefined;
+    }
+    const userId = session.user.id;
+    const companyId = activeCompanyId;
+    let cancelled = false;
+    const persistKey = gmailProviderRefreshToken ? `${companyId}:${userId}:${gmailProviderRefreshToken}` : "";
+    void (async () => {
+      if (gmailProviderRefreshToken && hasPermission(permissions, PERMISSION_KEYS.gmailManage) && persistedGmailRefreshTokenRef.current !== persistKey) {
+        try {
+          await persistGoogleProviderCredential(session, companyId);
+          persistedGmailRefreshTokenRef.current = persistKey;
+        } catch {
+          // The status endpoint below reports the durable setup state without
+          // exposing callback or provider credential details.
+        }
+      }
+      try {
+        const status = await loadGmailConnectionStatus(companyId);
+        if (!cancelled) setGmailServerStatus(status);
+      } catch {
+        if (!cancelled) setGmailServerStatus({ status: "UNAVAILABLE", credentialStatus: "UNAVAILABLE" });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [access.status, activeCompanyId, gmailProviderRefreshToken, permissions, session]);
   useEffect(() => {
     if (!authResolved) return undefined;
     const activeSession = session;
@@ -1900,11 +1931,10 @@ function InvoiceWorkspace() {
   };
 
   const gmailRequest = async (path: string, body?: any) => {
-    const token = getGoogleProviderToken();
-    if (!token) throw new Error("Gmail authorization is missing or expired. Reconnect Google + Gmail.");
-    const response = await companyApiRequest(path, { method: body ? "POST" : "GET", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, companyId: companyAccess.activeCompanyId || "", googleAccessToken: token });
+    const response = await companyApiRequest(path, { method: body ? "POST" : "GET", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, companyId: companyAccess.activeCompanyId || "" });
     const result = await response.json();
     if (!response.ok || !result.success) {
+      if (result.code === "GMAIL_REAUTH_REQUIRED" || result.code === "GMAIL_DURABLE_CONNECTION_REQUIRED") clearGoogleProviderTokens();
       const error: any = new Error(result.error || "Gmail request failed.");
       error.code = result.code;
       throw error;
@@ -4754,11 +4784,16 @@ function InvoiceWorkspace() {
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
     signedIn: Boolean(session),
-    hasGmailToken: Boolean(session && (googleProviderToken || (session as any)?.provider_token || getGoogleProviderToken())),
-    email: session?.user?.email,
-    displayName: session?.user?.user_metadata?.full_name,
-    lastHistoryId: syncState.lastHistoryId,
-    lastSyncedAt: syncState.lastSyncedAt,
+    hasGmailToken: gmailServerStatus?.status === "HEALTHY",
+    // The authenticated sign-in email is not evidence of a connected Gmail
+    // mailbox; only the server-derived connection status supplies this field.
+    email: gmailServerStatus?.email,
+    displayName: gmailServerStatus?.displayName || session?.user?.user_metadata?.full_name,
+    lastHistoryId: gmailServerStatus?.lastHistoryId || syncState.lastHistoryId,
+    lastSyncedAt: gmailServerStatus?.lastSyncedAt || syncState.lastSyncedAt,
+    ...(gmailServerStatus?.credentialStatus ? { credentialStatus: gmailServerStatus.credentialStatus } : {}),
+    ...(gmailServerStatus?.status === "UNAVAILABLE" ? { authError: "Gmail server authorization setup is unavailable." } : {}),
+    ...(gmailServerStatus?.status === "RECONNECT_REQUIRED" ? { authError: "Gmail authorization must be reconnected." } : {}),
   };
 
   const routeProject = route.kind === "project" ? resolveEntityById(projects, route.projectId) : undefined;

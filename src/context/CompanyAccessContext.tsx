@@ -119,16 +119,25 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     const applySession = (nextSession: Session | null) => {
       if (!mounted) return;
       captureGoogleProviderTokens(nextSession);
+      // Provider access/refresh tokens are callback material only. Keep them
+      // out of the React session context and browser-visible application state;
+      // the Gmail handoff reads the private module capture once and sends it
+      // directly to the authenticated server endpoint.
+      const safeSession = nextSession ? {
+        ...nextSession,
+        provider_token: undefined,
+        provider_refresh_token: undefined,
+      } as Session : null;
       const previousUserId = sessionRef.current?.user?.id || null;
-      const nextUserId = nextSession?.user?.id || null;
+      const nextUserId = safeSession?.user?.id || null;
       if (previousUserId !== nextUserId) {
         loadGenerationRef.current += 1;
         accessLoadRef.current = null;
-        resetAuthenticatedContext(nextUserId ? "loading" : "signed-out", nextUserId || undefined, nextSession?.user?.email || undefined);
+        resetAuthenticatedContext(nextUserId ? "loading" : "signed-out", nextUserId || undefined, safeSession?.user?.email || undefined);
         setIsSwitching(Boolean(nextUserId));
       }
-      sessionRef.current = nextSession;
-      setSession(nextSession);
+      sessionRef.current = safeSession;
+      setSession(safeSession);
       setGuestMode(false);
       setAuthResolved(true);
     };

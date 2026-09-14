@@ -12,7 +12,7 @@ import type {
 } from "../types.ts";
 import { companyApiRequest } from "./companyApi.ts";
 import { getActiveCompanyId, requireActiveCompanyId, subscribeToCompanyContext } from "./companyContext.ts";
-import { clearGoogleProviderTokens, getGoogleProviderToken, supabase } from "./supabase.ts";
+import { clearGoogleProviderTokens, supabase } from "./supabase.ts";
 import {
   listEmailIntakeProfiles,
   markEmailClassification,
@@ -42,7 +42,7 @@ export type { FieldProvenance, ExpenseFieldProvenanceMap, ReceiptExtractionQuali
 
 export type EmailIntakeDestination = "INVOICE" | "BANK_STATEMENT" | "EXPENSE" | "UNSUPPORTED";
 
-export type GmailConnectionStatus = "HEALTHY" | "RECONNECT_REQUIRED" | "NEVER_CONNECTED" | "UNCONFIGURED";
+export type GmailConnectionStatus = "HEALTHY" | "RECONNECT_REQUIRED" | "NEVER_CONNECTED" | "UNCONFIGURED" | "UNAVAILABLE";
 
 export const MAX_SENDER_CHUNK_SIZE = 8;
 export const MAX_SCAN_RESULTS_PER_REQUEST = 30;
@@ -159,7 +159,7 @@ export function validateEmailIntakeProfile(input: Partial<EmailIntakeProfileInpu
 export function isGmailAuthorizationError(message?: string | null) {
   const value = String(message || "").trim().toLowerCase();
   if (!value) return false;
-  return /invalid_grant|re-?authentication|gmail authorization|authorization (?:is )?(?:missing|expired|revoked)|expired or was revoked|reconnect (?:gmail|google \+ gmail)/i.test(value);
+  return /invalid_grant|re-?authentication|gmail authorization (?:has )?(?:expired|been revoked|must be reconnected)|authorization (?:has )?(?:expired|been revoked)|expired or was revoked|reconnect (?:gmail|google \+ gmail)/i.test(value);
 }
 
 export function resolveGmailConnectionStatus(
@@ -168,8 +168,9 @@ export function resolveGmailConnectionStatus(
 ): GmailConnectionStatus {
   if (!connection.configured) return "UNCONFIGURED";
   if (!connection.signedIn) return "NEVER_CONNECTED";
+  if (connection.credentialStatus === "UNAVAILABLE") return "UNAVAILABLE";
   const hasAuthError = Boolean(connection.authError || isGmailAuthorizationError(activeAuthError));
-  if (connection.hasGmailToken && !hasAuthError) return "HEALTHY";
+  if ((connection.hasGmailToken || connection.credentialStatus === "ACTIVE") && !hasAuthError) return "HEALTHY";
   const hasPriorConnectionContext = Boolean(
     connection.email || connection.lastSyncedAt || connection.lastHistoryId || hasAuthError
   );
@@ -672,20 +673,17 @@ export async function classifyAmbiguousCandidatesWithAi(
 }
 
 async function gmailApiRequest(path: string, body: Record<string, unknown>) {
-  const googleAccessToken = getGoogleProviderToken();
-  if (!googleAccessToken) throw new Error(`Gmail authorization is missing or expired. Reconnect Google + Gmail; your ${BRAND.productName} session remains active.`);
   const response = await companyApiRequest(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     companyId: requireActiveCompanyId(),
-    googleAccessToken,
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.success) {
-    if (response.status === 401 || response.status === 403) {
+    if (result.code === "GMAIL_REAUTH_REQUIRED") {
       clearGoogleProviderTokens();
-      throw new Error(`Gmail authorization expired or was revoked. Reconnect Gmail; your ${BRAND.productName} session is still active.`);
+      throw new Error(result.error || `Gmail authorization expired or was revoked. Reconnect Gmail; your ${BRAND.productName} session is still active.`);
     }
     const error = new Error(result.error || "Connected mailbox request failed.");
     (error as Error & { code?: string }).code = result.code;

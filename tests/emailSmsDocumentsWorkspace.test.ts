@@ -90,7 +90,8 @@ test("Compose requires the explicit review step before human send confirmation",
 });
 
 test("Email intake keeps pending candidates visible during incremental sync and explains read-only scope", () => {
-  assert.match(emailInbox, /Inbox access: read-only/);
+  assert.match(emailInbox, /How intake works/);
+  assert.match(emailInbox, /read-only Gmail intake/i);
   assert.match(emailInbox, /onSyncGmail/);
   assert.match(emailInbox, /mergeGmailCandidates\(current, discovered\)/);
   assert.doesNotMatch(emailInbox, /syncConnectedMailbox\(historyId/);

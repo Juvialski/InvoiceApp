@@ -40,6 +40,9 @@ import {
   resolveInvoiceMonetarySemantics,
 } from "./src/utils/invoiceMonetarySemantics.ts";
 import { businessDateForTimeZone } from "./src/utils/businessDate.ts";
+import { authorizedGmailRequest, invalidateGmailAccessToken, loadGmailCredentialMetadata } from "./src/server/gmail/gmailAccess.ts";
+import { GmailAuthorizationError } from "./src/server/gmail/gmailAuthorization.ts";
+import { createServerGmailCredentialRepository } from "./src/server/gmail/gmailProviderCredentials.ts";
 
 dotenv.config();
 
@@ -63,6 +66,7 @@ type CompanyPermission =
 interface CompanyRequestAuthorization {
   accessToken: string;
   companyId: string;
+  /** Legacy rollout fallback only; normal Gmail requests use the server-held refresh credential. */
   googleAccessToken?: string;
   supabase: SupabaseClient;
   user: User;
@@ -1944,13 +1948,6 @@ Rules:
 
 
 
-function getGoogleAccessToken(req: express.Request) {
-  const header = firstHeaderValue(req.headers["x-gmail-access-token"]);
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  if (!match) throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "Gmail authorization is missing or expired.");
-  return match[1];
-}
-
 function decodeBase64UrlText(value?: string) {
   if (!value) return "";
   try {
@@ -2106,25 +2103,129 @@ function summarizeGmailMessage(message: any) {
   };
 }
 
-async function getGmailMessageFull(accessToken: string, messageId: string) {
-  return gmailFetch(accessToken, `messages/${encodeURIComponent(messageId)}?format=full`);
+async function gmailRequestForAuth(auth: CompanyRequestAuthorization, pathName: string, init?: RequestInit, maxResponseBytes?: number) {
+  return authorizedGmailRequest(
+    { companyId: auth.companyId, userId: auth.user.id, legacyAccessToken: auth.googleAccessToken },
+    gmailFetch,
+    pathName,
+    init,
+    maxResponseBytes,
+  );
 }
+
+async function getGmailMessageFull(auth: CompanyRequestAuthorization, messageId: string) {
+  return gmailRequestForAuth(auth, `messages/${encodeURIComponent(messageId)}?format=full`);
+}
+
+function gmailRouteError(error: unknown, fallback: string) {
+  if (error instanceof ApiAuthorizationError) return { status: error.status, code: error.code, message: error.message };
+  if (error instanceof GmailAuthorizationError) return { status: error.status, code: error.code, message: error.message };
+  const code = String((error as { code?: unknown })?.code || "");
+  if (code === "42501") return { status: 403, code: "FORBIDDEN", message: "You do not have permission for this Gmail operation." };
+  if (code === "23514") return { status: 409, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", message: "This Gmail delivery request is already bound to a different delivery attempt." };
+  const status = Number((error as { status?: unknown })?.status);
+  return { status: Number.isInteger(status) && status >= 400 && status <= 599 ? status : 503, code: "GMAIL_PROVIDER_UNAVAILABLE", message: fallback };
+}
+
+app.post("/api/gmail/provider-credential", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "gmail.manage");
+    const refreshToken = typeof req.body?.providerRefreshToken === "string" ? req.body.providerRefreshToken.trim() : "";
+    if (!refreshToken || refreshToken.length > 4096 || /[\u0000-\u001f\u007f]/.test(refreshToken)) {
+      return res.status(400).json({ success: false, code: "GMAIL_REFRESH_TOKEN_INVALID", error: "A valid Google refresh token is required to finish Gmail setup." });
+    }
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, code: "GMAIL_ACCOUNT_INVALID", error: "A valid connected Google account is required." });
+    }
+    const scopes = Array.isArray(req.body?.scopes) ? req.body.scopes : [];
+    const stored = await createServerGmailCredentialRepository(process.env).store({
+      companyId: auth.companyId,
+      userId: auth.user.id,
+      email,
+      scopes,
+      refreshToken,
+    });
+    invalidateGmailAccessToken({ companyId: auth.companyId, userId: auth.user.id });
+    return res.json({ success: true, data: { status: stored.status, email: stored.email } });
+  } catch (error) {
+    const mapped = gmailRouteError(error, "Gmail authorization could not be saved securely.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
+  }
+});
+
+app.post("/api/gmail/provider-credential/revoke", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "gmail.manage");
+    await createServerGmailCredentialRepository(process.env).revoke(auth.companyId, auth.user.id);
+    invalidateGmailAccessToken({ companyId: auth.companyId, userId: auth.user.id });
+    return res.json({ success: true, data: { status: "REVOKED" } });
+  } catch (error) {
+    const mapped = gmailRouteError(error, "Gmail authorization could not be disconnected safely.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
+  }
+});
+
+app.get("/api/gmail/status", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "gmail.read");
+    const { data: connection, error } = await auth.supabase
+      .from("gmail_connections")
+      .select("email,last_history_id,last_synced_at")
+      .eq("company_id", auth.companyId)
+      .eq("user_id", auth.user.id)
+      .eq("provider", "google")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    const credential = await loadGmailCredentialMetadata(auth.companyId, auth.user.id, process.env);
+    if (credential && !("companyId" in credential)) {
+      return res.json({ success: true, data: { status: "UNAVAILABLE", credentialStatus: "UNAVAILABLE" } });
+    }
+    const hasRequiredGmailScopes = credential && "companyId" in credential
+      && credential.scopes.includes("https://www.googleapis.com/auth/gmail.readonly")
+      && credential.scopes.includes("https://www.googleapis.com/auth/gmail.send");
+    const credentialStatus = credential && "companyId" in credential
+      ? (credential.status === "ACTIVE" && !hasRequiredGmailScopes ? "MISSING" : credential.status)
+      : "MISSING";
+    const credentialNeedsReconnect = Boolean(credential && "companyId" in credential && credentialStatus !== "ACTIVE");
+    const credentialEmail = credential && "companyId" in credential ? credential.email : "";
+    const status = credentialStatus === "ACTIVE"
+      ? "HEALTHY"
+      : credentialNeedsReconnect || connection
+        ? "RECONNECT_REQUIRED"
+        : "NEVER_CONNECTED";
+    const userMetadata = auth.user.user_metadata && typeof auth.user.user_metadata === "object" ? auth.user.user_metadata as Record<string, unknown> : {};
+    const displayName = typeof userMetadata.full_name === "string" ? userMetadata.full_name.trim().slice(0, 160) : "";
+    return res.json({ success: true, data: {
+      status,
+      credentialStatus,
+      ...(credentialEmail || connection?.email ? { email: credentialEmail || connection?.email } : {}),
+      ...(displayName ? { displayName } : {}),
+      ...(connection?.last_history_id ? { lastHistoryId: connection.last_history_id } : {}),
+      ...(connection?.last_synced_at ? { lastSyncedAt: connection.last_synced_at } : {}),
+    } });
+  } catch (error) {
+    const mapped = gmailRouteError(error, "Gmail connection status is unavailable.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
+  }
+});
 
 app.get("/api/gmail/profile", async (req, res) => {
   try {
-    await authorizeCompanyRequest(req, "gmail.read");
-    const accessToken = getGoogleAccessToken(req);
-    const profile = await gmailFetch(accessToken, "profile");
+    const auth = await authorizeCompanyRequest(req, "gmail.read");
+    const profile = await gmailRequestForAuth(auth, "profile");
     res.json({ success: true, data: profile });
   } catch (error: any) {
-    res.status(error?.status || 500).json({ success: false, error: error?.message || "Could not read Gmail profile." });
+    const mapped = gmailRouteError(error, "Could not read Gmail profile safely.");
+    res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
   }
 });
 
 app.post("/api/gmail/scan", async (req, res) => {
   try {
-    await authorizeCompanyRequest(req, "gmail.read");
-    const accessToken = getGoogleAccessToken(req);
+    const auth = await authorizeCompanyRequest(req, "gmail.read");
     const maxResults = Math.max(1, Math.min(50, Number(req.body?.maxResults || 25)));
     const query = String(req.body?.query || "newer_than:30d {subject:invoice subject:\"sales invoice\" subject:\"service invoice\" subject:\"VAT invoice\" subject:billing subject:SOA \"statement of account\" \"credit note\" \"tax invoice\" BIR VAT TIN \"amount due\" filename:pdf filename:png filename:jpg filename:jpeg}");
     if (query.length > GMAIL_MAX_QUERY_CHARS) return res.status(400).json({ success: false, error: "Gmail search query is too long." });
@@ -2136,7 +2237,7 @@ app.post("/api/gmail/scan", async (req, res) => {
       pages += 1;
       const params = new URLSearchParams({ maxResults: String(Math.max(1, Math.min(100, maxResults - ids.length))), q: query });
       if (pageToken) params.set("pageToken", pageToken);
-      const list = await gmailFetch(accessToken, `messages?${params.toString()}`);
+      const list = await gmailRequestForAuth(auth, `messages?${params.toString()}`) as any;
       resultSizeEstimate = Number(list.resultSizeEstimate || resultSizeEstimate);
       ids.push(...(list.messages || []).map((entry: any) => entry.id).filter(Boolean));
       pageToken = String(list.nextPageToken || "");
@@ -2145,21 +2246,21 @@ app.post("/api/gmail/scan", async (req, res) => {
     const messages: any[] = [];
     for (let i = 0; i < ids.length; i += 6) {
       const batch = ids.slice(i, i + 6);
-      const loaded = await Promise.all(batch.map((id: string) => getGmailMessageFull(accessToken, id)));
+      const loaded = await Promise.all(batch.map((id: string) => getGmailMessageFull(auth, id)));
       messages.push(...loaded.map(summarizeGmailMessage));
     }
-    const profile = await gmailFetch(accessToken, "profile");
+    const profile = await gmailRequestForAuth(auth, "profile") as any;
     res.json({ success: true, data: { messages, resultSizeEstimate: resultSizeEstimate || messages.length, historyId: profile.historyId, emailAddress: profile.emailAddress } });
   } catch (error: any) {
-    res.status(error?.status || 500).json({ success: false, error: error?.message || "Gmail scan failed." });
+    const mapped = gmailRouteError(error, "Gmail scan could not be completed safely.");
+    res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
   }
 });
 
 app.post("/api/gmail/history", async (req, res) => {
   const startedAt = Date.now();
   try {
-    await authorizeCompanyRequest(req, "gmail.read");
-    const accessToken = getGoogleAccessToken(req);
+    const auth = await authorizeCompanyRequest(req, "gmail.read");
     const startHistoryId = String(req.body?.startHistoryId || "").trim();
     if (!/^\d{1,100}$/.test(startHistoryId)) return res.status(400).json({ success: false, error: "A valid Gmail history ID is required. Run an initial scan first." });
     const ids = new Set<string>();
@@ -2172,7 +2273,7 @@ app.post("/api/gmail/history", async (req, res) => {
       pagesFetched += 1;
       const params = new URLSearchParams({ startHistoryId, historyTypes: "messageAdded", maxResults: "100" });
       if (pageToken) params.set("pageToken", pageToken);
-      const history = await gmailFetch(accessToken, "history?" + params.toString());
+      const history = await gmailRequestForAuth(auth, "history?" + params.toString()) as any;
       for (const event of history.history || []) {
         for (const added of event.messagesAdded || []) {
           if (added?.message?.id) ids.add(String(added.message.id));
@@ -2190,7 +2291,7 @@ app.post("/api/gmail/history", async (req, res) => {
     for (let i = 0; i < idList.length; i += 6) {
       if (Date.now() - startedAt > GMAIL_HISTORY_BUDGET_MS) { truncated = true; resyncRequired = true; break; }
       const batch = idList.slice(i, i + 6);
-      const loaded = await Promise.all(batch.map((id) => getGmailMessageFull(accessToken, id)));
+      const loaded = await Promise.all(batch.map((id) => getGmailMessageFull(auth, id)));
       for (const message of loaded) {
         const summary = summarizeGmailMessage(message);
         messageBytes += Buffer.byteLength(JSON.stringify(summary), "utf8");
@@ -2199,21 +2300,21 @@ app.post("/api/gmail/history", async (req, res) => {
       }
       if (messageBytes > GMAIL_HISTORY_MAX_RESPONSE_BYTES) break;
     }
-    const profile = truncated && resyncRequired ? {} : await gmailFetch(accessToken, "profile");
+    const profile = truncated && resyncRequired ? {} : await gmailRequestForAuth(auth, "profile") as any;
     return res.json({ success: true, data: { messages, historyId: truncated ? startHistoryId : profile.historyId, emailAddress: profile.emailAddress, complete: !truncated, continuation: truncated ? { startHistoryId, pageToken: resyncRequired ? undefined : pageToken || undefined, pagesFetched, messageIdsReturned: messages.length, resyncRequired } : undefined } });
   } catch (error: any) {
-    const status = error?.status === 404 ? 409 : (error?.status || 500);
-    return res.status(status).json({ success: false, code: error?.status === 404 ? "HISTORY_EXPIRED" : undefined, error: error?.status === 404 ? "Gmail history cursor expired. Run a fresh scan to rebuild sync state." : (error?.message || "Gmail incremental sync failed.") });
+    if (error?.status === 404) return res.status(409).json({ success: false, code: "HISTORY_EXPIRED", error: "Gmail history cursor expired. Run a fresh scan to rebuild sync state." });
+    const mapped = gmailRouteError(error, "Gmail incremental sync could not be completed safely.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
   }
 });
 
 app.post("/api/gmail/import", async (req, res) => {
   try {
-    await authorizeCompanyRequest(req, "gmail.manage");
-    const accessToken = getGoogleAccessToken(req);
+    const auth = await authorizeCompanyRequest(req, "gmail.manage");
     const messageId = String(req.body?.messageId || "").trim();
     if (!/^[A-Za-z0-9_-]{1,200}$/.test(messageId)) return res.status(400).json({ success: false, error: "A valid Gmail messageId is required." });
-    const full = await getGmailMessageFull(accessToken, messageId);
+    const full = await getGmailMessageFull(auth, messageId) as any;
     const summary: any = summarizeGmailMessage(full);
     const parsed = collectMimeParts(full.payload || {});
     if (parsed.attachmentCount > MAX_GMAIL_ATTACHMENT_COUNT) return res.status(413).json({ success: false, error: "Gmail message has too many attachments to import safely." });
@@ -2223,7 +2324,7 @@ app.post("/api/gmail/import", async (req, res) => {
       if (attachment.size > MAX_GMAIL_ATTACHMENT_BYTES) return res.status(413).json({ success: false, error: "A Gmail attachment exceeds the safe size limit." });
       let dataBase64 = attachment.inlineDataBase64 || "";
       if (!dataBase64 && attachment.attachmentId && !attachment.attachmentId.startsWith("inline-")) {
-        const payload = await gmailFetch(accessToken, "messages/" + encodeURIComponent(messageId) + "/attachments/" + encodeURIComponent(attachment.attachmentId));
+        const payload = await gmailRequestForAuth(auth, "messages/" + encodeURIComponent(messageId) + "/attachments/" + encodeURIComponent(attachment.attachmentId)) as any;
         dataBase64 = toStandardBase64(payload.data || "");
       }
       if (!dataBase64) return res.status(413).json({ success: false, error: "A Gmail attachment could not be loaded within the safe import budget." });
@@ -2236,14 +2337,15 @@ app.post("/api/gmail/import", async (req, res) => {
       attachments.push({ attachmentId: attachment.attachmentId, partId: attachment.partId, attachmentIndex: attachment.attachmentIndex, filename: attachment.filename, mimeType: attachment.mimeType, size: bytes.byteLength, dataBase64: normalizedData });
     }
     validateGmailAttachmentEnvelope(attachments);
-    const raw = await gmailFetch(accessToken, "messages/" + encodeURIComponent(messageId) + "?format=raw");
+    const raw = await gmailRequestForAuth(auth, "messages/" + encodeURIComponent(messageId) + "?format=raw") as any;
     let rawBytes: Uint8Array;
     try { rawBytes = decodeBase64Payload(String(raw.raw || ""), MAX_GMAIL_RAW_BYTES, "Gmail raw message"); validateGmailRawMessage(rawBytes); }
     catch (error: any) { return res.status(400).json({ success: false, error: error?.message || "Gmail raw message is invalid." }); }
     if (attachmentBytes + rawBytes.byteLength > GMAIL_IMPORT_MAX_TOTAL_BYTES) return res.status(413).json({ success: false, error: "Gmail attachment and raw-message payload exceeds the safe import limit." });
     return res.json({ success: true, data: { ...summary, attachments, rawBase64Url: raw.raw || "" } });
   } catch (error: any) {
-    return res.status(error?.status || 500).json({ success: false, error: error?.message || "Could not import Gmail message." });
+    const mapped = gmailRouteError(error, "Could not import Gmail message safely.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
   }
 });
 
@@ -2534,10 +2636,9 @@ app.post("/api/gmail/send", async (req, res) => {
     }
     if (claim?.claimed !== true) return res.status(409).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "This issued document send is already in progress or requires reconciliation. Check send history before retrying." });
     sendIntentId = String(intent.id);
-    const accessToken = getGoogleAccessToken(req);
     let sent: any;
     try {
-      sent = await gmailFetch(accessToken, "messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: base64Url(buildDocumentMimeMessage({ to: recipients, cc, subject, message, ...(attachmentName ? { attachmentName } : {}), ...(pdfBytes ? { pdfBytes } : {}) })) }) });
+      sent = await gmailRequestForAuth(auth!, "messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: base64Url(buildDocumentMimeMessage({ to: recipients, cc, subject, message, ...(attachmentName ? { attachmentName } : {}), ...(pdfBytes ? { pdfBytes } : {}) })) }) });
       gmailDelivered = true;
     } catch (error: any) {
       const providerStatus = Number(error?.status || 0);
@@ -2550,7 +2651,7 @@ app.post("/api/gmail/send", async (req, res) => {
       } catch {
         return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail rejected the document, but the durable send history could not be recorded. Check send history before retrying." });
       }
-      return res.status(providerStatus || 502).json({ success: false, code: "DOCUMENT_SEND_FAILED", error: "Gmail rejected the issued document send. The failed attempt was recorded." });
+      return res.status(providerStatus || 502).json({ success: false, code: error instanceof GmailAuthorizationError ? error.code : "DOCUMENT_SEND_FAILED", error: error instanceof GmailAuthorizationError ? error.message : "Gmail rejected the issued document send. The failed attempt was recorded." });
     }
     const gmailMessageId = String(sent?.id || "");
     const completion = await auth.supabase.rpc("complete_document_send_intent", { p_intent_id: sendIntentId, p_status: "SENT", p_gmail_message_id: gmailMessageId, p_error_message: null });
@@ -2564,9 +2665,8 @@ app.post("/api/gmail/send", async (req, res) => {
       const completion = await auth.supabase.rpc("complete_document_send_intent", { p_intent_id: sendIntentId, p_status: "FAILED", p_error_message: "The send was not accepted by Gmail." });
       if (completion.error) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "The send attempt could not be reconciled safely. Do not resend until send history is checked." });
     }
-    const status = error instanceof ApiAuthorizationError ? error.status : Number(error?.status) || (error?.code === "42501" ? 403 : error?.code === "23514" ? 409 : 503);
-    const safeMessage = error instanceof ApiAuthorizationError ? error.message : "The issued document could not be sent safely. Check the send intent and document history before retrying.";
-    return res.status(status).json({ success: false, error: safeMessage });
+    const mapped = gmailRouteError(error, "The issued document could not be sent safely. Check the send intent and document history before retrying.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
   }
 });
 

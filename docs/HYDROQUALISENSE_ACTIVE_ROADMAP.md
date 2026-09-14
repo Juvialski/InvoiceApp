@@ -1,17 +1,17 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — WIDE DOCUMENTS PHASE SLICE 1 IMPLEMENTED / UI/UX ROUND 2 COMPLETE / DOCUMENT TEMPLATE AI CORRECTION MERGED AS FOUNDATION / DOCUMENT-TEMPLATE STORAGE AVAILABLE AND STARTER-UPLOAD CERTIFIED IN LOCAL-QA / AI TEMPLATE GENERATION NOT CERTIFIED / PDF CONVERTER UNAVAILABLE / HOSTED EXACT-SHA QA PASS EXISTS FOR LAST HOSTED-CERTIFIED APPLICATION SHA / SUPPLIER PAYABLES CERTIFIED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — EMAIL/SMS RELIABILITY + UX SLICE IN PROGRESS / PUBLIC OAUTH POLICY PAGES IMPLEMENTED / DURABLE GMAIL CREDENTIAL PATH IMPLEMENTED BUT EXTERNAL CONFIGURATION NOT CERTIFIED / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-13**
+Last updated: **2026-09-14**
 
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
 Completed UI/UX Round 2 design/acceptance record: `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`  
 Local-QA/UI/PDF staged plan: `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md`  
 Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md`  
-**Active corrective design:** `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md`
+**Completed corrective design:** `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md`
 
-**Next-phase Wave 4D contract after correction:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
+**Active Email/SMS phase contract:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
@@ -76,7 +76,7 @@ Real authenticated Local-QA AI-template evidence is now obtained separately from
 
 The broad Local-QA route matrix still requires separate harness cleanup/reconciliation because its long sweep recorded unrelated route/session failures; the isolated authenticated AI/template workflow itself passed. No uncontrolled email/SMS send and no production mutation occurred.
 
-UI/UX Round 2 and the Document Template AI corrective phase are complete foundations on the current merged baseline. The user has now explicitly reprioritized the next product work to the Wide Documents Phase. Worker Registration remains paused.
+UI/UX Round 2 and the Document Template AI corrective phase are complete foundations on the current merged baseline. The user has now explicitly reprioritized the current implementation run to Email/SMS Reliability & UX Completion; the remaining Wide Documents managed slices are deferred. Worker Registration remains paused.
 
 ## 2026-09-13 Document Template AI corrective phase
 
@@ -129,40 +129,70 @@ These rules remain the UI baseline for later phases, including resumed Wave 4D w
 
 ## 2026-09-14 Wide Documents Phase reprioritization and Slice 1
 
-The user explicitly reprioritized the next product work to a Wide Documents Phase: Documents should become the central company Document Center, while preserving each owning domain as the source of truth. Official generated Word documents remain template-first and the actual approved DOCX remains the visual layout source of truth. XLSX remains programmatic by default.
+The user previously reprioritized product work to a Wide Documents Phase: Documents should become the central company Document Center, while preserving each owning domain as the source of truth. Official generated Word documents remain template-first and the actual approved DOCX remains the visual layout source of truth. XLSX remains programmatic by default.
 
 Slice 1 is implemented on the merged baseline as the application Document Center shell. `/documents` provides durable `Library`, `Create`, and `Templates` views; Library remains a permission-filtered projection over existing owning records; and Settings keeps only a link to Documents -> Templates. Slice 2 now extends the template foundation with company-defined type metadata, safe custom/repeating schemas, dynamic Templates administration, and generic Create discovery. No company-defined type is a new financial, inventory, payroll, or other owning-domain record.
 
 The durable contract is recorded in `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` and the implementation design/plan are recorded in `docs/superpowers/specs/2026-09-14-unified-document-center-design.md` and `docs/superpowers/plans/2026-09-14-unified-document-center-slice1.md`.
 
-The active Slice 2 implementation proves that template-first generation through the supplied HSC Purchase Order, Checklist, and Warranty fixtures is driven by dynamic company-defined types. The HSC files remain exact acceptance fixtures; they are not hardcoded document-type registrations. Final authenticated Local-QA and render certification remains part of this run’s readiness evidence.
+The Slice 2 implementation proves that template-first generation through the supplied HSC Purchase Order, Checklist, and Warranty fixtures is driven by dynamic company-defined types. The HSC files remain exact acceptance fixtures; they are not hardcoded document-type registrations. Final authenticated Local-QA and render certification remains part of that phase’s readiness evidence.
 
 Current pre-merge evidence: the focused dynamic template/Create suite passes 68/68; lint, production build, Workflow Map consistency, and demo browser QA pass (82/82). Authenticated Local-QA passes its 59/59 route/responsive matrix, while its legacy template functional checks still target the former Settings mount and record 7/9 functional workflows. Dynamic HSC authenticated certification is not claimed because the new migration was not promoted to the QA target; local Docker is unavailable for replay/pgTAP/upgrade validation, and the bundled LibreOffice DOCX renderer is unavailable for visual conversion.
+
+## 2026-09-14 Email/SMS Reliability & UX reprioritization
+
+The user explicitly reprioritized the current implementation run to the focused
+Email/SMS Reliability & UX Completion slice. The remaining Wide Documents managed
+upload/artifact work is deferred; it is not represented as complete or cancelled.
+
+The current branch implementation adds:
+
+- a task-first Inbox / Intake hierarchy with Gmail status, Sync, Scan, Intake Rules,
+  filters, and queue work ahead of a closed `How intake works` disclosure;
+- compact Compose, Sent / Delivery History, and SMS provider status framing while
+  preserving human confirmation, delivery history, idempotency, and reconciliation;
+- encrypted company/user-scoped Gmail refresh credentials, server-side access-token
+  refresh with one safe expiry retry, rotated-token persistence, and distinct safe
+  provider/scope/permission/quota/revocation outcomes;
+- public, session-free `/privacy` and `/terms` pages linked from the public and sign-in
+  surfaces, plus the restrained Hydroqualisense homepage copy required for OAuth
+  configuration. The homepage/requirements funnel remains deployment-gated;
+- no SMS provider configuration or controlled provider-backed QA evidence in the
+  current environment. SMS remains `NOT_CONFIGURED`/unavailable and the approved
+  Company SIM Gateway / PhilSMS choices remain unchanged.
+
+The durable Gmail migration, server-only keys, Google OAuth homepage/policy URLs,
+Google Testing-state limitation, and operator verification checklist are documented
+in `SUPABASE_GMAIL_SETUP.md`. No Google publishing/verification completion or
+production mutation is claimed.
 
 ## Immediate implementation sequence
 
 Unless the user explicitly reprioritizes again, proceed in this order:
 
-1. **Wide Documents Phase — ACTIVE**
-   - complete and certify dynamic company-defined template generation using the supplied HSC DOCX fixtures;
-   - then add managed uploads, retained generated artifacts, project discovery, and permission-safe report/XLSX registration in focused slices;
-   - preserve the completed task-first Documents hierarchy and all source-ownership, financial, payroll, history, and Storage boundaries;
-   - do not mark the broad phase complete until its managed-document, artifact, and permission criteria are actually verified.
+1. **Email/SMS Reliability & UX Completion — ACTIVE by explicit user approval**
+   - finish exact-head implementation and relevant authenticated browser checks for Inbox, Compose, Sent / Delivery History, SMS status, Gmail refresh recovery, and public OAuth pages;
+   - configure and verify only the approved server-side Gmail/SMS paths when external credentials and provider runtime exist;
+   - keep Gmail, SMS, Google publishing, and hosted QA capability states truthful when configuration or evidence is unavailable.
 
-2. **Wave 4D messaging-provider integration/completion — NEXT after Wide Documents**
+2. **Remaining Wave 4D messaging-provider/readiness completion — follows the active reliability slice**
    - Company SIM Gateway remains primary/recommended;
    - PhilSMS remains the optional hosted Philippine fallback;
    - keep SMS truthful as unavailable/unverified until controlled provider-backed runtime QA exists;
    - preserve the existing Email/SMS delivery, Gmail intake, AI confirmation, and idempotency contracts.
 
-3. **Worker Registration — PAUSED**
+3. **Wide Documents Phase remaining managed slices — DEFERRED by explicit reprioritization**
+   - resume managed uploads, retained artifacts, project discovery, and report/XLSX registration only through a later focused approval;
+   - preserve the dynamic template/Create foundation and owning-domain boundaries.
+
+4. **Worker Registration — PAUSED**
    - do not start until Wave 4D is genuinely complete and the user explicitly resumes it.
 
-4. **Site Attendance state machine + registered site/device** after Worker Registration.
+5. **Site Attendance state machine + registered site/device** after Worker Registration.
 
-5. **Face-Recognition Attendance** only after explicit identity/privacy/consent/retention/liveness/confidence/fallback/security design.
+6. **Face-Recognition Attendance** only after explicit identity/privacy/consent/retention/liveness/confidence/fallback/security design.
 
-6. **Final pre-production security/data-integrity certification** before broad rollout.
+7. **Final pre-production security/data-integrity certification** before broad rollout.
 
 ## Completed UI/UX Round 2 implementation boundary
 
@@ -232,4 +262,4 @@ Preserve throughout remaining work:
 
 **PAUSED.**
 
-UI/UX Round 2 is complete. Resume and genuinely complete Wave 4D before Worker Registration, unless the user explicitly changes the sequence. Worker Registration still requires explicit user resumption.
+UI/UX Round 2 is complete. The current approved Email/SMS Reliability & UX slice and the broader Wave 4D gate must be genuinely complete before Worker Registration. Worker Registration still requires explicit user resumption.
