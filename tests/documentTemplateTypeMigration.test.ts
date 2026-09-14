@@ -31,6 +31,8 @@ test("dynamic template migration preserves server-only mutation and safe read bo
 test("dynamic template migration seeds system types without changing issued-document contracts", () => {
   assert.match(migration, /'PURCHASE_ORDER'/i);
   assert.match(migration, /'CLIENT_INVOICE'/i);
+  assert.match(migration, /create trigger companies_document_template_types_seed/i);
+  assert.match(migration, /after insert on public\.companies/i);
   assert.doesNotMatch(migration, /alter table public\.issued_document_snapshots[\s\S]*document_type/i);
   assert.doesNotMatch(migration, /alter table public\.document_generation_evidence[\s\S]*document_type/i);
   assert.doesNotMatch(migration, /PROJECT_EQUIPMENT_MATERIALS_CHECKLIST|PROJECT_WARRANTY_CERTIFICATE/);

@@ -46,6 +46,38 @@ create trigger document_template_type_definitions_updated_at
 before update on public.document_template_type_definitions
 for each row execute function private.set_company_updated_at();
 
+create or replace function private.seed_company_document_template_types()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.document_template_type_definitions (
+    company_id, type_key, display_name, description, category, source_context,
+    custom_fields, repeat_sections, status
+  ) values
+    (
+      new.id, 'PURCHASE_ORDER', 'Purchase Order',
+      'Authoritative Procurement Purchase Order templates.', 'Core workflows',
+      'PURCHASE_ORDER', '[]'::jsonb, '[]'::jsonb, 'ACTIVE'
+    ),
+    (
+      new.id, 'CLIENT_INVOICE', 'Client Invoice',
+      'Authoritative Client Billing invoice templates.', 'Core workflows',
+      'CLIENT_INVOICE', '[]'::jsonb, '[]'::jsonb, 'ACTIVE'
+    )
+  on conflict (company_id, type_key) do nothing;
+  return new;
+end;
+$$;
+
+revoke all on function private.seed_company_document_template_types() from public, anon, authenticated;
+drop trigger if exists companies_document_template_types_seed on public.companies;
+create trigger companies_document_template_types_seed
+after insert on public.companies
+for each row execute function private.seed_company_document_template_types();
+
 insert into public.document_template_type_definitions (
   company_id, type_key, display_name, description, category, source_context,
   custom_fields, repeat_sections, status
