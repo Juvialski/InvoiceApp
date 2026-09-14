@@ -1,5 +1,6 @@
 import { ArrowRight, FileOutput, FileText, FolderKanban, LockKeyhole, Mail, Settings2, Upload } from "lucide-react";
 import { useAppPermissions } from "../../app/AppPermissionContext.tsx";
+import type { ClientBilling } from "../../lib/clientBilling.ts";
 import { appPathForDocumentsWorkspace, appPathForEmailWorkspace, appPathForTab } from "../../utils/appRouting.ts";
 import { hasAnyPermission, PERMISSION_KEYS, type PermissionKey } from "../../utils/accessControl.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
@@ -11,6 +12,7 @@ interface DocumentCreateViewProps {
   readonly onNavigatePath?: AppNavigate;
   readonly projects: readonly Project[];
   readonly purchaseOrders: readonly PurchaseOrder[];
+  readonly clientBillings: readonly ClientBilling[];
 }
 
 type CreateOption = {
@@ -86,7 +88,7 @@ function go(path: string, onNavigatePath?: AppNavigate) {
   else if (typeof window !== "undefined") window.location.assign(path);
 }
 
-export function DocumentCreateView({ onNavigatePath, projects, purchaseOrders }: DocumentCreateViewProps) {
+export function DocumentCreateView({ onNavigatePath, projects, purchaseOrders, clientBillings }: DocumentCreateViewProps) {
   const permissions = useAppPermissions();
   const available = CREATE_OPTIONS.filter((option) => hasAnyPermission(permissions, option.permissions));
 
@@ -94,7 +96,7 @@ export function DocumentCreateView({ onNavigatePath, projects, purchaseOrders }:
     <section className="space-y-4" aria-label="Create documents" data-document-create-view="true">
       <SectionHeader title="Create a document" description="Choose a business workflow. The owning module keeps the record, permissions, and history authoritative." />
 
-      <ManagedDocumentCreateView projects={projects} purchaseOrders={purchaseOrders} />
+      <ManagedDocumentCreateView projects={projects} purchaseOrders={purchaseOrders} clientBillings={clientBillings} />
 
       {available.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-2" data-document-create-options="true">
