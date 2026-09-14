@@ -29,6 +29,7 @@ export interface DocumentTemplateField {
   readonly format: DocumentTemplateFieldFormat;
   readonly required: boolean;
   readonly collection: boolean;
+  readonly collectionKey?: string;
   readonly example: string;
   readonly description: string;
 }
@@ -144,7 +145,7 @@ function field(
   description: string,
   format: DocumentTemplateFieldFormat = type,
 ): DocumentTemplateField {
-  return Object.freeze({ key, label, documentType, type, format, required, collection, example, description });
+  return Object.freeze({ key, label, documentType, type, format, required, collection, ...(collection ? { collectionKey: key.split(".")[0] } : {}), example, description });
 }
 
 const COMPANY_FIELDS = (documentType: DocumentTemplateType): readonly DocumentTemplateField[] => [
@@ -251,13 +252,14 @@ export function getDocumentTemplateFieldCatalog(documentType: DocumentTemplateTy
     format: field.format,
     required: field.required,
     collection: field.collection,
+    ...(field.collectionKey ? { collectionKey: field.collectionKey } : {}),
     example: "",
     description: field.description,
   }));
 }
 
-export function isDocumentTemplateFieldKey(documentType: DocumentTemplateType, key: string): boolean {
-  return Boolean(getDocumentTemplateField(documentType, key));
+export function isDocumentTemplateFieldKey(documentType: DocumentTemplateType, key: string, definition?: DocumentTemplateTypeDefinition): boolean {
+  return Boolean(getDocumentTemplateFieldCatalog(documentType, definition).find((field) => field.key === key));
 }
 
 export function tagForDocumentTemplateField(fieldKey: string): string {
@@ -336,10 +338,10 @@ export function resolveDocumentTemplateFieldValue(
   return text(raw);
 }
 
-export function minimumRequiredFieldKeys(documentType: DocumentTemplateType): readonly string[] {
-  return documentType === "PURCHASE_ORDER"
-    ? ["company.legalName", "purchaseOrder.documentNumber", "purchaseOrder.currency", "purchaseOrder.totalAmount", "supplier.name", "lines.lineNumber", "lines.description", "lines.amount"]
-    : ["company.legalName", "invoice.documentNumber", "invoice.currency", "invoice.subtotal", "invoice.totalAmount", "billTo.name", "lines.lineNumber", "lines.description", "lines.amount"];
+export function minimumRequiredFieldKeys(documentType: DocumentTemplateType, definition?: DocumentTemplateTypeDefinition): readonly string[] {
+  if (documentType === "PURCHASE_ORDER") return ["company.legalName", "purchaseOrder.documentNumber", "purchaseOrder.currency", "purchaseOrder.totalAmount", "supplier.name", "lines.lineNumber", "lines.description", "lines.amount"];
+  if (documentType === "CLIENT_INVOICE") return ["company.legalName", "invoice.documentNumber", "invoice.currency", "invoice.subtotal", "invoice.totalAmount", "billTo.name", "lines.lineNumber", "lines.description", "lines.amount"];
+  return getDocumentTemplateFieldCatalog(documentType, definition).filter((field) => field.required).map((field) => field.key);
 }
 
 function normalizeTag(tag: unknown): string {
@@ -350,15 +352,20 @@ function bindingForTag(tag: string, bindings: readonly DocumentTemplateBinding[]
   return bindings.find((binding) => normalizeTag(binding.tag) === tag);
 }
 
-function bindingKeyForTag(documentType: DocumentTemplateType, tag: string, bindings: readonly DocumentTemplateBinding[]): string | undefined {
-  const direct = isDocumentTemplateFieldKey(documentType, tag) ? tag : undefined;
+function bindingKeyForTag(documentType: DocumentTemplateType, tag: string, bindings: readonly DocumentTemplateBinding[], definition?: DocumentTemplateTypeDefinition): string | undefined {
+  const direct = isDocumentTemplateFieldKey(documentType, tag, definition) ? tag : undefined;
   return direct || bindingForTag(tag, bindings)?.fieldKey;
+}
+
+function collectionKeyForField(field: DocumentTemplateField): string {
+  return field.collectionKey || (field.key.startsWith("lines.") ? "lines" : "");
 }
 
 export function validateDocumentTemplateBindings(
   documentType: DocumentTemplateType,
   tags: readonly string[],
   bindings: readonly DocumentTemplateBinding[],
+  definition?: DocumentTemplateTypeDefinition,
 ): TemplateValidationReport {
   const issues: TemplateValidationIssue[] = [];
   const normalizedTags = tags.map(normalizeTag).filter(Boolean);
@@ -377,36 +384,41 @@ export function validateDocumentTemplateBindings(
     }
     if (seenBindingTags.has(tag)) issues.push({ code: "DUPLICATE_BINDING", severity: "ERROR", message: `The merge tag ${tag} is mapped more than once.`, tag });
     seenBindingTags.add(tag);
-    if (!isDocumentTemplateFieldKey(documentType, fieldKey)) {
+    if (!isDocumentTemplateFieldKey(documentType, fieldKey, definition)) {
       issues.push({ code: "UNKNOWN_FIELD", severity: "ERROR", message: `${fieldKey} is not an allowed field for this document type.`, tag, fieldKey });
     }
     if (!uniqueTags.includes(tag)) issues.push({ code: "UNUSED_BINDING", severity: "WARNING", message: `The mapping for ${tag} is not present in the uploaded document.`, tag, fieldKey });
   }
 
-  let hasLinesStart = false;
-  let hasLinesEnd = false;
+  const catalog = getDocumentTemplateFieldCatalog(documentType, definition);
+  const collectionKeys = new Set(catalog.filter((field) => field.collection).map(collectionKeyForField).filter(Boolean));
+  const collectionStarts = new Set<string>();
+  const collectionEnds = new Set<string>();
   for (const tag of uniqueTags) {
-    if (tag === "#lines") { hasLinesStart = true; continue; }
-    if (tag === "/lines") { hasLinesEnd = true; continue; }
     if (tag.startsWith("#") || tag.startsWith("/") || tag.startsWith("^")) {
-      issues.push({ code: "UNSUPPORTED_STRUCTURE", severity: "ERROR", message: `The structural tag ${tag} is not supported.`, tag });
+      const collectionKey = tag.slice(1);
+      if (!collectionKeys.has(collectionKey) || tag.startsWith("^")) issues.push({ code: "UNSUPPORTED_STRUCTURE", severity: "ERROR", message: `The structural tag ${tag} is not supported.`, tag });
+      else if (tag.startsWith("#")) collectionStarts.add(collectionKey);
+      else collectionEnds.add(collectionKey);
       continue;
     }
-    const fieldKey = bindingKeyForTag(documentType, tag, bindings);
+    const fieldKey = bindingKeyForTag(documentType, tag, bindings, definition);
     if (!fieldKey) {
       issues.push({ code: "UNKNOWN_TAG", severity: "ERROR", message: `The merge tag ${tag} is not mapped to an allowed application field.`, tag });
-    } else if (getDocumentTemplateField(documentType, fieldKey)?.collection && !hasLinesStart) {
-      issues.push({ code: "REPEATING_ROW_START_MISSING", severity: "ERROR", message: `The repeating field ${fieldKey} must be inside a {{#lines}} row block.`, tag, fieldKey });
+    } else {
+      const field = catalog.find((candidate) => candidate.key === fieldKey);
+      if (field?.collection && !collectionStarts.has(collectionKeyForField(field))) issues.push({ code: "REPEATING_ROW_START_MISSING", severity: "ERROR", message: `The repeating field ${fieldKey} must be inside a collection block.`, tag, fieldKey });
     }
   }
-  if (hasLinesStart !== hasLinesEnd) issues.push({ code: "UNBALANCED_LINES", severity: "ERROR", message: "The repeating line-item tags must include both {{#lines}} and {{/lines}}." });
-  if (hasLinesStart && !uniqueTags.some((tag) => tag === "lines.description" || tag === "description")) {
-    issues.push({ code: "REPEATING_DESCRIPTION_MISSING", severity: "ERROR", message: "A repeating line-item block must include a description field." });
+  for (const collectionKey of new Set([...collectionStarts, ...collectionEnds])) {
+    if (!collectionStarts.has(collectionKey) || !collectionEnds.has(collectionKey)) issues.push({ code: "UNBALANCED_LINES", severity: "ERROR", message: `The ${collectionKey} collection tags must include both an opening and closing block.` });
+    const collectionFields = catalog.filter((field) => field.collection && collectionKeyForField(field) === collectionKey);
+    if (collectionFields.length && !collectionFields.some((field) => field.key.endsWith(".description") || field.key.endsWith(".item"))) issues.push({ code: "REPEATING_DESCRIPTION_MISSING", severity: "ERROR", message: `The repeating ${collectionKey} block must include an item or description field.` });
   }
 
-  for (const requiredKey of minimumRequiredFieldKeys(documentType)) {
-    const present = uniqueTags.some((tag) => bindingKeyForTag(documentType, tag, bindings) === requiredKey);
-    if (!present) issues.push({ code: "REQUIRED_FIELD_MISSING", severity: "ERROR", message: `The required field ${getDocumentTemplateField(documentType, requiredKey)?.label || requiredKey} is not mapped.`, fieldKey: requiredKey });
+  for (const requiredKey of minimumRequiredFieldKeys(documentType, definition)) {
+    const present = uniqueTags.some((tag) => bindingKeyForTag(documentType, tag, bindings, definition) === requiredKey);
+    if (!present) issues.push({ code: "REQUIRED_FIELD_MISSING", severity: "ERROR", message: `The required field ${catalog.find((field) => field.key === requiredKey)?.label || requiredKey} is not mapped.`, fieldKey: requiredKey });
   }
   if (confirmed.length !== bindings.length) issues.push({ code: "UNCONFIRMED_MAPPING", severity: "ERROR", message: "Every mapping must be explicitly confirmed before activation." });
   if (!uniqueTags.length) issues.push({ code: "NO_MERGE_TAGS", severity: "ERROR", message: "The template has no supported merge tags. Add tags in Word or use a starter template." });
