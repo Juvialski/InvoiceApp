@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Download, FileText, Loader2, Plus, WandSparkles } from "lucide-react";
+import { FileText, Loader2, Plus, WandSparkles } from "lucide-react";
 import { useAppPermissions } from "../../app/AppPermissionContext.tsx";
 import { useOptionalCompanyAccess } from "../../context/CompanyAccessContext.tsx";
+import type { ClientBilling } from "../../lib/clientBilling.ts";
 import {
   downloadDocxBytes,
   generateManagedDocument,
@@ -16,11 +17,12 @@ import { SectionHeader } from "../ui/OperationsUI.tsx";
 interface ManagedDocumentCreateViewProps {
   readonly projects: readonly Project[];
   readonly purchaseOrders: readonly PurchaseOrder[];
+  readonly clientBillings: readonly ClientBilling[];
 }
 
 type Step = "CHOOSE" | "SOURCE" | "INPUT" | "REVIEW";
 
-const SOURCE_CONTEXTS: readonly DocumentTemplateSourceContext[] = ["PURCHASE_ORDER", "PROJECT", "GENERAL"];
+const SOURCE_CONTEXTS: readonly DocumentTemplateSourceContext[] = ["PURCHASE_ORDER", "CLIENT_INVOICE", "PROJECT", "GENERAL"];
 
 function inputValue(value: unknown) {
   return value === undefined || value === null ? "" : String(value);
@@ -31,10 +33,13 @@ function typeLabel(definition: DocumentTemplateTypeDefinition) {
 }
 
 function sourceLabel(context: DocumentTemplateSourceContext) {
-  return context === "PURCHASE_ORDER" ? "Purchase Order" : context === "PROJECT" ? "Project" : "Company information";
+  if (context === "PURCHASE_ORDER") return "Purchase Order";
+  if (context === "CLIENT_INVOICE") return "Client Invoice";
+  if (context === "PROJECT") return "Project";
+  return "Company information";
 }
 
-export function ManagedDocumentCreateView({ projects, purchaseOrders }: ManagedDocumentCreateViewProps) {
+export function ManagedDocumentCreateView({ projects, purchaseOrders, clientBillings }: ManagedDocumentCreateViewProps) {
   const access = useOptionalCompanyAccess();
   const permissions = useAppPermissions();
   const companyId = access?.activeCompanyId;
@@ -52,7 +57,7 @@ export function ManagedDocumentCreateView({ projects, purchaseOrders }: ManagedD
     if (!companyId) return;
     const contexts = SOURCE_CONTEXTS.filter((context) => {
       if (context === "PURCHASE_ORDER") return hasPermission(permissions, PERMISSION_KEYS.procurementRead);
-      if (context === "PROJECT") return hasPermission(permissions, PERMISSION_KEYS.projectsRead);
+      if (context === "CLIENT_INVOICE" || context === "PROJECT") return hasPermission(permissions, PERMISSION_KEYS.projectsRead);
       return hasPermission(permissions, PERMISSION_KEYS.settingsRead);
     });
     setLoading(true);
@@ -72,9 +77,11 @@ export function ManagedDocumentCreateView({ projects, purchaseOrders }: ManagedD
   const selected = useMemo(() => available.find((entry) => entry.type.key === selectedKey), [available, selectedKey]);
   const sourceOptions = selected?.type.sourceContext === "PURCHASE_ORDER"
     ? purchaseOrders.map((order) => ({ id: order.id, label: `${order.poNumber} · ${order.currency}` }))
-    : selected?.type.sourceContext === "PROJECT"
-      ? projects.map((project) => ({ id: project.id, label: `${project.projectCode} · ${project.projectName}` }))
-      : [];
+    : selected?.type.sourceContext === "CLIENT_INVOICE"
+      ? clientBillings.map((billing) => ({ id: billing.id, label: `${billing.billingNumber} · ${billing.clientNameSnapshot || billing.currency}` }))
+      : selected?.type.sourceContext === "PROJECT"
+        ? projects.map((project) => ({ id: project.id, label: `${project.projectCode} · ${project.projectName}` }))
+        : [];
 
   const chooseType = (entry: AvailableDocumentTemplate) => {
     setSelectedKey(entry.type.key);
