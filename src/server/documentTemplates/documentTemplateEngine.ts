@@ -31,10 +31,10 @@ import {
   validateTemplateBlueprint,
   type DocumentTemplateBinding,
   type DocumentTemplateType,
-  type DocumentTemplateTypeDefinition,
   type TemplateBlueprint,
   type TemplateValidationReport,
 } from "../../lib/documentTemplateRegistry.ts";
+import type { DocumentTemplateTypeDefinition } from "../../lib/documentTemplateTypes.ts";
 
 export const MAX_DOCUMENT_TEMPLATE_BYTES = 10 * 1024 * 1024;
 export const MAX_DOCUMENT_TEMPLATE_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;

@@ -62,6 +62,7 @@ function statusLabel(version: DocumentTemplateVersion) {
 }
 
 function previewSnapshot(documentType: DocumentTemplateType): FinancialDocumentSnapshot {
+  if (documentType !== "PURCHASE_ORDER" && documentType !== "CLIENT_INVOICE") throw new Error("This preview is available only for system financial templates.");
   const company = { legalName: "Demo Construction Company", address: "Demo address", contactNumber: "09000000000", email: "demo@example.com", vatTin: "000-000-000-000", paymentInstructions: "Use the approved company payment account." };
   const lines = documentType === "PURCHASE_ORDER"
     ? [{ lineNumber: 1, description: "Concrete materials", quantity: 12, unit: "bags", unitPrice: 125, amount: 1500 }, { lineNumber: 2, description: "Steel supports", quantity: 3, unit: "pcs", unitPrice: 800, amount: 2400 }]

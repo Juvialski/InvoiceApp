@@ -39,7 +39,7 @@ function definition(): DocumentTemplateTypeDefinition {
     ],
     status: "ACTIVE",
   });
-  if (!result.ok) throw new Error(result.errors.join(" "));
+  if (result.ok === false) throw new Error(result.errors.join(" "));
   return result.definition;
 }
 
@@ -179,9 +179,9 @@ test("generic preparation tags the HSC checklist and warranty without permanent 
     repeatSections: [],
     status: "ACTIVE",
   });
+  if (checklistDefinitionResult.ok === false || warrantyDefinitionResult.ok === false) return;
   assert.equal(checklistDefinitionResult.ok, true);
   assert.equal(warrantyDefinitionResult.ok, true);
-  if (!checklistDefinitionResult.ok || !warrantyDefinitionResult.ok) return;
 
   const checklistBytes = new Uint8Array(readFileSync("tests/fixtures/document-templates/hsc/HSC Checklist Template - Revised.docx"));
   const checklistInventory = getAnchorInventory(checklistBytes, "HSC Checklist Template - Revised.docx", checklistDefinitionResult.definition);

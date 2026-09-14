@@ -307,6 +307,7 @@ export function validateTemplateMappingAnalysisAgainstInventory(
   analysis: DocumentTemplateMappingAnalysis,
   inventory: DocumentTemplateAnchorInventory,
   documentType: DocumentTemplateType,
+  definition?: DocumentTemplateTypeDefinition,
 ): { ok: true; analysis: DocumentTemplateMappingAnalysis } | { ok: false; errors: readonly string[] } {
   const errors: string[] = [];
   const usedAnchors = new Set<string>();
@@ -315,7 +316,7 @@ export function validateTemplateMappingAnalysisAgainstInventory(
   const unresolved = [...analysis.unresolved];
   for (const [index, mapping] of analysis.mappings.entries()) {
     if (mapping.unresolved) continue;
-    if (!mapping.fieldKey || !isDocumentTemplateFieldKey(documentType, mapping.fieldKey)) {
+    if (!mapping.fieldKey || !isDocumentTemplateFieldKey(documentType, mapping.fieldKey, definition)) {
       errors.push(`mapping ${index + 1} references an unavailable application field.`);
       continue;
     }
@@ -345,7 +346,7 @@ export function validateTemplateMappingAnalysisAgainstInventory(
     }
     else if (mapping.targetText !== anchor.targetText) normalizationWarnings.push(`Mapping ${index + 1} target text was normalized from the verified source anchor.`);
     if (anchor.targetText) normalizedMappings[index] = { ...mapping, targetText: anchor.targetText };
-    if (getDocumentTemplateField(documentType, mapping.fieldKey)?.collection) {
+    if (getDocumentTemplateFieldCatalog(documentType, definition).find((field) => field.key === mapping.fieldKey)?.collection) {
       normalizedMappings[index] = { ...mapping, fieldKey: undefined, targetText: undefined, unresolved: true };
       normalizationWarnings.push(`Mapping ${index + 1} was left unresolved because repeating fields require a line table.`);
       unresolved.push(`Mapping ${index + 1} requires a repeating line table.`);
@@ -366,7 +367,7 @@ export function validateTemplateMappingAnalysisAgainstInventory(
       if (usedColumns.has(column.columnIndex)) lineTableInvalid = true;
       usedColumns.add(column.columnIndex);
       if (!candidate?.columns.some((item) => item.columnIndex === column.columnIndex)) lineTableInvalid = true;
-      if (!isDocumentTemplateFieldKey(documentType, column.fieldKey) || !getDocumentTemplateField(documentType, column.fieldKey)?.collection) lineTableInvalid = true;
+      if (!isDocumentTemplateFieldKey(documentType, column.fieldKey, definition) || !getDocumentTemplateFieldCatalog(documentType, definition).find((field) => field.key === column.fieldKey)?.collection) lineTableInvalid = true;
     }
     if (!columns.length) lineTableInvalid = true;
     if (lineTableInvalid) {

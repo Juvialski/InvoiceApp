@@ -131,7 +131,7 @@ export function validateDocumentTemplateTypeDefinition(value: unknown): { ok: tr
   if (!Array.isArray(source.customFields) || source.customFields.length > 40) errors.push("customFields must contain at most 40 entries.");
   else source.customFields.forEach((field, index) => {
     const validated = validateCustomField(field, index);
-    if (!validated.ok) errors.push(validated.error);
+    if (validated.ok === false) errors.push(validated.error);
     else customFields.push(validated.field);
   });
   if (new Set(customFields.map((field) => field.key)).size !== customFields.length) errors.push("Custom field keys must be unique.");
@@ -154,7 +154,7 @@ export function validateDocumentTemplateTypeDefinition(value: unknown): { ok: tr
     const fields: DocumentTemplateRepeatFieldDefinition[] = [];
     section.fields.forEach((field, fieldIndex) => {
       const validated = validateRepeatField(field, sectionIndex, fieldIndex);
-      if (!validated.ok) errors.push(validated.error);
+      if (validated.ok === false) errors.push(validated.error);
       else fields.push(validated.field);
     });
     if (new Set(fields.map((field) => field.key)).size !== fields.length) errors.push("repeat section " + (sectionIndex + 1) + " field keys must be unique.");

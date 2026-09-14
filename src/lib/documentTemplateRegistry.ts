@@ -529,7 +529,7 @@ export function starterTemplateBlueprint(documentType: DocumentTemplateType): Te
   };
 }
 
-export function validateTemplateMappingAnalysis(value: unknown, documentType: DocumentTemplateType): { ok: true; analysis: DocumentTemplateMappingAnalysis } | { ok: false; errors: readonly string[] } {
+export function validateTemplateMappingAnalysis(value: unknown, documentType: DocumentTemplateType, definition?: DocumentTemplateTypeDefinition): { ok: true; analysis: DocumentTemplateMappingAnalysis } | { ok: false; errors: readonly string[] } {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const errors: string[] = [];
   const analysisKeys = new Set(["suggestedDocumentType", "confidence", "mappings", "lineTable", "unresolved", "warnings"]);
@@ -559,7 +559,7 @@ export function validateTemplateMappingAnalysis(value: unknown, documentType: Do
       errors.push(`mapping ${index + 1} is invalid.`);
       return;
     }
-    if (fieldKey && !isDocumentTemplateFieldKey(documentType, fieldKey)) {
+    if (fieldKey && !isDocumentTemplateFieldKey(documentType, fieldKey, definition)) {
       errors.push(`mapping ${index + 1} references an unavailable field.`);
       return;
     }
@@ -584,7 +584,7 @@ export function validateTemplateMappingAnalysis(value: unknown, documentType: Do
         const columnIndex = Number(column.columnIndex);
         const fieldKey = boundedString(column.fieldKey, 120);
         const columnConfidence = column.confidence === undefined ? undefined : Number(column.confidence);
-        if (!Number.isInteger(columnIndex) || columnIndex < 0 || columnIndex > 50 || !fieldKey || !getDocumentTemplateField(documentType, fieldKey)?.collection || (columnConfidence !== undefined && (!Number.isFinite(columnConfidence) || columnConfidence < 0 || columnConfidence > 1))) {
+        if (!Number.isInteger(columnIndex) || columnIndex < 0 || columnIndex > 50 || !fieldKey || !getDocumentTemplateFieldCatalog(documentType, definition).find((field) => field.key === fieldKey)?.collection || (columnConfidence !== undefined && (!Number.isFinite(columnConfidence) || columnConfidence < 0 || columnConfidence > 1))) {
           errors.push(`lineTable column ${index + 1} is invalid.`);
           return;
         }
@@ -593,7 +593,7 @@ export function validateTemplateMappingAnalysis(value: unknown, documentType: Do
     }
     if (!location || !Number.isFinite(lineConfidence) || lineConfidence < 0 || lineConfidence > 1 || !fieldKeys) errors.push("lineTable is invalid.");
     else {
-      const invalid = fieldKeys.some((key) => !getDocumentTemplateField(documentType, key)?.collection);
+      const invalid = fieldKeys.some((key) => !getDocumentTemplateFieldCatalog(documentType, definition).find((field) => field.key === key)?.collection);
       if (invalid) errors.push("lineTable contains an unavailable line field.");
       else lineTable = { location, ...(candidateId ? { candidateId } : {}), confidence: lineConfidence, fieldKeys, ...(rawColumns === undefined ? {} : { columns }) };
     }
