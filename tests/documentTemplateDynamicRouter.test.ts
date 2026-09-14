@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import PizZip from "pizzip";
 import test from "node:test";
 import { validateDocumentTemplateTypeDefinition } from "../src/lib/documentTemplateTypes.ts";
-import { validateManagedDocumentInputs } from "../src/server/documentTemplates/documentTemplateContext.ts";
+import { buildManagedTemplateRenderContext, validateManagedDocumentInputs } from "../src/server/documentTemplates/documentTemplateContext.ts";
 import { createDocumentTemplateRouter } from "../src/server/documentTemplates/documentTemplateRouter.ts";
 import type { StorageAuthContext } from "../src/server/storage/storageRouter.ts";
 import { MemoryStorageProvider } from "../src/lib/storage/providers/memoryProvider.ts";
@@ -56,6 +56,36 @@ test("managed input validation accepts declared values and rejects guessed sensi
     repeats: { items: [{ item: "Concrete" }] },
   });
   assert.equal(rejected.ok, false);
+});
+
+test("managed render context reauthorizes the trusted persisted source context before reading source data", async () => {
+  const checkedPermissions: string[] = [];
+  let privilegedSourceRead = false;
+  const auth = {
+    companyId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    user: { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", email: "user@example.com", user_metadata: {} },
+    supabase: {
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        assert.equal(name, "has_company_permission");
+        checkedPermissions.push(String(args.p_permission_key || ""));
+        return { data: false, error: null };
+      },
+    },
+  };
+  const options = {
+    serverSupabaseSupplier: () => ({
+      from: () => {
+        privilegedSourceRead = true;
+        throw new Error("source data must not be touched before trusted authorization");
+      },
+    }),
+  };
+  await assert.rejects(
+    buildManagedTemplateRenderContext(auth as any, options, definition(), "project-id", { fields: { "custom.issue_date": "2026-09-14" }, repeats: { items: [{ item: "Concrete" }] } }),
+    (error: any) => error?.status === 403,
+  );
+  assert.deepEqual(checkedPermissions, ["projects.read"]);
+  assert.equal(privilegedSourceRead, false);
 });
 
 test("dynamic type lifecycle persists through the same router APIs without an enum entry", async () => {
@@ -145,7 +175,13 @@ test("managed generation uses a dynamic type, typed input, and the pinned templa
     };
     return query;
   };
-  const authSupabase: any = { from: queryFor };
+  const authSupabase: any = {
+    from: queryFor,
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "has_company_permission" && args.p_permission_key === "company.settings.read") return { data: true, error: null };
+      return { data: false, error: null };
+    },
+  };
   const app = express();
   app.use(express.json());
   app.use("/api/document-templates", createDocumentTemplateRouter({
