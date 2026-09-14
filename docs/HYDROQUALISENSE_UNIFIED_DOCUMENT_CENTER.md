@@ -1,6 +1,6 @@
 # HydroQualiSense Unified Document Center
 
-Status: **ACTIVE — Slice 1 implemented; managed document and exact HSC template slices remain**
+Status: **ACTIVE — Slice 1 implemented; dynamic company-template generation is the current Slice 2 implementation; retained managed artifacts remain deferred**
 
 Date: **2026-09-14**
 
@@ -59,11 +59,13 @@ AI may classify a template, identify anchors, suggest allowlisted mappings, prep
 
 Changing a layout means editing the actual DOCX in Word, uploading a new version, reviewing mappings, testing, and activating deliberately. Historical template bytes and issued outputs remain pinned and immutable.
 
-The supplied HSC fixtures are the primary acceptance assets for the next template slice:
+The supplied HSC fixtures are real client acceptance examples for the dynamic template architecture, not permanent application document types:
 
 - HSC Purchase Order — actual client logo/header, supplier block, line-item table, totals, delivery/terms, and signatures.
 - HSC Equipment / Materials Checklist — actual project metadata, checkbox rows, Others/remarks area, and attestation signatures.
 - HSC Warranty Certificate — actual approved warranty paragraphs, project metadata, signatory, acknowledgement, and images.
+
+Any company administrator can create a new business document type, define safe custom/repeating inputs and an allowed source context, upload its DOCX, review deterministic/AI-proposed mappings, prepare an immutable descendant, activate it, and use it from Documents -> Create. New customer types do not require a TypeScript enum, route, schema enum, or dedicated generator. Existing Purchase Order and Client Invoice templates continue to use their owning-domain adapters and authoritative financial snapshots.
 
 Their original bytes and approved warranty wording are not to be approximated or silently rewritten.
 
@@ -98,8 +100,8 @@ Implemented on the Wide Documents feature branch:
 
 The following remain unfinished and must not be represented as available merely because the shell exists:
 
-- managed Warranty Certificate and Equipment / Materials Checklist draft persistence and generation;
-- exact supplied HSC DOCX anchor preparation and visual fidelity certification;
+- retained managed-document records and generated-artifact history;
+- final authenticated certification of the dynamic HSC fixture workflows and source-vs-generated render evidence;
 - general company uploads and version history;
 - generic retained generated-artifact index and authorized retrieval;
 - broader project/engineering/payroll/report artifact aggregation;
@@ -109,4 +111,4 @@ The following remain unfinished and must not be represented as available merely 
 
 ## Validation truth
 
-Slice 1 has focused routing, Documents shell, source-projection, Email/SMS handoff, and existing template-contract tests passing. The affected selector passed 293/293 tests; TypeScript lint and production build passed; Workflow Map consistency passed; and the demo browser matrix passed 82/82 scenarios across desktop, tablet, and mobile with zero overflow, console errors, page errors, or failed requests. The repository-wide suite remains a non-green background signal because it contains unrelated legacy UI/source-contract failures; none are used as evidence against this Documents slice. This slice has no database change and therefore does not require Docker/Supabase replay. DOCX render/fidelity evidence belongs to the next template slice, where the supplied actual templates are merged into generated output.
+Slice 1’s shell evidence remains valid. The current Slice 2 focused document/template suite passes 68/68 tests; TypeScript lint and production build pass; Workflow Map consistency passes; and the demo browser matrix passes 82/82 scenarios across desktop, tablet, and mobile with zero overflow, console errors, page errors, or failed requests. Authenticated Local-QA records 59/59 route/responsive scenarios with no overflow/errors, but its legacy functional template checks still target the former Settings mount and therefore record 7/9 functional workflows; the new dynamic HSC workflow is not claimed as authenticated QA-certified because the required migration was not promoted to that QA target. Supabase clean replay/pgTAP/upgrade runtime validation is blocked because the local Docker daemon is unavailable. The bundled LibreOffice DOCX renderer is also unavailable, so package/anchor/fidelity tests pass while converter-backed visual certification remains unclaimed. The affected selector is 223/224 because one unrelated pre-existing Expenses source-contract assertion fails; the repository-wide suite remains a separate non-green background signal.

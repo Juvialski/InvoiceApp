@@ -1,5 +1,6 @@
 import { companyApiRequest } from "./companyApi.ts";
 import type { DocumentTemplateBinding, DocumentTemplateMappingAnalysis, DocumentTemplateType, TemplateValidationReport } from "./documentTemplateRegistry.ts";
+import type { DocumentTemplateSourceContext, DocumentTemplateTypeDefinition } from "./documentTemplateTypes.ts";
 import type { DocumentTemplateAnchor, DocumentTemplateLineTableCandidate, DocumentTemplatePreparationPlan, DocumentTemplateUniqueLineTable } from "../server/documentTemplates/documentTemplateAutoTagger.ts";
 
 export interface DocumentTemplateVersion {
@@ -39,6 +40,18 @@ export interface DocumentTemplateRoot {
   isDefault: boolean;
   createdAt?: string;
   versions: readonly DocumentTemplateVersion[];
+}
+
+export interface DocumentTemplateTypeDefinitionApi extends DocumentTemplateTypeDefinition {
+  id: string;
+  companyId: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AvailableDocumentTemplate {
+  type: DocumentTemplateTypeDefinitionApi;
+  activeVersion: { id: string; displayName: string; versionNumber: number };
 }
 
 export interface DocumentTemplateAnalysisResult {
@@ -113,6 +126,29 @@ async function requestJson<T>(path: string, options: { companyId: string; method
 export async function listDocumentTemplates(companyId: string): Promise<readonly DocumentTemplateRoot[]> {
   const data = await requestJson<{ templates: DocumentTemplateRoot[] }>("/api/document-templates", { companyId });
   return data.templates || [];
+}
+
+export async function listDocumentTemplateTypes(companyId: string): Promise<readonly DocumentTemplateTypeDefinitionApi[]> {
+  const data = await requestJson<{ types: DocumentTemplateTypeDefinitionApi[] }>("/api/document-templates/types", { companyId });
+  return data.types || [];
+}
+
+export async function createDocumentTemplateType(companyId: string, definition: DocumentTemplateTypeDefinition): Promise<DocumentTemplateTypeDefinitionApi> {
+  const data = await requestJson<DocumentTemplateTypeDefinitionApi>("/api/document-templates/types", { companyId, method: "POST", body: definition });
+  return data;
+}
+
+export async function updateDocumentTemplateType(companyId: string, typeKey: string, patch: Partial<DocumentTemplateTypeDefinition>): Promise<DocumentTemplateTypeDefinitionApi> {
+  return requestJson<DocumentTemplateTypeDefinitionApi>(`/api/document-templates/types/${encodeURIComponent(typeKey)}`, { companyId, method: "PUT", body: patch });
+}
+
+export async function retireDocumentTemplateType(companyId: string, typeKey: string): Promise<DocumentTemplateTypeDefinitionApi> {
+  return requestJson<DocumentTemplateTypeDefinitionApi>(`/api/document-templates/types/${encodeURIComponent(typeKey)}/retire`, { companyId, method: "POST", body: {} });
+}
+
+export async function listAvailableDocumentTemplates(companyId: string, sourceContext: DocumentTemplateSourceContext): Promise<readonly AvailableDocumentTemplate[]> {
+  const data = await requestJson<{ types: AvailableDocumentTemplate[] }>(`/api/document-templates/available?sourceContext=${encodeURIComponent(sourceContext)}`, { companyId });
+  return data.types || [];
 }
 
 export async function getDocumentTemplatePdfCapability(companyId: string): Promise<DocumentTemplateCapability> {
@@ -227,6 +263,10 @@ export async function generateDocumentTemplateDocument(companyId: string, versio
 
 export async function generateDocumentTemplatePdf(companyId: string, versionId: string, input: { documentType: DocumentTemplateType; snapshotId?: string; previewSnapshot?: unknown }) {
   return binaryRequest(`/api/document-templates/${encodeURIComponent(versionId)}/finalize-pdf`, companyId, input);
+}
+
+export async function generateManagedDocument(companyId: string, input: { typeKey: string; templateVersionId: string; sourceContext: DocumentTemplateSourceContext; sourceId?: string; inputs: unknown }) {
+  return binaryRequest("/api/document-templates/managed-generate", companyId, input);
 }
 
 export function downloadDocxBytes(bytes: Uint8Array, fileName: string) {

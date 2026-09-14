@@ -6,6 +6,7 @@ import {
   validateDocxTemplateBytes,
 } from "./documentTemplateEngine.ts";
 import {
+  getDocumentTemplateFieldCatalog,
   getDocumentTemplateField,
   isDocumentTemplateFieldKey,
   tagForDocumentTemplateField,
@@ -15,6 +16,7 @@ import {
   type TemplateValidationReport,
   type DocumentTemplateType,
 } from "../../lib/documentTemplateRegistry.ts";
+import type { DocumentTemplateTypeDefinition } from "../../lib/documentTemplateTypes.ts";
 
 export type DocumentTemplatePartKind = "DOCUMENT" | "HEADER" | "FOOTER";
 export type DocumentTemplateAnchorKind = "PARAGRAPH" | "CELL";
@@ -29,6 +31,7 @@ export interface DocumentTemplateAnchor {
   readonly tableIndex?: number;
   readonly rowIndex?: number;
   readonly cellIndex?: number;
+  readonly cellParagraphIndex?: number;
   readonly text: string;
   readonly targetText?: string;
   readonly insertionMode?: DocumentTemplateAnchorInsertionMode;
@@ -49,6 +52,7 @@ export interface DocumentTemplateLineTableCandidate {
   readonly tableIndex: number;
   readonly headerRowIndex: number;
   readonly dataRowIndex?: number;
+  readonly repeatSectionKey?: string;
   readonly columns: readonly DocumentTemplateLineTableColumn[];
   readonly score: number;
 }
@@ -131,6 +135,10 @@ function partKind(partName: string): DocumentTemplatePartKind {
 function targetTextFor(sourceText: string): string | undefined {
   const text = normalizeText(sourceText);
   if (!text) return undefined;
+  const issuedDate = /^Issued this\s+(.+?)[.]$/i.exec(text);
+  if (issuedDate?.[1]?.trim()) return issuedDate[1].trim();
+  const leadingColon = /^:\s*(.+)$/.exec(text);
+  if (leadingColon?.[1]?.trim()) return leadingColon[1].trim();
   const colon = /^(?:[^:]{1,120}):\s*(.+)$/.exec(text);
   if (colon?.[1]?.trim()) return colon[1].trim();
   const tab = /^\S[^\t]{0,120}\t+(.+)$/.exec(sourceText);
@@ -166,27 +174,34 @@ function keyForOccurrence(anchor: Pick<DocumentTemplateAnchor, "partName" | "kin
   return `${anchor.partName}|${anchor.kind}|${anchor.text}`;
 }
 
-function anchorId(anchor: Pick<DocumentTemplateAnchor, "partName" | "kind" | "paragraphIndex" | "tableIndex" | "rowIndex" | "cellIndex">, occurrence: number, slot?: string): string {
-  const suffix = slot ? `:slot:${slot}` : "";
+function anchorId(anchor: Pick<DocumentTemplateAnchor, "partName" | "kind" | "paragraphIndex" | "tableIndex" | "rowIndex" | "cellIndex" | "cellParagraphIndex">, occurrence: number, slot?: string): string {
+  const slotSuffix = slot ? `:slot:${slot}` : "";
   if (anchor.kind === "CELL") {
-    return `${anchor.partName}:cell:${anchor.tableIndex}:${anchor.rowIndex}:${anchor.cellIndex}${suffix}:occurrence:${occurrence}`;
+    const paragraphSuffix = anchor.cellParagraphIndex === undefined ? "" : `:paragraph:${anchor.cellParagraphIndex}`;
+    return `${anchor.partName}:cell:${anchor.tableIndex}:${anchor.rowIndex}:${anchor.cellIndex}${paragraphSuffix}${slotSuffix}:occurrence:${occurrence}`;
   }
-  return `${anchor.partName}:paragraph:${anchor.paragraphIndex}${suffix}:occurrence:${occurrence}`;
+  return `${anchor.partName}:paragraph:${anchor.paragraphIndex}${slotSuffix}:occurrence:${occurrence}`;
 }
 
-function suggestedFieldKey(headerText: string): string | undefined {
+function suggestedFieldKey(headerText: string, definition?: DocumentTemplateTypeDefinition): string | undefined {
+  const normalized = normalizeText(headerText).toLowerCase();
+  const dynamicMatches = (definition?.repeatSections || []).flatMap((section) => section.fields
+    .filter((field) => normalizeText(field.label).toLowerCase() === normalized || field.key.toLowerCase() === normalized)
+    .map((field) => section.key + "." + field.key));
+  if (dynamicMatches.length === 1) return dynamicMatches[0];
   const matches = LINE_HEADER_ALIASES.filter((candidate) => candidate.patterns.some((pattern) => pattern.test(headerText))).map((candidate) => candidate.fieldKey);
   return matches.length === 1 ? matches[0] : undefined;
 }
 
-function lineTableCandidate(partName: string, kind: DocumentTemplatePartKind, tableIndex: number, tableXml: string): DocumentTemplateLineTableCandidate | undefined {
+function lineTableCandidate(partName: string, kind: DocumentTemplatePartKind, tableIndex: number, tableXml: string, definition?: DocumentTemplateTypeDefinition): DocumentTemplateLineTableCandidate | undefined {
   const rows = rowFragments(tableXml).map((rowXml) => cellFragments(rowXml).map((cellXml) => normalizeText(textFromWordXml(cellXml))));
   const candidates = rows.map((row, rowIndex) => {
-    const columns = row.map((headerText, columnIndex) => ({ columnIndex, headerText, ...(suggestedFieldKey(headerText) ? { suggestedFieldKey: suggestedFieldKey(headerText) } : {}) }));
+    const columns = row.map((headerText, columnIndex) => ({ columnIndex, headerText, ...(suggestedFieldKey(headerText, definition) ? { suggestedFieldKey: suggestedFieldKey(headerText, definition) } : {}) }));
     const fieldKeys = new Set(columns.flatMap((column) => column.suggestedFieldKey ? [column.suggestedFieldKey] : []));
-    const requiredCount = Number(fieldKeys.has("lines.description")) + Number(fieldKeys.has("lines.amount"));
-    return { rowIndex, columns, score: requiredCount * 4 + fieldKeys.size };
-  }).filter((candidate) => candidate.score >= 8 && candidate.rowIndex < rows.length - 1);
+    const repeatSectionKey = definition?.repeatSections.find((section) => [...fieldKeys].some((fieldKey) => fieldKey.startsWith(section.key + ".")))?.key;
+    const requiredCount = definition ? Number(Boolean(repeatSectionKey)) : Number(fieldKeys.has("lines.description")) + Number(fieldKeys.has("lines.amount"));
+    return { rowIndex, columns, repeatSectionKey, score: requiredCount * 4 + fieldKeys.size };
+  }).filter((candidate) => candidate.score >= (definition ? 4 : 8) && candidate.rowIndex < rows.length - 1);
   const selected = candidates.sort((left, right) => right.score - left.score)[0];
   if (!selected) return undefined;
   const dataRowIndex = selected.rowIndex + 1 < rows.length ? selected.rowIndex + 1 : undefined;
@@ -198,12 +213,13 @@ function lineTableCandidate(partName: string, kind: DocumentTemplatePartKind, ta
     tableIndex,
     headerRowIndex: selected.rowIndex,
     dataRowIndex,
+    ...(selected.repeatSectionKey ? { repeatSectionKey: selected.repeatSectionKey } : {}),
     columns: selected.columns,
     score: selected.score,
   };
 }
 
-function inspectPart(partName: string, xml: string, anchors: DocumentTemplateAnchor[], lineTables: DocumentTemplateLineTableCandidate[], occurrences: Map<string, number>, warnings: string[]) {
+function inspectPart(partName: string, xml: string, anchors: DocumentTemplateAnchor[], lineTables: DocumentTemplateLineTableCandidate[], occurrences: Map<string, number>, warnings: string[], definition?: DocumentTemplateTypeDefinition) {
   const kind = partKind(partName);
   const tables = tableFragments(xml);
   tables.forEach((table, tableIndex) => {
@@ -216,10 +232,19 @@ function inspectPart(partName: string, xml: string, anchors: DocumentTemplateAnc
         const key = keyForOccurrence({ partName, kind: "CELL", text });
         const occurrence = (occurrences.get(key) || 0) + 1;
         occurrences.set(key, occurrence);
-        const relatedCellIndex = !rowTexts[cellIndex + 1] && /\btotal\b/i.test(text) ? cellIndex + 1 : undefined;
+        const colonValueCell = rowTexts[cellIndex + 1] === ":" && rowTexts[cellIndex + 2] !== undefined;
+        const relatedCellIndex = colonValueCell ? cellIndex + 2 : (!rowTexts[cellIndex + 1] && /\b(?:total|others|attested|prepared|received)\b/i.test(text) ? cellIndex + 1 : undefined);
         const insertionMode = relatedCellIndex !== undefined ? "ADJACENT_CELL" as const : /^.*:\s*$/.test(text) ? "AFTER_LABEL" as const : undefined;
         const base = { partName, partKind: kind, kind: "CELL" as const, paragraphIndex: -1, tableIndex, rowIndex, cellIndex, text, occurrence };
         anchors.push({ ...base, id: anchorId(base, occurrence), targetText: targetTextFor(text), ...(insertionMode ? { insertionMode } : {}), ...(relatedCellIndex === undefined ? {} : { relatedCellIndex }) });
+        const nestedParagraphs = paragraphFragments(cellXml).map((paragraph, nestedIndex) => ({ text: normalizeText(textFromWordXml(paragraph.text)), nestedIndex })).filter((paragraph) => Boolean(paragraph.text));
+        if (nestedParagraphs.length > 1) for (const nested of nestedParagraphs) {
+          const nestedKey = keyForOccurrence({ partName, kind: "CELL", text: nested.text });
+          const nestedOccurrence = (occurrences.get(nestedKey) || 0) + 1;
+          occurrences.set(nestedKey, nestedOccurrence);
+          const nestedAnchor = { ...base, text: nested.text, occurrence: nestedOccurrence, cellParagraphIndex: nested.nestedIndex };
+          anchors.push({ ...nestedAnchor, id: anchorId(nestedAnchor, nestedOccurrence), targetText: targetTextFor(nested.text) });
+        }
         const currencyMatch = /\btotal\s*\(([^)]+)\)/i.exec(text);
         if (currencyMatch?.[1]?.trim()) {
           const currencyTarget = currencyMatch[1].trim();
@@ -230,7 +255,7 @@ function inspectPart(partName: string, xml: string, anchors: DocumentTemplateAnc
         }
       });
     });
-    const candidate = lineTableCandidate(partName, kind, tableIndex, table.text);
+    const candidate = lineTableCandidate(partName, kind, tableIndex, table.text, definition);
     if (candidate) lineTables.push(candidate);
   });
 
@@ -252,7 +277,7 @@ function inspectPart(partName: string, xml: string, anchors: DocumentTemplateAnc
   if (!tables.length && !paragraphIndex) warnings.push(`No editable text anchors were found in ${partName}.`);
 }
 
-export function extractDocumentTemplateAnchorInventory(bytes: Uint8Array, fileName = "template.docx"): DocumentTemplateAnchorInventory {
+export function extractDocumentTemplateAnchorInventory(bytes: Uint8Array, fileName = "template.docx", definition?: DocumentTemplateTypeDefinition): DocumentTemplateAnchorInventory {
   const entries = validateDocxTemplateBytes(bytes, fileName, DOCX_MIME_TYPE);
   const zip = new PizZip(bytes, { checkCRC32: true });
   const anchors: DocumentTemplateAnchor[] = [];
@@ -260,7 +285,7 @@ export function extractDocumentTemplateAnchorInventory(bytes: Uint8Array, fileNa
   const occurrences = new Map<string, number>();
   const warnings: string[] = [];
   for (const entry of entries.filter((candidate) => /^word\/(?:document|header\d+|footer\d+)\.xml$/i.test(candidate.name))) {
-    inspectPart(entry.name, zip.file(entry.name)?.asText() || "", anchors, lineTableCandidates, occurrences, warnings);
+    inspectPart(entry.name, zip.file(entry.name)?.asText() || "", anchors, lineTableCandidates, occurrences, warnings, definition);
   }
   const sortedCandidates = [...lineTableCandidates].sort((left, right) => right.score - left.score);
   const best = sortedCandidates[0];
@@ -282,6 +307,7 @@ export function validateTemplateMappingAnalysisAgainstInventory(
   analysis: DocumentTemplateMappingAnalysis,
   inventory: DocumentTemplateAnchorInventory,
   documentType: DocumentTemplateType,
+  definition?: DocumentTemplateTypeDefinition,
 ): { ok: true; analysis: DocumentTemplateMappingAnalysis } | { ok: false; errors: readonly string[] } {
   const errors: string[] = [];
   const usedAnchors = new Set<string>();
@@ -290,7 +316,7 @@ export function validateTemplateMappingAnalysisAgainstInventory(
   const unresolved = [...analysis.unresolved];
   for (const [index, mapping] of analysis.mappings.entries()) {
     if (mapping.unresolved) continue;
-    if (!mapping.fieldKey || !isDocumentTemplateFieldKey(documentType, mapping.fieldKey)) {
+    if (!mapping.fieldKey || !isDocumentTemplateFieldKey(documentType, mapping.fieldKey, definition)) {
       errors.push(`mapping ${index + 1} references an unavailable application field.`);
       continue;
     }
@@ -320,7 +346,7 @@ export function validateTemplateMappingAnalysisAgainstInventory(
     }
     else if (mapping.targetText !== anchor.targetText) normalizationWarnings.push(`Mapping ${index + 1} target text was normalized from the verified source anchor.`);
     if (anchor.targetText) normalizedMappings[index] = { ...mapping, targetText: anchor.targetText };
-    if (getDocumentTemplateField(documentType, mapping.fieldKey)?.collection) {
+    if (getDocumentTemplateFieldCatalog(documentType, definition).find((field) => field.key === mapping.fieldKey)?.collection) {
       normalizedMappings[index] = { ...mapping, fieldKey: undefined, targetText: undefined, unresolved: true };
       normalizationWarnings.push(`Mapping ${index + 1} was left unresolved because repeating fields require a line table.`);
       unresolved.push(`Mapping ${index + 1} requires a repeating line table.`);
@@ -341,7 +367,7 @@ export function validateTemplateMappingAnalysisAgainstInventory(
       if (usedColumns.has(column.columnIndex)) lineTableInvalid = true;
       usedColumns.add(column.columnIndex);
       if (!candidate?.columns.some((item) => item.columnIndex === column.columnIndex)) lineTableInvalid = true;
-      if (!isDocumentTemplateFieldKey(documentType, column.fieldKey) || !getDocumentTemplateField(documentType, column.fieldKey)?.collection) lineTableInvalid = true;
+      if (!isDocumentTemplateFieldKey(documentType, column.fieldKey, definition) || !getDocumentTemplateFieldCatalog(documentType, definition).find((field) => field.key === column.fieldKey)?.collection) lineTableInvalid = true;
     }
     if (!columns.length) lineTableInvalid = true;
     if (lineTableInvalid) {
@@ -511,7 +537,11 @@ function updateFirstTextNode(xml: string, update: (value: string) => string, app
   const nodes = textNodeRanges(xml);
   if (!nodes.length) {
     const paragraphClose = xml.search(/<\/w:p>/i);
-    if (paragraphClose < 0) throw new DocumentTemplatePreparationError("CELL_TEXT_UNSUPPORTED", "The selected Word cell has no supported paragraph content.");
+    if (paragraphClose < 0) {
+      const emptyParagraph = xml.match(/<w:p\b[^>]*\/>/i);
+      if (emptyParagraph?.[0]) return xml.replace(emptyParagraph[0], `${emptyParagraph[0].slice(0, -2)}><w:r><w:t>${xmlEscapeText(appendIfEmpty)}</w:t></w:r></w:p>`);
+      throw new DocumentTemplatePreparationError("CELL_TEXT_UNSUPPORTED", "The selected Word cell has no supported paragraph content.");
+    }
     return `${xml.slice(0, paragraphClose)}<w:r><w:t>${xmlEscapeText(appendIfEmpty)}</w:t></w:r>${xml.slice(paragraphClose)}`;
   }
   const node = nodes[0]!;
@@ -540,25 +570,30 @@ function replaceAnchorInPart(xml: string, anchor: DocumentTemplateAnchor, target
   }));
 }
 
-function replaceLineTableInPart(xml: string, candidate: DocumentTemplateUniqueLineTable, columns: readonly DocumentTemplatePreparationLineColumn[]): string {
-  const columnMap = new Map(columns.map((column) => [column.columnIndex, column.fieldKey]));
+function replaceLineTableInPart(xml: string, candidate: DocumentTemplateUniqueLineTable, columns: readonly DocumentTemplatePreparationLineColumn[], documentType: DocumentTemplateType, definition?: DocumentTemplateTypeDefinition): string {
+  const repeatKey = candidate.repeatSectionKey || "lines";
+  const catalog = getDocumentTemplateFieldCatalog(documentType, definition);
   return replaceTableInPart(xml, candidate.tableIndex, (tableXml) => replaceRowInTable(tableXml, candidate.dataRowIndex!, (rowXml) => {
     let nextRow = rowXml;
     for (const column of columns) {
-      const field = getDocumentTemplateField("PURCHASE_ORDER", column.fieldKey) || getDocumentTemplateField("CLIENT_INVOICE", column.fieldKey);
+      const field = catalog.find((candidateField) => candidateField.key === column.fieldKey);
       if (!field?.collection) throw new DocumentTemplatePreparationError("INVALID_LINE_FIELD", `${column.fieldKey} is not an allowed repeating field.`);
       nextRow = replaceCellInRow(nextRow, column.columnIndex, (cellXml) => {
         const cellText = normalizeText(textFromWordXml(cellXml));
         const target = targetTextFor(cellText) || cellText;
-        return target ? replaceTextSpan(cellXml, target, `{{${tagForDocumentTemplateField(column.fieldKey)}}}`) : updateFirstTextNode(cellXml, () => `{{${tagForDocumentTemplateField(column.fieldKey)}}}`, `{{${tagForDocumentTemplateField(column.fieldKey)}}}`);
+        const fieldTag = `{{${tagForDocumentTemplateField(column.fieldKey)}}}`;
+        const section = definition?.repeatSections.find((candidateSection) => candidateSection.key === repeatKey);
+        const checkboxField = section?.fields.find((candidateField) => candidateField.type === "BOOLEAN" && candidateField.source === "INPUT");
+        const replacement = checkboxField && /[□☐☑]/.test(cellText) ? `{{${repeatKey}.${checkboxField.key}}} ${fieldTag}` : fieldTag;
+        return target ? replaceTextSpan(cellXml, target, replacement) : updateFirstTextNode(cellXml, () => replacement, replacement);
       });
     }
     const rowCells = xmlRanges(nextRow, /<w:tc\b[\s\S]*?<\/w:tc>/gi);
     if (!rowCells.length) throw new DocumentTemplatePreparationError("ROW_NOT_FOUND", "The selected line-item row has no supported cells.");
-    nextRow = replaceRange(nextRow, rowCells[0]!.start, rowCells[0]!.end, updateFirstTextNode(rowCells[0]!.text, (value) => value.startsWith("{{#lines}}") ? value : `{{#lines}}${value}`, "{{#lines}}"));
+    nextRow = replaceRange(nextRow, rowCells[0]!.start, rowCells[0]!.end, updateFirstTextNode(rowCells[0]!.text, (value) => value.startsWith(`{{#${repeatKey}}}`) ? value : `{{#${repeatKey}}}${value}`, `{{#${repeatKey}}}`));
     const refreshedCells = xmlRanges(nextRow, /<w:tc\b[\s\S]*?<\/w:tc>/gi);
     const lastIndex = refreshedCells.length - 1;
-    nextRow = replaceRange(nextRow, refreshedCells[lastIndex]!.start, refreshedCells[lastIndex]!.end, updateLastTextNode(refreshedCells[lastIndex]!.text, (value) => value.endsWith("{{/lines}}") ? value : `${value}{{/lines}}`, "{{/lines}}"));
+    nextRow = replaceRange(nextRow, refreshedCells[lastIndex]!.start, refreshedCells[lastIndex]!.end, updateLastTextNode(refreshedCells[lastIndex]!.text, (value) => value.endsWith(`{{/${repeatKey}}}`) ? value : `${value}{{/${repeatKey}}}`, `{{/${repeatKey}}}`));
     return nextRow;
   }));
 }
@@ -566,12 +601,13 @@ function replaceLineTableInPart(xml: string, candidate: DocumentTemplateUniqueLi
 export function validateDocumentTemplatePreparationPlan(
   plan: DocumentTemplatePreparationPlan,
   inventory: DocumentTemplateAnchorInventory,
+  definition?: DocumentTemplateTypeDefinition,
 ): { ok: true; plan: DocumentTemplatePreparationPlan } | { ok: false; errors: readonly string[] } {
   const errors: string[] = [];
   const usedAnchors = new Set<string>();
   const usedFields = new Set<string>();
   for (const [index, mapping] of plan.mappings.entries()) {
-    const field = getDocumentTemplateField(plan.documentType, mapping.fieldKey);
+    const field = getDocumentTemplateFieldCatalog(plan.documentType, definition).find((candidate) => candidate.key === mapping.fieldKey);
     const anchor = inventory.anchors.find((candidate) => candidate.id === mapping.anchorId);
     if (!field || field.collection) errors.push(`mapping ${index + 1} references an unavailable scalar field.`);
     if (!anchor) errors.push(`mapping ${index + 1} references an unknown source anchor.`);
@@ -589,7 +625,7 @@ export function validateDocumentTemplatePreparationPlan(
     const usedLineFields = new Set<string>();
     for (const [index, column] of plan.lineTable.columns.entries()) {
       if (!candidate?.columns.some((item) => item.columnIndex === column.columnIndex)) errors.push(`line-table mapping ${index + 1} references an unknown column.`);
-      const field = getDocumentTemplateField(plan.documentType, column.fieldKey);
+      const field = getDocumentTemplateFieldCatalog(plan.documentType, definition).find((candidate) => candidate.key === column.fieldKey);
       if (!field?.collection) errors.push(`line-table mapping ${index + 1} references an unavailable repeating field.`);
       if (usedColumns.has(column.columnIndex)) errors.push(`line-table mapping ${index + 1} duplicates a column.`);
       if (usedLineFields.has(column.fieldKey)) errors.push(`line-table mapping ${index + 1} duplicates a repeating field.`);
@@ -606,10 +642,11 @@ export function prepareDocxTemplate(
   fileName: string,
   documentType: DocumentTemplateType,
   plan: DocumentTemplatePreparationPlan,
+  definition?: DocumentTemplateTypeDefinition,
 ): { bytes: Uint8Array; bindings: readonly DocumentTemplateBinding[]; inventory: DocumentTemplateAnchorInventory; report: TemplateValidationReport } {
-  const inventory = extractDocumentTemplateAnchorInventory(bytes, fileName);
+  const inventory = extractDocumentTemplateAnchorInventory(bytes, fileName, definition);
   if (plan.documentType !== documentType) throw new DocumentTemplatePreparationError("DOCUMENT_TYPE_MISMATCH", "The preparation plan does not match the uploaded document type.");
-  const validatedPlan = validateDocumentTemplatePreparationPlan(plan, inventory);
+  const validatedPlan = validateDocumentTemplatePreparationPlan(plan, inventory, definition);
   if (validatedPlan.ok === false) throw new DocumentTemplatePreparationError("INVALID_PREPARATION_PLAN", validatedPlan.errors.join(" "));
   const zip = new PizZip(bytes, { checkCRC32: true });
   for (const mapping of plan.mappings) {
@@ -633,15 +670,19 @@ export function prepareDocxTemplate(
   if (plan.lineTable && lineTable) {
     const part = zip.file(lineTable.partName);
     if (!part) throw new DocumentTemplatePreparationError("PART_NOT_FOUND", "The selected Word package part no longer exists.");
-    zip.file(lineTable.partName, replaceLineTableInPart(part.asText(), lineTable, plan.lineTable.columns));
+    zip.file(lineTable.partName, replaceLineTableInPart(part.asText(), lineTable, plan.lineTable.columns, documentType, definition));
   }
   const preparedBytes = new Uint8Array(zip.generate({ type: "uint8array", compression: "DEFLATE" }));
   validateDocxTemplateBytes(preparedBytes, fileName, DOCX_MIME_TYPE);
   const structure = extractDocxStructure(preparedBytes, fileName);
   const bindings: DocumentTemplateBinding[] = plan.mappings.map((mapping) => ({ tag: mapping.fieldKey, fieldKey: mapping.fieldKey, ...(mapping.sourceLabel ? { sourceLabel: mapping.sourceLabel } : {}), ...(mapping.confidence === undefined ? {} : { confidence: mapping.confidence }), confirmed: true }));
   if (plan.lineTable) for (const column of plan.lineTable.columns) bindings.push({ tag: tagForDocumentTemplateField(column.fieldKey), fieldKey: column.fieldKey, confirmed: true });
-  const report = validateDocumentTemplateBindings(documentType, structure.tags, bindings);
-  return { bytes: preparedBytes, bindings, inventory: extractDocumentTemplateAnchorInventory(preparedBytes, fileName), report };
+  const repeatKey = inventory.lineTable?.repeatSectionKey;
+  const repeatDefinition = repeatKey ? definition?.repeatSections.find((section) => section.key === repeatKey) : undefined;
+  const checkboxField = repeatDefinition?.fields.find((field) => field.type === "BOOLEAN" && field.source === "INPUT");
+  if (repeatKey && checkboxField) bindings.push({ tag: `${repeatKey}.${checkboxField.key}`, fieldKey: `${repeatKey}.${checkboxField.key}`, confirmed: true });
+  const report = validateDocumentTemplateBindings(documentType, structure.tags, bindings, definition);
+  return { bytes: preparedBytes, bindings, inventory: extractDocumentTemplateAnchorInventory(preparedBytes, fileName, definition), report };
 }
 
 export class DocumentTemplatePreparationError extends DocumentTemplateValidationError {

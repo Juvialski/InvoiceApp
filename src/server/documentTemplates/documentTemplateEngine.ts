@@ -17,7 +17,9 @@ import {
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import type { FinancialDocumentSnapshot } from "../../lib/documentGeneration.ts";
+import { buildFinancialTemplateRenderContext, bindingMap, type DocumentTemplateRenderContext } from "./documentTemplateContext.ts";
 import {
+  getDocumentTemplateFieldCatalog,
   getDocumentTemplateField,
   getDocumentTemplateFields,
   isDocumentTemplateFieldKey,
@@ -32,6 +34,7 @@ import {
   type TemplateBlueprint,
   type TemplateValidationReport,
 } from "../../lib/documentTemplateRegistry.ts";
+import type { DocumentTemplateTypeDefinition } from "../../lib/documentTemplateTypes.ts";
 
 export const MAX_DOCUMENT_TEMPLATE_BYTES = 10 * 1024 * 1024;
 export const MAX_DOCUMENT_TEMPLATE_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
@@ -517,17 +520,31 @@ function validateSnapshotForMerge(snapshot: FinancialDocumentSnapshot, bindings:
   }
 }
 
-export function mergeDocxTemplate(
+function validateRenderContext(context: DocumentTemplateRenderContext, definition?: DocumentTemplateTypeDefinition) {
+  const fields = getDocumentTemplateFieldCatalog(context.typeKey, definition);
+  for (const field of fields) {
+    if (field.collection) continue;
+    if (field.required && !String(context.scalarValues[field.key] || "").trim()) throw new DocumentTemplateValidationError(`The required document field ${field.label} is missing.`);
+  }
+  for (const field of fields.filter((candidate) => candidate.collection && candidate.required)) {
+    const rows = context.collections[field.collectionKey || ""] || [];
+    if (rows.some((row) => !String(row[field.key] || "").trim())) throw new DocumentTemplateValidationError(`The required repeating document field ${field.label} is missing.`);
+  }
+}
+
+export function mergeDocumentTemplate(
   bytes: Uint8Array,
   fileName: string,
-  snapshot: FinancialDocumentSnapshot,
+  context: DocumentTemplateRenderContext,
   bindings: readonly DocumentTemplateBinding[],
+  definition?: DocumentTemplateTypeDefinition,
 ): Uint8Array {
   const structure = extractDocxStructure(bytes, fileName);
-  const report = validateDocumentTemplateBindings(snapshot.documentType, structure.tags, bindings);
+  const report = validateDocumentTemplateBindings(context.typeKey, structure.tags, bindings, definition);
   if (report.state === "BLOCKED") throw new DocumentTemplateValidationError("The template is not valid for generation.", report);
-  validateSnapshotForMerge(snapshot, bindings);
-  const bindingMap = new Map(bindings.map((binding) => [binding.tag.trim(), binding.fieldKey.trim()]));
+  validateRenderContext(context, definition);
+  const allowedFields = new Map(getDocumentTemplateFieldCatalog(context.typeKey, definition).map((field) => [field.key, field]));
+  const tagBindings = bindingMap(bindings);
   const zip = new PizZip(bytes, { checkCRC32: true });
   const templater = new Docxtemplater(zip, {
     paragraphLoop: true,
@@ -536,12 +553,15 @@ export function mergeDocxTemplate(
     parser: (rawTag: string) => ({
       get: (scope: unknown) => {
         const tag = rawTag.trim();
-        if (tag === "lines") return snapshot.lines;
-        const fieldKey = bindingMap.get(tag) || (isDocumentTemplateFieldKey(snapshot.documentType, tag) ? tag : undefined);
-        if (!fieldKey || !isDocumentTemplateFieldKey(snapshot.documentType, fieldKey)) {
-          throw new DocumentTemplateValidationError(`The merge tag ${tag} is not allowlisted.`);
+        if (context.collections[tag]) return context.collections[tag];
+        const fieldKey = tagBindings.get(tag) || (allowedFields.has(tag) ? tag : undefined);
+        const field = fieldKey ? allowedFields.get(fieldKey) : undefined;
+        if (!fieldKey || !field) throw new DocumentTemplateValidationError(`The merge tag ${tag} is not allowlisted.`);
+        if (field.collection) {
+          const row = scope && typeof scope === "object" ? scope as Record<string, unknown> : {};
+          return String(row[fieldKey] ?? row[tag] ?? "");
         }
-        return snapshotLineValue(snapshot, fieldKey, scope);
+        return context.scalarValues[fieldKey] || "";
       },
     }),
     nullGetter: () => "",
@@ -553,6 +573,16 @@ export function mergeDocxTemplate(
     if (error instanceof DocumentTemplateValidationError) throw error;
     throw new DocumentTemplateValidationError("The Word template could not be merged safely.");
   }
+}
+
+export function mergeDocxTemplate(
+  bytes: Uint8Array,
+  fileName: string,
+  snapshot: FinancialDocumentSnapshot,
+  bindings: readonly DocumentTemplateBinding[],
+): Uint8Array {
+  validateSnapshotForMerge(snapshot, bindings);
+  return mergeDocumentTemplate(bytes, fileName, buildFinancialTemplateRenderContext(snapshot), bindings);
 }
 
 function labelForField(documentType: DocumentTemplateType, key: string): string {

@@ -25,6 +25,8 @@ import { getStorageServerAuthorityStatus, getStorageServerServiceRoleClient, typ
 import type { FinancialDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import {
   getDocumentTemplateFields,
+  getDocumentTemplateFieldCatalog,
+  isSystemDocumentType,
   isDocumentTemplateType,
   validateDocumentTemplateBindings,
   validateTemplateMappingAnalysis,
@@ -34,6 +36,15 @@ import {
   type DocumentTemplateType,
 } from "../../lib/documentTemplateRegistry.ts";
 import {
+  validateDocumentTemplateTypeDefinition,
+  type DocumentTemplateSourceContext,
+  type DocumentTemplateTypeDefinition,
+} from "../../lib/documentTemplateTypes.ts";
+import {
+  buildManagedTemplateRenderContext,
+  validateManagedDocumentInputs,
+} from "./documentTemplateContext.ts";
+import {
   buildDocxTemplateFromBlueprint,
   buildStarterDocxTemplate,
   DOCX_MIME_TYPE,
@@ -41,6 +52,7 @@ import {
   DocumentTemplateValidationError,
   extractDocxStructure,
   mergeDocxTemplate,
+  mergeDocumentTemplate,
   generatedTemplateFileName,
   sha256Hex,
   validateDocxTemplateBytes,
@@ -108,6 +120,13 @@ export interface DocumentTemplateRootApi {
   readonly isDefault: boolean;
   readonly createdAt?: string;
   readonly versions: readonly DocumentTemplateVersionApi[];
+}
+
+export interface DocumentTemplateTypeDefinitionApi extends DocumentTemplateTypeDefinition {
+  readonly id: string;
+  readonly companyId: string;
+  readonly createdAt?: string;
+  readonly updatedAt?: string;
 }
 
 export interface DocumentTemplateRouterOptions {
@@ -237,11 +256,13 @@ function mapVersion(row: Record<string, any>): DocumentTemplateVersionApi {
       confirmed: binding.confirmed !== false,
     } as DocumentTemplateBinding];
   });
+  const rawDocumentType = String(row.document_type || row.documentType || "");
+  const documentType = isSystemDocumentType(rawDocumentType.toUpperCase()) ? rawDocumentType.toUpperCase() : rawDocumentType;
   return {
     id: String(row.id || ""),
     templateId: String(row.template_id || row.templateId || ""),
     companyId: String(row.company_id || row.companyId || ""),
-    documentType: String(row.document_type || row.documentType || "").toUpperCase() as DocumentTemplateType,
+    documentType: documentType as DocumentTemplateType,
     displayName: String(row.display_name || row.displayName || "Document template"),
     origin: String(row.origin || "UPLOADED").toUpperCase() as DocumentTemplateOrigin,
     versionNumber: Number(row.version_number || row.versionNumber || 0),
@@ -267,10 +288,12 @@ function mapVersion(row: Record<string, any>): DocumentTemplateVersionApi {
 }
 
 function mapRoot(row: Record<string, any>, versions: readonly DocumentTemplateVersionApi[]): DocumentTemplateRootApi {
+  const rawDocumentType = String(row.document_type || row.documentType || "");
+  const documentType = isSystemDocumentType(rawDocumentType.toUpperCase()) ? rawDocumentType.toUpperCase() : rawDocumentType;
   return {
     id: String(row.id || ""),
     companyId: String(row.company_id || row.companyId || ""),
-    documentType: String(row.document_type || row.documentType || "").toUpperCase() as DocumentTemplateType,
+    documentType: documentType as DocumentTemplateType,
     displayName: String(row.display_name || row.displayName || "Document template"),
     variantKey: String(row.variant_key || row.variantKey || "STANDARD"),
     isDefault: row.is_default === true || row.isDefault === true,
@@ -279,8 +302,33 @@ function mapRoot(row: Record<string, any>, versions: readonly DocumentTemplateVe
   };
 }
 
+function mapTypeDefinition(row: Record<string, any>): DocumentTemplateTypeDefinitionApi {
+  const candidate = {
+    key: String(row.type_key || row.typeKey || ""),
+    displayName: String(row.display_name || row.displayName || "Document type"),
+    ...(stringValue(row.description) ? { description: stringValue(row.description) } : {}),
+    ...(stringValue(row.category) ? { category: stringValue(row.category) } : {}),
+    sourceContext: String(row.source_context || row.sourceContext || "GENERAL").toUpperCase() as DocumentTemplateSourceContext,
+    customFields: arrayValue(row.custom_fields || row.customFields),
+    repeatSections: arrayValue(row.repeat_sections || row.repeatSections),
+    ...(stringValue(row.output_filename_prefix || row.outputFilenamePrefix) ? { outputFileNamePrefix: stringValue(row.output_filename_prefix || row.outputFilenamePrefix) } : {}),
+    status: String(row.status || "ACTIVE").toUpperCase() as "ACTIVE" | "RETIRED",
+    schemaVersion: String(row.schema_version || row.schemaVersion || "1"),
+  };
+  const validated = validateDocumentTemplateTypeDefinition(candidate);
+  if (!validated.ok) throw new StorageApiError(503, "DATABASE_ERROR", "The company document type metadata is invalid.");
+  return {
+    id: String(row.id || ""),
+    companyId: String(row.company_id || row.companyId || ""),
+    ...validated.definition,
+    ...(stringValue(row.created_at || row.createdAt) ? { createdAt: stringValue(row.created_at || row.createdAt) } : {}),
+    ...(stringValue(row.updated_at || row.updatedAt) ? { updatedAt: stringValue(row.updated_at || row.updatedAt) } : {}),
+  };
+}
+
 function requestedDocumentType(value: unknown): DocumentTemplateType {
-  const documentType = String(value || "").trim().toUpperCase();
+  const raw = String(value || "").trim();
+  const documentType = isSystemDocumentType(raw.toUpperCase()) ? raw.toUpperCase() : raw;
   if (!isDocumentTemplateType(documentType)) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", "A supported document-template type is required.");
   return documentType;
 }
@@ -356,6 +404,29 @@ async function readTemplateVersion(auth: StorageAuthContext, options: DocumentTe
   const version = mapVersion(record(data));
   if (!isDocumentTemplateType(version.documentType)) throw new StorageApiError(503, "DATABASE_ERROR", "The document template metadata is invalid.");
   return { raw: record(data), version };
+}
+
+async function readTemplateTypeDefinition(auth: StorageAuthContext, typeKey: string): Promise<DocumentTemplateTypeDefinitionApi> {
+  const { data, error } = await auth.supabase
+    .from("document_template_type_definitions")
+    .select("*")
+    .eq("company_id", auth.companyId)
+    .eq("type_key", typeKey)
+    .maybeSingle();
+  if (error) throw new StorageApiError(503, "DATABASE_ERROR", "Company document type metadata is temporarily unavailable.");
+  if (!data && isSystemDocumentType(typeKey)) return {
+    id: "",
+    companyId: auth.companyId,
+    key: typeKey,
+    displayName: typeKey === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice",
+    sourceContext: typeKey,
+    customFields: [],
+    repeatSections: [],
+    status: "ACTIVE",
+    schemaVersion: "1",
+  };
+  if (!data) throw new StorageApiError(404, "DOCUMENT_TYPE_NOT_FOUND", "The company document type was not found in this deployment.");
+  return mapTypeDefinition(record(data));
 }
 
 async function readTemplateBytes(auth: StorageAuthContext, options: DocumentTemplateRouterOptions, version: DocumentTemplateVersionApi) {
@@ -741,40 +812,53 @@ async function persistVersion(
   }
 }
 
-function heuristicAnalysis(documentType: DocumentTemplateType, structure: { paragraphs: readonly string[]; tables: readonly { rows: readonly (readonly string[])[] }[] }, inventory: ReturnType<typeof extractDocumentTemplateAnchorInventory>): DocumentTemplateMappingAnalysis {
+function heuristicAnalysis(documentType: DocumentTemplateType, structure: { paragraphs: readonly string[]; tables: readonly { rows: readonly (readonly string[])[] }[] }, inventory: ReturnType<typeof extractDocumentTemplateAnchorInventory>, definition?: DocumentTemplateTypeDefinition): DocumentTemplateMappingAnalysis {
   const mappings: Array<{ fieldKey: string; sourceLabel: string; location: string; confidence: number; reason: string; unresolved: boolean }> = [];
+  const catalog = getDocumentTemplateFieldCatalog(documentType, definition);
   const add = (fieldKey: string, sourceLabel: string, pattern: RegExp, confidence: number, reason: string) => {
-    if (!getDocumentTemplateFields(documentType).some((field) => field.key === fieldKey)) return;
+    if (!catalog.some((field) => field.key === fieldKey)) return;
     const anchor = inventory.anchors.find((candidate) => pattern.test(candidate.text));
     mappings.push({ fieldKey, sourceLabel, location: anchor?.id || "unresolved", confidence, reason, unresolved: !anchor, ...(anchor ? { anchorId: anchor.id, targetText: anchor.targetText } : {}) } as any);
   };
   const addFromAnchor = (fieldKey: string, sourceLabel: string, anchor: ReturnType<typeof extractDocumentTemplateAnchorInventory>["anchors"][number] | undefined, confidence: number, reason: string) => {
-    if (!anchor || !getDocumentTemplateFields(documentType).some((field) => field.key === fieldKey)) return;
+    if (!anchor || !catalog.some((field) => field.key === fieldKey)) return;
     mappings.push({ fieldKey, sourceLabel, location: anchor.id, confidence, reason, unresolved: false, anchorId: anchor.id, targetText: anchor.targetText } as any);
   };
   const paragraphs = structure.paragraphs.map((value) => value.trim()).filter(Boolean);
   const find = (pattern: RegExp) => paragraphs.find((value) => pattern.test(value));
-  if (documentType === "PURCHASE_ORDER") {
+  if (isSystemDocumentType(documentType) && documentType === "PURCHASE_ORDER") {
     if (find(/\b(?:po\s*(?:no|number)|purchase order reference)\b/i)) add("purchaseOrder.documentNumber", "PO No.", /\b(?:po\s*(?:no|number)|purchase order reference)\b/i, 0.78, "The label resembles a purchase-order identifier.");
     if (find(/\b(?:job site|project location|deliver to)\b/i)) add("project.deliverTo", "Job Site / Deliver to", /\b(?:job site|project location|deliver to)\b/i, 0.7, "The label resembles a project delivery location.");
     if (find(/\b(?:vendor|supplier)\b/i)) add("supplier.name", "Vendor / Supplier", /\b(?:vendor|supplier)\b/i, 0.76, "The label resembles the supplier identity area.");
     if (find(/\b(?:requested by|prepared by|processed by)\b/i)) add("processor.name", "Requested / Prepared by", /\b(?:requested by|prepared by|processed by)\b/i, 0.68, "The label resembles a responsible processor field.");
-  } else {
+  } else if (isSystemDocumentType(documentType)) {
     if (find(/\b(?:invoice\s*(?:no|number)|reference)\b/i)) add("invoice.documentNumber", "Invoice No.", /\b(?:invoice\s*(?:no|number)|reference)\b/i, 0.78, "The label resembles an issued client-invoice identifier.");
     if (find(/\b(?:bill to|customer|client)\b/i)) add("billTo.name", "Bill To / Client", /\b(?:bill to|customer|client)\b/i, 0.76, "The label resembles the client identity area.");
     if (find(/\b(?:project|job)\b/i)) add("project.projectName", "Project / Job", /\b(?:project|job)\b/i, 0.6, "The label may identify the project context.");
   }
-  const currencyField = documentType === "PURCHASE_ORDER" ? "purchaseOrder.currency" : "invoice.currency";
-  const totalField = documentType === "PURCHASE_ORDER" ? "purchaseOrder.totalAmount" : "invoice.totalAmount";
-  addFromAnchor(currencyField, "Currency label", inventory.anchors.find((anchor) => anchor.insertionMode === "REPLACE" && /^php$/i.test(anchor.targetText || "")), 0.72, "The application derived a safe currency slot from the document label.");
-  addFromAnchor(totalField, "Document total", inventory.anchors.find((anchor) => anchor.insertionMode === "ADJACENT_CELL" && /\btotal\b/i.test(anchor.text)), 0.72, "The application derived a safe adjacent total-value slot from the document table.");
+  if (isSystemDocumentType(documentType)) {
+    const currencyField = documentType === "PURCHASE_ORDER" ? "purchaseOrder.currency" : "invoice.currency";
+    const totalField = documentType === "PURCHASE_ORDER" ? "purchaseOrder.totalAmount" : "invoice.totalAmount";
+    addFromAnchor(currencyField, "Currency label", inventory.anchors.find((anchor) => anchor.insertionMode === "REPLACE" && /^php$/i.test(anchor.targetText || "")), 0.72, "The application derived a safe currency slot from the document label.");
+    addFromAnchor(totalField, "Document total", inventory.anchors.find((anchor) => anchor.insertionMode === "ADJACENT_CELL" && /\btotal\b/i.test(anchor.text)), 0.72, "The application derived a safe adjacent total-value slot from the document table.");
+  } else {
+    for (const field of catalog.filter((candidate) => !candidate.collection)) {
+      const words = field.label.toLowerCase().split(/\s+/).filter((word) => word.length > 2);
+      const anchor = inventory.anchors.find((candidate) => {
+        const text = candidate.text.toLowerCase();
+        if (field.key.endsWith("issue_date") || field.label.toLowerCase().includes("issue date")) return /^issued this\s/i.test(candidate.text);
+        return words.length > 0 && words.every((word) => text.includes(word));
+      });
+      addFromAnchor(field.key, field.label, anchor, anchor ? 0.62 : 0.2, "The application found a safe label or dynamic slot for human review.");
+    }
+  }
   const lineTable = inventory.lineTable;
   const lineTableProposal = lineTable ? {
     location: lineTable.id,
     candidateId: lineTable.id,
     confidence: 0.65,
-    fieldKeys: lineTable.columns.flatMap((column) => column.suggestedFieldKey ? [column.suggestedFieldKey] : []).filter((key) => getDocumentTemplateFields(documentType).some((field) => field.key === key)),
-    columns: lineTable.columns.flatMap((column) => column.suggestedFieldKey && getDocumentTemplateFields(documentType).some((field) => field.key === column.suggestedFieldKey) ? [{ columnIndex: column.columnIndex, fieldKey: column.suggestedFieldKey }] : []),
+    fieldKeys: lineTable.columns.flatMap((column) => column.suggestedFieldKey ? [column.suggestedFieldKey] : []).filter((key) => catalog.some((field) => field.key === key)),
+    columns: lineTable.columns.flatMap((column) => column.suggestedFieldKey && catalog.some((field) => field.key === column.suggestedFieldKey) ? [{ columnIndex: column.columnIndex, fieldKey: column.suggestedFieldKey }] : []),
   } : undefined;
   return {
     confidence: mappings.length || lineTableProposal ? 0.55 : 0.2,
@@ -871,9 +955,114 @@ async function aiJson(auth: StorageAuthContext, contents: string, responseSchema
   }
 }
 
+function permissionForSourceContext(sourceContext: DocumentTemplateSourceContext): StoragePermissionKey {
+  if (sourceContext === "PURCHASE_ORDER") return "procurement.read";
+  if (sourceContext === "CLIENT_INVOICE" || sourceContext === "PROJECT") return "projects.read";
+  return "company.settings.read";
+}
+
 export function createDocumentTemplateRouter(options: DocumentTemplateRouterOptions = {}): Router {
   const router = express.Router();
   const authorizer = options.authorizer || authorizeStorageRequest;
+
+  router.get("/types", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizeTemplateRead(req, authorizer);
+      const { data, error } = await auth.supabase
+        .from("document_template_type_definitions")
+        .select("*")
+        .eq("company_id", auth.companyId)
+        .order("display_name");
+      if (error) throw new StorageApiError(503, "DATABASE_ERROR", "Company document types are temporarily unavailable.");
+      return res.json({ success: true, data: { types: (data || []).map((row) => mapTypeDefinition(record(row))) } });
+    } catch (error: any) {
+      return res.status(error instanceof StorageApiError ? error.status : 503).json(apiErrorPayload(error, "Company document types could not be loaded safely."));
+    }
+  });
+
+  router.post("/types", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "company.settings.manage");
+      const validated = validateDocumentTemplateTypeDefinition({ ...record(req.body), key: String(req.body?.key || req.body?.typeKey || "").trim() });
+      if (validated.ok === false) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", validated.errors.join(" "));
+      const mutationClient = serverSupabase(options);
+      const { data, error } = await mutationClient.rpc("server_create_document_template_type", { p_payload: { ...record(req.body), companyId: auth.companyId, typeKey: validated.definition.key }, p_actor_user_id: auth.user.id });
+      if (error || !data) throw new StorageApiError(apiStatus(error), "DOCUMENT_TYPE_CREATE_FAILED", apiMessage(error, "The company document type could not be created safely."));
+      return res.status(201).json({ success: true, data: mapTypeDefinition(record(data)) });
+    } catch (error: any) {
+      return res.status(error instanceof StorageApiError ? error.status : 503).json(apiErrorPayload(error, "The company document type could not be created safely."));
+    }
+  });
+
+  router.put("/types/:typeKey", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "company.settings.manage");
+      const typeKey = String(req.params.typeKey || "").trim();
+      const mutationClient = serverSupabase(options);
+      const { data, error } = await mutationClient.rpc("server_update_document_template_type", { p_type_key: typeKey, p_payload: record(req.body), p_actor_user_id: auth.user.id });
+      if (error || !data) throw new StorageApiError(apiStatus(error), "DOCUMENT_TYPE_UPDATE_FAILED", apiMessage(error, "The company document type could not be updated safely."));
+      return res.json({ success: true, data: mapTypeDefinition(record(data)) });
+    } catch (error: any) {
+      return res.status(error instanceof StorageApiError ? error.status : 503).json(apiErrorPayload(error, "The company document type could not be updated safely."));
+    }
+  });
+
+  router.post("/types/:typeKey/retire", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "company.settings.manage");
+      const mutationClient = serverSupabase(options);
+      const { data, error } = await mutationClient.rpc("server_retire_document_template_type", { p_type_key: String(req.params.typeKey || "").trim(), p_actor_user_id: auth.user.id });
+      if (error || !data) throw new StorageApiError(apiStatus(error), "DOCUMENT_TYPE_RETIRE_FAILED", apiMessage(error, "The company document type could not be retired safely."));
+      return res.json({ success: true, data: mapTypeDefinition(record(data)) });
+    } catch (error: any) {
+      return res.status(error instanceof StorageApiError ? error.status : 503).json(apiErrorPayload(error, "The company document type could not be retired safely."));
+    }
+  });
+
+  router.get("/available", async (req: Request, res: Response) => {
+    try {
+      const sourceContext = String(req.query.sourceContext || "PROJECT").trim().toUpperCase() as DocumentTemplateSourceContext;
+      const auth = await authorizer(req, permissionForSourceContext(sourceContext));
+      const definitionsResult = await auth.supabase.from("document_template_type_definitions").select("*").eq("company_id", auth.companyId).eq("source_context", sourceContext).eq("status", "ACTIVE").order("display_name");
+      if (definitionsResult.error) throw new StorageApiError(503, "DATABASE_ERROR", "Available company document types are temporarily unavailable.");
+      const definitions = (definitionsResult.data || []).map((row) => mapTypeDefinition(record(row)));
+      const versionsResult = await auth.supabase.from("document_template_versions").select("*").eq("company_id", auth.companyId).eq("status", "ACTIVE").eq("validation_state", "VALID");
+      if (versionsResult.error) throw new StorageApiError(503, "DATABASE_ERROR", "Available company document templates are temporarily unavailable.");
+      const versions = (versionsResult.data || []).map((row) => mapVersion(record(row)));
+      return res.json({ success: true, data: { types: definitions.map((definition) => ({ type: definition, activeVersion: versions.find((version) => version.documentType === definition.key) ? { id: versions.find((version) => version.documentType === definition.key)!.id, displayName: versions.find((version) => version.documentType === definition.key)!.displayName, versionNumber: versions.find((version) => version.documentType === definition.key)!.versionNumber } : undefined })).filter((entry) => entry.activeVersion) } });
+    } catch (error: any) {
+      return res.status(error instanceof StorageApiError ? error.status : 503).json(apiErrorPayload(error, "Available company document templates could not be loaded safely."));
+    }
+  });
+
+  router.post("/managed-generate", async (req: Request, res: Response) => {
+    try {
+      const sourceContext = String(req.body?.sourceContext || "PROJECT").trim().toUpperCase() as DocumentTemplateSourceContext;
+      const auth = await authorizer(req, permissionForSourceContext(sourceContext));
+      const typeKey = requestedDocumentType(req.body?.typeKey || req.body?.documentType);
+      const definitionResult = await auth.supabase.from("document_template_type_definitions").select("*").eq("company_id", auth.companyId).eq("type_key", typeKey).maybeSingle();
+      if (definitionResult.error || !definitionResult.data) throw new StorageApiError(404, "DOCUMENT_TYPE_NOT_FOUND", "The company document type was not found in this deployment.");
+      const definition = mapTypeDefinition(record(definitionResult.data));
+      if (definition.status !== "ACTIVE") throw new StorageApiError(409, "DOCUMENT_TYPE_RETIRED", "This company document type is retired and cannot generate new documents.");
+      const versionId = requestedUuid(req.body?.templateVersionId, "Template version ID");
+      const { version } = await readTemplateVersion(auth, options, versionId);
+      if (version.documentType !== typeKey || version.status !== "ACTIVE" || version.validationState !== "VALID") throw new StorageApiError(409, "TEMPLATE_NOT_AVAILABLE", "The selected company document template is not active and valid.");
+      const validatedInput = validateManagedDocumentInputs(definition, req.body?.inputs);
+      if (validatedInput.ok === false) throw new StorageApiError(400, "INVALID_DOCUMENT_INPUT", validatedInput.errors.join(" "));
+      const { bytes: templateBytes } = await readTemplateBytes(auth, options, version);
+      const context = await buildManagedTemplateRenderContext(auth, options, definition, req.body?.sourceId, validatedInput.input);
+      const merged = mergeDocumentTemplate(templateBytes, version.sourceFilename || "template.docx", context, version.bindings, definition);
+      const filePrefix = definition.outputFileNamePrefix || definition.displayName.replace(/[^A-Za-z0-9_-]+/g, "_");
+      res.setHeader("Content-Type", DOCX_MIME_TYPE);
+      res.setHeader("Content-Disposition", `attachment; filename="${sanitizeStorageFileName(filePrefix || "Document")}.docx"`);
+      res.setHeader("X-Document-Template-Version-Id", version.id);
+      res.setHeader("X-Document-Template-Sha256", version.contentSha256);
+      return res.send(Buffer.from(merged));
+    } catch (error: any) {
+      const status = error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 422 : 503;
+      return res.status(status).json(apiErrorPayload(error, "The company document could not be generated safely."));
+    }
+  });
 
   router.get("/", async (req: Request, res: Response) => {
     try {
@@ -910,12 +1099,13 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
     try {
       const auth = await authorizer(req, "company.settings.manage");
       const documentType = requestedDocumentType(req.body?.documentType);
+      const definition = await readTemplateTypeDefinition(auth, documentType);
       const fileName = typeof req.body?.fileName === "string" ? req.body.fileName.trim() : "";
       const fileData = typeof req.body?.fileData === "string" ? req.body.fileData : "";
       if (!fileName || !fileData) throw new StorageApiError(400, "INVALID_DOCUMENT", "A DOCX filename and file are required.");
       const bytes = decodeBase64Payload(fileData, 10 * 1024 * 1024, "Document template");
       const structure = extractDocxStructure(bytes, fileName);
-      const report = validateDocumentTemplateBindings(documentType, structure.tags, []);
+      const report = validateDocumentTemplateBindings(documentType, structure.tags, [], definition);
       const result = await persistVersion(auth, options, {
         documentType,
         displayName: requestedName(req.body?.displayName, fileName.replace(/\.docx$/i, "") || "Uploaded template"),
@@ -938,6 +1128,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
     try {
       const auth = await authorizer(req, "company.settings.manage");
       const documentType = requestedDocumentType(req.body?.documentType);
+      if (!isSystemDocumentType(documentType)) throw new StorageApiError(400, "SYSTEM_TEMPLATE_ONLY", "Starter templates are available only for core system workflows.");
       const built = await buildStarterDocxTemplate(documentType);
       const structure = extractDocxStructure(built.bytes, generatedTemplateFileName(documentType, "HydroQualiSense Starter"));
       const report = validateDocumentTemplateBindings(documentType, structure.tags, built.bindings);
@@ -964,6 +1155,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
     try {
       const auth = await authorizer(req, "company.settings.manage");
       const documentType = requestedDocumentType(req.body?.documentType);
+      if (!isSystemDocumentType(documentType)) throw new StorageApiError(400, "SYSTEM_TEMPLATE_ONLY", "AI blueprint generation is available only for core system workflows.");
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : "";
       if (!prompt || prompt.length > MAX_TEMPLATE_PROMPT) throw new StorageApiError(400, "INVALID_PROMPT", "Enter a short template request of at most 4,000 characters.");
       const profileResult = await auth.supabase.rpc("get_company_document_profile", { p_company_id: auth.companyId });
@@ -1005,10 +1197,11 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const auth = await authorizer(req, "company.settings.manage");
       const versionId = requestedUuid(req.params.versionId, "Template version ID");
       const { version } = await readTemplateVersion(auth, options, versionId);
+      const definition = await readTemplateTypeDefinition(auth, version.documentType);
       const { bytes } = await readTemplateBytes(auth, options, version);
       const structure = extractDocxStructure(bytes, version.sourceFilename || "template.docx");
-      const inventory = extractDocumentTemplateAnchorInventory(bytes, version.sourceFilename || "template.docx");
-      const heuristic = heuristicAnalysis(version.documentType, structure, inventory);
+      const inventory = extractDocumentTemplateAnchorInventory(bytes, version.sourceFilename || "template.docx", definition);
+      const heuristic = heuristicAnalysis(version.documentType, structure, inventory, definition);
       const safeStructure = {
         paragraphs: structure.paragraphs.slice(0, 200),
         tables: structure.tables.slice(0, 50),
@@ -1032,12 +1225,12 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
         ...(inventory.lineTable ? { lineTable: inventory.lineTable } : {}),
       };
       try {
-        const generated = await aiJson(auth, `<DOCUMENT_DATA>\n${JSON.stringify(safeStructure)}\n</DOCUMENT_DATA>\n<ALLOWED_FIELDS>\n${getDocumentTemplateFields(version.documentType).map((field) => `${field.key} — ${field.label}`).join("\n")}\n</ALLOWED_FIELDS>\nRequested document type: ${version.documentType}\nMap only the supplied anchorId and line-table candidateId values. For every resolved mapping, anchorId and targetText are mandatory and must exactly match the supplied anchor. For unresolved mappings, set fieldKey, anchorId, and targetText to null and set unresolved true. For a resolved line table, candidateId and columns are mandatory. Return only cautious proposed mappings. Mark uncertain items unresolved and do not invent bindings.`, mappingAnalysisSchema);
+      const generated = await aiJson(auth, `<DOCUMENT_DATA>\n${JSON.stringify(safeStructure)}\n</DOCUMENT_DATA>\n<ALLOWED_FIELDS>\n${getDocumentTemplateFieldCatalog(version.documentType, definition).map((field) => `${field.key} — ${field.label}`).join("\n")}\n</ALLOWED_FIELDS>\nRequested document type: ${version.documentType}\nMap only the supplied anchorId and line-table candidateId values. For every resolved mapping, anchorId and targetText are mandatory and must exactly match the supplied anchor. For unresolved mappings, set fieldKey, anchorId, and targetText to null and set unresolved true. For a resolved line table, candidateId and columns are mandatory. Return only cautious proposed mappings. Mark uncertain items unresolved and do not invent bindings.`, mappingAnalysisSchema);
         let decoded: unknown;
         try { decoded = JSON.parse(generated.text || "{}"); } catch { throw new Error("AI response JSON was malformed."); }
-        const validated = validateTemplateMappingAnalysis(decoded, version.documentType);
+        const validated = validateTemplateMappingAnalysis(decoded, version.documentType, definition);
         if (!validated.ok) throw new Error("AI response failed the application-owned mapping schema.");
-        const anchored = validateTemplateMappingAnalysisAgainstInventory(validated.analysis, inventory, version.documentType);
+        const anchored = validateTemplateMappingAnalysisAgainstInventory(validated.analysis, inventory, version.documentType, definition);
         if (anchored.ok === false) throw new Error(`AI response anchor validation failed: ${anchored.errors.slice(0, 4).join(" ")}`);
         const existingFieldKeys = new Set(anchored.analysis.mappings.filter((mapping) => !mapping.unresolved && mapping.fieldKey).map((mapping) => mapping.fieldKey));
         const supplementalMappings = heuristic.mappings.filter((mapping) => !mapping.unresolved && mapping.fieldKey && mapping.anchorId && mapping.targetText && !existingFieldKeys.has(mapping.fieldKey));
@@ -1062,12 +1255,13 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const auth = await authorizer(req, "company.settings.manage");
       const versionId = requestedUuid(req.params.versionId, "Template version ID");
       const { version } = await readTemplateVersion(auth, options, versionId);
+      const definition = await readTemplateTypeDefinition(auth, version.documentType);
       const { bytes } = await readTemplateBytes(auth, options, version);
       const plan = requestedPreparationPlan(req.body?.plan, version.documentType);
-      const inventory = extractDocumentTemplateAnchorInventory(bytes, version.sourceFilename || "template.docx");
-      const planValidation = validateDocumentTemplatePreparationPlan(plan, inventory);
+      const inventory = extractDocumentTemplateAnchorInventory(bytes, version.sourceFilename || "template.docx", definition);
+      const planValidation = validateDocumentTemplatePreparationPlan(plan, inventory, definition);
       if (planValidation.ok === false) throw new DocumentTemplatePreparationError("INVALID_PREPARATION_PLAN", planValidation.errors.join(" "));
-      const prepared = prepareDocxTemplate(bytes, version.sourceFilename || "template.docx", version.documentType, plan);
+      const prepared = prepareDocxTemplate(bytes, version.sourceFilename || "template.docx", version.documentType, plan, definition);
       if (prepared.report.state === "BLOCKED") {
         return res.status(422).json({ success: false, code: "TEMPLATE_PREPARATION_BLOCKED", error: "The prepared template still has unresolved required fields. Review the mappings and try again.", report: prepared.report });
       }
@@ -1096,6 +1290,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const auth = await authorizer(req, "company.settings.manage");
       const versionId = requestedUuid(req.params.versionId, "Template version ID");
       const { version } = await readTemplateVersion(auth, options, versionId);
+      const definition = await readTemplateTypeDefinition(auth, version.documentType);
       const { bytes } = await readTemplateBytes(auth, options, version);
       const proposed = req.body?.bindings;
       if (!Array.isArray(proposed) || proposed.length > 100) throw new StorageApiError(400, "INVALID_BINDINGS", "Template mappings are invalid.");
@@ -1108,7 +1303,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
         confirmed: binding?.confirmed !== false,
       })) as DocumentTemplateBinding[];
       const structure = extractDocxStructure(bytes, version.sourceFilename || "template.docx");
-      const report = validateDocumentTemplateBindings(version.documentType, structure.tags, bindings);
+      const report = validateDocumentTemplateBindings(version.documentType, structure.tags, bindings, definition);
       const mutationClient = serverSupabase(options);
       const { data, error } = await mutationClient.rpc("server_update_document_template_bindings", {
         p_version_id: versionId,

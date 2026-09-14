@@ -131,18 +131,20 @@ These rules remain the UI baseline for later phases, including resumed Wave 4D w
 
 The user explicitly reprioritized the next product work to a Wide Documents Phase: Documents should become the central company Document Center, while preserving each owning domain as the source of truth. Official generated Word documents remain template-first and the actual approved DOCX remains the visual layout source of truth. XLSX remains programmatic by default.
 
-Slice 1 is implemented in the current feature branch as an application-only change. `/documents` now provides durable `Library`, `Create`, and `Templates` views; Library remains a permission-filtered projection over existing owning records; Create presents business-language links to supported owning workflows and clearly labels Warranty Certificate, Equipment / Materials Checklist, and general uploads as preparation-required; and Settings keeps only a link to Documents -> Templates. No database, RLS, RPC, Storage, or financial source-of-truth contract changed.
+Slice 1 is implemented on the merged baseline as the application Document Center shell. `/documents` provides durable `Library`, `Create`, and `Templates` views; Library remains a permission-filtered projection over existing owning records; and Settings keeps only a link to Documents -> Templates. Slice 2 now extends the template foundation with company-defined type metadata, safe custom/repeating schemas, dynamic Templates administration, and generic Create discovery. No company-defined type is a new financial, inventory, payroll, or other owning-domain record.
 
 The durable contract is recorded in `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` and the implementation design/plan are recorded in `docs/superpowers/specs/2026-09-14-unified-document-center-design.md` and `docs/superpowers/plans/2026-09-14-unified-document-center-slice1.md`.
 
-The exact next implementation slice is template-first managed document generation for the supplied HSC Purchase Order, HSC Equipment / Materials Checklist, and Warranty Certificate DOCX files. Their original bytes and approved wording remain acceptance fixtures; this Slice 1 does not claim that those managed document generators exist yet.
+The active Slice 2 implementation proves that template-first generation through the supplied HSC Purchase Order, Checklist, and Warranty fixtures is driven by dynamic company-defined types. The HSC files remain exact acceptance fixtures; they are not hardcoded document-type registrations. Final authenticated Local-QA and render certification remains part of this run’s readiness evidence.
+
+Current pre-merge evidence: the focused dynamic template/Create suite passes 68/68; lint, production build, Workflow Map consistency, and demo browser QA pass (82/82). Authenticated Local-QA passes its 59/59 route/responsive matrix, while its legacy template functional checks still target the former Settings mount and record 7/9 functional workflows. Dynamic HSC authenticated certification is not claimed because the new migration was not promoted to the QA target; local Docker is unavailable for replay/pgTAP/upgrade validation, and the bundled LibreOffice DOCX renderer is unavailable for visual conversion.
 
 ## Immediate implementation sequence
 
 Unless the user explicitly reprioritizes again, proceed in this order:
 
 1. **Wide Documents Phase — ACTIVE**
-   - complete template-first managed document generation for the supplied HSC DOCX fixtures;
+   - complete and certify dynamic company-defined template generation using the supplied HSC DOCX fixtures;
    - then add managed uploads, retained generated artifacts, project discovery, and permission-safe report/XLSX registration in focused slices;
    - preserve the completed task-first Documents hierarchy and all source-ownership, financial, payroll, history, and Storage boundaries;
    - do not mark the broad phase complete until its managed-document, artifact, and permission criteria are actually verified.
