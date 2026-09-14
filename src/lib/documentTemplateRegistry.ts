@@ -1,7 +1,13 @@
 import type { FinancialDocumentSnapshot } from "./documentGeneration.ts";
+import {
+  getDocumentTemplateFieldCatalog as getDynamicDocumentTemplateFieldCatalog,
+  isDocumentTemplateTypeKey,
+  type DocumentTemplateTypeDefinition,
+} from "./documentTemplateTypes.ts";
 
 export const DOCUMENT_TEMPLATE_TYPES = ["PURCHASE_ORDER", "CLIENT_INVOICE"] as const;
-export type DocumentTemplateType = (typeof DOCUMENT_TEMPLATE_TYPES)[number];
+export type SystemDocumentType = (typeof DOCUMENT_TEMPLATE_TYPES)[number];
+export type DocumentTemplateType = string;
 
 export const DOCUMENT_TEMPLATE_ORIGINS = ["UPLOADED", "AI_GENERATED", "STARTER", "DUPLICATED"] as const;
 export type DocumentTemplateOrigin = (typeof DOCUMENT_TEMPLATE_ORIGINS)[number];
@@ -12,8 +18,8 @@ export type DocumentTemplateStatus = (typeof DOCUMENT_TEMPLATE_STATUSES)[number]
 export const DOCUMENT_TEMPLATE_VALIDATION_STATES = ["UNVALIDATED", "VALID", "WARNINGS", "BLOCKED"] as const;
 export type DocumentTemplateValidationState = (typeof DOCUMENT_TEMPLATE_VALIDATION_STATES)[number];
 
-export type DocumentTemplateFieldType = "TEXT" | "DATE" | "NUMBER" | "MONEY";
-export type DocumentTemplateFieldFormat = "TEXT" | "DATE" | "NUMBER" | "MONEY";
+export type DocumentTemplateFieldType = "TEXT" | "DATE" | "NUMBER" | "MONEY" | "BOOLEAN" | "SELECT";
+export type DocumentTemplateFieldFormat = DocumentTemplateFieldType;
 
 export interface DocumentTemplateField {
   readonly key: string;
@@ -214,13 +220,13 @@ const CLIENT_INVOICE_FIELDS: readonly DocumentTemplateField[] = [
   ...LINE_FIELDS("CLIENT_INVOICE"),
 ];
 
-const REGISTRY: Readonly<Record<DocumentTemplateType, readonly DocumentTemplateField[]>> = Object.freeze({
+const REGISTRY: Readonly<Record<SystemDocumentType, readonly DocumentTemplateField[]>> = Object.freeze({
   PURCHASE_ORDER: Object.freeze(PURCHASE_ORDER_FIELDS),
   CLIENT_INVOICE: Object.freeze(CLIENT_INVOICE_FIELDS),
 });
 
 export function getDocumentTemplateFields(documentType: DocumentTemplateType): readonly DocumentTemplateField[] {
-  return REGISTRY[documentType];
+  return isSystemDocumentType(documentType) ? REGISTRY[documentType] : [];
 }
 
 export function getDocumentTemplateField(documentType: DocumentTemplateType, key: string): DocumentTemplateField | undefined {
@@ -228,7 +234,26 @@ export function getDocumentTemplateField(documentType: DocumentTemplateType, key
 }
 
 export function isDocumentTemplateType(value: unknown): value is DocumentTemplateType {
-  return DOCUMENT_TEMPLATE_TYPES.includes(value as DocumentTemplateType);
+  return isDocumentTemplateTypeKey(value);
+}
+
+export function isSystemDocumentType(value: unknown): value is SystemDocumentType {
+  return DOCUMENT_TEMPLATE_TYPES.includes(value as SystemDocumentType);
+}
+
+export function getDocumentTemplateFieldCatalog(documentType: DocumentTemplateType, definition?: DocumentTemplateTypeDefinition): readonly DocumentTemplateField[] {
+  if (isSystemDocumentType(documentType)) return getDocumentTemplateFields(documentType);
+  return getDynamicDocumentTemplateFieldCatalog(documentType, definition).map((field) => ({
+    key: field.key,
+    label: field.label,
+    documentType,
+    type: field.type,
+    format: field.format,
+    required: field.required,
+    collection: field.collection,
+    example: "",
+    description: field.description,
+  }));
 }
 
 export function isDocumentTemplateFieldKey(documentType: DocumentTemplateType, key: string): boolean {
