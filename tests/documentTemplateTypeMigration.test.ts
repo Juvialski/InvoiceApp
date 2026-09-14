@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync(new URL("../supabase/migrations/20260914014153_document_template_type_definitions.sql", import.meta.url), "utf8");
+const metadataRepair = readFileSync(new URL("../supabase/migrations/20260914033500_document_template_type_creation_metadata_fix.sql", import.meta.url), "utf8");
 
 test("dynamic template migration creates a company-bound type definition contract", () => {
   assert.match(migration, /create table if not exists public\.document_template_type_definitions/i);
@@ -19,10 +20,11 @@ test("dynamic template migration creates a company-bound type definition contrac
 });
 
 test("dynamic template type creation preserves bounded descriptive metadata", () => {
-  const createBlock = migration.match(/create or replace function public\.create_document_template_type[\s\S]*?\$\$;/i)?.[0] || "";
+  const createBlock = metadataRepair.match(/create or replace function public\.create_document_template_type[\s\S]*?\$\$;/i)?.[0] || "";
   assert.match(createBlock, /v_description text := nullif\(left\(btrim\(coalesce\(p_payload->>'description', ''\)\), 500\), ''\)/i);
   assert.match(createBlock, /v_category text := nullif\(left\(btrim\(coalesce\(p_payload->>'category', ''\)\), 100\), ''\)/i);
   assert.match(createBlock, /v_output_prefix text := nullif\(left\(btrim\(coalesce\(p_payload->>'outputFilenamePrefix', p_payload->>'output_filename_prefix', ''\)\), 80\), ''\)/i);
+  assert.match(metadataRepair, /revoke all on function public\.create_document_template_type\(jsonb\) from public, anon, authenticated/i);
 });
 
 test("dynamic template migration preserves server-only mutation and safe read boundaries", () => {
