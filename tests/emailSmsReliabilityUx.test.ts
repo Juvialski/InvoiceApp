@@ -21,3 +21,9 @@ test("SMS status keeps normal state compact and moves operating detail into clos
   assert.match(sms, /PhilSMS/);
   assert.doesNotMatch(sms, /<details[^>]*open=/);
 });
+
+test("Company SIM setup distinguishes the Android device API from the HydroQualiSense server API", () => {
+  assert.match(sms, /Android app[\s\S]*\/api\/mobile\/v1/);
+  assert.match(sms, /HydroQualiSense[\s\S]*\/api\/3rdparty\/v1/);
+  assert.doesNotMatch(sms, /In the Android app[\s\S]{0,250}\/api\/3rdparty\/v1/);
+});
