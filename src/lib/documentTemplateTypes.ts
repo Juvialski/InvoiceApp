@@ -3,6 +3,7 @@ export type DocumentTemplateSourceContext = (typeof DOCUMENT_TEMPLATE_SOURCE_CON
 
 export const DOCUMENT_TEMPLATE_CUSTOM_FIELD_TYPES = ["TEXT", "DATE", "NUMBER", "BOOLEAN", "SELECT"] as const;
 export type DocumentTemplateCustomFieldType = (typeof DOCUMENT_TEMPLATE_CUSTOM_FIELD_TYPES)[number];
+export type DocumentTemplateCatalogFieldType = DocumentTemplateCustomFieldType | "MONEY";
 
 export const DOCUMENT_TEMPLATE_REPEAT_FIELD_SOURCES = ["INPUT", "PROJECT_ASSET"] as const;
 export type DocumentTemplateRepeatFieldSource = (typeof DOCUMENT_TEMPLATE_REPEAT_FIELD_SOURCES)[number];
@@ -49,8 +50,8 @@ export type DocumentTemplateCatalogFieldSource = "SAFE" | "CUSTOM_INPUT" | "PROJ
 export interface DocumentTemplateCatalogField {
   readonly key: string;
   readonly label: string;
-  readonly type: DocumentTemplateCustomFieldType;
-  readonly format: DocumentTemplateCustomFieldType;
+  readonly type: DocumentTemplateCatalogFieldType;
+  readonly format: DocumentTemplateCatalogFieldType;
   readonly required: boolean;
   readonly collection: boolean;
   readonly collectionKey?: string;
@@ -190,9 +191,69 @@ const PROJECT_FIELDS: readonly DocumentTemplateCatalogField[] = [
   { key: "project.billingAddress", label: "Project billing address", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized project billing address." },
 ];
 
+const FINANCIAL_COMMON_FIELDS: readonly DocumentTemplateCatalogField[] = [
+  { key: "company.paymentInstructions", label: "Company payment instructions", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Approved company payment instructions." },
+  { key: "processor.name", label: "Prepared / processed by", type: "TEXT", format: "TEXT", required: true, collection: false, source: "SAFE", description: "Authenticated processor captured for the generated document." },
+  { key: "processor.title", label: "Processor title", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Processor title when recorded." },
+  { key: "lines.lineNumber", label: "Line number", type: "NUMBER", format: "NUMBER", required: true, collection: true, collectionKey: "lines", source: "SAFE", description: "Authoritative line ordering." },
+  { key: "lines.description", label: "Line description", type: "TEXT", format: "TEXT", required: true, collection: true, collectionKey: "lines", source: "SAFE", description: "Authoritative line description." },
+  { key: "lines.quantity", label: "Quantity", type: "NUMBER", format: "NUMBER", required: false, collection: true, collectionKey: "lines", source: "SAFE", description: "Authoritative quantity when present." },
+  { key: "lines.unit", label: "Unit", type: "TEXT", format: "TEXT", required: false, collection: true, collectionKey: "lines", source: "SAFE", description: "Authoritative unit of measure when present." },
+  { key: "lines.unitPrice", label: "Unit price", type: "MONEY", format: "MONEY", required: false, collection: true, collectionKey: "lines", source: "SAFE", description: "Authoritative unit price when present." },
+  { key: "lines.amount", label: "Line amount", type: "MONEY", format: "MONEY", required: true, collection: true, collectionKey: "lines", source: "SAFE", description: "Authoritative line amount." },
+  { key: "lines.notes", label: "Line notes", type: "TEXT", format: "TEXT", required: false, collection: true, collectionKey: "lines", source: "SAFE", description: "Authoritative line notes when present." },
+];
+
+const PURCHASE_ORDER_FIELDS: readonly DocumentTemplateCatalogField[] = [
+  { key: "purchaseOrder.documentNumber", label: "Purchase Order number", type: "TEXT", format: "TEXT", required: true, collection: false, source: "SAFE", description: "Authoritative Purchase Order number." },
+  { key: "purchaseOrder.issueDate", label: "Purchase Order date", type: "DATE", format: "DATE", required: false, collection: false, source: "SAFE", description: "Authoritative Purchase Order date." },
+  { key: "purchaseOrder.currency", label: "Purchase Order currency", type: "TEXT", format: "TEXT", required: true, collection: false, source: "SAFE", description: "Original source currency." },
+  { key: "purchaseOrder.description", label: "Purchase Order description", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authoritative Purchase Order description." },
+  { key: "purchaseOrder.notes", label: "Purchase Order notes", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authoritative Purchase Order notes." },
+  { key: "purchaseOrder.termsAndConditions", label: "Purchase Order terms", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Approved Purchase Order terms." },
+  { key: "purchaseOrder.totalAmount", label: "Purchase Order total", type: "MONEY", format: "MONEY", required: true, collection: false, source: "SAFE", description: "Authoritative Purchase Order total." },
+  { key: "purchaseOrder.amountInWords", label: "Purchase Order total in words", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Snapshot wording for the authoritative total." },
+  { key: "supplier.name", label: "Supplier name", type: "TEXT", format: "TEXT", required: true, collection: false, source: "SAFE", description: "Authorized supplier identity." },
+  { key: "supplier.address", label: "Supplier address", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized supplier address." },
+  { key: "supplier.email", label: "Supplier email", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized supplier email." },
+  { key: "supplier.phone", label: "Supplier phone", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized supplier phone." },
+  { key: "supplier.vatTin", label: "Supplier VAT/TIN", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized supplier tax identifier." },
+  { key: "supplier.attention", label: "Supplier attention", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized supplier attention line." },
+  { key: "project.projectCode", label: "Project code", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Project code captured in the Purchase Order snapshot." },
+  { key: "project.projectName", label: "Project name", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Project name captured in the Purchase Order snapshot." },
+  { key: "project.deliverTo", label: "Deliver to / site", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Purchase Order delivery location." },
+  ...FINANCIAL_COMMON_FIELDS,
+];
+
+const CLIENT_INVOICE_FIELDS: readonly DocumentTemplateCatalogField[] = [
+  { key: "invoice.documentNumber", label: "Client Invoice number", type: "TEXT", format: "TEXT", required: true, collection: false, source: "SAFE", description: "Authoritative Client Invoice number." },
+  { key: "invoice.invoiceDate", label: "Invoice date", type: "DATE", format: "DATE", required: false, collection: false, source: "SAFE", description: "Authoritative invoice date." },
+  { key: "invoice.dueDate", label: "Invoice due date", type: "DATE", format: "DATE", required: false, collection: false, source: "SAFE", description: "Authoritative invoice due date." },
+  { key: "invoice.paymentTerms", label: "Invoice payment terms", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authoritative invoice payment terms." },
+  { key: "invoice.currency", label: "Invoice currency", type: "TEXT", format: "TEXT", required: true, collection: false, source: "SAFE", description: "Original source currency." },
+  { key: "invoice.taxTreatment", label: "Tax treatment", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authoritative tax treatment." },
+  { key: "invoice.subtotal", label: "Invoice subtotal", type: "MONEY", format: "MONEY", required: true, collection: false, source: "SAFE", description: "Authoritative invoice subtotal." },
+  { key: "invoice.taxAmount", label: "Invoice tax amount", type: "MONEY", format: "MONEY", required: false, collection: false, source: "SAFE", description: "Authoritative invoice tax amount when present." },
+  { key: "invoice.taxLabel", label: "Invoice tax label", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authoritative invoice tax label." },
+  { key: "invoice.totalAmount", label: "Invoice total", type: "MONEY", format: "MONEY", required: true, collection: false, source: "SAFE", description: "Authoritative Client Invoice total." },
+  { key: "invoice.amountInWords", label: "Invoice total in words", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Snapshot wording for the authoritative total." },
+  { key: "invoice.notes", label: "Invoice notes", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authoritative invoice notes." },
+  { key: "invoice.termsAndConditions", label: "Invoice terms", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Approved invoice terms." },
+  { key: "billTo.name", label: "Bill-to client name", type: "TEXT", format: "TEXT", required: true, collection: false, source: "SAFE", description: "Authorized client identity." },
+  { key: "billTo.contactName", label: "Bill-to contact", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized client billing contact." },
+  { key: "billTo.email", label: "Bill-to email", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized client billing email." },
+  { key: "billTo.address", label: "Bill-to address", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized client billing address." },
+  { key: "billTo.reference", label: "Client reference", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Authorized client reference." },
+  { key: "project.projectCode", label: "Project code", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Project code captured in the Client Invoice snapshot." },
+  { key: "project.projectName", label: "Project name", type: "TEXT", format: "TEXT", required: false, collection: false, source: "SAFE", description: "Project name captured in the Client Invoice snapshot." },
+  ...FINANCIAL_COMMON_FIELDS,
+];
+
 export function getDocumentTemplateFieldCatalog(typeKey: string, definition?: DocumentTemplateTypeDefinition): readonly DocumentTemplateCatalogField[] {
   const fields = [...SAFE_FIELDS];
   if (definition?.sourceContext === "PROJECT") fields.push(...PROJECT_FIELDS);
+  if (definition?.sourceContext === "PURCHASE_ORDER") fields.push(...PURCHASE_ORDER_FIELDS);
+  if (definition?.sourceContext === "CLIENT_INVOICE") fields.push(...CLIENT_INVOICE_FIELDS);
   for (const field of definition?.customFields || []) fields.push({ key: field.key, label: field.label, type: field.type, format: field.type, required: field.required, collection: false, source: "CUSTOM_INPUT", description: "Structured input declared by the company document type." });
   for (const section of definition?.repeatSections || []) {
     for (const field of section.fields) fields.push({ key: section.key + "." + field.key, label: section.label + ": " + field.label, type: field.type, format: field.type, required: field.required, collection: true, collectionKey: section.key, source: field.source === "PROJECT_ASSET" ? "PROJECT_ASSET" : "CUSTOM_INPUT", description: field.source === "PROJECT_ASSET" ? "Safe project register context." : "Structured repeating input declared by the company document type." });
