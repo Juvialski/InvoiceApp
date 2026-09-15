@@ -1,15 +1,33 @@
 # Screenshot evidence status
 
-Two real synthetic QA interface captures are used in the PDF from the existing QA
-artifact set:
+Current-release role evidence is generated only by:
 
-- `artifacts/ui-ux-round2-final-certification/screenshots/settings-desktop-1440-viewport.png` - Settings workspace;
-- `artifacts/ui-ux-round2-final-certification/screenshots/sms-status-desktop-1440-full.png` - Email / SMS provider status.
+```text
+npx.cmd tsx scripts/client-security/capture_role_screenshots.ts
+```
 
-They are prior QA captures, not current-release proof of the new custom-role editor.
-The current custom-role and denied-access screens still require guarded QA
-runtime capture.
+The harness writes these stable synthetic-QA assets when the exact release and
+five synthetic accounts pass authenticated navigation assertions:
 
-Do not replace this with mock UI or production captures. After guarded QA runtime
-certification, add current-release custom-role and restricted-access screenshots and
-map each one to `artifacts/client-security/EVIDENCE.md`.
+- `company-admin-navigation-desktop.png`
+- `finance-navigation-desktop.png`
+- `payroll-navigation-desktop.png`
+- `viewer-navigation-desktop.png`
+- `custom-restricted-navigation-desktop.png`
+- `company-access-custom-role-editor-desktop.png`
+
+The harness also writes `../role-screenshot-manifest.json` with safe role labels,
+release identity, observed navigation, deep-link results, and redacted telemetry.
+It never records credentials, cookies, user ids, project ids, tokens, or provider
+content.
+
+Set `CLIENT_SECURITY_QA_ENV_FILE` to a protected local QA environment file when
+the credentials are not already in the process environment. The run requires
+`CLIENT_SECURITY_QA_BASE_URL`, `CLIENT_SECURITY_QA_EXPECTED_SHA`,
+`CLIENT_SECURITY_QA_EXPECTED_MIGRATION`, `CLIENT_SECURITY_QA_DEPLOYMENT_ID`, and
+one email/password pair for each role. Localhost is allowed only with
+`CLIENT_SECURITY_QA_ALLOW_LOCAL=1` and the approved QA project guard.
+
+Do not replace these with mock UI, production captures, manually hidden DOM, or
+edited image contents. If the exact QA runtime or credentials are unavailable,
+leave the assets absent and record the blocker in `EVIDENCE.md`.
