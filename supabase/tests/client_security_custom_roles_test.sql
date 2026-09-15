@@ -210,7 +210,7 @@ select throws_ok(
 );
 select throws_ok(
   $$select public.archive_company_role((select company_id from custom_role_users), 'VIEWER')$$,
-  '42501', null, 'built-in starter roles cannot be archived'
+  '22023', null, 'built-in starter roles cannot be archived'
 );
 select lives_ok(
   $$select public.platform_update_company_member((select company_id from custom_role_users), (select custom_user from custom_role_users), (select id from public.company_members where user_id = (select custom_user from custom_role_users)), 'VIEWER', null)$$,
@@ -223,7 +223,7 @@ select lives_ok(
 select is((select assignable from public.company_role_catalog where role_key = (select role_key from custom_role_ids)), false, 'archived custom role is no longer assignable');
 select throws_ok(
   $$select public.change_company_member_role((select id from public.company_members where user_id = (select custom_user from custom_role_users)), (select role_key from custom_role_ids))$$,
-  '42501', null, 'archived custom role cannot be assigned again'
+  '22023', null, 'archived custom role cannot be assigned again'
 );
 reset role;
 
