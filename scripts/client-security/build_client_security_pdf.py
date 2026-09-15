@@ -131,8 +131,12 @@ def page_story(source_page: str, styles: dict[str, ParagraphStyle], width: float
         screenshot_match = re.match(r"^!\[([^\]]+)\]\(([^)]+)\)$", line)
         if screenshot_match:
             gallery: list[tuple[str, Path]] = []
-            while index < len(lines):
-                gallery_match = re.match(r"^!\[([^\]]+)\]\(([^)]+)\)$", lines[index].strip())
+            scan_index = index
+            while scan_index < len(lines):
+                if not lines[scan_index].strip():
+                    scan_index += 1
+                    continue
+                gallery_match = re.match(r"^!\[([^\]]+)\]\(([^)]+)\)$", lines[scan_index].strip())
                 if not gallery_match:
                     break
                 gallery_caption, gallery_relative_path = gallery_match.groups()
@@ -140,7 +144,8 @@ def page_story(source_page: str, styles: dict[str, ParagraphStyle], width: float
                 if not gallery_path.exists():
                     raise SystemExit(f"Missing screenshot asset: {gallery_path}")
                 gallery.append((gallery_caption, gallery_path))
-                index += 1
+                scan_index += 1
+            index = scan_index
 
             if len(gallery) > 1 and all("client-security\\screenshots" in str(image_path).lower() for _, image_path in gallery):
                 columns = 3

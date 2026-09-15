@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — CLIENT SECURITY ASSURANCE & HANDOFF IN PROGRESS / FLEXIBLE CUSTOM-RBAC IMPLEMENTATION ADDED BUT LOCAL DB RUNTIME CERTIFICATION BLOCKED BY UNAVAILABLE DOCKER / CLIENT SECURITY PDF HANDOFF DRAFT PENDING QA EVIDENCE / EMAIL-SMS RELIABILITY FOLLOWS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — CLIENT SECURITY IMPLEMENTATION EVIDENCE COMPLETE WITH QUALIFIED LOCAL DB/RUNTIME AND PDF PASS / HOSTED DEPLOYMENT CERTIFICATION PENDING / EMAIL-SMS RELIABILITY FOLLOWS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / WORKER REGISTRATION PAUSED**
 Date: **2026-09-15**
 Repository: `Juvialski/InvoiceApp`
 
@@ -154,21 +154,23 @@ and platform permissions are rejected by the database boundary, cross-company ro
 targeting is rejected, and role/member lifecycle events are auditable.
 
 Validation status for this handoff is deliberately qualified. Focused TypeScript,
-static contract, and existing access/security tests pass. Local Supabase clean
-replay, pgTAP, runtime RLS/RPC authorization, upgrade-path, and concurrency checks
-could not run because the Docker Desktop Linux engine is unavailable in the current
-environment. No QA or production database was mutated and no production records were
-inspected. Two prior synthetic QA interface captures are included for context, but
-the current-release custom-role/restricted-access screens still need guarded QA
-capture. The client security PDF is therefore a qualified implementation handoff
-draft, not a completed security certification; `artifacts/client-security/EVIDENCE.md`
-records each claim and gap.
+static contract, local clean replay, pgTAP, runtime RLS/RPC authorization,
+upgrade-path, exact authenticated synthetic-QA role capture, and seven-page PDF
+render inspection pass for the committed implementation. The local browser run
+covers Company Admin, Finance, Payroll, Viewer, a restricted company-defined role,
+representative forbidden deep links, and the Company Access/custom-role editor with
+clean telemetry. The isolated hosted QA deployment still serves the earlier release
+and was not promoted by this handoff; no production database was mutated and no
+production records were inspected. The PDF is therefore a qualified implementation
+handoff artifact, not deployment-specific security certification;
+`artifacts/client-security/EVIDENCE.md` records each claim and remaining gap.
 
 The handoff custody checklist is `docs/HYDROQUALISENSE_CLIENT_SECURITY_HANDOFF_CHECKLIST.md`.
-The exact next release action is to run the committed migration through the guarded
-QA release path, complete runtime RBAC/authorization evidence with synthetic data,
-capture sanitized QA screenshots, and then re-certify the PDF claims. Production
-promotion remains unauthorized by this implementation run.
+The exact next release action is deployment-specific: run the committed migration
+through the guarded QA release path when its protected operator prerequisites are
+available, bind the hosted application to the same release and migration, and
+re-verify the existing evidence. Production promotion remains unauthorized by this
+implementation run.
 
 ## Active user reprioritization — Email/SMS Reliability & UX Completion
 

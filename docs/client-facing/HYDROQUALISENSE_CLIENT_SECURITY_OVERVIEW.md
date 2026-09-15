@@ -39,7 +39,7 @@ An authorized Company Admin can create a company-specific role such as Project M
 
 ## 3. Real role examples
 
-The final version of this page uses authenticated synthetic QA accounts on the same release and desktop size. The current branch is still waiting for that exact-release capture, so the image references below are not client evidence until the QA manifest records a complete pass.
+The captures below use authenticated synthetic QA accounts against the exact tested branch and desktop size. They document the local QA behavior of this handoff; hosted deployment certification and production verification remain separate release checks.
 
 ![Company Admin navigation from synthetic QA](artifacts/client-security/screenshots/company-admin-navigation-desktop.png)
 

@@ -1,6 +1,6 @@
 # Hydroqualisense Client Security Assurance & Handoff Phase
 
-Status: **IMPLEMENTATION HANDOFF IN PROGRESS — EVIDENCE-FIRST SECURITY AUDIT, FLEXIBLE RBAC HARDENING, ROLE EVIDENCE, HANDOFF CONTROL, AND QUALIFIED CLIENT SECURITY PDF DRAFT**
+Status: **QUALIFIED IMPLEMENTATION HANDOFF — FLEXIBLE RBAC, LOCAL DB/RUNTIME ROLE EVIDENCE, AND 7-PAGE CLIENT SECURITY PDF COMPLETE; HOSTED DEPLOYMENT CERTIFICATION PENDING**
 Date: **2026-09-15**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -67,6 +67,18 @@ These observations are useful inputs but are **not** a substitute for the phase'
 - the guarded deployment bootstrap creates the initial client `COMPANY_ADMIN` through a service-role-only authority and does not expose that bootstrap RPC to ordinary browser roles.
 
 These facts must be rechecked where necessary before publication. Do not publish account-specific or production-sensitive identifiers in the client PDF.
+
+### Follow-up evidence state (2026-09-15)
+
+The focused follow-up completed the implementation and local evidence path:
+
+- the forward Payroll boundary migration passed clean local replay, pgTAP, static migration checks, and upgrade-path fixtures;
+- Payroll now receives only the narrow project-reference capability needed for payroll context, while its separate payroll Reports view remains available;
+- exact local authenticated synthetic-QA captures passed for Company Admin, Finance, Payroll, Viewer, and a company-defined Warehouse Staff role, including representative forbidden deep links and clean browser telemetry;
+- the Company Access/custom-role editor was captured from the authenticated Company Admin workspace;
+- the client-facing source and regenerated seven-page PDF were rendered and inspected page by page.
+
+This is qualified local implementation evidence. The isolated hosted QA deployment still needs the exact branch release and migration before deployment-specific certification, and no production authorization or production write is implied.
 
 ## Flexible roles and access — approved required capability
 

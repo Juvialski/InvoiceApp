@@ -264,13 +264,25 @@ async function captureRole(browser: any, capture: RoleCapture): Promise<CaptureR
     const outputPath = path.join(SCREENSHOT_DIR, capture.screenshotName);
     await page.screenshot({ path: outputPath, fullPage: false });
     result.screenshotPath = path.relative(OUTPUT_DIR, outputPath).replaceAll("\\", "/");
+    const authenticatedStorageState = await context.storageState();
 
     for (const forbiddenPath of capture.forbiddenPaths) {
-      await page.goto(`${BASE_URL}${forbiddenPath}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
-      await waitForWorkspace(page);
-      const finalPath = new URL(page.url()).pathname;
-      const denied = finalPath !== forbiddenPath && !new RegExp(`(^|/)${forbiddenPath.slice(1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:/|$)`).test(finalPath);
-      result.deepLinks.push({ requestedPath: forbiddenPath, finalPath, denied });
+      const linkContext = await browser.newContext({ viewport: VIEWPORT, storageState: authenticatedStorageState });
+      const linkPage = await linkContext.newPage();
+      const linkTelemetry = telemetryFor(linkPage);
+      try {
+        await linkPage.goto(`${BASE_URL}${forbiddenPath}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+        await waitForWorkspace(linkPage);
+        const finalPath = new URL(linkPage.url()).pathname;
+        const denied = finalPath !== forbiddenPath && !new RegExp(`(^|/)${forbiddenPath.slice(1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:/|$)`).test(finalPath);
+        result.deepLinks.push({ requestedPath: forbiddenPath, finalPath, denied });
+      } finally {
+        result.telemetry.consoleErrors.push(...linkTelemetry.consoleErrors);
+        result.telemetry.pageErrors.push(...linkTelemetry.pageErrors);
+        result.telemetry.failedRequests.push(...linkTelemetry.failedRequests);
+        await linkPage.close();
+        await linkContext.close();
+      }
     }
     result.assertions.push(assertion("restricted-deep-links", result.deepLinks.every((link) => link.denied), result.deepLinks.every((link) => link.denied) ? "Representative forbidden URLs did not open the requested restricted route." : "At least one forbidden URL remained on the restricted route."));
     result.status = result.assertions.every((item) => item.passed) && !telemetry.consoleErrors.length && !telemetry.pageErrors.length && !telemetry.failedRequests.length ? "PASS" : "FAIL";
