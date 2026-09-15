@@ -312,7 +312,13 @@ export const AppShell: React.FC<AppShellProps> = ({
             isSidebarCollapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
           }`}
         >
-          {footerText}
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-4">
+            <span>{footerText}</span>
+            <nav aria-label="Workspace policy navigation" className="flex flex-wrap justify-center gap-x-3 gap-y-1 font-bold">
+              <a href="/privacy" className="text-slate-600 hover:text-slate-950">Privacy Policy</a>
+              <a href="/terms" className="text-slate-600 hover:text-slate-950">Terms of Service</a>
+            </nav>
+          </div>
         </footer>
       </div>
     </AppPermissionProvider>

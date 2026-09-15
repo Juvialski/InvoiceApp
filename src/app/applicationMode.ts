@@ -1,4 +1,8 @@
+import { BRAND } from "../config/brand.ts";
+
 export type ApplicationMode = "production" | "public" | "demo" | "workflow-map";
+
+const canonicalProductHostname = new URL(BRAND.canonicalOrigin).hostname;
 
 function normalizePathname(pathname: string | null | undefined): string {
   const raw = (pathname || "/").split(/[?#]/, 1)[0] || "/";
@@ -71,6 +75,10 @@ export function isPublicPolicyApplicationPath(pathname: string | null | undefine
   return normalized === "/privacy" || normalized === "/terms";
 }
 
+export function isCanonicalHydroqualisenseHost(hostname: string | null | undefined): boolean {
+  return (hostname || "").trim().toLowerCase().replace(/\.$/, "") === canonicalProductHostname;
+}
+
 function publicFunnelEnabledFromBuildEnv(): boolean {
   const env = (import.meta as ImportMeta & { env?: Record<string, unknown> }).env;
   const value = env?.VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED;
@@ -82,6 +90,7 @@ export function applicationModeForPath(
   search?: string | null,
   hash?: string | null,
   publicFunnelEnabled = publicFunnelEnabledFromBuildEnv(),
+  hostname?: string | null,
 ): ApplicationMode {
   if (isWorkflowMapApplicationPath(pathname, search)) {
     return "workflow-map";
@@ -90,5 +99,6 @@ export function applicationModeForPath(
   // Legal/policy pages remain reachable from the sign-in experience even
   // when the bounded prospect funnel is disabled for an operational client.
   if (isPublicPolicyApplicationPath(pathname)) return "public";
-  return publicFunnelEnabled && isPublicFunnelApplicationPath(pathname, search, hash) ? "public" : "production";
+  const publicFunnelAvailable = publicFunnelEnabled || isCanonicalHydroqualisenseHost(hostname);
+  return publicFunnelAvailable && isPublicFunnelApplicationPath(pathname, search, hash) ? "public" : "production";
 }

@@ -26,7 +26,7 @@ export const BRAND: BrandConfig = Object.freeze({
   displayUppercase: "Hydroqualisense",
   canonicalOrigin: "https://hydroqualisense.com",
   tagline: "Hydroqualisense Solutions Corp.",
-  description: "Hydroqualisense Solutions Corp. workspace for projects, finance, workforce, documents, and field operations.",
+  description: "Hydroqualisense is a business operations platform for projects, procurement, supplier invoices, finance, documents, payroll, inventory, equipment, and business communications.",
   assistantName: "Hydroqualisense Assistant",
   browserTitle: "Hydroqualisense | Hydroqualisense Solutions Corp.",
   footerText: "Hydroqualisense • Hydroqualisense Solutions Corp. • Original sources & audit history",
