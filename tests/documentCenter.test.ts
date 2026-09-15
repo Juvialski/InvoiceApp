@@ -24,10 +24,10 @@ test("Documents route remains reachable for permissions that power supported Cre
     PERMISSION_KEYS.settingsRead,
     PERMISSION_KEYS.invoicesExtract,
     PERMISSION_KEYS.reportsRead,
-    PERMISSION_KEYS.reportsPayrollRead,
   ]) {
     assert.equal(canAccessAppTab("documents", [permission]), true, permission);
   }
+  assert.equal(canAccessAppTab("documents", [PERMISSION_KEYS.reportsPayrollRead]), false);
 });
 
 test("Document Create uses business destinations and permission keys", () => {

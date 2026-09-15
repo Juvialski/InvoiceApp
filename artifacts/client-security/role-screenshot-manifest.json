@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "status": "PASS",
-  "startedAt": "2026-09-15T11:45:03.434Z",
-  "completedAt": "2026-09-15T11:45:32.782Z",
+  "startedAt": "2026-09-15T11:56:52.973Z",
+  "completedAt": "2026-09-15T11:57:32.455Z",
   "target": {
     "baseUrl": "http://127.0.0.1:4173",
     "environment": "qa",
     "deploymentId": "local-qa-harness",
-    "repositorySha": "ee78e053d7016c67766da719a758d3bd73071c43",
+    "repositorySha": "6aa6de1510927bbba01de170eea13c0c38280406",
     "migrationLevel": "20260915095911",
     "viewport": {
       "width": 1440,

@@ -29,6 +29,6 @@ Pagewise inspection passed for:
 - no secrets, production records, raw provider credentials, migration names, raw permission keys, Git SHAs, or internal agent/CI wording in the client-facing source/output.
 
 Qualification: the role evidence is bound to the local QA harness application
-release `ee78e053d7016c67766da719a758d3bd73071c43` and migration
+release `6aa6de1510927bbba01de170eea13c0c38280406` and migration
 `20260915095911`. The isolated hosted QA release was not promoted, and this PDF
 is not a production security certification or a provider-delivery certification.

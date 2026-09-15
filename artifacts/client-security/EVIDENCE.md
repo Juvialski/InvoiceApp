@@ -3,7 +3,7 @@
 Status: **QUALIFIED IMPLEMENTATION HANDOFF - LOCAL DB/RUNTIME PASS; HOSTED DEPLOYMENT CERTIFICATION PENDING**
 Verification date: **2026-09-15**
 Repository branch: `codex/client-security-follow-up`
-Application release captured: `ee78e053d7016c67766da719a758d3bd73071c43`
+Application release captured: `6aa6de1510927bbba01de170eea13c0c38280406`
 Environment in scope: **local QA harness and isolated QA checks only; no production data**
 
 Evidence categories are `SOURCE`, `DB`, `QA_RUNTIME`, `CI_RELEASE`,
@@ -33,7 +33,7 @@ responsibility, not a technical guarantee.
 ## Local validation record
 
 - `npm.cmd run lint` - PASS.
-- focused role, Payroll reference, custom-role, screenshot-harness, and PDF-contract tests - PASS with the PDF asset assertion skipped until the exact local capture existed; rerun after capture is required below.
+- focused role, Payroll reference, custom-role, screenshot-harness, and PDF-contract tests - PASS: 18/18 after the exact local capture existed.
 - `npm.cmd run test:migrations` - PASS: 114 static migration checks and both upgrade-path fixtures.
 - `npx.cmd supabase db reset --local --no-seed --yes` - PASS: all committed migrations, including `20260915095911`.
 - `npx.cmd supabase test db --local` - PASS: 47 files, 1592 tests.
