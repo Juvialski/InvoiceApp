@@ -1,7 +1,7 @@
 # Client Security Role Evidence and Custody Handoff Design
 
-**Date:** 2026-09-15  
-**Status:** Approved design for implementation  
+**Date:** 2026-09-15
+**Status:** Approved design for implementation
 **Scope:** Client Security Assurance & Handoff follow-up
 
 ## Goal
