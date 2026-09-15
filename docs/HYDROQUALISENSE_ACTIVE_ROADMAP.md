@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — EMAIL/SMS RELIABILITY + UX SLICE IN PROGRESS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / SEARCH CONSOLE OWNERSHIP EXTERNALLY CONFIRMED / GOOGLE RE-VERIFICATION PENDING / DURABLE GMAIL CREDENTIAL PATH IMPLEMENTED BUT EXTERNAL CONFIGURATION NOT CERTIFIED / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — CLIENT SECURITY ASSURANCE & HANDOFF IN PROGRESS / FLEXIBLE CUSTOM-RBAC IMPLEMENTATION ADDED BUT LOCAL DB RUNTIME CERTIFICATION BLOCKED BY UNAVAILABLE DOCKER / CLIENT SECURITY PDF HANDOFF DRAFT PENDING QA EVIDENCE / EMAIL-SMS RELIABILITY FOLLOWS / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-15**
 
@@ -12,6 +12,8 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Completed corrective design:** `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md`
 
 **Active Email/SMS phase contract:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
+**Active security phase contract:** `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
+**Active security implementation plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
@@ -187,33 +189,43 @@ Durable Gmail runtime credential setup and controlled provider testing remain se
 operator work. SMS provider runtime completion remains separate and unavailable until
 approved provider-backed QA evidence exists. Worker Registration remains paused.
 
+## 2026-09-15 Client Security Assurance & Handoff reprioritization
+
+The user explicitly reprioritized this security phase ahead of the remaining Email/SMS provider/runtime work. The approved contract is `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md` and the implementation plan is `docs/superpowers/plans/2026-09-15-client-security-assurance.md`.
+
+This branch adds the company-scoped custom-role contract and Settings access workflow while preserving the shared effective-permission authority, protected root/platform permissions, member override precedence, company isolation, and audit history. The four built-in roles remain protected starter templates. Local TypeScript/static validation passes, but local Supabase clean replay/pgTAP/runtime RLS-RPC validation is **BLOCKED** because the Docker Desktop Linux engine is unavailable in the implementation environment. Authenticated QA screenshots and final client-facing assurance claims remain pending the same runtime evidence; the generated PDF is therefore a qualified handoff draft, not security certification.
+
+The required handoff checklist and evidence matrix are:
+
+- `docs/HYDROQUALISENSE_CLIENT_SECURITY_HANDOFF_CHECKLIST.md`
+- `artifacts/client-security/EVIDENCE.md`
+
 ## Immediate implementation sequence
 
-Unless the user explicitly reprioritizes again, proceed in this order:
+The user explicitly reprioritized the current implementation run on 2026-09-15. The reconciled sequence is:
 
-1. **Email/SMS Reliability & UX Completion — ACTIVE by explicit user approval**
-   - finish exact-head implementation and relevant authenticated browser checks for Inbox, Compose, Sent / Delivery History, SMS status, Gmail refresh recovery, and public OAuth pages;
-   - configure and verify only the approved server-side Gmail/SMS paths when external credentials and provider runtime exist;
-   - keep Gmail, SMS, Google publishing, and hosted QA capability states truthful when configuration or evidence is unavailable.
+1. **Client Security Assurance & Handoff — CURRENT PRIORITY**
+   - implement and runtime-test company-scoped custom roles while keeping the four built-in roles as protected starter templates;
+   - complete the focused security audit, custody checklist, evidence matrix, synthetic QA evidence, and client security PDF;
+   - keep the PDF claims qualified until local DB/RLS/RPC and authenticated QA evidence are available.
 
-2. **Remaining Wave 4D messaging-provider/readiness completion — follows the active reliability slice**
+2. **Email/SMS Reliability & UX Completion — follows the security phase**
+   - preserve durable Gmail authorization recovery, public OAuth policy surfaces, inbound Gmail, human confirmation, and truthful provider states.
+
+3. **Remaining Wave 4D messaging-provider/readiness completion**
    - Company SIM Gateway remains primary/recommended;
    - PhilSMS remains the optional hosted Philippine fallback;
-   - keep SMS truthful as unavailable/unverified until controlled provider-backed runtime QA exists;
-   - preserve the existing Email/SMS delivery, Gmail intake, AI confirmation, and idempotency contracts.
+   - keep SMS truthful as unavailable/unverified until controlled provider-backed runtime QA exists.
 
-3. **Wide Documents Phase remaining managed slices — DEFERRED by explicit reprioritization**
-   - resume managed uploads, retained artifacts, project discovery, and report/XLSX registration only through a later focused approval;
-   - preserve the dynamic template/Create foundation and owning-domain boundaries.
+4. **Wide Documents Phase remaining managed slices — DEFERRED** by explicit reprioritization.
 
-4. **Worker Registration — PAUSED**
-   - do not start until Wave 4D is genuinely complete and the user explicitly resumes it.
+5. **Worker Registration — PAUSED** until broader Wave 4D is genuinely complete and the user explicitly resumes it.
 
-5. **Site Attendance state machine + registered site/device** after Worker Registration.
+6. **Site Attendance state machine + registered site/device** after Worker Registration.
 
-6. **Face-Recognition Attendance** only after explicit identity/privacy/consent/retention/liveness/confidence/fallback/security design.
+7. **Face-Recognition Attendance** only after explicit identity/privacy/consent/retention/liveness/confidence/fallback/security design.
 
-7. **Final pre-production security/data-integrity certification** before broad rollout.
+8. **Final pre-production security/data-integrity certification** before broad rollout.
 
 ## Completed UI/UX Round 2 implementation boundary
 

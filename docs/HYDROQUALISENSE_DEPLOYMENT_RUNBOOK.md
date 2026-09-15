@@ -12,6 +12,23 @@ HydroQualiSense uses one maintained repository and one isolated operational depl
 
 The application keeps `company_id`, membership/RBAC, RLS, company-bound integrity, Storage paths, and audit boundaries as defense in depth. The public requirements form is not an operational workspace and cannot create a company, user, deployment, credential, or secret.
 
+## Current client-security handoff phase
+
+The current approved implementation phase is the evidence-first Client Security
+Assurance & Handoff phase. Read the contract and plan before release work:
+
+- `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
+- `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
+- `docs/HYDROQUALISENSE_CLIENT_SECURITY_HANDOFF_CHECKLIST.md`
+- `artifacts/client-security/EVIDENCE.md`
+
+The committed custom-role migration must be promoted only through the guarded QA
+release path. First prove the exact QA app SHA and migration parity, then run clean
+replay/pgTAP/RLS/RPC/upgrade/concurrency checks and synthetic authenticated QA. Do
+not use a production project for role evidence, screenshots, or exploratory reads;
+this phase does not authorize production migration or data mutation. A local Docker
+absence is a blocker to local DB certification, not a reason to claim success.
+
 ## Public funnel deployment gate
 
 The public product/requirements funnel is **disabled by default** so merging shared product code does not replace an operational client's root application with a marketing surface or turn a client database into a prospect-intake database accidentally.

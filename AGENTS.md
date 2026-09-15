@@ -39,7 +39,7 @@ Prompt creators should put the pull-first instruction at the top of every normal
 
 ## Current product sequence — explicit 2026-09-14 reprioritization
 
-The broad `Email/SMS + Documents` phase remains incomplete. The explicitly inserted second app-wide UI/UX simplification round and the Document Template AI corrective phase are complete on the current merged baseline. The user has now explicitly reprioritized the current implementation run to Email/SMS Reliability & UX Completion; the remaining Wide Documents managed slices are deferred.
+The broad `Email/SMS + Documents` phase remains incomplete. The explicitly inserted second app-wide UI/UX simplification round and the Document Template AI corrective phase are complete on the current merged baseline. The user has now explicitly reprioritized the current implementation run to Client Security Assurance & Handoff, including flexible company-defined roles and the client security PDF. The remaining Email/SMS provider/runtime readiness and Wide Documents managed slices remain deferred until this security phase is handled.
 
 Current sequence:
 
@@ -53,12 +53,20 @@ Current sequence:
 8. Wave 4D — Email/SMS Workspace + Documents Workspace — partially implemented but **not complete**.
 9. **UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture — COMPLETE in PR #161.** Its workflow-first information architecture and usability rules remain the application UI baseline.
 10. **Wide Documents Phase — DEFERRED by explicit 2026-09-14 user reprioritization.** Its remaining managed-upload/artifact slices remain incomplete and must be resumed deliberately.
-11. **Email/SMS Reliability & UX Completion — ACTIVE by explicit user approval.** Complete communications declutter, durable Gmail authorization recovery, public OAuth identity/policy surfaces, and approved SMS configuration/runtime work without marking unavailable providers ready.
-12. **Remaining Wave 4D provider/readiness completion — follows the active reliability slice while any approved provider-backed criteria remain incomplete.**
-13. Worker Registration — **PAUSED by explicit user instruction** until broader Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
-14. Site Attendance follows Worker Registration.
-15. Face-Recognition Attendance follows only after explicit privacy/security design.
-16. Final pre-production certification follows the major product domains.
+11. **Client Security Assurance & Handoff — ACTIVE by explicit user approval.** Implement and security-test company-scoped custom roles, complete the focused handoff/security audit, produce evidence, and generate the client security PDF without unsupported claims or production mutation.
+12. **Email/SMS Reliability & UX Completion — follows the security phase.** Preserve the durable Gmail path, public OAuth policy surfaces, approved Company SIM Gateway / PhilSMS boundaries, human confirmation, and truthful provider readiness.
+13. **Remaining Wave 4D provider/readiness completion — follows the active reliability slice while any approved provider-backed criteria remain incomplete.**
+14. **Wide Documents remaining managed slices — DEFERRED** by explicit reprioritization.
+15. Worker Registration — **PAUSED by explicit user instruction** until broader Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
+16. Site Attendance follows Worker Registration.
+17. Face-Recognition Attendance follows only after explicit privacy/security design.
+18. Final pre-production certification follows the major product domains.
+
+The active security phase contract and implementation plan are:
+
+`docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
+
+`docs/superpowers/plans/2026-09-15-client-security-assurance.md`
 
 The completed UI/UX Round 2 design and acceptance record is:
 
@@ -66,7 +74,7 @@ The completed UI/UX Round 2 design and acceptance record is:
 
 Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the active Email/SMS phase, read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `SUPABASE_GMAIL_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts. Read the Wide Documents contract when that deferred phase is deliberately resumed.
 
-The 2026-09-12 reprioritization did **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved during the resumed Wave 4D work.
+The 2026-09-15 reprioritization does **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved after the security phase. The security phase must preserve company isolation, permission-based authority, protected platform/root boundaries, and truthful provider states.
 
 The user explicitly permits UI navigation/tab restructuring when it improves and simplifies the product, provided important features, deep links where practical, permission boundaries, financial/source semantics, audit history, and workflow correctness are preserved.
 
@@ -89,7 +97,7 @@ UI/UX Round 2 and the Document Template AI corrective phase are complete foundat
 
 QA certification/recovery/provider/deployment work remains a **parallel release/readiness track**. Do not represent unfinished QA certification as complete merely because product development continues, and do not infer production authorization from QA or merge success.
 
-Read the active roadmap, current handoff, completed UI/UX Round 2 design record, and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` before preparing the resumed provider work.
+Read the active roadmap, current handoff, the client security assurance contract/plan, completed UI/UX Round 2 design record, and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` before preparing later security or resumed provider work.
 
 All permanent financial, audit, RLS, company-isolation, inventory-history, document-history, payroll/privacy, AI confirmation, and migration-forward-only invariants in the preserved baseline remain in force.
 
