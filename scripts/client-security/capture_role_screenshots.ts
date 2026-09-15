@@ -122,7 +122,12 @@ function safe(value: unknown) {
 }
 
 function requiredEnvironment(name: string) {
-  const value = String(process.env[name] || "").trim();
+  const legacyName = name === "CLIENT_SECURITY_QA_COMPANY_ADMIN_EMAIL"
+    ? "QA_E2E_EMAIL"
+    : name === "CLIENT_SECURITY_QA_COMPANY_ADMIN_PASSWORD"
+      ? "QA_E2E_PASSWORD"
+      : "";
+  const value = String(process.env[name] || (legacyName ? process.env[legacyName] : "") || "").trim();
   if (!value) throw new Error(`Missing required synthetic QA credential: ${name}.`);
   return value;
 }
@@ -185,10 +190,20 @@ async function waitForWorkspace(page: any) {
 async function signIn(page: any, capture: RoleCapture) {
   await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded", timeout: 60_000 });
   const authEmail = page.locator("#auth-email");
-  if (await authEmail.count()) {
+  const workspace = page.locator("[data-workspace-state='ready']");
+  const initialState = await Promise.race([
+    authEmail.waitFor({ state: "visible", timeout: 30_000 }).then(() => "authentication" as const),
+    workspace.waitFor({ state: "attached", timeout: 30_000 }).then(() => "workspace" as const),
+  ]);
+  if (initialState === "authentication") {
     await authEmail.fill(requiredEnvironment(capture.emailEnv));
     await page.locator("#auth-password").fill(requiredEnvironment(capture.passwordEnv));
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    const nextState = await Promise.race([
+      workspace.waitFor({ state: "attached", timeout: 30_000 }).then(() => "workspace" as const),
+      authEmail.waitFor({ state: "hidden", timeout: 30_000 }).then(() => "authentication-complete" as const),
+    ]);
+    if (nextState === "authentication-complete") await workspace.waitFor({ state: "attached", timeout: 30_000 });
   }
   await waitForWorkspace(page);
   const body = await page.locator("body").innerText();
@@ -201,7 +216,7 @@ async function observedModules(page: any) {
   const sidebar = page.locator('aside[aria-label="Workspace navigation"]');
   await sidebar.waitFor({ state: "visible", timeout: 30_000 });
   const labels = await sidebar.locator('nav[aria-label="Primary navigation"] button').evaluateAll((buttons: Element[]) => buttons.map((button) => button.getAttribute("aria-label") || "")) as string[];
-  return [...new Set(labels.filter((label) => MODULE_LABELS.some((module) => label === module || label.startsWith(`${module},`))))];
+  return [...new Set(labels.flatMap((label) => MODULE_LABELS.filter((module) => label === module || label.startsWith(`${module},`))))];
 }
 
 function assertion(id: string, passed: boolean, details: string) {
@@ -238,7 +253,7 @@ async function captureRole(browser: any, capture: RoleCapture): Promise<CaptureR
     result.assertions.push(assertion("authenticated-release", true, `Authenticated ${capture.label} capture reached ${result.finalPath}.`));
     await fs.mkdir(SCREENSHOT_DIR, { recursive: true });
     const outputPath = path.join(SCREENSHOT_DIR, capture.screenshotName);
-    await page.screenshot({ path: outputPath, fullPage: true });
+    await page.screenshot({ path: outputPath, fullPage: false });
     result.screenshotPath = path.relative(OUTPUT_DIR, outputPath).replaceAll("\\", "/");
 
     for (const forbiddenPath of capture.forbiddenPaths) {
@@ -273,9 +288,10 @@ async function captureCompanyAccessEditor(browser: any) {
     for (const text of ["Company access", "Roles", "New custom role"]) {
       await page.getByText(text, { exact: true }).first().waitFor({ state: "visible", timeout: 30_000 });
     }
+    await page.getByText("New custom role", { exact: true }).scrollIntoViewIfNeeded();
     await fs.mkdir(SCREENSHOT_DIR, { recursive: true });
     const outputPath = path.join(SCREENSHOT_DIR, "company-access-custom-role-editor-desktop.png");
-    await page.screenshot({ path: outputPath, fullPage: true });
+    await page.screenshot({ path: outputPath, fullPage: false });
     return { status: "PASS" as const, screenshotPath: path.relative(OUTPUT_DIR, outputPath).replaceAll("\\", "/"), details: "Company Access and custom-role editor captured from the authenticated Company Admin workspace." };
   } catch (error) {
     return { status: "BLOCKED" as const, screenshotPath: null, details: safe(error) };
@@ -289,6 +305,8 @@ async function writeManifest(value: Record<string, unknown>) {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   await fs.writeFile(MANIFEST_PATH, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
+
+let lastManifest: Record<string, unknown> | null = null;
 
 async function main() {
   assertConfiguration();
@@ -304,7 +322,7 @@ async function main() {
     await browser.close();
   }
   const status = roles.every((role) => role.status === "PASS") && editor.status === "PASS" ? "PASS" : roles.some((role) => role.status === "FAIL") ? "FAIL" : "BLOCKED";
-  await writeManifest({
+  lastManifest = {
     schemaVersion: 1,
     status,
     startedAt,
@@ -313,14 +331,20 @@ async function main() {
     roles,
     companyAccessEditor: editor,
     productionPolicy: "READ_ONLY",
-  });
-  if (status !== "PASS") throw new Error(`Role screenshot capture completed with status ${status}.`);
+  };
+  await writeManifest(lastManifest);
+  if (status !== "PASS") {
+    process.exitCode = 1;
+    return;
+  }
   console.log(JSON.stringify({ status, manifest: path.relative(process.cwd(), MANIFEST_PATH).replaceAll("\\", "/"), screenshots: roles.length + 1 }));
 }
 
 main().catch(async (error) => {
   const details = safe(error);
-  await writeManifest({ schemaVersion: 1, status: "BLOCKED", completedAt: new Date().toISOString(), target: BASE_URL ? { baseUrl: new URL(BASE_URL).origin, environment: "qa" } : null, roles: [], companyAccessEditor: { status: "BLOCKED", screenshotPath: null, details }, productionPolicy: "READ_ONLY" });
+  await writeManifest(lastManifest
+    ? { ...lastManifest, status: "BLOCKED", failure: details }
+    : { schemaVersion: 1, status: "BLOCKED", completedAt: new Date().toISOString(), target: BASE_URL ? { baseUrl: new URL(BASE_URL).origin, environment: "qa" } : null, roles: [], companyAccessEditor: { status: "BLOCKED", screenshotPath: null, details }, productionPolicy: "READ_ONLY" });
   console.error(details);
   process.exitCode = 1;
 });

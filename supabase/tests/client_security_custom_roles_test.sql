@@ -163,6 +163,10 @@ select results_eq(
   $$values ('expenses.read'::text), ('projects.read'::text)$$,
   'custom role receives exactly the selected read permissions'
 );
+select lives_ok(
+  $$select public.create_company_role((select company_id from custom_role_users), 'Payroll Context', null, '["payroll.project_reference.read"]'::jsonb, null)$$,
+  'custom roles may select the narrow payroll project-reference permission'
+);
 
 select set_config('request.jwt.claim.sub', (select finance_user::text from custom_role_users), true);
 select throws_ok(

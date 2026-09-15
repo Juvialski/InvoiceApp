@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { amountInWords, buildClientInvoicePdf, buildPurchaseOrderPdf, type ClientInvoiceDocumentSnapshot, type PdfImage, type PurchaseOrderDocumentSnapshot } from "../src/lib/documentGeneration.ts";
 
@@ -130,4 +131,34 @@ test("edge-case PO and invoice content remains inside the PDF media box", () => 
   assert.match(invoiceSource, /service/);
   assert.match(invoiceSource, /installa/);
   assert.match(invoiceSource, /USD 987654321\.99/);
+});
+
+test("client security source contains both custody models and current role evidence assets", (context) => {
+  const sourcePath = new URL("../docs/client-facing/HYDROQUALISENSE_CLIENT_SECURITY_OVERVIEW.md", import.meta.url);
+  const source = readFileSync(sourcePath, "utf8");
+  assert.equal((source.match(/<!-- PAGEBREAK -->/g) || []).length + 1, 7);
+  assert.match(source, /MANAGED_SUPPORT_ACCESS|Managed Support Access/);
+  assert.match(source, /INDEPENDENT_CLIENT_CONTROL|Independent Client Control/);
+  const manifestPath = new URL("../artifacts/client-security/role-screenshot-manifest.json", import.meta.url);
+  if (!existsSync(manifestPath)) {
+    context.skip("Exact-release authenticated role screenshot manifest is not available.");
+    return;
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { status?: unknown };
+  if (manifest.status !== "PASS") {
+    context.skip("Exact-release authenticated role screenshot manifest is not a complete pass.");
+    return;
+  }
+  for (const name of [
+    "company-admin-navigation-desktop.png",
+    "finance-navigation-desktop.png",
+    "payroll-navigation-desktop.png",
+    "viewer-navigation-desktop.png",
+    "custom-restricted-navigation-desktop.png",
+    "company-access-custom-role-editor-desktop.png",
+  ]) {
+    assert.match(source, new RegExp(name));
+    assert.equal(existsSync(new URL(`../artifacts/client-security/screenshots/${name}`, import.meta.url)), true, `missing current screenshot asset ${name}`);
+  }
+  assert.doesNotMatch(source, /supabase\/migrations|company\.members\.manage|platform\.manage|\bRPC\b|Codex|GitHub SHA/i);
 });

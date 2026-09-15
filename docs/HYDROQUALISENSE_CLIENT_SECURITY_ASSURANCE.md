@@ -1,6 +1,6 @@
 # Hydroqualisense Client Security Assurance & Handoff Phase
 
-Status: **IMPLEMENTATION HANDOFF IN PROGRESS — EVIDENCE-FIRST SECURITY AUDIT, FLEXIBLE RBAC HARDENING, HANDOFF CONTROL, AND QUALIFIED CLIENT SECURITY PDF DRAFT**
+Status: **IMPLEMENTATION HANDOFF IN PROGRESS — EVIDENCE-FIRST SECURITY AUDIT, FLEXIBLE RBAC HARDENING, ROLE EVIDENCE, HANDOFF CONTROL, AND QUALIFIED CLIENT SECURITY PDF DRAFT**
 Date: **2026-09-15**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -259,7 +259,7 @@ Rules:
 
 ## Client PDF deliverable
 
-Create a polished, branded PDF with a source document that can be regenerated. Target **about 6 concise pages**, not a long security whitepaper.
+Create a polished, branded PDF with a source document that can be regenerated. Target **6–7 concise pages**, not a long security whitepaper.
 
 Suggested structure:
 
@@ -289,7 +289,7 @@ Prefer 4–6 useful screenshots integrated into the relevant pages, for example:
 - QA environment banner / synthetic-data boundary;
 - a safe provider/security status surface that demonstrates credentials are not displayed.
 
-Crop screenshots tightly. Redact or replace any accidental email address, UUID, project ref, token, provider identifier, confidential filename, or other unnecessary identifier. Do not use screenshots merely as decoration.
+Keep the role screenshots' full navigation context so unwanted modules cannot be hidden. Redact or replace only accidental email addresses, UUIDs, project refs, tokens, provider identifiers, confidential filenames, or other unnecessary identifiers. Do not use screenshots merely as decoration.
 
 ### PDF quality
 

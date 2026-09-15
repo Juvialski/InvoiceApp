@@ -17,7 +17,9 @@ test("role screenshot harness is an exact-release, synthetic-QA-only capture pat
   assert.match(source, /environment.*qa|qa.*environment/i);
   assert.match(source, /hydroqualisense\.com|production/i);
   assert.match(source, /aside\[aria-label=["']Workspace navigation["']\]/);
+  assert.match(source, /labels\.flatMap/);
   assert.match(source, /company-access-custom-role-editor-desktop/);
+  assert.match(source, /scrollIntoViewIfNeeded/);
   assert.doesNotMatch(source, /\.evaluate\([\s\S]*?(display\s*=\s*["']none|visibility\s*=\s*["']hidden|style\.)/i);
   assert.doesNotMatch(source, /sharp|jimp|canvas|crop/i);
 });

@@ -364,7 +364,7 @@ Use process environment only; never print credential values. Require `CLIENT_SEC
 
 - [ ] **Step 3: Implement exact authenticated role capture**
 
-For each supplied synthetic account, create a fresh Playwright context, sign in through the real AuthScreen, wait for `[data-workspace-state="ready"]`, verify the QA banner and configured company text, and capture the same desktop viewport (`1440x1000`) with `fullPage: true`. Assert expected module labels and forbidden module labels from the actual sidebar DOM. Capture `/settings` for Company Admin and assert `Company access`, `Roles`, and `New custom role` are visible before saving `company-access-custom-role-editor-desktop.png`.
+For each supplied synthetic account, create a fresh Playwright context, sign in through the real AuthScreen, wait for `[data-workspace-state="ready"]`, verify the QA banner and configured company text, and capture the same desktop viewport (`1440x1000`) with the complete visible viewport. Assert expected module labels and forbidden module labels from the actual sidebar DOM. Capture `/settings` for Company Admin and assert `Company access`, `Roles`, and `New custom role` are visible before saving `company-access-custom-role-editor-desktop.png`.
 
 Use these expected module sets, derived from the final permission grants:
 
