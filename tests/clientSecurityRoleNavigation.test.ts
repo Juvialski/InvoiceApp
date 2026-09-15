@@ -149,3 +149,9 @@ test("manual restricted URLs still pass through the permission guard", () => {
   assert.match(appSource, /defaultAppTabForPermissions\(permissions\)/);
   assert.doesNotMatch(appSource, /roleKey\s*={1,3}\s*["'`]PAYROLL["'`]/i);
 });
+
+test("automatic Payroll persistence waits for a ready deployment company", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(appSource, /if \(isSupabaseConfigured && \(access\.status !== ["']ready["'] \|\| !activeCompanyId\)\) return;/);
+  assert.match(appSource, /payrollWorkspaceLoadState, payrollGenerationRetry, session\?\.user\?\.id, payrollData\.periods\.length/);
+});

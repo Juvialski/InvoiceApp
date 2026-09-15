@@ -1395,6 +1395,11 @@ function InvoiceWorkspace() {
 
   useEffect(() => {
     if (!authResolved || activeTab !== "payroll" || workspaceLoading || payrollRefreshing) return;
+    // A browser reload can briefly restore the session before deployment
+    // access has been revalidated. Do not let that transitional state start a
+    // payroll schedule/period write with a missing authenticated user or
+    // company context.
+    if (isSupabaseConfigured && (access.status !== "ready" || !activeCompanyId)) return;
     const snapshot = payrollDataRef.current;
     const userId = session?.user?.id;
     if (userId && supabase) {
@@ -1662,7 +1667,7 @@ function InvoiceWorkspace() {
       }
     })();
     payrollCalendarPersistInFlightRef.current = persistCalendar;
-  }, [activeTab, authResolved, workspaceLoading, payrollRefreshing, payrollWorkspaceLoadState, payrollGenerationRetry, session?.user?.id, payrollData.periods.length, payrollData.runs.length, payrollScheduleSignature, payrollImportData.batches.length]);
+  }, [activeTab, authResolved, workspaceLoading, payrollRefreshing, access.status, activeCompanyId, payrollWorkspaceLoadState, payrollGenerationRetry, session?.user?.id, payrollData.periods.length, payrollData.runs.length, payrollScheduleSignature, payrollImportData.batches.length]);
   useEffect(() => {
     if (activeTab !== "extractor") setUploadProjectContextId(null);
   }, [activeTab]);
