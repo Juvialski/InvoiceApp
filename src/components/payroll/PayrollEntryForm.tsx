@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
-import { PayrollEntry, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, Worker } from "../../types";
+import { PayrollEntry, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, ProjectCostCode, Worker } from "../../types";
 import { calculateMonthlyProjectAllocations } from "../../lib/payroll";
 import { validatePayrollProjectAllocations } from "../../lib/payrollCalculation";
 import { formatCostCodeOptionLabel, getSelectableCostCodes } from "../../lib/projectCostCodes";
@@ -8,7 +8,7 @@ import { formatCostCodeOptionLabel, getSelectableCostCodes } from "../../lib/pro
 interface PayrollEntryFormProps {
   runs: PayrollRun[];
   workers: Worker[];
-  projects: Project[];
+  projects: readonly PayrollProjectReference[];
   costCodes?: ProjectCostCode[];
   onSave: (entry: PayrollEntry, allocations: PayrollProjectAllocation[]) => void;
 }

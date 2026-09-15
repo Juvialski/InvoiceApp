@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { Link2, Pencil, Plus, Scissors, Trash2 } from "lucide-react";
-import type { OvertimeRequest, PayType, PayrollEntry, Project, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
+import type { OvertimeRequest, PayType, PayrollEntry, PayrollProjectReference, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
 import { createLocalAssignment } from "../../lib/payroll";
 import { assignmentDependencySummary, type PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
@@ -8,7 +8,7 @@ import { useDialogFocus } from "../ui/useDialogFocus.ts";
 interface ProjectAssignmentsProps {
   assignments: ProjectWorkerAssignment[];
   workers: Worker[];
-  projects: Project[];
+  projects: readonly PayrollProjectReference[];
   workEntries?: WorkEntry[];
   overtimeRequests?: OvertimeRequest[];
   payrollEntries?: PayrollEntry[];
@@ -19,7 +19,7 @@ interface ProjectAssignmentsProps {
 }
 
 function today() { return new Date().toISOString().slice(0, 10); }
-function displayProject(project?: Project) { return project ? `${project.projectCode} · ${project.projectName}` : "Project"; }
+function displayProject(project?: PayrollProjectReference) { return project ? `${project.projectCode} · ${project.projectName}` : "Project"; }
 
 export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
   assignments,

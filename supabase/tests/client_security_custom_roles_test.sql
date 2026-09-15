@@ -78,6 +78,71 @@ values ('CUSTOM_OTHER_SECURITY', (select other_company_id from custom_role_users
 insert into public.company_role_permissions (role_key, permission_key) values ('CUSTOM_OTHER_SECURITY', 'projects.read');
 reset role;
 
+set local role service_role;
+insert into public.projects (
+  id, user_id, company_id, project_code, project_name, status, project_budget, currency
+) values (
+  '30000000-0000-4000-8000-000000000001',
+  (select admin_user from custom_role_users),
+  (select company_id from custom_role_users),
+  'PAY-REF-001',
+  'Synthetic Payroll Reference Project',
+  'ACTIVE',
+  0,
+  'PHP'
+);
+reset role;
+
+-- The built-in Payroll profile keeps the separate payroll Reports surface but
+-- no longer receives unrelated workspace permissions. Project labels come from
+-- a narrow permission/RPC boundary rather than the full Projects table.
+select is(
+  (select count(*) from public.company_role_permissions
+   where role_key = 'PAYROLL'
+     and permission_key in (
+       'dashboard.read', 'projects.read', 'engineering.documents.read',
+       'engineering.rfis.read', 'engineering.submittals.read',
+       'engineering.sitelogs.read'
+     )),
+  0::bigint,
+  'Payroll no longer receives unrelated workspace permissions'
+);
+select is(
+  (select count(*) from public.company_role_permissions
+   where role_key in ('COMPANY_ADMIN', 'PAYROLL')
+     and permission_key = 'payroll.project_reference.read'),
+  2::bigint,
+  'Company Admin and Payroll receive the narrow project-reference permission'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select payroll_user::text from custom_role_users), true);
+select results_eq(
+  $$select project_code || '|' || project_name || '|' || status
+    from public.list_payroll_project_references((select company_id from custom_role_users))$$,
+  $$values ('PAY-REF-001|Synthetic Payroll Reference Project|ACTIVE'::text)$$,
+  'Payroll can read only the project reference projection'
+);
+select is_empty(
+  $$select 1 from public.projects$$,
+  'Payroll cannot read full project rows without projects.read'
+);
+select throws_ok(
+  $$select * from public.list_payroll_project_references((select other_company_id from custom_role_users))$$,
+  '42501', null, 'Payroll reference RPC rejects another deployment company'
+);
+select set_config('request.jwt.claim.sub', (select finance_user::text from custom_role_users), true);
+select throws_ok(
+  $$select * from public.list_payroll_project_references((select company_id from custom_role_users))$$,
+  '42501', null, 'Finance cannot call the Payroll reference RPC without its permission'
+);
+select set_config('request.jwt.claim.sub', (select viewer_user::text from custom_role_users), true);
+select throws_ok(
+  $$select * from public.list_payroll_project_references((select company_id from custom_role_users))$$,
+  '42501', null, 'Viewer cannot call the Payroll reference RPC without its permission'
+);
+reset role;
+
 -- CREATE: only a Company Admin can create a role, and the role is stored under
 -- the deployment company with effective permission rows.
 set local role authenticated;

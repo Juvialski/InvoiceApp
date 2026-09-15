@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Save, Upload, X } from "lucide-react";
-import type { PayrollPeriod, Project, Worker } from "../../types";
+import type { PayrollPeriod, PayrollProjectReference, Worker } from "../../types";
 import { applyPayrollColumnMappings, parsePayrollWorkbook, type CanonicalPayrollField, type ParsedPayrollWorkbook, type PayrollColumnMapping, type PayrollCellValue } from "../../lib/payrollImport";
 import {
   applySavedPayrollTemplate,
@@ -17,7 +17,7 @@ import { matchPayrollImportPeriod } from "../../lib/payrollImportPeriod";
 
 interface PayrollImportWorkflowProps {
   workers: Worker[];
-  projects: Project[];
+  projects: readonly PayrollProjectReference[];
   periods?: PayrollPeriod[];
   selectedPeriodId?: string;
   batches: PayrollImportBatch[];
@@ -139,7 +139,7 @@ export const PayrollImportWorkflow: React.FC<PayrollImportWorkflowProps> = ({ wo
 const StepPill: React.FC<{ active: boolean; done: boolean; label: string }> = ({ active, done, label }) => <span className={`rounded-full px-2 py-1 ${active ? "bg-indigo-50 text-indigo-700" : done ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-400"}`}>{done ? "✓ " : ""}{label}</span>;
 const Metric: React.FC<{ label: string; value: string | number }> = ({ label, value }) => <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="truncate text-[10px] font-semibold text-slate-500">{label}</p><p className="mt-1 truncate text-xs font-black">{value}</p></div>;
 
-const ImportRow: React.FC<{ row: PayrollImportRow; workers: Worker[]; projects: Project[]; onChange: (patch: Parameters<typeof updatePayrollImportRowDecision>[1]) => void }> = ({ row, workers, projects, onChange }) => {
+const ImportRow: React.FC<{ row: PayrollImportRow; workers: Worker[]; projects: readonly PayrollProjectReference[]; onChange: (patch: Parameters<typeof updatePayrollImportRowDecision>[1]) => void }> = ({ row, workers, projects, onChange }) => {
   const data = row.canonicalData;
   const gross = data.grossPayImported ?? (data.regularPayImported || 0) + (data.overtimePayImported || 0);
   return <tr className={`border-t border-slate-100 align-top ${row.status === "SKIPPED" ? "opacity-50" : ""}`}><td className="p-2"><p className="font-bold">{row.sourceSheet} · {row.sourceRow}</p><p className="mt-1 text-slate-500">{row.warnings[0] || "No row warnings"}</p></td><td className="p-2 font-bold">{row.originalEmployeeName || "(missing name)"}</td><td className="p-2"><select value={row.workerId || ""} onChange={(event) => onChange({ workerId: event.target.value || undefined })} className="w-48 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px]"><option value="">Select worker · {row.workerMatchStatus}</option>{workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.displayName} · {worker.employeeCode}</option>)}</select></td><td className="p-2"><select value={row.laborContext.type} onChange={(event) => onChange({ contextType: event.target.value as LaborContextType, projectId: undefined })} className="w-44 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px]"><option value="PROJECT">Project labor</option><option value="ADMIN_OFFICE">Admin / office</option><option value="GENERAL_OVERHEAD">General overhead</option><option value="UNALLOCATED_REVIEW">Unallocated / review</option></select><p className="mt-1 text-[9px] text-slate-500">{displayContext(row.laborContext.type)}{row.laborContext.needsReview ? " · needs review" : ""}</p></td><td className="p-2">{row.laborContext.type === "PROJECT" ? <select value={row.laborContext.projectId || ""} onChange={(event) => onChange({ projectId: event.target.value || undefined })} className="w-56 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px]"><option value="">Select project</option>{projects.filter((project) => project.status !== "ARCHIVED").map((project) => <option key={project.id} value={project.id}>{project.projectCode} — {project.projectName}</option>)}</select> : <span className="text-slate-400">No project</span>}</td><td className="p-2 text-right font-black tabular-nums">{money(gross)}</td><td className="p-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black ${row.workerMatchStatus === "MATCHED" && (!row.laborContext.needsReview || row.laborContext.type !== "PROJECT") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{row.workerMatchStatus}{row.projectMatchStatus !== "NOT_APPLICABLE" ? ` · ${row.projectMatchStatus}` : ""}</span></td><td className="p-2 text-center"><input type="checkbox" checked={row.status === "SKIPPED"} onChange={(event) => onChange({ status: event.target.checked ? "SKIPPED" : "STAGED" })} aria-label={`Skip ${row.originalEmployeeName || `row ${row.sourceRow}`}`} /></td></tr>;

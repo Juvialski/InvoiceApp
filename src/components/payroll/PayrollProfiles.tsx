@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Archive, Pencil, Plus, Repeat2, Save, Scissors, Trash2, UserRound } from "lucide-react";
-import type { PayrollEntry, PayrollPeriod, PayrollRun, Project, Worker } from "../../types";
+import type { PayrollEntry, PayrollPeriod, PayrollProjectReference, PayrollRun, Worker } from "../../types";
 import { LABOR_CONTEXTS, type RecurringPayrollComponent, type WorkerCompensationProfile } from "../../lib/payrollAutomation";
 import { isCompensationProfileConsumed, isRecurringComponentConsumed, type PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
 
 interface PayrollProfilesProps {
   workers: Worker[];
-  projects: Project[];
+  projects: readonly PayrollProjectReference[];
   profiles: WorkerCompensationProfile[];
   components: RecurringPayrollComponent[];
   payrollEntries?: PayrollEntry[];

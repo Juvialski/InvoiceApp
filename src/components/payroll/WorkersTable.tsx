@@ -1,13 +1,13 @@
 import React, { useMemo, useRef, useState } from "react";
 import { Archive, Plus, RotateCcw, Trash2, UserRound } from "lucide-react";
-import type { EmploymentType, PayType, PayrollLaborContextType, Project, ProjectWorkerAssignment, Worker } from "../../types";
+import type { EmploymentType, PayType, PayrollLaborContextType, PayrollProjectReference, ProjectWorkerAssignment, Worker } from "../../types";
 import { createLocalWorker } from "../../lib/payroll";
 import { workerDependencySummary, workerLifecycleCopy, type PayrollLifecycleRequest, type WorkerLifecycleData } from "../../lib/payrollLifecycle";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
 
 interface WorkersTableProps {
   workers: Worker[];
-  projects?: Project[];
+  projects?: readonly PayrollProjectReference[];
   assignments?: ProjectWorkerAssignment[];
   lifecycleData?: Omit<WorkerLifecycleData, "workers">;
   onSave: (worker: Worker) => void;

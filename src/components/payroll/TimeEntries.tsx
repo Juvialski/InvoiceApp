@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Pencil, Plus, Trash2 } from "lucide-react";
-import { PayrollLaborContextType, Project, ProjectWorkerAssignment, PayrollPeriod, PayrollRun, Worker, WorkEntry } from "../../types";
+import { PayrollLaborContextType, PayrollPeriod, PayrollProjectReference, ProjectWorkerAssignment, PayrollRun, Worker, WorkEntry } from "../../types";
 import { calculatePayroll, resolvePayrollRate } from "../../lib/payrollCalculation";
 import { createLocalWorkEntry } from "../../lib/payroll";
 import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
@@ -8,7 +8,7 @@ import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
 interface TimeEntriesProps {
   entries: WorkEntry[];
   workers: Worker[];
-  projects: Project[];
+  projects: readonly PayrollProjectReference[];
   periods: PayrollPeriod[];
   assignments: ProjectWorkerAssignment[];
   runs: PayrollRun[];
