@@ -32,6 +32,7 @@ create temp table custom_role_users (
   company_id uuid not null,
   other_company_id uuid not null
 );
+grant select, insert on custom_role_ids to authenticated, service_role;
 
 insert into custom_role_users values (
   '20000000-0000-4000-8000-000000000001',
@@ -98,6 +99,7 @@ select results_eq(
   'custom role receives exactly the selected read permissions'
 );
 
+select set_config('request.jwt.claim.sub', (select finance_user::text from custom_role_users), true);
 select throws_ok(
   $$select public.create_company_role((select company_id from custom_role_users), 'Finance Cannot Create', null, '["projects.read"]'::jsonb, null)$$,
   '42501', null, 'Finance cannot create a custom role'
@@ -131,17 +133,21 @@ select throws_ok(
 reset role;
 
 -- EDIT EFFECT: changing a custom role changes the effective permission set of
--- a member assigned to that role, without changing the member's display key.
+-- a member assigned to that role, without hard-coding its display role name.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from custom_role_users), true);
 select lives_ok(
   $$select public.change_company_member_role((select id from public.company_members where user_id = (select custom_user from custom_role_users)), (select role_key from custom_role_ids))$$,
   'Company Admin can assign the custom role to a member'
 );
-select is((select public.has_company_permission((select company_id from custom_role_users), 'projects.read') from public.company_members where user_id = (select custom_user from custom_role_users)), true, 'assigned custom role grants selected project read permission');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select custom_user::text from custom_role_users), true);
+select is(public.has_company_permission((select company_id from custom_role_users), 'projects.read'), true, 'assigned custom role grants selected project read permission');
 select throws_ok(
-  $$select public.update_company_role((select company_id from custom_role_users), (select role_key from custom_role_ids), 'Project Manager', 'Updated access', '["projects.manage"]'::jsonb)$$,
-  '42501', null, 'role edit is denied when the caller is no longer an authorized member'
+  $$select public.update_company_role((select company_id from custom_role_users), (select role_key from custom_role_ids), 'Project Manager', 'Unauthorized update attempt', '["projects.manage"]'::jsonb)$$,
+  '42501', null, 'assigned custom-role member cannot edit role definitions'
 );
 reset role;
 
