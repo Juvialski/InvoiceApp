@@ -18,6 +18,10 @@ export const PLATFORM_LIST_AUDIT_RPC = "platform_list_access_audit";
 export const PLATFORM_LIST_INVITATIONS_RPC = "platform_list_company_invitations";
 export const PLATFORM_LIST_INVITATIONS_WITH_OVERRIDES_RPC = "platform_list_company_invitations_with_overrides";
 export const PLATFORM_LIST_PERMISSION_CATALOG_RPC = "platform_list_company_permission_catalog";
+export const PLATFORM_LIST_ROLES_RPC = "platform_list_company_roles";
+export const CREATE_COMPANY_ROLE_RPC = "create_company_role";
+export const UPDATE_COMPANY_ROLE_RPC = "update_company_role";
+export const ARCHIVE_COMPANY_ROLE_RPC = "archive_company_role";
 export const PLATFORM_UPDATE_MEMBER_PERMISSIONS_RPC = "platform_update_company_member_permissions";
 export const REVOKE_INVITATION_RPC = "revoke_company_invitation";
 
@@ -67,6 +71,20 @@ export interface CompanyPermissionCatalogEntry {
   permissionKey: PermissionKey;
   description?: string;
   memberAssignable: boolean;
+}
+
+export interface CompanyRoleSummary {
+  roleKey: string;
+  companyId?: string;
+  displayName: string;
+  description?: string;
+  assignable: boolean;
+  isBuiltin: boolean;
+  isPlatformRole: boolean;
+  archivedAt?: string;
+  updatedAt?: string;
+  permissions: PermissionKey[];
+  memberCount: number;
 }
 
 export interface CompanyInvitationSummary {
@@ -138,6 +156,22 @@ export interface UpdateCompanyMemberPermissionsInput {
   companyId: string;
   membershipId: string;
   overrides: Array<Pick<CompanyMemberPermissionOverride, "permissionKey" | "effect">>;
+}
+
+export interface CreateCompanyRoleInput {
+  companyId: string;
+  displayName: string;
+  description?: string;
+  permissions?: PermissionKey[];
+  sourceRoleKey?: string;
+}
+
+export interface UpdateCompanyRoleInput {
+  companyId: string;
+  roleKey: string;
+  displayName: string;
+  description?: string;
+  permissions: PermissionKey[];
 }
 
 export interface UpdateCompanyInvitationPermissionsInput {
@@ -407,6 +441,23 @@ function invitationFromRecord(value: unknown): CompanyInvitationSummary {
   };
 }
 
+function roleFromRecord(value: unknown): CompanyRoleSummary {
+  const row = record(value);
+  return {
+    roleKey: text(firstPresent(row, "role_key", "roleKey")) || "",
+    companyId: text(firstPresent(row, "company_id", "companyId")),
+    displayName: text(firstPresent(row, "display_name", "displayName")) || "Role",
+    description: text(firstPresent(row, "description")),
+    assignable: firstPresent(row, "assignable") !== false,
+    isBuiltin: firstPresent(row, "is_builtin", "isBuiltin") === true,
+    isPlatformRole: firstPresent(row, "is_platform_role", "isPlatformRole") === true,
+    archivedAt: text(firstPresent(row, "archived_at", "archivedAt")),
+    updatedAt: text(firstPresent(row, "updated_at", "updatedAt")),
+    permissions: normalizePermissionKeys(firstPresent(row, "permissions", "permission_keys", "permissionKeys")),
+    memberCount: Number(firstPresent(row, "member_count", "memberCount")) || 0,
+  };
+}
+
 export async function createCompany(input: CreateCompanyInput, client: SupabaseClient | null = supabase): Promise<CompanySummary> {
   const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_CREATE_COMPANY_RPC, {
     p_name: input.name.trim(),
@@ -516,6 +567,45 @@ export async function loadCompanyPermissionCatalog(companyId: string, client: Su
       memberAssignable: firstPresent(row, "member_assignable", "memberAssignable") !== false,
     } satisfies CompanyPermissionCatalogEntry;
   }).filter((entry) => Boolean(entry.permissionKey));
+}
+
+export async function loadCompanyRoles(companyId: string, client: SupabaseClient | null = supabase): Promise<CompanyRoleSummary[]> {
+  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_ROLES_RPC, { p_company_id: companyId });
+  if (error) throw error;
+  return unwrapRows<unknown>(data).map(roleFromRecord).filter((role) => Boolean(role.roleKey));
+}
+
+export async function createCompanyRole(input: CreateCompanyRoleInput, client: SupabaseClient | null = supabase): Promise<CompanyRoleSummary> {
+  const { data, error } = await requireSupabaseClient(client).rpc(CREATE_COMPANY_ROLE_RPC, {
+    p_company_id: input.companyId,
+    p_display_name: input.displayName.trim(),
+    p_description: input.description?.trim() || null,
+    p_permission_keys: input.permissions || [],
+    p_source_role_key: input.sourceRoleKey || null,
+  });
+  if (error) throw error;
+  return roleFromRecord(unwrapRpcPayload(data));
+}
+
+export async function updateCompanyRole(input: UpdateCompanyRoleInput, client: SupabaseClient | null = supabase): Promise<CompanyRoleSummary> {
+  const { data, error } = await requireSupabaseClient(client).rpc(UPDATE_COMPANY_ROLE_RPC, {
+    p_company_id: input.companyId,
+    p_role_key: input.roleKey,
+    p_display_name: input.displayName.trim(),
+    p_description: input.description?.trim() || null,
+    p_permission_keys: input.permissions,
+  });
+  if (error) throw error;
+  return roleFromRecord(unwrapRpcPayload(data));
+}
+
+export async function archiveCompanyRole(companyId: string, roleKey: string, client: SupabaseClient | null = supabase): Promise<CompanyRoleSummary> {
+  const { data, error } = await requireSupabaseClient(client).rpc(ARCHIVE_COMPANY_ROLE_RPC, {
+    p_company_id: companyId,
+    p_role_key: roleKey,
+  });
+  if (error) throw error;
+  return roleFromRecord(unwrapRpcPayload(data));
 }
 
 export async function loadCompanyAccessAudit(companyId: string | undefined, client: SupabaseClient | null = supabase): Promise<CompanyAccessAuditEntry[]> {

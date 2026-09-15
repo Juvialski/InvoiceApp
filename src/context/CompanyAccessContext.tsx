@@ -3,30 +3,37 @@ import type { Session } from "@supabase/supabase-js";
 import { BRAND } from "../config/brand.ts";
 import {
   activeCompanyMembership,
+  archiveCompanyRole as archiveCompanyRoleApi,
   authorizeCompanyMemberEmail as authorizeCompanyMemberEmailApi,
+  createCompanyRole as createCompanyRoleApi,
   loadCompanyAccess,
   loadCompanyAccessAudit as loadCompanyAccessAuditApi,
   loadCompanyInvitations as loadCompanyInvitationsApi,
   loadCompanyMembers as loadCompanyMembersApi,
   loadCompanyPermissionCatalog as loadCompanyPermissionCatalogApi,
+  loadCompanyRoles as loadCompanyRolesApi,
   revokeCompanyInvitation as revokeCompanyInvitationApi,
   updateCompanyInvitationPermissions as updateCompanyInvitationPermissionsApi,
   updateCompany as updateCompanyApi,
   updateCompanyMember as updateCompanyMemberApi,
   updateCompanyMemberPermissions as updateCompanyMemberPermissionsApi,
+  updateCompanyRole as updateCompanyRoleApi,
   type CompanyAccessAuditEntry,
   type CompanyAccessSnapshot,
   type CompanyInvitationSummary,
   type CompanyMemberSummary,
   type CompanyMembership,
   type CompanyPermissionCatalogEntry,
+  type CompanyRoleSummary,
   type CompanySummary,
   type CreateCompanyInput,
+  type CreateCompanyRoleInput,
   type InviteCompanyMemberInput,
   type MembershipStatus,
   type UpdateCompanyInvitationPermissionsInput,
   type UpdateCompanyMemberInput,
   type UpdateCompanyMemberPermissionsInput,
+  type UpdateCompanyRoleInput,
 } from "../lib/companyAccess.ts";
 import { clearCompanyContext, setDeploymentCompanyId } from "../lib/companyContext.ts";
 import { assertDeploymentCompanyId, loadDeploymentCompanyId, resolveDeploymentCompanyAccess } from "../lib/deploymentCompany.ts";
@@ -61,6 +68,10 @@ export interface CompanyAccessContextValue {
   updateCompanyInvitationPermissions: (input: UpdateCompanyInvitationPermissionsInput) => Promise<unknown>;
   updateCompanyMember: (input: UpdateCompanyMemberInput) => Promise<unknown>;
   updateCompanyMemberPermissions: (input: UpdateCompanyMemberPermissionsInput) => Promise<unknown>;
+  loadCompanyRoles: (companyId: string) => Promise<CompanyRoleSummary[]>;
+  createCompanyRole: (input: CreateCompanyRoleInput) => Promise<CompanyRoleSummary>;
+  updateCompanyRole: (input: UpdateCompanyRoleInput) => Promise<CompanyRoleSummary>;
+  archiveCompanyRole: (companyId: string, roleKey: string) => Promise<CompanyRoleSummary>;
   loadCompanyMembers: (companyId: string) => Promise<CompanyMemberSummary[]>;
   loadCompanyInvitations: (companyId: string) => Promise<CompanyInvitationSummary[]>;
   loadCompanyPermissionCatalog: (companyId: string) => Promise<CompanyPermissionCatalogEntry[]>;
@@ -309,6 +320,24 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     return result;
   }, [deploymentCompanyIdFor, refreshAccess, session?.user?.id]);
 
+  const loadCompanyRoles = useCallback(async (companyId: string) => {
+    return loadCompanyRolesApi(deploymentCompanyIdFor(companyId, "role catalog"));
+  }, [deploymentCompanyIdFor]);
+
+  const createCompanyRole = useCallback(async (input: CreateCompanyRoleInput) => {
+    const deploymentCompanyId = deploymentCompanyIdFor(input.companyId, "custom role creation");
+    return createCompanyRoleApi({ ...input, companyId: deploymentCompanyId });
+  }, [deploymentCompanyIdFor]);
+
+  const updateCompanyRole = useCallback(async (input: UpdateCompanyRoleInput) => {
+    const deploymentCompanyId = deploymentCompanyIdFor(input.companyId, "custom role update");
+    return updateCompanyRoleApi({ ...input, companyId: deploymentCompanyId });
+  }, [deploymentCompanyIdFor]);
+
+  const archiveCompanyRole = useCallback(async (companyId: string, roleKey: string) => {
+    return archiveCompanyRoleApi(deploymentCompanyIdFor(companyId, "custom role archive"), roleKey);
+  }, [deploymentCompanyIdFor]);
+
   const loadCompanyMembers = useCallback(async (companyId: string) => {
     return loadCompanyMembersApi(deploymentCompanyIdFor(companyId, "member directory"));
   }, [deploymentCompanyIdFor]);
@@ -353,12 +382,16 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       updateCompanyInvitationPermissions,
       updateCompanyMember,
       updateCompanyMemberPermissions,
+      loadCompanyRoles,
+      createCompanyRole,
+      updateCompanyRole,
+      archiveCompanyRole,
       loadCompanyMembers,
       loadCompanyInvitations,
       loadCompanyPermissionCatalog,
       loadCompanyAccessAudit,
     };
-  }, [access, authResolved, authorizeCompanyMemberEmail, createCompany, enterGuestMode, guestMode, inviteCompanyMember, isSwitching, loadCompanyAccessAudit, loadCompanyInvitations, loadCompanyMembers, loadCompanyPermissionCatalog, refreshAccess, revokeCompanyInvitation, selectCompany, session, signOut, updateCompany, updateCompanyInvitationPermissions, updateCompanyMember, updateCompanyMemberPermissions]);
+  }, [access, archiveCompanyRole, authResolved, authorizeCompanyMemberEmail, createCompany, createCompanyRole, enterGuestMode, guestMode, inviteCompanyMember, isSwitching, loadCompanyAccessAudit, loadCompanyInvitations, loadCompanyMembers, loadCompanyPermissionCatalog, loadCompanyRoles, refreshAccess, revokeCompanyInvitation, selectCompany, session, signOut, updateCompany, updateCompanyInvitationPermissions, updateCompanyMember, updateCompanyMemberPermissions, updateCompanyRole]);
 
   return <CompanyAccessContext.Provider value={value}>{children}</CompanyAccessContext.Provider>;
 }

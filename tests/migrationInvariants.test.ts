@@ -105,7 +105,8 @@ test("migration invariant: latest migration contains the authoritative superset 
     "Company Tenancy & Member Access": [
       "COMPANY_CREATED", "COMPANY_UPDATED", "COMPANY_SUSPENDED", "COMPANY_ARCHIVED", "COMPANY_REACTIVATED",
       "USER_INVITED", "INVITE_REVOKED", "INVITE_ACCEPTED", "INVITATION_SENT", "INVITATION_DELIVERY_FAILED",
-      "MEMBER_ROLE_CHANGED", "MEMBER_SUSPENDED", "MEMBER_REACTIVATED", "MEMBER_REVOKED", "MEMBER_PERMISSIONS_UPDATED"
+      "MEMBER_ROLE_CHANGED", "MEMBER_SUSPENDED", "MEMBER_REACTIVATED", "MEMBER_REVOKED", "MEMBER_PERMISSIONS_UPDATED",
+      "CUSTOM_ROLE_CREATED", "CUSTOM_ROLE_UPDATED", "CUSTOM_ROLE_ARCHIVED"
     ],
     "Payroll Maintenance & Factory Reset": [
       "PAYROLL_REPAIR_APPLIED", "PAYROLL_CALENDAR_REBUILT", "PAYROLL_UNAPPROVED_RESET", "PAYROLL_WORKSPACE_RESET"
@@ -187,6 +188,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 123, "Authoritative set must comprise exactly 123 events through Warehouse Inventory lifecycle events");
-  assert.equal(latestSet.size, 123, `Latest allowlist has ${latestSet.size} unique events, expected 123`);
+  assert.equal(totalExpected, 126, "Authoritative set must include the three custom-role lifecycle events");
+  assert.equal(latestSet.size, 126, `Latest allowlist has ${latestSet.size} unique events, expected 126`);
 });

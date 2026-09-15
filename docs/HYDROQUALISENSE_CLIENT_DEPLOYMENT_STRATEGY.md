@@ -217,6 +217,28 @@ Before production biometric use define and test:
 - correction history;
 - payroll integration boundaries.
 
+## Client security assurance and handoff phase
+
+The current approved security phase is tracked in
+`docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md` and
+`docs/superpowers/plans/2026-09-15-client-security-assurance.md`. Its custody
+checklist is `docs/HYDROQUALISENSE_CLIENT_SECURITY_HANDOFF_CHECKLIST.md` and its
+claim-to-evidence matrix is `artifacts/client-security/EVIDENCE.md`.
+
+The intended handoff boundary is precise: after completed handoff there should be
+no standing developer/operator access to the client's confidential production data
+plane. This does not mean reviewed software releases cannot change production
+behavior. The checklist distinguishes technical application controls from
+client-owned Supabase, Render, Google, AI, Gmail, and SMS/provider account custody.
+Exceptional incident access must be client-granted, narrowly scoped, time-bounded,
+audited, and revoked afterward. The application cannot revoke an external account
+it does not own.
+
+The flexible-role implementation is not a substitute for runtime proof. Custom-role
+claims remain unavailable for client certification until the committed migration has
+passed clean replay, pgTAP, runtime RLS/RPC authorization, upgrade/concurrency checks,
+and authenticated QA with synthetic evidence.
+
 ## Final security certification phase
 
 Before broad client production rollout, run a dedicated certification phase after major operational domains stabilize. It should not be treated as a substitute for security during implementation.

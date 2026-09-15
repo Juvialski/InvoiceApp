@@ -154,8 +154,8 @@ export const ASSISTANT_OPERATION_TOOL_DEFINITIONS: readonly AssistantOperationTo
   prepare("prepare_internal_transfer_reversal", "Prepare reversal of an exact confirmed internal transfer pair while retaining both ledger transactions and transfer history.", ["cash.reconcile"], { transferGroupId: uuid, leftTransactionId: uuid, rightTransactionId: uuid, reason }, ["transferGroupId", "leftTransactionId", "rightTransactionId", "reason"]),
   prepare("prepare_update_company_profile", "Prepare an update to the fixed deployment company's display name, default currency, and timezone. Company identity and company_id cannot change.", ["company.settings.manage"], { name: { type: "string" }, defaultCurrency: { type: "string" }, timezone: { type: "string" } }, ["name", "defaultCurrency", "timezone"]),
   read("get_company_access_summary", "Return the current deployment company's member, pending-access, and assignable-permission summary for an authorized access administrator or reader.", ["company.members.read|company.members.manage"]),
-  prepare("prepare_authorize_company_member", "Prepare a company-bound email access authorization with an assignable role and optional permission overrides. It does not claim or create a user account.", ["company.members.manage"], { email: { type: "string" }, roleKey: { type: "string", enum: ["COMPANY_ADMIN", "FINANCE", "PAYROLL", "VIEWER"] }, expiresAt: { type: "string" }, permissionOverrides: { type: "array", maxItems: 80, items: { type: "object", properties: { permissionKey: { type: "string" }, effect: { type: "string", enum: ["GRANT", "DENY"] } }, required: ["permissionKey", "effect"], additionalProperties: false } } }, ["email", "roleKey"]),
-  prepare("prepare_update_company_member", "Prepare a role or membership-status update for another company member. The database protects self-access and last-authority safeguards.", ["company.members.manage"], { membershipId: uuid, roleKey: { type: "string", enum: ["COMPANY_ADMIN", "FINANCE", "PAYROLL", "VIEWER"] }, status: { type: "string", enum: ["ACTIVE", "SUSPENDED", "REVOKED"] } }, ["membershipId"]),
+  prepare("prepare_authorize_company_member", "Prepare a company-bound email access authorization with an assignable built-in or company-defined role and optional permission overrides. It does not claim or create a user account.", ["company.members.manage"], { email: { type: "string" }, roleKey: { type: "string" }, expiresAt: { type: "string" }, permissionOverrides: { type: "array", maxItems: 80, items: { type: "object", properties: { permissionKey: { type: "string" }, effect: { type: "string", enum: ["GRANT", "DENY"] } }, required: ["permissionKey", "effect"], additionalProperties: false } } }, ["email", "roleKey"]),
+  prepare("prepare_update_company_member", "Prepare a role or membership-status update for another company member. The database protects self-access and last-authority safeguards.", ["company.members.manage"], { membershipId: uuid, roleKey: { type: "string" }, status: { type: "string", enum: ["ACTIVE", "SUSPENDED", "REVOKED"] } }, ["membershipId"]),
   prepare("prepare_update_member_permissions", "Prepare replacement of another member's explicit GRANT/DENY overrides using the company permission catalog.", ["company.members.manage"], { membershipId: uuid, permissionOverrides: { type: "array", maxItems: 80, items: { type: "object", properties: { permissionKey: { type: "string" }, effect: { type: "string", enum: ["GRANT", "DENY"] } }, required: ["permissionKey", "effect"], additionalProperties: false } } }, ["membershipId", "permissionOverrides"]),
   prepare("prepare_revoke_company_invitation", "Prepare revocation of a pending company email access authorization. The database decides whether it is still revocable.", ["company.members.manage"], { invitationId: uuid }, ["invitationId"]),
 ]);
@@ -168,7 +168,6 @@ const SOURCE_STATUSES = ["DRAFT", "APPROVED", "VOID"] as const;
 const ACCOUNT_TYPES = ["BANK", "EWALLET", "CASH"] as const;
 const CONNECTION_TYPES = ["MANUAL", "STATEMENT", "PROVIDER"] as const;
 const TRANSACTION_DIRECTIONS = ["CREDIT", "DEBIT"] as const;
-const MEMBER_ROLES = ["COMPANY_ADMIN", "FINANCE", "PAYROLL", "VIEWER"] as const;
 const MEMBER_STATUSES = ["ACTIVE", "SUSPENDED", "REVOKED"] as const;
 
 export function isAssistantOperationTool(name: string): boolean {
@@ -211,6 +210,14 @@ function email(value: unknown) {
   const normalized = boundedText(value, "email", 320)!.toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) throw new AssistantToolError("INVALID_ARGUMENT", "email must be a valid access-authorization address.");
   return normalized;
+}
+
+function roleKey(value: unknown) {
+  const normalized = boundedText(value, "roleKey", 64)!;
+  if (!/^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(normalized)) {
+    throw new AssistantToolError("INVALID_ARGUMENT", "roleKey must use letters, numbers, and underscores only.");
+  }
+  return normalized.toUpperCase();
 }
 
 function normalizeDate(value: unknown, label: string, required = true) {
@@ -394,13 +401,13 @@ export function validateAssistantOperationArguments(toolName: string, input: unk
     case "prepare_internal_transfer_reversal": return { transferGroupId: requireUuid(args.transferGroupId, "transferGroupId"), leftTransactionId: requireUuid(args.leftTransactionId, "leftTransactionId"), rightTransactionId: requireUuid(args.rightTransactionId, "rightTransactionId"), reason: boundedText(args.reason, "reason", 500)! };
     case "prepare_update_company_profile": return { name: boundedText(args.name, "name", 160)!, defaultCurrency: boundedText(args.defaultCurrency, "defaultCurrency", 3)!.toUpperCase(), timezone: boundedText(args.timezone, "timezone", 80)! };
     case "get_company_access_summary": return {};
-    case "prepare_authorize_company_member": return { email: email(args.email), roleKey: enumValue(args.roleKey, "roleKey", MEMBER_ROLES)!, expiresAt: boundedText(args.expiresAt, "expiresAt", 80, false), permissionOverrides: normalizeOverridesForTool(args) };
+    case "prepare_authorize_company_member": return { email: email(args.email), roleKey: roleKey(args.roleKey), expiresAt: boundedText(args.expiresAt, "expiresAt", 80, false), permissionOverrides: normalizeOverridesForTool(args) };
     case "prepare_update_company_member": {
       const membershipId = requireUuid(args.membershipId, "membershipId");
-      const roleKey = args.roleKey === undefined ? undefined : enumValue(args.roleKey, "roleKey", MEMBER_ROLES);
+      const roleKeyValue = args.roleKey === undefined ? undefined : roleKey(args.roleKey);
       const status = args.status === undefined ? undefined : enumValue(args.status, "status", MEMBER_STATUSES);
-      if (!roleKey && !status) throw new AssistantToolError("NO_CHANGES", "Provide a roleKey or status change.");
-      return { membershipId, roleKey, status };
+      if (!roleKeyValue && !status) throw new AssistantToolError("NO_CHANGES", "Provide a roleKey or status change.");
+      return { membershipId, roleKey: roleKeyValue, status };
     }
     case "prepare_update_member_permissions": return { membershipId: requireUuid(args.membershipId, "membershipId"), permissionOverrides: normalizeOverridesForTool(args) };
     case "prepare_revoke_company_invitation": return { invitationId: requireUuid(args.invitationId, "invitationId") };
