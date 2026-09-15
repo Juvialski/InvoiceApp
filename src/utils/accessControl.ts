@@ -45,7 +45,7 @@ export const PERMISSION_KEYS = {
   payrollSettings: "payroll.settings",
   payrollImport: "payroll.import",
   payrollAggregateRead: "payroll.summary.read",
-  payrollProjectReferenceRead: "payroll.project_reference.read",
+  payrollProjectReferenceRead: "payroll.projectreference.read",
   payrollSensitiveRead: "payroll.detail.read",
   reportsRead: "reports.financial.read",
   reportsPayrollRead: "reports.payroll.read",

@@ -4,7 +4,7 @@ import path from "node:path";
 // Playwright is intentionally installed by the explicit QA workflow.
 // @ts-ignore -- the QA-only dependency is present when this script executes.
 import { chromium } from "playwright";
-import { assertLocalQaTarget } from "../../src/lib/localQaTarget.ts";
+import { isBrowserSafeSupabaseKey, LOCAL_QA_PRODUCTION_PROJECT_REF, assertLocalQaTarget } from "../../src/lib/localQaTarget.ts";
 import { assertHostedQaTarget, waitForHostedQaRouteReadiness } from "../qa/hostedQaContracts.ts";
 import { normalizeErrorMessage, redactSensitiveText } from "../qa/structuredEvidence.ts";
 
@@ -44,6 +44,7 @@ const BASE_URL = String(process.env.CLIENT_SECURITY_QA_BASE_URL || process.env.Q
 const EXPECTED_SHA = String(process.env.CLIENT_SECURITY_QA_EXPECTED_SHA || "").trim().toLowerCase();
 const EXPECTED_MIGRATION = String(process.env.CLIENT_SECURITY_QA_EXPECTED_MIGRATION || "").trim();
 const EXPECTED_DEPLOYMENT_ID = String(process.env.CLIENT_SECURITY_QA_DEPLOYMENT_ID || "").trim();
+const SUPABASE_MODE = String(process.env.CLIENT_SECURITY_QA_SUPABASE_MODE || "remote").trim().toLowerCase();
 const OUTPUT_DIR = path.resolve(process.env.CLIENT_SECURITY_QA_OUTPUT_DIR || "artifacts/client-security");
 const SCREENSHOT_DIR = path.join(OUTPUT_DIR, "screenshots");
 const MANIFEST_PATH = path.join(OUTPUT_DIR, "role-screenshot-manifest.json");
@@ -141,7 +142,15 @@ function assertConfiguration() {
   if (!/^[0-9a-f]{40}$/.test(EXPECTED_SHA)) throw new Error("CLIENT_SECURITY_QA_EXPECTED_SHA must be an exact 40-character release SHA.");
   if (!/^\d{14}$/.test(EXPECTED_MIGRATION)) throw new Error("CLIENT_SECURITY_QA_EXPECTED_MIGRATION must be an exact migration timestamp.");
   if (!EXPECTED_DEPLOYMENT_ID) throw new Error("CLIENT_SECURITY_QA_DEPLOYMENT_ID is required.");
-  if (localTarget) {
+  if (localTarget && SUPABASE_MODE === "local") {
+    if (!ALLOW_LOCAL) throw new Error("Local role capture requires CLIENT_SECURITY_QA_ALLOW_LOCAL=1.");
+    if (EXPECTED_DEPLOYMENT_ID !== "local-qa-harness") throw new Error("Local role capture requires the local-qa-harness deployment identity.");
+    if (String(process.env.HYDROQUALISENSE_ENVIRONMENT || "").trim().toLowerCase() !== "qa") throw new Error("Local role capture requires HYDROQUALISENSE_ENVIRONMENT=qa.");
+    if (!isBrowserSafeSupabaseKey(String(process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ""))) throw new Error("Local role capture requires a browser-safe Supabase key.");
+    if (String(process.env.CLIENT_SECURITY_QA_PRODUCTION_PROJECT_REF || "").trim().toLowerCase() !== LOCAL_QA_PRODUCTION_PROJECT_REF) throw new Error("Local role capture requires the configured production project boundary.");
+    const supabaseUrl = new URL(String(process.env.VITE_SUPABASE_URL || ""));
+    if (!supabaseUrl.hostname.match(/^(?:localhost|127\.0\.0\.1)$/i)) throw new Error("Local role capture requires a local Supabase endpoint.");
+  } else if (localTarget) {
     assertLocalQaTarget({
       supabaseUrl: String(process.env.VITE_SUPABASE_URL || ""),
       expectedQaProjectRef: String(process.env.LOCAL_QA_EXPECTED_PROJECT_REF || process.env.HYDROQUALISENSE_QA_PROJECT_REF || ""),

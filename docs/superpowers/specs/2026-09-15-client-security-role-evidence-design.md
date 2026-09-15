@@ -44,7 +44,7 @@ target and credentials are available.
 
 ### Narrow Payroll project reference capability
 
-Add the operational permission `payroll.project_reference.read` to the existing
+Add the operational permission `payroll.projectreference.read` to the existing
 company permission catalog. It is a selectable operational permission for
 company-defined roles. The built-in `COMPANY_ADMIN` and `PAYROLL` templates
 receive it explicitly in the new forward migration.
@@ -81,7 +81,7 @@ projection from the project table without granting Payroll broad direct table
 access. Its body must explicitly require an authenticated actor, require the
 requested company to equal the configured deployment company, and require
 `private.has_company_permission(p_company_id,
-'payroll.project_reference.read')`. It must query only rows whose
+'payroll.projectreference.read')`. It must query only rows whose
 `company_id` equals the requested deployment company and return no financial,
 client, address, notes, or other project columns.
 

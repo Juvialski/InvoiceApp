@@ -80,7 +80,7 @@ reset role;
 
 set local role service_role;
 insert into public.projects (
-  id, user_id, company_id, project_code, project_name, status, project_budget, currency
+  id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment
 ) values (
   '30000000-0000-4000-8000-000000000001',
   (select admin_user from custom_role_users),
@@ -89,7 +89,8 @@ insert into public.projects (
   'Synthetic Payroll Reference Project',
   'ACTIVE',
   0,
-  'PHP'
+  'PHP',
+  'NON_VAT'
 );
 reset role;
 
@@ -110,7 +111,7 @@ select is(
 select is(
   (select count(*) from public.company_role_permissions
    where role_key in ('COMPANY_ADMIN', 'PAYROLL')
-     and permission_key = 'payroll.project_reference.read'),
+     and permission_key = 'payroll.projectreference.read'),
   2::bigint,
   'Company Admin and Payroll receive the narrow project-reference permission'
 );
@@ -164,7 +165,7 @@ select results_eq(
   'custom role receives exactly the selected read permissions'
 );
 select lives_ok(
-  $$select public.create_company_role((select company_id from custom_role_users), 'Payroll Context', null, '["payroll.project_reference.read"]'::jsonb, null)$$,
+  $$select public.create_company_role((select company_id from custom_role_users), 'Payroll Context', null, '["payroll.projectreference.read"]'::jsonb, null)$$,
   'custom roles may select the narrow payroll project-reference permission'
 );
 

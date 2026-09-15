@@ -77,7 +77,7 @@ const VIEWER_PERMISSIONS: PermissionKey[] = [
 ];
 
 test("the final Payroll permission vocabulary includes a narrow project-reference capability", () => {
-  assert.equal(PERMISSION_KEYS.payrollProjectReferenceRead, "payroll.project_reference.read");
+  assert.equal(PERMISSION_KEYS.payrollProjectReferenceRead, "payroll.projectreference.read");
 });
 
 test("Payroll permissions expose Payroll and its separate payroll Reports view", () => {

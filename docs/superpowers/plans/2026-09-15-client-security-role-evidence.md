@@ -113,7 +113,7 @@ Expected: the new Payroll assertions fail while unrelated route tests continue t
 
 **Interfaces:**
 - Consumes: `private.deployment_company_id()`, `private.has_company_permission(uuid,text)`, `public.projects`.
-- Produces: `payroll.project_reference.read` and `public.list_payroll_project_references(uuid)`.
+- Produces: `payroll.projectreference.read` and `public.list_payroll_project_references(uuid)`.
 
 - [ ] **Step 1: Create the canonical migration file through the Supabase CLI**
 
@@ -136,14 +136,14 @@ Use this SQL shape in the generated file:
 ```sql
 insert into public.company_permission_catalog (permission_key, description)
 values (
-  'payroll.project_reference.read',
+  'payroll.projectreference.read',
   'Read project codes, names, and lifecycle status needed for payroll context.'
 )
 on conflict (permission_key) do update set description = excluded.description;
 
 insert into public.company_role_permissions (role_key, permission_key)
-values ('COMPANY_ADMIN', 'payroll.project_reference.read'),
-       ('PAYROLL', 'payroll.project_reference.read')
+values ('COMPANY_ADMIN', 'payroll.projectreference.read'),
+       ('PAYROLL', 'payroll.projectreference.read')
 on conflict do nothing;
 
 delete from public.company_role_permissions
@@ -176,7 +176,7 @@ begin
   if p_company_id is null or p_company_id is distinct from (select private.deployment_company_id()) then
     raise exception 'Payroll project references cannot target another HydroQualiSense deployment' using errcode = '42501';
   end if;
-  if not (select private.has_company_permission(p_company_id, 'payroll.project_reference.read')) then
+  if not (select private.has_company_permission(p_company_id, 'payroll.projectreference.read')) then
     raise exception 'Payroll project reference permission is required' using errcode = '42501';
   end if;
 
@@ -280,7 +280,7 @@ export interface PayrollProjectReference {
 
 In `src/lib/projects.ts`, export `PAYROLL_PROJECT_REFERENCES_RPC`, a parser that accepts snake_case or camelCase RPC rows and returns only the five allowed fields, and a loader that authenticates through the existing Supabase client, resolves `requireActiveCompanyId()`, calls the RPC, and never calls `.from("projects").select("*")`.
 
-Add `payrollProjectReferenceRead: "payroll.project_reference.read"` to `PERMISSION_KEYS`, its display label/group, and `ALL_PERMISSION_KEYS` through the existing object mechanism.
+Add `payrollProjectReferenceRead: "payroll.projectreference.read"` to `PERMISSION_KEYS`, its display label/group, and `ALL_PERMISSION_KEYS` through the existing object mechanism.
 
 - [ ] **Step 4: Run the parser test and confirm it passes**
 
@@ -290,7 +290,7 @@ Expected: PASS with no sensitive project fields in the parsed object.
 
 - [ ] **Step 5: Separate Payroll reference state from full project state**
 
-In `src/App.tsx`, add `payrollProjectReferences` state and clear it with the workspace reset. Extend the engineering refresh payload with a separate reference array. When the caller has `projects.read`, retain the existing full project loader; when the caller has only `payroll.project_reference.read`, call the new RPC loader and keep `projects` empty. Include the new permission in the engineering refresh-group allowance and failure accounting.
+In `src/App.tsx`, add `payrollProjectReferences` state and clear it with the workspace reset. Extend the engineering refresh payload with a separate reference array. When the caller has `projects.read`, retain the existing full project loader; when the caller has only `payroll.projectreference.read`, call the new RPC loader and keep `projects` empty. Include the new permission in the engineering refresh-group allowance and failure accounting.
 
 Use `const payrollProjectContext = projects.length ? projects : payrollProjectReferences` for Payroll source freshness/calculation and pass it through `AppRouter` only to the Payroll route. Do not apply reference rows to `projectController.applyProjects`.
 

@@ -27,7 +27,7 @@ test("access management exposes dynamic role records instead of a fixed role enu
 });
 
 test("Payroll keeps only a narrow project-reference permission outside its workspace", () => {
-  assert.match(payrollReferenceMigration, /payroll\.project_reference\.read/);
+  assert.match(payrollReferenceMigration, /payroll\.projectreference\.read/);
   for (const permission of [
     "dashboard\.read",
     "projects\.read",
@@ -42,7 +42,9 @@ test("Payroll keeps only a narrow project-reference permission outside its works
   assert.match(payrollReferenceMigration, /create function public\.list_payroll_project_references\(p_company_id uuid\)/i);
   assert.match(payrollReferenceMigration, /auth\.uid\(\)/i);
   assert.match(payrollReferenceMigration, /private\.deployment_company_id\(\)/i);
-  assert.match(payrollReferenceMigration, /private\.has_company_permission\(p_company_id, 'payroll\.project_reference\.read'\)/i);
+  assert.match(payrollReferenceMigration, /private\.has_company_permission\(p_company_id, 'payroll\.projectreference\.read'\)/i);
+  assert.match(payrollReferenceMigration, /create or replace function public\.get_project_labor_cost_aggregate/i);
+  assert.match(payrollReferenceMigration, /projects\.read[\s\S]*payroll\.projectreference\.read/i);
   assert.match(payrollReferenceMigration, /returns table\([\s\S]*id uuid[\s\S]*project_code text[\s\S]*project_name text[\s\S]*status text[\s\S]*archived_at timestamptz/i);
   assert.match(payrollReferenceMigration, /revoke all on function public\.list_payroll_project_references\(uuid\) from public, anon/i);
   assert.match(payrollReferenceMigration, /grant execute on function public\.list_payroll_project_references\(uuid\) to authenticated/i);
