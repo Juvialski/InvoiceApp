@@ -72,7 +72,7 @@ test("Payroll permissions expose only the Payroll workspace", () => {
     PERMISSION_KEYS.payrollAggregateRead,
     PERMISSION_KEYS.reportsPayrollRead,
   ];
-  assert.deepEqual(modules(permissions), ["payroll"]);
+  assert.deepEqual(modules(permissions), ["payroll", "reports"]);
   assert.equal(defaultAppTabForPermissions(permissions), "payroll");
 });
 
@@ -86,7 +86,7 @@ test("a restricted custom role follows selected permissions, not its display nam
 
 Run: `node --test --experimental-strip-types tests/clientSecurityRoleNavigation.test.ts`
 
-Expected: FAIL because the current Payroll profile still exposes Dashboard/Projects through its existing permissions.
+Expected: FAIL because the current Payroll profile still exposes Dashboard/Projects/Documents through its existing permissions; the separate payroll Reports route remains an allowed payroll-related surface.
 
 - [ ] **Step 3: Extend the matrix with the verified Finance, Viewer, and Company Admin expectations**
 
@@ -372,7 +372,7 @@ Use these expected module sets, derived from the final permission grants:
 const EXPECTED_MODULES = {
   COMPANY_ADMIN: ["Dashboard", "Cash & Banking", "Email / SMS", "Documents", "Projects", "Procurement", "Warehouse Inventory", "Equipment Registry", "Supplier Invoices", "Expenses", "Payroll", "Reports"],
   FINANCE: ["Dashboard", "Cash & Banking", "Email / SMS", "Documents", "Projects", "Procurement", "Warehouse Inventory", "Equipment Registry", "Supplier Invoices", "Expenses", "Reports"],
-  PAYROLL: ["Payroll"],
+  PAYROLL: ["Payroll", "Reports"],
   VIEWER: ["Dashboard", "Documents", "Projects", "Procurement", "Warehouse Inventory", "Equipment Registry", "Supplier Invoices", "Expenses", "Reports"],
   CUSTOM: ["Warehouse Inventory"],
 } as const;

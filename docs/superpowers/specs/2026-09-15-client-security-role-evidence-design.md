@@ -120,8 +120,9 @@ runtime, not copied from old documentation:
 - Company Admin: all permitted company modules and Settings/access management.
 - Finance: its finance and granted operational modules, without payroll detail,
   workforce administration, or company access administration.
-- Payroll: Payroll only; project references are supporting data inside Payroll,
-  not the Projects workspace or general Documents workspace.
+- Payroll: Payroll and the separate payroll Reports view; project references are
+  supporting data inside Payroll, not the Projects workspace or general
+  Documents workspace.
 - Viewer: only modules authorized by its read permissions; no ordinary manage,
   approve, settings, or member-administration controls.
 - Custom restricted role: only modules corresponding to its selected explicit
@@ -303,4 +304,3 @@ claims explicitly blocked, keep screenshots uncaptured rather than fabricated,
 and retain the PDF as a qualified implementation draft. Do not touch
 production, start another product phase, self-merge, or claim security
 certification from static tests, a demo workspace, or an older release.
-
