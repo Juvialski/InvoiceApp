@@ -37,6 +37,7 @@ responsibility, not a technical guarantee.
 - `npm.cmd run test:migrations` - PASS: 114 static migration checks and both upgrade-path fixtures.
 - `npx.cmd supabase db reset --local --no-seed --yes` - PASS: all committed migrations, including `20260915095911`.
 - `npx.cmd supabase test db --local` - PASS: 47 files, 1592 tests.
+- `npm.cmd test` - 1913 passed, 3 unrelated baseline failures, 8 skipped. The failures are the existing AI budget source-marker contract and two Wave 6B UI source contracts; the relevant files are unchanged from synchronized `main`.
 - exact local authenticated role capture - PASS: five role workspaces, representative forbidden deep links, clean console/page/request telemetry, and Company Access/custom-role editor.
 - PDF render inspection - PASS: all seven letter pages rendered with Poppler and visually inspected.
 
@@ -60,6 +61,7 @@ user IDs, project IDs, or provider credentials.
 - No production records, production Storage, production Auth, production provider credentials, or confidential client data were inspected or changed.
 - The local synthetic company and Auth users were created only in the disposable local Supabase stack for capture; they are not client or production evidence.
 - A dedicated custom-role concurrency stress fixture was not added in this focused follow-up; existing local database/concurrency coverage remains applicable where selected by the repository tests.
+- The full-suite baseline failures remain visible and are not masked by this PR; they are outside the changed security/PDF scope.
 
 ## Evidence rule
 
