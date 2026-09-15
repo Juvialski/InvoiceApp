@@ -1,4 +1,4 @@
-import type { InvoiceProjectAllocation, Project, ProjectStatus } from "../types.ts";
+import type { InvoiceProjectAllocation, PayrollProjectReference, Project, ProjectStatus } from "../types.ts";
 import { normalizeProjectTaxTreatment } from "../utils/projectTaxTreatment.ts";
 import {
   replaceInvoiceProjectAllocationsLocally,
@@ -197,6 +197,35 @@ export function createLocalProject(input: Omit<Project, "id" | "createdAt" | "up
 export function createLocalAllocation(input: Omit<InvoiceProjectAllocation, "id">): InvoiceProjectAllocation { return { ...input, id: localId("allocation") }; }
 
 export async function loadProjectsFromSupabase(): Promise<Project[]> { const userId = await currentUserId(); if (!supabase || !userId) return []; const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("projects").select("*").eq("company_id", companyId).order("updated_at", { ascending: false }); if (error) throw error; return (data || []).map((row) => projectFromRow(row as Row)); }
+
+export const PAYROLL_PROJECT_REFERENCES_RPC = "list_payroll_project_references";
+
+const PAYROLL_PROJECT_REFERENCE_STATUSES = new Set<ProjectStatus>(["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED", "ARCHIVED"]);
+
+/** Map the server's column-limited payroll projection without widening it to Project. */
+export function parsePayrollProjectReferences(value: unknown): PayrollProjectReference[] {
+  const rows = Array.isArray(value) ? value : [];
+  return rows.map((item): PayrollProjectReference | null => {
+    if (!isRecord(item)) return null;
+    const id = text(item.id ?? item.project_id ?? item.projectId);
+    const projectCode = text(item.project_code ?? item.projectCode);
+    const projectName = text(item.project_name ?? item.projectName);
+    const status = String(item.status || "").trim().toUpperCase() as ProjectStatus;
+    if (!id || !projectCode || !projectName || !PAYROLL_PROJECT_REFERENCE_STATUSES.has(status)) return null;
+    const archivedAt = text(item.archived_at ?? item.archivedAt);
+    return { id, projectCode, projectName, status, ...(archivedAt ? { archivedAt } : {}) };
+  }).filter((reference): reference is PayrollProjectReference => Boolean(reference));
+}
+
+export async function loadPayrollProjectReferencesFromSupabase(): Promise<PayrollProjectReference[]> {
+  const userId = await currentUserId();
+  if (!supabase || !userId) return [];
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase.rpc(PAYROLL_PROJECT_REFERENCES_RPC, { p_company_id: companyId });
+  if (error) throw error;
+  return parsePayrollProjectReferences(data);
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** Loads project-level labor only; payroll detail is never selected here. */

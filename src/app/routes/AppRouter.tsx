@@ -21,6 +21,7 @@ import type {
   PayrollEntry,
   PayrollHoliday,
   PayrollPeriod,
+  PayrollProjectReference,
   PayrollProjectAllocation,
   PayrollRun,
   Project,
@@ -149,6 +150,7 @@ export interface AppRouterProps {
 
   // Projects Data & Handlers
   projects: Project[];
+  payrollProjectReferences?: readonly PayrollProjectReference[];
   clientBillings?: ClientBilling[];
   clientBillingEvents?: ClientBillingEvent[];
   clientBillingLoading?: boolean;
@@ -466,6 +468,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onDashboardCurrencyChange = () => {},
   onNavigateTab = (_tab: AppTab) => {},
   projects,
+  payrollProjectReferences,
   clientBillings = [],
   clientBillingEvents = [],
   clientBillingLoading = false,
@@ -1048,7 +1051,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         leaveRequests={payrollData.leaveRequests || []}
         overtimeRequests={payrollData.overtimeRequests || []}
         holidays={payrollData.holidays || []}
-        projects={projects}
+        projects={payrollProjectReferences || projects}
         costCodes={costCodes as ProjectCostCode[]}
         schedules={payrollData.schedules || []}
         compensationProfiles={payrollData.compensationProfiles || []}

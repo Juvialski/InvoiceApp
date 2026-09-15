@@ -45,6 +45,7 @@ export const PERMISSION_KEYS = {
   payrollSettings: "payroll.settings",
   payrollImport: "payroll.import",
   payrollAggregateRead: "payroll.summary.read",
+  payrollProjectReferenceRead: "payroll.projectreference.read",
   payrollSensitiveRead: "payroll.detail.read",
   reportsRead: "reports.financial.read",
   reportsPayrollRead: "reports.payroll.read",
@@ -109,7 +110,6 @@ export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, read
     PERMISSION_KEYS.documentSend,
     PERMISSION_KEYS.invoicesExtract,
     PERMISSION_KEYS.reportsRead,
-    PERMISSION_KEYS.reportsPayrollRead,
     PERMISSION_KEYS.settingsRead,
   ],
 });
@@ -218,6 +218,7 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.payrollSettings]: "Payroll settings and maintenance",
     [PERMISSION_KEYS.payrollImport]: "Payroll imports",
     [PERMISSION_KEYS.payrollAggregateRead]: "Payroll cost summaries",
+    [PERMISSION_KEYS.payrollProjectReferenceRead]: "Payroll project references",
     [PERMISSION_KEYS.payrollSensitiveRead]: "Sensitive payroll details",
     [PERMISSION_KEYS.reportsRead]: "Financial reports",
     [PERMISSION_KEYS.reportsPayrollRead]: "Payroll reports",

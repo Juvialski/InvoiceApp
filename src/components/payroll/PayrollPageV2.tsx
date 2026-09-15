@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, CircleAlert, Clock3, HardHat, Settings2, Users, WalletCards } from "lucide-react";
-import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollAdjustment, PayrollEntry, PayrollHoliday, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
+import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollAdjustment, PayrollEntry, PayrollHoliday, PayrollPeriod, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, ProjectCostCode, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
 import { selectActualPayrollPeriod, selectNearestUpcomingPayrollPeriod, type PayrollSchedule } from "../../lib/payrollSchedule";
 import { findPayrollScheduleVersionGaps, payrollPeriodFrequencyLabel, selectPrimaryPayrollSchedule } from "../../lib/payrollIntegrity";
 import { buildAutomaticPayrollDraft } from "../../lib/payrollWorkflow";
@@ -37,7 +37,7 @@ export interface PayrollPageV2Props {
   leaveRequests?: LeaveRequest[];
   overtimeRequests?: OvertimeRequest[];
   holidays?: PayrollHoliday[];
-  projects: Project[];
+  projects: readonly PayrollProjectReference[];
   costCodes?: ProjectCostCode[];
   schedules?: PayrollSchedule[];
   compensationProfiles?: WorkerCompensationProfile[];

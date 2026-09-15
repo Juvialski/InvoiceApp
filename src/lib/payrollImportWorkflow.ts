@@ -5,7 +5,7 @@ import type {
   PayrollPeriod,
   PayrollProjectAllocation,
   PayrollRun,
-  Project,
+  PayrollProjectReference,
   Worker,
 } from "../types.ts";
 import { applyPayrollColumnMappings, type ParsedPayrollRow, type ParsedPayrollWorkbook, type PayrollCellValue, type PayrollImportConfidenceLevel } from "./payrollImport.ts";
@@ -32,7 +32,7 @@ export interface PayrollImportRowMatch {
   workerCandidates: Worker[];
   projectStatus: PayrollImportRow["projectMatchStatus"];
   projectId?: string;
-  projectCandidates: Project[];
+  projectCandidates: PayrollProjectReference[];
 }
 
 export interface PayrollImportCommitInput {
@@ -210,8 +210,8 @@ function bestWorkerMatches(row: PayrollImportRow, workers: Worker[]) {
   return { status: "UNMATCHED" as const, candidates: [] as Worker[] };
 }
 
-function bestProjectMatches(row: PayrollImportRow, projects: Project[]) {
-  if (row.laborContext.type !== "PROJECT") return { status: "NOT_APPLICABLE" as const, candidates: [] as Project[] };
+function bestProjectMatches(row: PayrollImportRow, projects: readonly PayrollProjectReference[]) {
+  if (row.laborContext.type !== "PROJECT") return { status: "NOT_APPLICABLE" as const, candidates: [] as PayrollProjectReference[] };
   const code = normalizeIdentity(row.canonicalData.projectCode);
   const name = normalizeIdentity(row.canonicalData.projectName || row.laborContext.label);
   if (code) {
@@ -229,7 +229,7 @@ function bestProjectMatches(row: PayrollImportRow, projects: Project[]) {
     if (scored.length && scored[0].score >= 0.84 && (!scored[1] || scored[0].score - scored[1].score >= 0.08)) return { status: "SUGGESTED" as const, projectId: scored[0].project.id, candidates: scored.slice(0, 3).map((item) => item.project) };
     if (scored.length) return { status: "AMBIGUOUS" as const, candidates: scored.slice(0, 3).map((item) => item.project) };
   }
-  return { status: "UNMATCHED" as const, candidates: [] as Project[] };
+  return { status: "UNMATCHED" as const, candidates: [] as PayrollProjectReference[] };
 }
 
 export function applySavedPayrollTemplate(parsed: ParsedPayrollWorkbook, template: { structureSignature: string; fieldMappings: Array<{ columnIndex: number; canonicalField: CanonicalPayrollImportField | "IGNORE" }> }) {
@@ -250,7 +250,7 @@ export function applySavedPayrollTemplate(parsed: ParsedPayrollWorkbook, templat
     }),
   };
 }
-export function matchPayrollImportRows(rows: PayrollImportRow[], workers: Worker[], projects: Project[]) {
+export function matchPayrollImportRows(rows: PayrollImportRow[], workers: Worker[], projects: readonly PayrollProjectReference[]) {
   const matches: PayrollImportRowMatch[] = [];
   const updatedRows = rows.map((row) => {
     const worker = bestWorkerMatches(row, workers);

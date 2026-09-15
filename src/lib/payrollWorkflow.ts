@@ -8,7 +8,7 @@ import type {
   PayrollProjectAllocation,
   PayrollRun,
   PayrollHoliday,
-  Project,
+  PayrollProjectReference,
   ProjectWorkerAssignment,
   Worker,
   WorkEntry,
@@ -100,7 +100,7 @@ export interface PayrollAutomationRecordInput {
   leaveRequests?: LeaveRequest[];
   overtimeRequests?: OvertimeRequest[];
   holidays?: PayrollHoliday[];
-  projects?: Project[];
+  projects?: readonly PayrollProjectReference[];
   mode?: AutomationMode;
   existingAllocations?: PayrollProjectAllocation[];
   existingEntries?: PayrollEntry[];
@@ -481,7 +481,7 @@ function rosterWorker(worker: Worker) {
 
 function profileInput(profile: WorkerCompensationProfile) { return { ...profile, effectiveFrom: profile.effectiveFrom instanceof Date ? profile.effectiveFrom.toISOString() : profile.effectiveFrom, effectiveTo: profile.effectiveTo instanceof Date ? profile.effectiveTo.toISOString() : profile.effectiveTo }; }
 function assignmentInput(assignment: ProjectWorkerAssignment): PayrollAssignment { return { id: assignment.id, workerId: assignment.workerId, effectiveFrom: assignment.startDate, effectiveTo: assignment.endDate, rate: assignment.rate, frequency: assignment.payType, laborContext: "PROJECT", projectId: assignment.projectId }; }
-function workInput(entry: WorkEntry, projects: Project[]): ApprovedWorkEntry {
+function workInput(entry: WorkEntry, projects: readonly PayrollProjectReference[]): ApprovedWorkEntry {
   const project = projects.find((item) => item.id === entry.projectId);
   return { id: entry.id, workerId: entry.workerId, periodId: entry.periodId, workDate: entry.workDate, approved: entry.status === "APPROVED", hours: entry.regularHours, days: entry.daysWorked, overtimeHours: entry.overtimeHours, overtimeRate: entry.overtimeRate, laborContext: entry.laborContext || (entry.projectId ? "PROJECT" : "UNALLOCATED_REVIEW"), projectId: entry.projectId, project: project ? { id: project.id, archived: project.status === "ARCHIVED", active: project.status !== "ARCHIVED" } : undefined, projectArchived: project?.status === "ARCHIVED" };
 }

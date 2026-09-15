@@ -230,6 +230,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Manage the deployment company profile, users, roles, permissions, regional settings, AI configuration, and access history.",
     details: [
       "Permissions determine which work areas and actions each member can use.",
+      "Company Administrators can create company-specific roles, choose the operational access those roles need, assign them to members, and retire them safely while built-in starter roles remain protected.",
       "Important operational and financial history remains auditable, and source documents stay attached to the workflow that owns them.",
     ],
     sortOrder: 140,

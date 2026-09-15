@@ -13,7 +13,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForPurchaseOrder, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, FinancialFxSnapshot, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, FinancialFxSnapshot, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -100,6 +100,7 @@ import {
 } from "./lib/persistence";
 import {
   loadInvoiceProjectAllocationsFromSupabase,
+  loadPayrollProjectReferencesFromSupabase,
   loadProjectsFromSupabase,
   loadProjectLaborCostAggregatesFromSupabase,
   readInvoiceProjectAllocationsFromLocal,
@@ -257,7 +258,7 @@ function revisePayrollSourcePeriods(
 function sourceInputForPayroll(
   period: PayrollPeriod,
   data: PayrollWorkspaceData,
-  projects?: Project[],
+  projects?: readonly PayrollProjectReference[],
 ) {
   return {
     period: payrollPeriodSourceIdentity(period),
@@ -454,6 +455,7 @@ function InvoiceWorkspace() {
   const [inventoryBalances, setInventoryBalances] = useState<InventoryBalance[] | undefined>(() => undefined);
   const [dailySiteLogsData, setDailySiteLogsData] = useState<EngineeringDailySiteLogsWorkspaceData | undefined>(() => isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
   const [engineeringDocumentsData, setEngineeringDocumentsData] = useState<EngineeringDocumentsWorkspaceData | undefined>(() => isSupabaseConfigured ? undefined : readEngineeringDocumentsWorkspaceFromLocal());
+  const [payrollProjectReferences, setPayrollProjectReferences] = useState<PayrollProjectReference[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>(() => isSupabaseConfigured ? [] : readSubcontractsFromLocal());
   const [subcontractClaims, setSubcontractClaims] = useState<SubcontractProgressClaim[]>(() => isSupabaseConfigured ? [] : readSubcontractClaimsFromLocal());
@@ -609,6 +611,7 @@ function InvoiceWorkspace() {
     selectedProject,
     projectFormSeed,
   } = projectController;
+  const payrollProjectContext: readonly PayrollProjectReference[] = projects.length ? projects : payrollProjectReferences;
 
   const clearWorkspaceState = () => {
     invoicesRef.current = [];
@@ -635,6 +638,7 @@ function InvoiceWorkspace() {
     setInventoryMovements([]);
     setInventoryBalances(undefined);
     setDailySiteLogsData(isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
+    setPayrollProjectReferences([]);
     setPurchaseOrders([]);
     setSubcontracts([]);
     setSubcontractClaims([]);
@@ -688,7 +692,7 @@ function InvoiceWorkspace() {
     : group === "cash"
       ? hasAnyPermission(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashTransactionsRead, PERMISSION_KEYS.cashImport, PERMISSION_KEYS.cashReconcile])
     : group === "engineering"
-      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringDocumentsRead, PERMISSION_KEYS.engineeringSiteLogsRead, PERMISSION_KEYS.inventoryRead, PERMISSION_KEYS.equipmentRead])
+      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.payrollProjectReferenceRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringDocumentsRead, PERMISSION_KEYS.engineeringSiteLogsRead, PERMISSION_KEYS.inventoryRead, PERMISSION_KEYS.equipmentRead])
       : group === "payroll"
         ? can(PERMISSION_KEYS.payrollRead)
         : group === "payroll-imports"
@@ -699,6 +703,7 @@ function InvoiceWorkspace() {
 
   type EngineeringWorkspaceGroup = {
     projects: Project[];
+    payrollProjectReferences: PayrollProjectReference[];
     allocations: InvoiceProjectAllocation[];
     clientBillingData: ClientBillingWorkspaceData;
     clientCollectionData: ClientCollectionWorkspaceData;
@@ -778,6 +783,7 @@ function InvoiceWorkspace() {
   const applyEngineeringForWorkspace = (data: EngineeringWorkspaceGroup, token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
     projectController.applyProjects(data.projects);
+    setPayrollProjectReferences(data.payrollProjectReferences);
     setInvoiceProjectAllocations(data.allocations);
     setClientBillingData(data.clientBillingData);
     setClientCollectionData(data.clientCollectionData);
@@ -830,6 +836,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.inventoryRead) ? loadInventoryWorkspaceFromSupabase() : Promise.resolve({ items: [], movements: [], balances: [] as InventoryBalance[] }),
       can(PERMISSION_KEYS.equipmentRead) ? loadEquipmentWorkspaceFromSupabase() : Promise.resolve({ equipment: [], assignments: [] as EquipmentAssignment[] }),
       can(PERMISSION_KEYS.engineeringDocumentsRead) ? loadEngineeringDocumentsWorkspaceFromSupabase(activeCompanyId || undefined) : Promise.resolve(undefined),
+      can(PERMISSION_KEYS.payrollProjectReferenceRead) && !can(PERMISSION_KEYS.projectsRead) ? loadPayrollProjectReferencesFromSupabase() : Promise.resolve([] as PayrollProjectReference[]),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -853,6 +860,7 @@ function InvoiceWorkspace() {
     const inventory = results[18].status === "fulfilled" ? results[18].value : { items: [], movements: [] };
     const equipmentRegistry = results[19].status === "fulfilled" ? results[19].value : { equipment: [], assignments: [] };
     const engineeringDocumentsData = results[20].status === "fulfilled" ? results[20].value : undefined;
+    const payrollProjectReferences = results[21].status === "fulfilled" ? results[21].value : [];
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -873,6 +881,7 @@ function InvoiceWorkspace() {
     if (results[18].status !== "fulfilled") failures.push("inventory");
     if (results[19].status !== "fulfilled") failures.push("equipment registry");
     if (can(PERMISSION_KEYS.engineeringDocumentsRead) && results[20].status !== "fulfilled") failures.push("engineering documents");
+    if (can(PERMISSION_KEYS.payrollProjectReferenceRead) && !can(PERMISSION_KEYS.projectsRead) && results[21].status !== "fulfilled") failures.push("payroll project references");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -897,7 +906,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, equipmentRegistry: equipmentRegistry.equipment, equipmentAssignments: equipmentRegistry.assignments, inventoryItems: inventory.items, inventoryMovements: inventory.movements, inventoryBalances: inventory.balances, dailySiteLogsData, engineeringDocumentsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, payrollProjectReferences, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, equipmentRegistry: equipmentRegistry.equipment, equipmentAssignments: equipmentRegistry.assignments, inventoryItems: inventory.items, inventoryMovements: inventory.movements, inventoryBalances: inventory.balances, dailySiteLogsData, engineeringDocumentsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -1386,6 +1395,11 @@ function InvoiceWorkspace() {
 
   useEffect(() => {
     if (!authResolved || activeTab !== "payroll" || workspaceLoading || payrollRefreshing) return;
+    // A browser reload can briefly restore the session before deployment
+    // access has been revalidated. Do not let that transitional state start a
+    // payroll schedule/period write with a missing authenticated user or
+    // company context.
+    if (isSupabaseConfigured && (access.status !== "ready" || !activeCompanyId)) return;
     const snapshot = payrollDataRef.current;
     const userId = session?.user?.id;
     if (userId && supabase) {
@@ -1653,7 +1667,7 @@ function InvoiceWorkspace() {
       }
     })();
     payrollCalendarPersistInFlightRef.current = persistCalendar;
-  }, [activeTab, authResolved, workspaceLoading, payrollRefreshing, payrollWorkspaceLoadState, payrollGenerationRetry, session?.user?.id, payrollData.periods.length, payrollData.runs.length, payrollScheduleSignature, payrollImportData.batches.length]);
+  }, [activeTab, authResolved, workspaceLoading, payrollRefreshing, access.status, activeCompanyId, payrollWorkspaceLoadState, payrollGenerationRetry, session?.user?.id, payrollData.periods.length, payrollData.runs.length, payrollScheduleSignature, payrollImportData.batches.length]);
   useEffect(() => {
     if (activeTab !== "extractor") setUploadProjectContextId(null);
   }, [activeTab]);
@@ -3924,7 +3938,7 @@ function InvoiceWorkspace() {
           overtimeRequests: payrollData.overtimeRequests || [],
           holidays: payrollData.holidays || [],
           sourceRevision: period.sourceRevision,
-          projects,
+          projects: payrollProjectContext,
           mode: automationMode,
           existingAllocations: payrollData.allocations.filter((allocation) => payrollData.entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)),
           existingEntries: payrollData.entries.filter((entry) => entry.payrollRunId === run.id),
@@ -3950,7 +3964,7 @@ function InvoiceWorkspace() {
           savedEntries = persisted.entries;
           savedAllocations = persisted.allocations;
         }
-        const savedRun = session && supabase ? await savePayrollRunToSupabase({ ...run, status: "CALCULATED", calculatedAt: new Date().toISOString(), calculatedSourceRevision: draft.sourceRevision ?? period.sourceRevision, sourceFingerprint: draft.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, projects)) }) : { ...run, status: "CALCULATED" as const, calculatedAt: new Date().toISOString(), calculatedSourceRevision: draft.sourceRevision ?? period.sourceRevision, sourceFingerprint: draft.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, projects)) };
+        const savedRun = session && supabase ? await savePayrollRunToSupabase({ ...run, status: "CALCULATED", calculatedAt: new Date().toISOString(), calculatedSourceRevision: draft.sourceRevision ?? period.sourceRevision, sourceFingerprint: draft.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, payrollProjectContext)) }) : { ...run, status: "CALCULATED" as const, calculatedAt: new Date().toISOString(), calculatedSourceRevision: draft.sourceRevision ?? period.sourceRevision, sourceFingerprint: draft.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, payrollProjectContext)) };
         setPayrollData((current) => {
           const oldEntryIds = new Set(current.entries.filter((entry) => entry.payrollRunId === run.id).map((entry) => entry.id));
           const replacementEntryIds = new Set(savedEntries.map((entry) => entry.id));
@@ -3966,7 +3980,7 @@ function InvoiceWorkspace() {
         showNotification("error", `${invalidApprovedEntries.length} approved work entr${invalidApprovedEntries.length === 1 ? "y is" : "ies are"} missing a valid period/date link.`);
         return;
       }
-      const calculation = calculatePayrollRunFromWorkEntries({ runId: run.id, periodId: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, workers: payrollData.workers, assignments: payrollData.assignments, workEntries: payrollData.workEntries, attendanceRecords: payrollData.attendanceRecords || [], leaveRequests: payrollData.leaveRequests || [], overtimeRequests: payrollData.overtimeRequests || [], holidays: payrollData.holidays || [], projects, sourceRevision: period.sourceRevision });
+      const calculation = calculatePayrollRunFromWorkEntries({ runId: run.id, periodId: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, workers: payrollData.workers, assignments: payrollData.assignments, workEntries: payrollData.workEntries, attendanceRecords: payrollData.attendanceRecords || [], leaveRequests: payrollData.leaveRequests || [], overtimeRequests: payrollData.overtimeRequests || [], holidays: payrollData.holidays || [], projects: payrollProjectContext, sourceRevision: period.sourceRevision });
       const existingEntries = payrollData.entries.filter((entry) => entry.payrollRunId === run.id);
       const existingAllocations = payrollData.allocations.filter((allocation) => existingEntries.some((entry) => entry.id === allocation.payrollEntryId));
       const generatedEntries: PayrollEntry[] = calculation.entries.map((entry) => ({ id: globalThis.crypto?.randomUUID?.() || `local-payroll-entry-${Date.now()}-${Math.random().toString(36).slice(2)}`, payrollRunId: run.id, workerId: entry.workerId, basePay: entry.basePay, regularPay: entry.regularPay, overtimePay: entry.overtimePay, allowances: entry.allowances, otherEarnings: 0, grossPay: entry.grossPay, deductions: entry.deductions, otherDeductions: 0, employerCosts: 0, netPay: entry.netPay, projectAllocatedCost: entry.projectAllocatedCost, calculationSnapshot: entry.calculationSnapshot, createdAt: new Date().toISOString() }));
@@ -3994,7 +4008,7 @@ function InvoiceWorkspace() {
         savedAllocations = persisted.allocations;
       }
       const calculatedAt = new Date().toISOString();
-      const nextRun = { ...run, status: "CALCULATED" as const, calculatedAt, calculatedSourceRevision: calculation.sourceRevision ?? period.sourceRevision, sourceFingerprint: calculation.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, projects)) };
+      const nextRun = { ...run, status: "CALCULATED" as const, calculatedAt, calculatedSourceRevision: calculation.sourceRevision ?? period.sourceRevision, sourceFingerprint: calculation.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, payrollProjectContext)) };
       const savedRun = session && supabase ? await savePayrollRunToSupabase(nextRun) : nextRun;
       setPayrollData((current) => {
         const oldEntryIds = new Set(current.entries.filter((entry) => entry.payrollRunId === run.id).map((entry) => entry.id));
@@ -4020,7 +4034,7 @@ function InvoiceWorkspace() {
       if (run.status === "APPROVED") {
         const approvalPeriod = payrollData.periods.find((period) => period.id === previous.periodId);
         if (approvalPeriod) {
-          const freshness = validatePayrollRunSourceRevision({ run: previous, period: approvalPeriod, sourceInput: sourceInputForPayroll(approvalPeriod, payrollData, projects) });
+          const freshness = validatePayrollRunSourceRevision({ run: previous, period: approvalPeriod, sourceInput: sourceInputForPayroll(approvalPeriod, payrollData, payrollProjectContext) });
           if (!freshness.valid) {
             showNotification("error", "Payroll sources changed after calculation. Recalculate before approval.");
             return;
@@ -4030,7 +4044,7 @@ function InvoiceWorkspace() {
         const approvalMode = approvalSchedule?.automationMode || "ASSISTED";
         const automationEnabled = approvalMode !== "MANUAL" && Boolean((payrollData.workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === approvalPeriod?.id) || (payrollData.compensationProfiles || []).length || (payrollData.recurringComponents || []).length || payrollData.entries.filter((entry) => entry.payrollRunId === previous.id).length === 0));
         if (approvalPeriod && automationEnabled) {
-          const draft = buildAutomaticPayrollDraft({ period: approvalPeriod, run: previous, workers: payrollData.workers, assignments: payrollData.assignments, profiles: payrollData.compensationProfiles || [], recurringComponents: payrollData.recurringComponents || [], workEntries: payrollData.workEntries, attendanceRecords: payrollData.attendanceRecords || [], leaveRequests: payrollData.leaveRequests || [], overtimeRequests: payrollData.overtimeRequests || [], holidays: payrollData.holidays || [], projects, mode: approvalMode });
+          const draft = buildAutomaticPayrollDraft({ period: approvalPeriod, run: previous, workers: payrollData.workers, assignments: payrollData.assignments, profiles: payrollData.compensationProfiles || [], recurringComponents: payrollData.recurringComponents || [], workEntries: payrollData.workEntries, attendanceRecords: payrollData.attendanceRecords || [], leaveRequests: payrollData.leaveRequests || [], overtimeRequests: payrollData.overtimeRequests || [], holidays: payrollData.holidays || [], projects: payrollProjectContext, mode: approvalMode });
           if (draft.readiness === "BLOCKING") {
             showNotification("error", `Approval is blocked until payroll issues are resolved: ${draft.exceptions.filter((issue) => issue.severity === "BLOCKING").map((issue) => issue.message).slice(0, 3).join(" ")}`);
             return;
@@ -4948,6 +4962,7 @@ function InvoiceWorkspace() {
           onDashboardCurrencyChange={setDashboardCurrency}
           onNavigateTab={setActiveTab}
           projects={projects}
+          payrollProjectReferences={payrollProjectContext}
           clientBillings={clientBillingData.billings}
           clientBillingEvents={clientBillingData.events}
           clientBillingLoading={projectCostDomainLoadState !== "loaded"}

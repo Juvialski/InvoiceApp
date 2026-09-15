@@ -1,0 +1,403 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "startedAt": "2026-09-15T11:56:52.973Z",
+  "completedAt": "2026-09-15T11:57:32.455Z",
+  "target": {
+    "baseUrl": "http://127.0.0.1:4173",
+    "environment": "qa",
+    "deploymentId": "local-qa-harness",
+    "repositorySha": "6aa6de1510927bbba01de170eea13c0c38280406",
+    "migrationLevel": "20260915095911",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    }
+  },
+  "roles": [
+    {
+      "role": "COMPANY_ADMIN",
+      "label": "Company Admin",
+      "screenshotPath": "screenshots/company-admin-navigation-desktop.png",
+      "requestedPath": "/dashboard",
+      "finalPath": "/dashboard",
+      "expectedModules": [
+        "Dashboard",
+        "Cash & Banking",
+        "Email / SMS",
+        "Documents",
+        "Projects",
+        "Procurement",
+        "Warehouse Inventory",
+        "Equipment Registry",
+        "Supplier Invoices",
+        "Expenses",
+        "Payroll",
+        "Reports"
+      ],
+      "observedModules": [
+        "Dashboard",
+        "Projects",
+        "Procurement",
+        "Warehouse Inventory",
+        "Equipment Registry",
+        "Cash & Banking",
+        "Supplier Invoices",
+        "Expenses",
+        "Reports",
+        "Payroll",
+        "Email / SMS",
+        "Documents"
+      ],
+      "forbiddenModules": [],
+      "deepLinks": [],
+      "assertions": [
+        {
+          "id": "expected-modules",
+          "passed": true,
+          "details": "Every expected module is visible."
+        },
+        {
+          "id": "forbidden-modules",
+          "passed": true,
+          "details": "No forbidden module is visible."
+        },
+        {
+          "id": "authenticated-release",
+          "passed": true,
+          "details": "Authenticated Company Admin capture reached /dashboard."
+        },
+        {
+          "id": "restricted-deep-links",
+          "passed": true,
+          "details": "Representative forbidden URLs did not open the requested restricted route."
+        }
+      ],
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "status": "PASS",
+      "details": "Current authenticated synthetic-QA navigation matched the expected permission profile."
+    },
+    {
+      "role": "FINANCE",
+      "label": "Finance",
+      "screenshotPath": "screenshots/finance-navigation-desktop.png",
+      "requestedPath": "/dashboard",
+      "finalPath": "/dashboard",
+      "expectedModules": [
+        "Dashboard",
+        "Cash & Banking",
+        "Email / SMS",
+        "Documents",
+        "Projects",
+        "Procurement",
+        "Warehouse Inventory",
+        "Equipment Registry",
+        "Supplier Invoices",
+        "Expenses",
+        "Reports"
+      ],
+      "observedModules": [
+        "Dashboard",
+        "Projects",
+        "Procurement",
+        "Warehouse Inventory",
+        "Equipment Registry",
+        "Cash & Banking",
+        "Supplier Invoices",
+        "Expenses",
+        "Reports",
+        "Email / SMS",
+        "Documents"
+      ],
+      "forbiddenModules": [
+        "Payroll"
+      ],
+      "deepLinks": [
+        {
+          "requestedPath": "/payroll",
+          "finalPath": "/dashboard",
+          "denied": true
+        },
+        {
+          "requestedPath": "/settings",
+          "finalPath": "/dashboard",
+          "denied": true
+        }
+      ],
+      "assertions": [
+        {
+          "id": "expected-modules",
+          "passed": true,
+          "details": "Every expected module is visible."
+        },
+        {
+          "id": "forbidden-modules",
+          "passed": true,
+          "details": "No forbidden module is visible."
+        },
+        {
+          "id": "authenticated-release",
+          "passed": true,
+          "details": "Authenticated Finance capture reached /dashboard."
+        },
+        {
+          "id": "restricted-deep-links",
+          "passed": true,
+          "details": "Representative forbidden URLs did not open the requested restricted route."
+        }
+      ],
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "status": "PASS",
+      "details": "Current authenticated synthetic-QA navigation matched the expected permission profile."
+    },
+    {
+      "role": "PAYROLL",
+      "label": "Payroll",
+      "screenshotPath": "screenshots/payroll-navigation-desktop.png",
+      "requestedPath": "/dashboard",
+      "finalPath": "/payroll",
+      "expectedModules": [
+        "Payroll",
+        "Reports"
+      ],
+      "observedModules": [
+        "Reports",
+        "Payroll"
+      ],
+      "forbiddenModules": [
+        "Dashboard",
+        "Cash & Banking",
+        "Email / SMS",
+        "Documents",
+        "Projects",
+        "Procurement",
+        "Warehouse Inventory",
+        "Equipment Registry",
+        "Supplier Invoices",
+        "Expenses"
+      ],
+      "deepLinks": [
+        {
+          "requestedPath": "/dashboard",
+          "finalPath": "/payroll",
+          "denied": true
+        },
+        {
+          "requestedPath": "/projects",
+          "finalPath": "/payroll",
+          "denied": true
+        },
+        {
+          "requestedPath": "/documents",
+          "finalPath": "/payroll",
+          "denied": true
+        },
+        {
+          "requestedPath": "/settings",
+          "finalPath": "/payroll",
+          "denied": true
+        }
+      ],
+      "assertions": [
+        {
+          "id": "expected-modules",
+          "passed": true,
+          "details": "Every expected module is visible."
+        },
+        {
+          "id": "forbidden-modules",
+          "passed": true,
+          "details": "No forbidden module is visible."
+        },
+        {
+          "id": "authenticated-release",
+          "passed": true,
+          "details": "Authenticated Payroll capture reached /payroll."
+        },
+        {
+          "id": "restricted-deep-links",
+          "passed": true,
+          "details": "Representative forbidden URLs did not open the requested restricted route."
+        }
+      ],
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "status": "PASS",
+      "details": "Current authenticated synthetic-QA navigation matched the expected permission profile."
+    },
+    {
+      "role": "VIEWER",
+      "label": "Viewer",
+      "screenshotPath": "screenshots/viewer-navigation-desktop.png",
+      "requestedPath": "/dashboard",
+      "finalPath": "/dashboard",
+      "expectedModules": [
+        "Dashboard",
+        "Documents",
+        "Projects",
+        "Procurement",
+        "Warehouse Inventory",
+        "Equipment Registry",
+        "Supplier Invoices",
+        "Expenses",
+        "Reports"
+      ],
+      "observedModules": [
+        "Dashboard",
+        "Projects",
+        "Procurement",
+        "Warehouse Inventory",
+        "Equipment Registry",
+        "Supplier Invoices",
+        "Expenses",
+        "Reports",
+        "Documents"
+      ],
+      "forbiddenModules": [
+        "Cash & Banking",
+        "Email / SMS",
+        "Payroll"
+      ],
+      "deepLinks": [
+        {
+          "requestedPath": "/cash",
+          "finalPath": "/dashboard",
+          "denied": true
+        },
+        {
+          "requestedPath": "/email-sms",
+          "finalPath": "/dashboard",
+          "denied": true
+        },
+        {
+          "requestedPath": "/payroll",
+          "finalPath": "/dashboard",
+          "denied": true
+        },
+        {
+          "requestedPath": "/settings",
+          "finalPath": "/dashboard",
+          "denied": true
+        }
+      ],
+      "assertions": [
+        {
+          "id": "expected-modules",
+          "passed": true,
+          "details": "Every expected module is visible."
+        },
+        {
+          "id": "forbidden-modules",
+          "passed": true,
+          "details": "No forbidden module is visible."
+        },
+        {
+          "id": "authenticated-release",
+          "passed": true,
+          "details": "Authenticated Viewer capture reached /dashboard."
+        },
+        {
+          "id": "restricted-deep-links",
+          "passed": true,
+          "details": "Representative forbidden URLs did not open the requested restricted route."
+        }
+      ],
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "status": "PASS",
+      "details": "Current authenticated synthetic-QA navigation matched the expected permission profile."
+    },
+    {
+      "role": "CUSTOM",
+      "label": "Custom restricted role",
+      "screenshotPath": "screenshots/custom-restricted-navigation-desktop.png",
+      "requestedPath": "/dashboard",
+      "finalPath": "/warehouse",
+      "expectedModules": [
+        "Warehouse Inventory"
+      ],
+      "observedModules": [
+        "Warehouse Inventory"
+      ],
+      "forbiddenModules": [
+        "Dashboard",
+        "Cash & Banking",
+        "Email / SMS",
+        "Documents",
+        "Projects",
+        "Procurement",
+        "Equipment Registry",
+        "Supplier Invoices",
+        "Expenses",
+        "Payroll",
+        "Reports"
+      ],
+      "deepLinks": [
+        {
+          "requestedPath": "/dashboard",
+          "finalPath": "/warehouse",
+          "denied": true
+        },
+        {
+          "requestedPath": "/projects",
+          "finalPath": "/warehouse",
+          "denied": true
+        },
+        {
+          "requestedPath": "/settings",
+          "finalPath": "/warehouse",
+          "denied": true
+        }
+      ],
+      "assertions": [
+        {
+          "id": "expected-modules",
+          "passed": true,
+          "details": "Every expected module is visible."
+        },
+        {
+          "id": "forbidden-modules",
+          "passed": true,
+          "details": "No forbidden module is visible."
+        },
+        {
+          "id": "authenticated-release",
+          "passed": true,
+          "details": "Authenticated Custom restricted role capture reached /warehouse."
+        },
+        {
+          "id": "restricted-deep-links",
+          "passed": true,
+          "details": "Representative forbidden URLs did not open the requested restricted route."
+        }
+      ],
+      "telemetry": {
+        "consoleErrors": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "status": "PASS",
+      "details": "Current authenticated synthetic-QA navigation matched the expected permission profile."
+    }
+  ],
+  "companyAccessEditor": {
+    "status": "PASS",
+    "screenshotPath": "screenshots/company-access-custom-role-editor-desktop.png",
+    "details": "Company Access and custom-role editor captured from the authenticated Company Admin workspace."
+  },
+  "productionPolicy": "READ_ONLY"
+}

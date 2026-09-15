@@ -11,3 +11,4 @@ deployment/inventory.local.json
 !.env.example
 .vscode/
 .qa-e2e/
+.worktrees/

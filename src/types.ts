@@ -673,6 +673,18 @@ export interface Project {
   archivedFromStatus?: Exclude<ProjectStatus, "ARCHIVED">;
 }
 
+/**
+ * Payroll may need project identity and lifecycle state for allocations and
+ * labels without receiving the full project workspace record.
+ */
+export interface PayrollProjectReference {
+  id: string;
+  projectCode: string;
+  projectName: string;
+  status: ProjectStatus;
+  archivedAt?: string;
+}
+
 export type ClientBillingStatus = "DRAFT" | "SUBMITTED" | "ISSUED" | "CANCELLED" | "VOIDED";
 export type ClientBillingEventType = "CREATED" | "UPDATED" | "SUBMITTED" | "RETURNED_TO_DRAFT" | "ISSUED" | "CANCELLED" | "VOIDED";
 

@@ -131,6 +131,49 @@ Rules:
 - least privilege is the default for invitations and later role changes;
 - sensitive workflows such as payroll, financial settlement, backups, document sending and future biometrics retain dedicated permissions rather than broad generic access.
 
+## Client support and production custody choices
+
+Each isolated client deployment should record one of two operating models at
+handoff. The choice is operational and is not an application setting.
+
+### Managed Support Access
+
+The client remains the production owner and may grant a named Hydroqualisense
+support account the minimum provider access reasonably required for approved
+maintenance under an NDA. Use individual accounts, least privilege, MFA where
+the provider supports it, client-controlled granting and revocation, and
+available access logging. Provider permission models must be described as they
+actually work; the application cannot create finer provider roles than the
+provider offers. Standing access does not imply routine browsing of confidential
+records.
+
+This model can shorten troubleshooting, approved configuration or database-change
+work, environment verification, and recovery from production-only problems. It
+also means the support operator retains some production access, so trust,
+confidentiality, account controls, monitoring, and periodic review remain
+necessary.
+
+### Independent Client Control
+
+The client owns and controls production Supabase, Render, Auth, Storage, Google,
+AI, and SMS/provider accounts and removes standing Hydroqualisense developer or
+operator production access after handoff. Hydroqualisense can still develop and
+test source-code fixes and deliver reviewed releases, but direct production
+diagnosis or changes require client cooperation or temporary access.
+
+This model provides the strongest separation of client and developer accounts
+and gives the client complete control over production access. Some production
+issues may take longer to diagnose, and the client may need to perform
+operational steps or provide evidence for environment-specific problems.
+
+Both models may use temporary incident access through:
+
+`client approval -> named limited account/access -> specific incident -> activity recorded where practical -> access removed`
+
+Password sharing is not required. The application can enforce its own company,
+permission, route, and server boundaries, but it cannot revoke an external
+Supabase, Render, Google, AI, or SMS-provider account it does not own.
+
 ## Storage and backup lifecycle
 
 R5 establishes stronger source-document, dedupe, backup registration and restore-drill contracts. Future scaling should preserve these principles:

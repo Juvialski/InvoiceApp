@@ -193,7 +193,7 @@ approved provider-backed QA evidence exists. Worker Registration remains paused.
 
 The user explicitly reprioritized this security phase ahead of the remaining Email/SMS provider/runtime work. The approved contract is `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md` and the implementation plan is `docs/superpowers/plans/2026-09-15-client-security-assurance.md`.
 
-This branch adds the company-scoped custom-role contract and Settings access workflow while preserving the shared effective-permission authority, protected root/platform permissions, member override precedence, company isolation, and audit history. The four built-in roles remain protected starter templates. Local TypeScript/static validation passes, but local Supabase clean replay/pgTAP/runtime RLS-RPC validation is **BLOCKED** because the Docker Desktop Linux engine is unavailable in the implementation environment. Authenticated QA screenshots and final client-facing assurance claims remain pending the same runtime evidence; the generated PDF is therefore a qualified handoff draft, not security certification.
+This branch adds the company-scoped custom-role contract and Settings access workflow while preserving the shared effective-permission authority, protected root/platform permissions, member override precedence, company isolation, and audit history. The four built-in roles remain protected starter templates. The Payroll boundary correction adds a narrow project-reference path without restoring broad Projects or Documents access. Local clean replay, pgTAP, migration/upgrade validation, exact authenticated synthetic-QA role captures, and the seven-page PDF render inspection all pass for the committed implementation. The handoff remains qualified rather than deployment-specific security certification because the isolated hosted QA release/migration was not promoted and production remains untouched.
 
 The required handoff checklist and evidence matrix are:
 
@@ -204,12 +204,12 @@ The required handoff checklist and evidence matrix are:
 
 The user explicitly reprioritized the current implementation run on 2026-09-15. The reconciled sequence is:
 
-1. **Client Security Assurance & Handoff — CURRENT PRIORITY**
-   - implement and runtime-test company-scoped custom roles while keeping the four built-in roles as protected starter templates;
-   - complete the focused security audit, custody checklist, evidence matrix, synthetic QA evidence, and client security PDF;
-   - keep the PDF claims qualified until local DB/RLS/RPC and authenticated QA evidence are available.
+1. **Client Security Assurance & Handoff — IMPLEMENTATION EVIDENCE COMPLETE / DEPLOYMENT CERTIFICATION PENDING**
+   - preserve the committed permission-based custom-role and Payroll reference boundaries;
+   - carry the qualified evidence matrix, exact local synthetic-QA manifest, and seven-page client PDF into the deployment-specific release process;
+   - promote and verify the exact branch release/migration in isolated hosted QA only when the guarded QA operator path is available; do not infer production authorization.
 
-2. **Email/SMS Reliability & UX Completion — follows the security phase**
+2. **Email/SMS Reliability & UX Completion — NEXT IMPLEMENTATION PHASE**
    - preserve durable Gmail authorization recovery, public OAuth policy surfaces, inbound Gmail, human confirmation, and truthful provider states.
 
 3. **Remaining Wave 4D messaging-provider/readiness completion**

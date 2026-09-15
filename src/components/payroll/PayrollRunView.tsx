@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AlertTriangle, Calculator, CheckCircle2, Clock3, HardHat, LockKeyhole } from "lucide-react";
-import type { PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
+import type { PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, ProjectCostCode, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
 import { validatePayrollProjectAllocations } from "../../lib/payrollCalculation";
 import { calculatePayrollRunFromWorkEntries } from "../../lib/payrollCalculation";
 import { payrollNetPayBasis } from "../../lib/financialSettlement.ts";
@@ -16,7 +16,7 @@ interface PayrollRunViewProps {
   entries: PayrollEntry[];
   allocations: PayrollProjectAllocation[];
   workers: Worker[];
-  projects?: Project[];
+  projects?: readonly PayrollProjectReference[];
   costCodes?: ProjectCostCode[];
   workEntries?: WorkEntry[];
   assignments?: ProjectWorkerAssignment[];
@@ -66,7 +66,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({ runs, periods, e
   </section>;
 };
 
-interface RunCardProps { run: PayrollRun; period: PayrollPeriod; entries: PayrollEntry[]; allocations: PayrollProjectAllocation[]; workers: Worker[]; projects: Project[]; onCalculate: () => void; onUpdateRun?: (run: PayrollRun) => void; onNavigatePath?: AppNavigate; canManagePayroll: boolean; canApprovePayroll: boolean; }
+interface RunCardProps { run: PayrollRun; period: PayrollPeriod; entries: PayrollEntry[]; allocations: PayrollProjectAllocation[]; workers: Worker[]; projects: readonly PayrollProjectReference[]; onCalculate: () => void; onUpdateRun?: (run: PayrollRun) => void; onNavigatePath?: AppNavigate; canManagePayroll: boolean; canApprovePayroll: boolean; }
 const RunCard: React.FC<RunCardProps> = ({ run, period, entries, allocations, workers, projects, onCalculate, onUpdateRun, onNavigatePath, canManagePayroll, canApprovePayroll }) => {
   const permissions = useAppPermissions();
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.payrollApprove);
@@ -86,6 +86,6 @@ const RunCard: React.FC<RunCardProps> = ({ run, period, entries, allocations, wo
   </div>;
 };
 
-const ProjectLine: React.FC<{ project?: Project; amount: number }> = ({ project, amount }) => <div className="flex justify-between gap-3 text-[10px]"><span className="truncate text-slate-600">{project ? `${project.projectCode} · ${project.projectName}` : "Unknown project"}</span><span className="font-bold tabular-nums">{money(amount)}</span></div>;
+const ProjectLine: React.FC<{ project?: PayrollProjectReference; amount: number }> = ({ project, amount }) => <div className="flex justify-between gap-3 text-[10px]"><span className="truncate text-slate-600">{project ? `${project.projectCode} · ${project.projectName}` : "Unknown project"}</span><span className="font-bold tabular-nums">{money(amount)}</span></div>;
 function History({ entries, allocations, workers }: { entries: PayrollEntry[]; allocations: PayrollProjectAllocation[]; workers: Worker[] }) { return <div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="mb-2 text-[10px] font-black uppercase tracking-wide text-slate-500">Payroll history</p>{entries.length ? <div className="space-y-2">{entries.map((entry) => { const worker = workers.find((item) => item.id === entry.workerId); const count = allocations.filter((allocation) => allocation.payrollEntryId === entry.id).length; const source = typeof entry.calculationSnapshot?.rateSource === "string" ? entry.calculationSnapshot.rateSource : "SNAPSHOT"; return <div key={entry.id} className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2 last:border-0 last:pb-0"><div className="min-w-0"><p className="truncate text-[10px] font-bold text-slate-700">{worker?.displayName || "Unknown worker"} <span className="font-normal text-slate-400">· {count} project{count === 1 ? "" : "s"}</span></p><p className="text-[10px] text-slate-500">{source} rate · {entry.netPay === entry.grossPay ? "no deductions" : `${money(entry.deductions)} deductions`}</p></div><span className="shrink-0 text-[10px] font-black tabular-nums">{money(entry.grossPay)}</span></div>; })}</div> : <p className="text-[10px] text-slate-500">No payroll entries yet.</p>}</div>; }
 function Summary({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) { return <div className={`rounded-xl border p-3 ${warning ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-slate-50"}`}><p className="text-[10px] font-semibold text-slate-500">{label}</p><p className={`mt-1 text-sm font-black tabular-nums ${warning ? "text-amber-900" : "text-slate-800"}`}>{value}</p></div>; }

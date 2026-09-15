@@ -130,16 +130,49 @@ def page_story(source_page: str, styles: dict[str, ParagraphStyle], width: float
             continue
         screenshot_match = re.match(r"^!\[([^\]]+)\]\(([^)]+)\)$", line)
         if screenshot_match:
-            caption, relative_path = screenshot_match.groups()
-            image_path = ROOT / relative_path.replace("/", "\\")
-            if not image_path.exists():
-                raise SystemExit(f"Missing screenshot asset: {image_path}")
-            if "settings-desktop-1440-viewport" in image_path.name:
-                screenshot = Screenshot(image_path, width, crop_top=0.09, crop_bottom=0.84)
+            gallery: list[tuple[str, Path]] = []
+            scan_index = index
+            while scan_index < len(lines):
+                if not lines[scan_index].strip():
+                    scan_index += 1
+                    continue
+                gallery_match = re.match(r"^!\[([^\]]+)\]\(([^)]+)\)$", lines[scan_index].strip())
+                if not gallery_match:
+                    break
+                gallery_caption, gallery_relative_path = gallery_match.groups()
+                gallery_path = ROOT / gallery_relative_path.replace("/", "\\")
+                if not gallery_path.exists():
+                    raise SystemExit(f"Missing screenshot asset: {gallery_path}")
+                gallery.append((gallery_caption, gallery_path))
+                scan_index += 1
+            index = scan_index
+
+            if len(gallery) > 1 and all("client-security\\screenshots" in str(image_path).lower() for _, image_path in gallery):
+                columns = 3
+                cell_width = (width - 16) / columns
+                cells: list[list[Flowable]] = []
+                for caption, image_path in gallery:
+                    cells.append([
+                        Screenshot(image_path, cell_width, crop_top=0.0, crop_bottom=1.0),
+                        Spacer(1, 3),
+                        Paragraph(markdown_text(caption), styles["caption"]),
+                    ])
+                gallery_rows = [cells[offset:offset + columns] for offset in range(0, len(cells), columns)]
+                if gallery_rows and len(gallery_rows[-1]) < columns:
+                    gallery_rows[-1].extend([[] for _ in range(columns - len(gallery_rows[-1]))])
+                gallery_table = Table(gallery_rows, colWidths=[cell_width] * columns, hAlign="LEFT")
+                gallery_table.setStyle(TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]))
+                story.extend([Spacer(1, 5), gallery_table, Spacer(1, 5)])
             else:
-                screenshot = Screenshot(image_path, width, crop_top=0.08, crop_bottom=0.85)
-            story.extend([Spacer(1, 5), screenshot, Paragraph(markdown_text(caption), styles["caption"]), Spacer(1, 7)])
-            index += 1
+                for caption, image_path in gallery:
+                    screenshot = Screenshot(image_path, width, crop_top=0.0, crop_bottom=1.0)
+                    story.extend([Spacer(1, 5), screenshot, Paragraph(markdown_text(caption), styles["caption"]), Spacer(1, 7)])
             continue
         if line.startswith("|") and index + 1 < len(lines) and lines[index + 1].strip().startswith("|") and "---" in lines[index + 1]:
             table_lines = [line]
@@ -221,8 +254,8 @@ def draw_brand(canvas, doc):
 def main():
     source = SOURCE.read_text(encoding="utf-8")
     pages = source.split("<!-- PAGEBREAK -->")
-    if len(pages) != 6:
-        raise SystemExit(f"Expected 6 source pages, found {len(pages)}")
+    if len(pages) != 7:
+        raise SystemExit(f"Expected 7 source pages, found {len(pages)}")
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     styles = getSampleStyleSheet()
     content_width = letter[0] - 1.16 * inch

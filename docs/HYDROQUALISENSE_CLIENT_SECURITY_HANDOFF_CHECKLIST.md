@@ -9,6 +9,55 @@ operator can complete. An unchecked item is not evidence of completion. Do not p
 passwords, tokens, keys, database URLs, private documents, or confidential client
 rows in this file.
 
+## Selected support and custody model
+
+Record one choice for this isolated client deployment. This is an operational
+handoff decision, not an application setting.
+
+- [ ] `MANAGED_SUPPORT_ACCESS`
+- [ ] `INDEPENDENT_CLIENT_CONTROL`
+
+### Managed Support Access
+
+The client keeps ownership of production and gives a named Hydroqualisense
+support account the minimum access reasonably required for approved maintenance
+and troubleshooting under an NDA. Use individual accounts, least privilege, MFA
+where the provider supports it, client-controlled granting and revocation, and
+available access logging. Do not treat access as permission for routine browsing
+of confidential records.
+
+Pros: faster troubleshooting, easier approved maintenance/configuration work,
+direct environment verification, less technical work for the client, and faster
+recovery from production-only issues.
+
+Cons: the support operator retains some production access, the arrangement
+requires trust and monitoring, granted permissions may reach client data, and
+access must be reviewed and removed when no longer needed.
+
+### Independent Client Control
+
+The client owns and controls production Supabase, Render, Auth, Storage, Google,
+AI, and SMS/provider accounts. Standing Hydroqualisense developer/operator
+production access is removed after handoff. Hydroqualisense can still develop
+and test source-code fixes and deliver reviewed updates, but direct production
+inspection or changes require client cooperation or temporary access.
+
+Pros: no standing developer data-plane access, strong account separation,
+complete client control, and access only when the client decides it is needed.
+
+Cons: some production issues take longer to diagnose, the client may perform
+operational steps, some production changes may require client execution or
+temporary access, and environment-specific diagnosis may wait for evidence.
+
+Both models may use temporary incident access:
+
+`client approval -> named limited account/access -> specific incident -> activity recorded where practical -> access removed`
+
+Never share passwords. Source-code fixes and QA reproduction remain possible
+without standing production database access; direct production diagnosis, some
+production changes, and environment-specific verification may require client
+cooperation.
+
 ## Technical controls to verify in the exact release
 
 ### Application, database, and access
@@ -73,6 +122,7 @@ Record only safe metadata:
 | Application SHA |  |
 | Migration level |  |
 | Verification date |  |
+| Selected support/custody model | `MANAGED_SUPPORT_ACCESS` or `INDEPENDENT_CLIENT_CONTROL` |
 | Client approver |  |
 | Evidence location |  |
 
