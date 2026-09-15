@@ -35,6 +35,11 @@ import {
 
 type PublicView = "landing" | "request-demo" | "privacy" | "terms";
 
+const CANONICAL_PRIVACY_URL = `${BRAND.canonicalOrigin}/privacy`;
+const CANONICAL_TERMS_URL = `${BRAND.canonicalOrigin}/terms`;
+const GOOGLE_API_SERVICES_USER_DATA_POLICY_URL = "https://developers.google.com/terms/api-services-user-data-policy";
+const PUBLIC_POLICY_LAST_UPDATED = "September 15, 2026";
+
 interface PublicFunnelRootProps {
   initialView?: PublicView;
 }
@@ -57,11 +62,12 @@ interface ProspectFormState {
 
 const CAPABILITY_CARDS: ReadonlyArray<{ icon: LucideIcon; title: string; detail: string }> = [
   { icon: BarChart3, title: "Project cost visibility", detail: "Keep project context, committed cost, actual cost, and source history distinct." },
-  { icon: FileCheck2, title: "Invoice and expense workflow", detail: "Review supplier evidence and preserve one authoritative payable path." },
+  { icon: FileCheck2, title: "Supplier invoices and expenses", detail: "Review supplier evidence and preserve one authoritative payable path." },
   { icon: ClipboardList, title: "Procurement and receipts", detail: "Connect purchase orders, vendors, delivery evidence, and commitments." },
-  { icon: Boxes, title: "Movement-based inventory", detail: "Explain warehouse stock and project allocation through auditable movements." },
+  { icon: Boxes, title: "Inventory and equipment", detail: "Explain warehouse stock, project allocation, and equipment through auditable records." },
   { icon: HardHat, title: "Field operations", detail: "Coordinate equipment, site logs, documents, and operational observations." },
-  { icon: Building2, title: "Workforce foundations", detail: "Support workforce and payroll operations with permission-aware access." },
+  { icon: Building2, title: "Workforce and payroll", detail: "Support workforce and payroll operations with permission-aware access." },
+  { icon: Mail, title: "Business communications", detail: "Review inbound business email and prepare user-confirmed outbound communication." },
 ];
 
 const DEPLOYMENT_CARDS: ReadonlyArray<{ icon: LucideIcon; title: string; detail: string }> = [
@@ -142,12 +148,12 @@ function PublicLandingPage({ onRequestDemo }: { onRequestDemo: () => void }) {
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:px-12 lg:py-28">
           <div className="max-w-2xl">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-indigo-300">Engineering operations, with a clear deployment boundary</p>
-            <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.02] tracking-[-0.04em] text-white sm:text-6xl">Run the operation with confidence in the record behind it.</h1>
+            <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.02] tracking-[-0.04em] text-white sm:text-6xl">{BRAND.productName}: run the operation with confidence in the record behind it.</h1>
             <p className="mt-6 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
               {BRAND.productName} is a business operations platform connecting projects, procurement, finance, invoices, expenses, documents, payroll, communications, inventory, equipment, and field operations while preserving the source and history each workflow depends on.
             </p>
-            <p className="mt-5 max-w-xl text-xs font-bold leading-6 text-slate-400">Projects · Procurement · Finance, invoices &amp; expenses · Documents · Payroll · Communications</p>
-            <p className="mt-4 max-w-xl text-xs leading-6 text-slate-400"><strong className="text-slate-200">Optional Gmail integration.</strong> Connect your own Google account only for authorized email intake and user-confirmed outbound business communication. Existing users can select Client sign in above to open their company workspace.</p>
+            <p className="mt-5 max-w-xl text-xs font-bold leading-6 text-slate-400">Projects · Procurement · Supplier invoices / expenses · Finance · Documents · Payroll · Inventory / equipment · Business communications</p>
+            <p className="mt-4 max-w-xl text-xs leading-6 text-slate-400">Existing users can select Client sign in above to open their company workspace. Gmail is an optional connection explained below.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button type="button" onClick={onRequestDemo} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3.5 text-sm font-black text-white shadow-xl shadow-indigo-950/30 transition hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300">
                 Request a demo <ArrowRight className="h-4 w-4" />
@@ -181,6 +187,21 @@ function PublicLandingPage({ onRequestDemo }: { onRequestDemo: () => void }) {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section id="gmail-integration" className="border-y border-indigo-100 bg-indigo-50/70">
+        <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-12 sm:px-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-start lg:px-12 lg:py-16">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Optional integration</p>
+            <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-slate-950">Optional Gmail integration</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-700">You choose whether to connect your own Google account. Hydroqualisense requests Gmail access only when a selected business-email workflow needs it.</p>
+          </div>
+          <ul className="grid gap-3 text-sm leading-6 text-slate-700 sm:grid-cols-2">
+            <li className="rounded-2xl border border-indigo-100 bg-white p-4"><strong className="text-slate-950">Read access:</strong> <code className="text-xs font-bold text-indigo-700">gmail.readonly</code> supports authorized business-email intake and selected review workflows, including relevant messages and attachments.</li>
+            <li className="rounded-2xl border border-indigo-100 bg-white p-4"><strong className="text-slate-950">Send access:</strong> <code className="text-xs font-bold text-indigo-700">gmail.send</code> is used only for outbound business communication that the user has reviewed and explicitly authorized.</li>
+            <li className="rounded-2xl border border-indigo-100 bg-white p-4 sm:col-span-2"><strong className="text-slate-950">Bounded connection:</strong> connecting Gmail does not give Hydroqualisense unrestricted mailbox authority or create a wholesale mailbox backup.</li>
+          </ul>
         </div>
       </section>
 
@@ -251,17 +272,16 @@ const POLICY_SECTIONS = {
       ],
     },
     {
-      title: "Optional Google and Gmail integration",
+      title: "Google Workspace and Gmail Data",
       paragraphs: [
-        "A user may connect their own Google account for authorized Gmail intake and outbound business communication. The current product requests Gmail read-only access (gmail.readonly) for authorized intake and related workflows, and Gmail send access (gmail.send) for outbound messages that the application authorizes and the user confirms.",
-        "When a user chooses an authorized workflow, Hydroqualisense may process Gmail message metadata, message content, and selected attachments needed for that workflow. If the user explicitly imports or routes a message or attachment, the selected source evidence may be preserved with the resulting company record. Connecting Gmail does not give Hydroqualisense unrestricted authority to act outside the approved product workflows.",
-        "Outbound messages remain subject to the application's company permissions, document and messaging safeguards, review steps, confirmation boundaries, and delivery history. Users control the Google account they connect and can disconnect or revoke access through Google Account security settings and the connected application flow where available.",
-      ],
-    },
-    {
-      title: "Google user data",
-      paragraphs: [
-        "Hydroqualisense's use and transfer of information received from Google APIs follows the Google API Services User Data Policy, including its Limited Use requirements. Google information is used only for the authorized product workflows described here and is not treated as a general-purpose mailbox or unrestricted account-control channel.",
+        "When you voluntarily connect your own Google account, Hydroqualisense may access only the Google data needed for the approved workflow: Gmail message metadata; email sender, recipient, subject, and date information where needed; message content where needed for the selected workflow; selected attachments relevant to selected intake workflows; and Gmail sending capability for explicitly authorized outbound messages.",
+        "The applicable Gmail permissions are gmail.readonly for read-only business-email intake and selected review or import workflows, and gmail.send for outbound business messages that the user explicitly authorizes. Hydroqualisense does not copy an entire mailbox as a wholesale backup and connecting Gmail does not give Hydroqualisense unrestricted mailbox authority.",
+        "Hydroqualisense uses Gmail information to discover and review business emails; process supplier invoices, receipts, statements, or related authorized records; preserve source evidence when the user deliberately imports or routes a message or attachment; and prepare or send user-authorized outbound business messages.",
+        "A selected message, attachment, or source item may become part of a company business record when the user intentionally imports or routes it. Gmail authorization credentials are handled separately from ordinary company records. Records that form part of financial or audit history may be retained according to the application's business-record and history model rather than silently deleted. Ordinary Gmail access is not a wholesale mailbox backup service.",
+        "Google user data is not sold, is not used for advertising, and is not transferred to data brokers. Information may be processed by infrastructure or service providers only as necessary to deliver a user-requested feature and subject to the application's configured service boundaries, including Supabase for authentication, database, and storage; Google APIs when Gmail is connected; the configured AI service for a requested AI workflow; and an approved messaging provider when that capability is enabled.",
+        "When a user invokes an AI-assisted workflow and selected Google-sourced content is needed, that selected content may be processed by the configured AI service solely to provide the requested product feature. Hydroqualisense does not use Google Workspace data to train generalized or non-personalized AI or machine-learning models. Hydroqualisense does not make independent promises about a third-party provider's practices beyond the service boundaries configured for the deployment.",
+        "Routine manual reading of connected mailboxes is not part of the product workflow. Authorized personnel may access relevant information only as needed for support, security, abuse prevention, or legal requirements, or for a user/company-authorized troubleshooting request, subject to access controls.",
+        "Users can revoke Google authorization through their Google Account permissions or security settings and can disconnect the integration in Hydroqualisense where supported. Revoking Gmail access prevents future API access, but does not necessarily erase legitimate company records or source evidence already deliberately imported into Hydroqualisense.",
       ],
     },
     {
@@ -278,10 +298,10 @@ const POLICY_SECTIONS = {
       ],
     },
     {
-      title: "Retention, deletion, and requests",
+      title: "Contact, deletion, and privacy requests",
       paragraphs: [
         "Operational records, selected source evidence, immutable snapshots, and delivery history may remain available so the company can preserve its business and audit context. Users should use the applicable company workflow to archive, correct, revoke, or remove information where supported; finalized or auditable history may require a deliberate correction or reversal rather than silent deletion.",
-        "For a privacy question, access request, or request to disconnect an integration, use the public Contact / requirements form at /contact and identify the relevant company and account without including passwords, API keys, financial source files, or other sensitive records. The form is a contact route, not a promise of a particular response time or legal process.",
+        "For a privacy question, access request, deletion/privacy request, or request to disconnect an integration, use the public Contact / requirements form at /contact and identify the relevant company and account without including passwords, API keys, financial source files, or other sensitive records. The form is a contact route, not a promise of a particular response time or legal process.",
       ],
     },
   ],
@@ -316,14 +336,14 @@ const POLICY_SECTIONS = {
     {
       title: "Availability and changes",
       paragraphs: [
-        "The service depends on application infrastructure, authentication, storage, Google, messaging providers, network connectivity, and other third-party systems. Features may be unavailable, limited, delayed, or changed, and a provider may suspend or change access under its own policies. We may update the application, these draft product policies, or a deployment's configuration as the product develops.",
+        "The service depends on application infrastructure, authentication, storage, Google, messaging providers, network connectivity, and other third-party systems. Features may be unavailable, limited, delayed, or changed, and a provider may suspend or change access under its own policies. We may update the application, these Terms of Service, or a deployment's configuration as the product develops.",
       ],
     },
     {
       title: "Access removal and general terms",
       paragraphs: [
         "A company administrator or authorized operator may change permissions, suspend access, disconnect integrations, or remove an account from a deployment. Access removal does not by itself erase company records or finalized history that the product is designed to preserve.",
-        "These are draft product terms for the current application and Google OAuth review. They are not represented as attorney-reviewed or legally certified. To ask a question about these terms, use /contact without submitting confidential operational data.",
+        "To ask a question about these Terms of Service, use the public Contact / requirements form at /contact without submitting confidential operational data.",
       ],
     },
   ],
@@ -338,13 +358,14 @@ function PublicPolicyPage({ kind }: { kind: "privacy" | "terms" }) {
       <article className="mx-auto w-full max-w-4xl px-5 py-12 sm:px-8 lg:px-12 lg:py-20">
         <a href="/" className="text-xs font-black text-indigo-700 hover:text-indigo-900">← Back to {BRAND.productName}</a>
         <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">{BRAND.productName} · Draft product policy</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">{BRAND.productName} · {BRAND.companyName}</p>
           <h1 className="mt-3 text-3xl font-black tracking-[-0.03em] sm:text-4xl">{isPrivacy ? "Privacy Policy" : "Terms of Service"}</h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{isPrivacy ? "How Hydroqualisense handles account, company, connected Google, and workflow information." : "The basic terms for authorized use of the Hydroqualisense business operations platform."}</p>
+          <p className="mt-3 text-xs font-semibold text-slate-500">Effective date: {PUBLIC_POLICY_LAST_UPDATED} · Last updated: {PUBLIC_POLICY_LAST_UPDATED}</p>
           <div className="mt-8 space-y-8">
             {sections.map((section) => {
               const id = `${kind}-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-              return <section key={section.title} aria-labelledby={id}><h2 id={id} className="text-lg font-black text-slate-950">{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph} className="mt-3 text-sm leading-7 text-slate-700">{paragraph}</p>)}</section>;
+              return <section key={section.title} aria-labelledby={id}><h2 id={id} className="text-lg font-black text-slate-950">{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph} className="mt-3 text-sm leading-7 text-slate-700">{paragraph}</p>)}{isPrivacy && section.title === "Google Workspace and Gmail Data" && <p className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm leading-7 text-indigo-950">Hydroqualisense&apos;s use and transfer of information received from Google APIs adheres to the <a href={GOOGLE_API_SERVICES_USER_DATA_POLICY_URL} target="_blank" rel="noreferrer" className="font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-900">Google API Services User Data Policy, including the Limited Use requirements</a>.</p>}</section>;
             })}
           </div>
         </div>
@@ -355,7 +376,7 @@ function PublicPolicyPage({ kind }: { kind: "privacy" | "terms" }) {
 }
 
 function PublicFooter() {
-  return <footer className="border-t border-slate-200 bg-slate-100"><div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-5 py-7 text-xs leading-5 text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12"><span>{BRAND.productName} • {BRAND.companyName}</span><nav aria-label="Public policy navigation" className="flex flex-wrap gap-x-4 gap-y-1"><a href="/privacy" className="font-bold text-slate-700 hover:text-slate-950">Privacy Policy</a><a href="/terms" className="font-bold text-slate-700 hover:text-slate-950">Terms of Service</a><a href="/contact" className="font-bold text-slate-700 hover:text-slate-950">Contact</a><a href="/dashboard" className="font-bold text-slate-700 hover:text-slate-950">Client sign in</a></nav></div></footer>;
+  return <footer className="border-t border-slate-200 bg-slate-100"><div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-5 py-7 text-xs leading-5 text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12"><span>{BRAND.productName} • {BRAND.companyName}</span><nav aria-label="Public policy navigation" className="flex flex-wrap gap-x-4 gap-y-1"><a href={CANONICAL_PRIVACY_URL} className="font-bold text-slate-700 hover:text-slate-950">Privacy Policy</a><a href={CANONICAL_TERMS_URL} className="font-bold text-slate-700 hover:text-slate-950">Terms of Service</a><a href="/contact" className="font-bold text-slate-700 hover:text-slate-950">Contact</a><a href="/dashboard" className="font-bold text-slate-700 hover:text-slate-950">Client sign in</a></nav></div></footer>;
 }
 
 function ProspectRequirementsForm({ onBack }: { onBack: () => void }) {

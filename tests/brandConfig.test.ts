@@ -14,7 +14,8 @@ test('brand configuration contains canonical Hydroqualisense values', () => {
   assert.equal(BRAND.tagline, 'Hydroqualisense Solutions Corp.');
   assert.equal(BRAND.assistantName, 'Hydroqualisense Assistant');
   assert.equal(BRAND.browserTitle, 'Hydroqualisense | Hydroqualisense Solutions Corp.');
-  assert.match(BRAND.description, /Hydroqualisense Solutions Corp\. workspace/i);
+  assert.match(BRAND.description, /Hydroqualisense is a business operations platform/i);
+  assert.match(BRAND.description, /projects.*procurement.*supplier invoices.*finance.*documents.*payroll.*inventory.*equipment.*business communications/i);
   assert.match(BRAND.footerText, /Hydroqualisense Solutions Corp\./);
   assert.equal(BRAND.companyContextLabel, 'Hydroqualisense Solutions Corp. workspace');
 });
@@ -38,7 +39,8 @@ test('index.html, metadata.json, and package.json are synchronized with Hydroqua
 
   const metadataJson = JSON.parse(readFileSync(new URL('../metadata.json', import.meta.url), 'utf8'));
   assert.equal(metadataJson.name, 'Hydroqualisense');
-  assert.match(metadataJson.description, /Hydroqualisense Solutions Corp\. workspace/i);
+  assert.match(metadataJson.description, /Hydroqualisense is a business operations platform/i);
+  assert.match(metadataJson.description, /projects.*procurement.*supplier invoices.*finance.*documents.*payroll.*inventory.*equipment.*business communications/i);
 
   const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(pkgJson.name, 'engoryx');

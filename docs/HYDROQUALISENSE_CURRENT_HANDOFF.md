@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — EMAIL/SMS RELIABILITY + UX SLICE IN PROGRESS / PUBLIC OAUTH POLICY PAGES IMPLEMENTED / DURABLE GMAIL PATH IMPLEMENTED BUT EXTERNAL CONFIGURATION NOT CERTIFIED / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
-Date: **2026-09-14**
+Status: **CURRENT — EMAIL/SMS RELIABILITY + UX SLICE IN PROGRESS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / SEARCH CONSOLE OWNERSHIP EXTERNALLY CONFIRMED / GOOGLE RE-VERIFICATION PENDING / DURABLE GMAIL PATH IMPLEMENTED BUT EXTERNAL CONFIGURATION NOT CERTIFIED / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Date: **2026-09-15**
 Repository: `Juvialski/InvoiceApp`
 
 ## Authoritative current baseline
@@ -156,15 +156,37 @@ failures, setup, and revoked authorization. No raw provider credential is kept i
 ordinary browser local storage or returned to the browser.
 
 The public `/privacy` and `/terms` pages are session-free and linked from the
-public and sign-in surfaces. The public homepage remains deployment-gated by the
-existing non-secret funnel setting. The user confirmed Google Auth Platform is in
-TESTING and is moving it toward production; this repository does not claim that
-Google publishing or verification is complete.
+public, sign-in, and authenticated-shell surfaces. The canonical
+`hydroqualisense.com` root is now host-aware and public without a manual build
+setting; noncanonical operational roots remain authenticated by default and can
+still opt into the public funnel with the existing non-secret setting. The user
+confirmed Google Auth Platform is in TESTING and is moving it toward production;
+this repository does not claim that Google publishing or verification is complete.
 
 Current branch evidence includes focused Gmail/OAuth, public-policy, communications
 UX, server authorization, migration replay, pgTAP, and upgrade-path validation.
 No approved SMS credentials/device runtime or controlled provider-backed QA proof
 is available in the current environment, so SMS remains not configured/unverified.
+
+## 2026-09-15 Google OAuth branding verification remediation
+
+The operator confirmed that Google Search Console reports `hydroqualisense.com` as a
+verified owner through Domain name provider verification. This is external evidence;
+the repository did not change DNS, Cloudflare, domain ownership, or Search Console
+configuration.
+
+The repository-side corrective slice makes the canonical homepage publicly reachable
+without authentication, preserves public `/privacy` and `/terms`, keeps `/dashboard`
+and normal operational routes behind the existing authentication and permission flow,
+and leaves noncanonical deployment roots flag-gated. The public surfaces now use the
+exact `Hydroqualisense` product name, explain the business-operations purpose and
+optional Gmail read/send access, and publish the Google API Services User Data Policy /
+Limited Use disclosure. Google re-verification remains external and pending; it is not
+represented as approved here.
+
+Durable Gmail runtime credential setup remains a separate operator task, and SMS
+provider runtime completion remains separate until controlled approved-provider QA
+evidence exists. Worker Registration remains paused.
 
 Slice 2 pre-merge evidence is separated by scope: focused dynamic template/Create tests pass 68/68, lint/build and Workflow Map consistency pass, and demo browser QA passes 82/82 responsive scenarios. Authenticated Local-QA records 59/59 route/responsive scenarios with no overflow/errors, but the legacy functional template checks still look for the former Settings-mounted template surface and record 7/9 functional workflows. The new dynamic HSC flow is not represented as authenticated QA-certified because its migration was not promoted to that QA target. Local Docker is unavailable for replay/pgTAP/upgrade validation, and the bundled LibreOffice renderer is unavailable for DOCX visual conversion.
 
@@ -352,7 +374,9 @@ For the current Email/SMS implementation run, Codex should:
 - inspect the existing Email/SMS workspace, Gmail/Auth wiring, server Gmail routes, provider-neutral SMS adapter, delivery history/idempotency model, public entry flow, and permission surfaces before designing changes;
 - preserve source-backed document ownership and the existing Wave 4A-4C delivery/history contracts;
 - keep Gmail refresh credentials server-only and SMS limited to the two approved providers;
-- keep the public homepage deployment-gated while Privacy and Terms remain session-free;
+- keep the canonical `hydroqualisense.com` homepage public while noncanonical operational
+  roots remain authenticated unless their deployment explicitly enables the public funnel;
+  keep Privacy and Terms session-free;
 - run focused -> affected -> relevant build/browser/communications and migration validation;
 - use Docker/Supabase only if the change genuinely crosses DB/security/integrity contracts;
 - review the complete final diff;

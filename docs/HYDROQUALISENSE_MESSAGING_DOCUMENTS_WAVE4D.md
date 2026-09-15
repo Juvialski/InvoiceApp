@@ -1,7 +1,7 @@
 # HydroQualiSense Wave 4D — Email/SMS Workspace + Documents Workspace
 
-Status: **ACTIVE — EMAIL/SMS RELIABILITY + PUBLIC OAUTH SURFACES IMPLEMENTED IN BRANCH / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / BLOCKING BEFORE WORKER REGISTRATION**
-Date: **2026-09-14**
+Status: **ACTIVE — EMAIL/SMS RELIABILITY + PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / BLOCKING BEFORE WORKER REGISTRATION**
+Date: **2026-09-15**
 Repository: `Juvialski/InvoiceApp`  
 Starting product baseline: merged `main` at `3fd73039afd018b1bb630bfee2a68a38c6d37fcc` (PR #136)
 
@@ -68,9 +68,11 @@ work while keeping the broader Wave 4D completion gate open:
   revoked-authorization outcomes separately. Provider tokens are not stored in
   ordinary browser local storage or returned in API responses.
 - The public `/privacy` and `/terms` pages are session-free and linked from the
-  public homepage and sign-in screen. The public homepage remains deliberately
-  deployment-gated; the repository does not claim that the canonical domain is
-  currently configured or that Google's publishing/verification process is done.
+  public homepage, sign-in screen, and authenticated shell. The canonical
+  `hydroqualisense.com` homepage is host-aware and public without a manual build
+  flag, while noncanonical operational roots remain authenticated by default and
+  may opt into the public funnel deliberately. The repository does not claim that
+  Google's publishing/verification process is done.
 - SMS remains limited to Company SIM Gateway and PhilSMS. Its normal status view
   is compact, setup detail is collapsed, and configuration/readiness continues to
   be reported truthfully until provider-backed QA evidence exists.
@@ -80,6 +82,24 @@ The durable Gmail migration is additive and requires the server-only
 OAuth client values described in `SUPABASE_GMAIL_SETUP.md`. Missing external
 configuration remains an operator blocker; it is not represented as a healthy
 Gmail or SMS capability.
+
+## 2026-09-15 Google OAuth branding verification remediation
+
+The operator confirmed that Google Search Console reports `hydroqualisense.com` as a
+verified owner through Domain name provider verification. No DNS, Cloudflare, domain
+ownership, or Search Console configuration was changed by this repository work.
+
+The repository-side corrective slice makes the canonical homepage publicly reachable,
+keeps `/privacy` and `/terms` session-free, preserves authenticated `/dashboard` and
+operational routes, and retains the existing public-funnel flag for deliberately public
+noncanonical deployments. The homepage and policy pages now use the exact
+`Hydroqualisense` product name, explain the business-operations purpose and optional
+Gmail read/send boundary, and link the Google API Services User Data Policy / Limited Use
+disclosure. Google re-verification remains external and pending, not approved.
+
+Durable Gmail runtime credential setup remains a separate operator task. SMS provider
+runtime completion remains separate and unavailable until controlled QA evidence exists.
+Worker Registration remains paused.
 
 ## Target top-level navigation
 

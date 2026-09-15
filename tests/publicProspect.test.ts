@@ -59,7 +59,7 @@ test("public prospect validation normalizes bounded business intake without acce
   }
 });
 
-test("public routes are deployment-opt-in while password recovery remains production auth", () => {
+test("canonical public routes are host-aware while noncanonical roots and password recovery remain protected", () => {
   assert.equal(isPublicFunnelApplicationPath("/"), true);
   assert.equal(isPublicFunnelApplicationPath("/request-demo"), true);
   assert.equal(isPublicFunnelApplicationPath("/contact"), true);
@@ -67,9 +67,12 @@ test("public routes are deployment-opt-in while password recovery remains produc
   assert.equal(isPasswordRecoveryPath("/", "", "#access_token=redacted&type=recovery"), true);
 
   // Operational client deployments stay on the authenticated application by
-  // default. A platform/QA build must explicitly opt into the public funnel.
-  assert.equal(applicationModeForPath("/"), "production");
-  assert.equal(applicationModeForPath("/request-demo"), "production");
+  // default. The canonical product host is public without a manual build
+  // setting; other deployments must explicitly opt into the public funnel.
+  assert.equal(applicationModeForPath("/", undefined, undefined, false, "hydroqualisense.com"), "public");
+  assert.equal(applicationModeForPath("/request-demo", undefined, undefined, false, "hydroqualisense.com"), "public");
+  assert.equal(applicationModeForPath("/", undefined, undefined, false, "client.example.com"), "production");
+  assert.equal(applicationModeForPath("/request-demo", undefined, undefined, false, "client.example.com"), "production");
   assert.equal(applicationModeForPath("/", undefined, undefined, true), "public");
   assert.equal(applicationModeForPath("/request-demo", undefined, undefined, true), "public");
   assert.equal(applicationModeForPath("/", "?type=recovery", undefined, true), "production");

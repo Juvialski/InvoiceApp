@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — EMAIL/SMS RELIABILITY + UX SLICE IN PROGRESS / PUBLIC OAUTH POLICY PAGES IMPLEMENTED / DURABLE GMAIL CREDENTIAL PATH IMPLEMENTED BUT EXTERNAL CONFIGURATION NOT CERTIFIED / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — EMAIL/SMS RELIABILITY + UX SLICE IN PROGRESS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / SEARCH CONSOLE OWNERSHIP EXTERNALLY CONFIRMED / GOOGLE RE-VERIFICATION PENDING / DURABLE GMAIL CREDENTIAL PATH IMPLEMENTED BUT EXTERNAL CONFIGURATION NOT CERTIFIED / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-14**
+Last updated: **2026-09-15**
 
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
@@ -154,9 +154,11 @@ The current branch implementation adds:
 - encrypted company/user-scoped Gmail refresh credentials, server-side access-token
   refresh with one safe expiry retry, rotated-token persistence, and distinct safe
   provider/scope/permission/quota/revocation outcomes;
-- public, session-free `/privacy` and `/terms` pages linked from the public and sign-in
-  surfaces, plus the restrained Hydroqualisense homepage copy required for OAuth
-  configuration. The homepage/requirements funnel remains deployment-gated;
+- public, session-free `/privacy` and `/terms` pages linked from the public, sign-in,
+  and authenticated-shell surfaces, plus the restrained Hydroqualisense homepage copy
+  required for OAuth configuration. The canonical `hydroqualisense.com` host exposes
+  the public homepage without a build flag; noncanonical operational deployments remain
+  authenticated by default and may opt into the public funnel deliberately;
 - no SMS provider configuration or controlled provider-backed QA evidence in the
   current environment. SMS remains `NOT_CONFIGURED`/unavailable and the approved
   Company SIM Gateway / PhilSMS choices remain unchanged.
@@ -165,6 +167,25 @@ The durable Gmail migration, server-only keys, Google OAuth homepage/policy URLs
 Google Testing-state limitation, and operator verification checklist are documented
 in `SUPABASE_GMAIL_SETUP.md`. No Google publishing/verification completion or
 production mutation is claimed.
+
+## 2026-09-15 Google OAuth branding verification remediation
+
+The operator confirmed that Google Search Console reports `hydroqualisense.com` as a
+verified owner through Domain name provider verification. No DNS, Cloudflare, domain
+ownership, or Search Console configuration was changed in this repository.
+
+The repository-side remediation now makes the canonical `hydroqualisense.com` root a
+session-free public Hydroqualisense homepage, keeps `/privacy` and `/terms` public,
+retains authentication for `/dashboard` and normal operational routes, and leaves the
+existing public-funnel flag as the opt-in path for noncanonical deployments. The public
+homepage and policy pages identify Hydroqualisense, explain the business-operations
+purpose and optional Gmail read/send boundary, and publish the Google API Services User
+Data Policy / Limited Use disclosure. This is repository-side remediation only; Google
+re-verification remains an external pending action and is not claimed as approved.
+
+Durable Gmail runtime credential setup and controlled provider testing remain separate
+operator work. SMS provider runtime completion remains separate and unavailable until
+approved provider-backed QA evidence exists. Worker Registration remains paused.
 
 ## Immediate implementation sequence
 

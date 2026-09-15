@@ -92,12 +92,19 @@ Privacy policy:      https://hydroqualisense.com/privacy
 Terms of service:    https://hydroqualisense.com/terms
 ```
 
-The public homepage and policy pages do not require a Supabase session. The public
-homepage is still deployment-gated by `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED`
-so an operational client deployment is not changed accidentally; enable that
-non-secret build setting only for the public Hydroqualisense deployment. Privacy
-and Terms remain reachable from the sign-in screen even when the requirements
-funnel is disabled.
+The canonical `https://hydroqualisense.com/` homepage and the policy pages do not
+require a Supabase session. The canonical product hostname is explicitly recognized
+by the application entry router, so the homepage does not depend on a manual Render
+variable for public OAuth review. Other operational/client deployment hostnames keep
+their authenticated root by default and may opt into the public requirements funnel
+with `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED`. Privacy and Terms remain reachable
+from the sign-in screen even when that noncanonical requirements funnel is disabled.
+
+The operator has confirmed that Google Search Console reports `hydroqualisense.com`
+as a verified owner through Domain name provider verification. The repository-side
+homepage and policy remediation is implemented, but Google re-verification remains
+an external pending action. No DNS, Cloudflare, domain ownership, or Search Console
+configuration is changed by this repository.
 
 The Google Auth Platform application was confirmed by the operator to be in
 **TESTING** and is being moved toward production configuration. Google documents
@@ -194,11 +201,15 @@ The Gmail inbox supports last 7, 30, or 90 days, plus a custom date range. `Sync
 
 ## Operator action remaining
 
-For the intended public deployment, complete one coordinated setup action:
-publish the Google Auth Platform application for production as appropriate,
-verify the exact OAuth client/origin/callback/scope/trust configuration, set the
-four server-only Gmail values above, apply the committed Gmail credential
-migration to the intended QA deployment, and complete one controlled
-reauthorization so the server can capture and test the refresh-token path. Do
-not treat the app as Google-publishing-verified or Gmail-ready until that
-operator evidence exists.
+For the intended public deployment, complete the remaining external/operator work:
+publish the Google Auth Platform application for production as appropriate, submit
+or complete Google's branding re-verification, verify the exact OAuth
+client/origin/callback/scope/trust configuration, set the four server-only Gmail
+values above, apply the committed Gmail credential migration to the intended QA
+deployment, and complete one controlled reauthorization so the server can capture
+and test the refresh-token path. Durable Gmail runtime credential setup remains
+separate from the repository-side public-page remediation. SMS provider runtime
+completion is also separate and remains unavailable until controlled approved-provider
+QA evidence exists. Worker Registration remains paused. Do not treat the app as
+Google-publishing-verified or Gmail-ready until the corresponding operator evidence
+exists.
