@@ -189,23 +189,40 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       resetAuthenticatedContext("loading", userId, activeSession.user.email || undefined);
     }
 
+    const loadFailure = (error: unknown) => {
+      if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
+      const message = safeErrorMessage(error, "Deployment company access could not be loaded.");
+      if (preserveCurrentAccess) {
+        setRefreshError(message);
+      } else {
+        resetAuthenticatedContext("error", userId, activeSession.user.email || undefined, message);
+      }
+    };
+
     const request = (async () => {
       try {
-        const [loaded, deploymentCompanyId] = await Promise.all([
-          loadCompanyAccess(supabase),
-          loadDeploymentCompanyId(supabase),
-        ]);
+        let loaded: CompanyAccessSnapshot;
+        let deploymentCompanyId: string;
+        try {
+          [loaded, deploymentCompanyId] = await Promise.all([
+            loadCompanyAccess(supabase),
+            loadDeploymentCompanyId(supabase),
+          ]);
+        } catch (error) {
+          loadFailure(error);
+          return;
+        }
+
         if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
-        const resolved = resolveDeploymentCompanyAccess(loaded, deploymentCompanyId);
-        deploymentCompanyIdRef.current = deploymentCompanyId;
-        setAccessSnapshot(resolved);
-        setRefreshError(null);
-      } catch (error) {
-        if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
-        const message = safeErrorMessage(error, "Deployment company access could not be loaded.");
-        if (preserveCurrentAccess) {
-          setRefreshError(message);
-        } else {
+        try {
+          const resolved = resolveDeploymentCompanyAccess(loaded, deploymentCompanyId);
+          deploymentCompanyIdRef.current = deploymentCompanyId;
+          setAccessSnapshot(resolved);
+          setRefreshError(null);
+        } catch (error) {
+          if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
+          const message = safeErrorMessage(error, "Deployment company access is no longer available.");
+          setRefreshError(null);
           resetAuthenticatedContext("error", userId, activeSession.user.email || undefined, message);
         }
       } finally {
