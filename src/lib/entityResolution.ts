@@ -12,7 +12,7 @@ import type {
   VendorIdentityEvidence,
 } from "../types.ts";
 import type { FinancialAccount } from "./cashBanking.ts";
-import { DISALLOWED_DOMAIN_RULES, normalizeDomain, normalizeEmail, parseSenderAddress } from "./emailIntake.ts";
+import { DISALLOWED_DOMAIN_RULES, normalizeDomain, normalizeEmail, parseSenderAddress } from "./emailAddress.ts";
 
 export interface NormalizedTaxId {
   raw: string;

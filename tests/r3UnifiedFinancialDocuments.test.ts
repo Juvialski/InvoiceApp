@@ -113,7 +113,6 @@ test("R3 migration protects one-to-one provenance, immutable snapshots, buyer pr
   assert.match(migration, /company_document_profiles/i);
   assert.match(migration, /'HydroQualiSense Solutions Corp.'/i);
   assert.match(migration, /document_send_audits/i);
-  assert.match(migration, /gmail\.manage/i);
   assert.match(migration, /purchase_orders_issued_document_snapshot/i);
   assert.match(migration, /client_billings_issued_document_snapshot/i);
 });
@@ -135,11 +134,12 @@ test("R3 primary navigation exposes the authoritative supplier invoice module al
   assert.match(nav, /id: "invoices", label: "Supplier Invoices"/);
 });
 
-test("R3 Gmail sending requires explicit send endpoint, snapshot identity, and audited status", () => {
+test("Transactional email requires explicit Brevo endpoint, snapshot identity, and audited status", () => {
   const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
-  assert.match(server, /app\.post\("\/api\/gmail\/send"/);
+  assert.match(server, /app\.post\("\/api\/messaging\/email\/send"/);
   assert.match(server, /authorizeCompanyRequest\(req, "documents\.send"\)/);
   assert.match(server, /issued_document_snapshots/);
-  assert.match(server, /record_document_send_audit/);
-  assert.match(server, /status: "FAILED"/);
+  assert.match(server, /complete_email_delivery_intent/);
+  assert.match(server, /Brevo/i);
+  assert.match(server, /providerResult\.status === "FAILED"/);
 });

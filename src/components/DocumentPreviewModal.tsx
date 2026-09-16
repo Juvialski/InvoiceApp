@@ -6,7 +6,7 @@ import { loadCompanyDocumentProfileFromSupabase } from "../lib/companyDocumentPr
 import { loadCurrentUserDocumentIdentity } from "../lib/userProfile.ts";
 import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "../lib/documentSnapshots.ts";
 import { loadIssuedDocumentPdf } from "../lib/documentSnapshots.ts";
-import { DocumentSendError, sendFinancialDocumentByGmail } from "../lib/documentEmail.ts";
+import { DocumentSendError, sendFinancialDocumentByEmail } from "../lib/documentEmail.ts";
 import { documentDeliveryAttachmentLabel, loadDocumentDeliveryHistory, newDocumentDeliveryAttemptKey, type DocumentDeliveryHistoryEntry } from "../lib/documentDelivery.ts";
 import { downloadDocxBytes, generateDocumentTemplateDocument, generateDocumentTemplatePdf } from "../lib/documentTemplates.ts";
 import { useAppPermission } from "../app/AppPermissionContext.tsx";
@@ -41,6 +41,7 @@ function deliveryTime(value: string) {
 
 function deliveryStatusClass(status: DocumentDeliveryHistoryEntry["status"]) {
   if (status === "SENT") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (status === "ACCEPTED") return "border-amber-200 bg-amber-50 text-amber-900";
   if (status === "FAILED") return "border-rose-200 bg-rose-50 text-rose-800";
   if (status === "UNKNOWN") return "border-amber-200 bg-amber-50 text-amber-900";
   return "border-slate-200 bg-slate-50 text-slate-700";
@@ -279,13 +280,15 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
     try {
       if (document.status !== "ISSUED" || !document.snapshotId) throw new Error("Only an issued immutable document snapshot can be sent.");
       if (!to.trim()) throw new Error("Enter at least one recipient email address.");
-      const result = await sendFinancialDocumentByGmail({ snapshot: document, to, cc, subject, message, attachmentName: fileName, idempotencyKey });
+      const result = await sendFinancialDocumentByEmail({ snapshot: document, to, cc, subject, message, attachmentName: fileName, idempotencyKey });
       const source = result.attachmentSource || "PROGRAMMATIC_PDF_FALLBACK";
-      setSendResult(`Sent successfully · ${documentDeliveryAttachmentLabel(source)}.`);
+      setSendResult(result.status === "ACCEPTED"
+        ? `Brevo accepted the message; delivery is not confirmed · ${documentDeliveryAttachmentLabel(source)}.`
+        : `Email delivery recorded · ${documentDeliveryAttachmentLabel(source)}.`);
       setComposeOpen(false);
       setComposeMode("INITIAL");
       setIdempotencyKey(newDocumentDeliveryAttemptKey());
-      onSent?.(result.gmailMessageId);
+      onSent?.(result.providerMessageId);
       await refreshDeliveryHistory();
     } catch (error) {
       if (error instanceof DocumentSendError && error.code === "DOCUMENT_SEND_FAILED") {

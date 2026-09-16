@@ -97,15 +97,22 @@ function timestamp(...values: unknown[]): string {
   return values.map((value) => boundedString(value, 80)).find(Boolean) || "";
 }
 
-function safeMessage(currentStatus: DocumentDeliveryStatus, channel: "GMAIL" | "SMS", auditRecorded: boolean, reconciliationRequired: boolean): string {
+function providerLabel(channel: "EMAIL" | "GMAIL" | "SMS", providerId?: string): string {
+  if (channel === "SMS") return "The SMS provider";
+  if (providerId?.toUpperCase() === "BREVO" || channel === "EMAIL") return "Brevo";
+  return "Gmail";
+}
+
+function safeMessage(currentStatus: DocumentDeliveryStatus, channel: "EMAIL" | "GMAIL" | "SMS", auditRecorded: boolean, reconciliationRequired: boolean, providerId?: string): string {
+  const provider = providerLabel(channel, providerId);
   if (reconciliationRequired) return "Delivery could not be confirmed safely. Reconciliation is required before another send.";
   if (currentStatus === "PENDING") return channel === "SMS" ? "This SMS is prepared and awaiting provider acceptance." : "This delivery is still in progress. Check history again before retrying.";
-  if (currentStatus === "ACCEPTED") return channel === "SMS" ? "The SMS provider accepted this message for delivery. Check status for a later delivery report." : "The delivery provider accepted this message.";
-  if (currentStatus === "SENT") return auditRecorded ? (channel === "SMS" ? "The SMS provider reports that this message was sent." : "Sent through Gmail.") : `${channel === "SMS" ? "The SMS provider" : "Gmail"} accepted this delivery, but its history needs reconciliation before another send.`;
-  if (currentStatus === "DELIVERED") return channel === "SMS" ? "The SMS provider confirmed delivery to the recipient device or network." : "Gmail recorded this delivery attempt.";
-  if (currentStatus === "FAILED") return auditRecorded ? `${channel === "SMS" ? "The SMS provider" : "Gmail"} rejected or failed this delivery. A new send attempt may be started.` : "The failed delivery history needs reconciliation before another send.";
-  if (currentStatus === "CANCELLED") return `${channel === "SMS" ? "The SMS provider" : "The delivery provider"} cancelled this delivery. A new send attempt may be started.`;
-  return `${channel === "SMS" ? "SMS provider" : "Gmail"} delivery could not be confirmed. Reconciliation is required before another send.`;
+  if (currentStatus === "ACCEPTED") return channel === "SMS" ? "The SMS provider accepted this message for delivery. Check status for a later delivery report." : `${provider} accepted this message for processing; delivery is not confirmed.`;
+  if (currentStatus === "SENT") return auditRecorded ? (channel === "SMS" ? "The SMS provider reports that this message was sent." : `${provider} reports that this message was sent.`) : `${provider} accepted this delivery, but its history needs reconciliation before another send.`;
+  if (currentStatus === "DELIVERED") return channel === "SMS" ? "The SMS provider confirmed delivery to the recipient device or network." : `${provider} confirmed this delivery.`;
+  if (currentStatus === "FAILED") return auditRecorded ? `${provider} rejected or failed this delivery. A new send attempt may be started.` : "The failed delivery history needs reconciliation before another send.";
+  if (currentStatus === "CANCELLED") return `${provider} cancelled this delivery. A new send attempt may be started.`;
+  return `${provider} delivery could not be confirmed. Reconciliation is required before another send.`;
 }
 
 export function mapDocumentDeliveryHistory(
@@ -127,7 +134,11 @@ export function mapDocumentDeliveryHistory(
     const auditRecorded = Boolean(audit);
     const auditStatus = audit ? status(audit.status) : currentStatus;
     const currentKind = deliveryKind(intent.delivery_kind || audit?.delivery_kind);
-    const currentChannel = boundedString(intent.delivery_channel || audit?.delivery_channel, 20).toUpperCase() === "SMS" || currentKind === "GENERAL_SMS" ? "SMS" as const : "GMAIL" as const;
+    const providerId = boundedString(intent.provider_id || audit?.provider_id, 80);
+    const rawChannel = boundedString(intent.delivery_channel || audit?.delivery_channel, 20).toUpperCase();
+    const currentChannel = rawChannel === "SMS" || currentKind === "GENERAL_SMS"
+      ? "SMS" as const
+      : rawChannel === "EMAIL" || providerId.toUpperCase() === "BREVO" ? "EMAIL" as const : "GMAIL" as const;
     const documentTypeValue = boundedString(intent.document_type || audit?.document_type, 40).toUpperCase();
     const documentType = documentTypeValue === "PURCHASE_ORDER" || documentTypeValue === "CLIENT_INVOICE"
       ? documentTypeValue as "PURCHASE_ORDER" | "CLIENT_INVOICE"
@@ -161,12 +172,12 @@ export function mapDocumentDeliveryHistory(
       ...(attachmentSha256 ? { attachmentSha256 } : {}),
       ...(Number.isFinite(attachmentSize) && attachmentSize > 0 ? { attachmentSize } : {}),
       ...(boundedString(intent.template_version, 200) ? { templateVersion: boundedString(intent.template_version, 200) } : {}),
-      safeMessage: safeMessage(currentStatus, currentChannel, auditRecorded, reconciliationRequired),
+      safeMessage: safeMessage(currentStatus, currentChannel, auditRecorded, reconciliationRequired, providerId),
       auditRecorded,
       reconciliationRequired,
       resendAllowed: !reconciliationRequired && (currentStatus === "SENT" || currentStatus === "FAILED"),
       attemptCount: Number.isFinite(attemptCount) && attemptCount > 0 ? Math.trunc(attemptCount) : 1,
-      ...(boundedString(intent.provider_id || audit?.provider_id, 80) ? { providerId: boundedString(intent.provider_id || audit?.provider_id, 80) } : {}),
+      ...(providerId ? { providerId } : {}),
       ...(providerMessageId ? { providerMessageId } : {}),
       ...(boundedString(intent.provider_status || audit?.provider_status, 80) ? { providerStatus: boundedString(intent.provider_status || audit?.provider_status, 80) } : {}),
     };

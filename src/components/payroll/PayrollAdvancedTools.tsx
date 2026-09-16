@@ -31,7 +31,7 @@ const ACTION_CONFIGURATION: Record<PayrollAdvancedTool, ActionConfiguration> = O
   REPAIR: { title: "Repair payroll data", buttonLabel: "Apply safe repair", buttonClass: "bg-indigo-600", description: "Fixes harmless generated-calendar inconsistencies without changing meaningful payroll history." },
   REBUILD_CALENDAR: { title: "Rebuild payroll calendar", buttonLabel: "Rebuild calendar", buttonClass: "bg-indigo-600", description: "Replaces disposable calendar infrastructure while preserving the active schedule and meaningful history." },
   RESET_UNAPPROVED: { title: "Reset unapproved payroll", buttonLabel: "Reset unapproved payroll", buttonClass: "bg-rose-700", description: "Clears unapproved derived payroll results, reopens affected imports, and rebuilds the canonical calendar." },
-  FACTORY_RESET: { title: "Factory reset payroll workspace", buttonLabel: "Delete and start clean", buttonClass: "bg-rose-700", description: "Development / recovery tool. Deletes every payroll and workforce record for this company only — schedules, calendar, runs, workers, time sources, and imports — then a fresh default schedule is created automatically. Invoices, projects, expenses, vendors, members, and AI/Gmail settings are never touched." },
+  FACTORY_RESET: { title: "Factory reset payroll workspace", buttonLabel: "Delete and start clean", buttonClass: "bg-rose-700", description: "Development / recovery tool. Deletes every payroll and workforce record for this company only — schedules, calendar, runs, workers, time sources, and imports — then a fresh default schedule is created automatically. Invoices, projects, expenses, vendors, members, and communications settings are never touched." },
 });
 
 function plural(count: number, singular: string, pluralLabel = `${singular}s`) { return `${count} ${count === 1 ? singular : pluralLabel}`; }
@@ -153,7 +153,7 @@ function FactoryResetPreview({ preview, confirmText, onConfirmTextChange }: { pr
     <div><p className="font-black text-slate-900">Will delete ({plural(preview.totalRows, "row")})</p>
       {rows.length ? <ul className="mt-1 space-y-1">{rows.map((row) => <li key={row.key}>• {plural(row.count, row.label)}</li>)}</ul> : <p className="mt-1 rounded-xl bg-emerald-50 p-3 font-semibold text-emerald-800">The payroll domain is already empty. Nothing will be deleted.</p>}
     </div>
-    <div><p className="font-black text-slate-900">Will preserve</p><ul className="mt-1 space-y-1"><li>• Company, members, roles, invitations</li><li>• Projects, invoices, invoice source files</li><li>• Vendors, expenses, Gmail intake</li><li>• AI configuration and credentials</li><li>• General company settings</li></ul></div>
+    <div><p className="font-black text-slate-900">Will preserve</p><ul className="mt-1 space-y-1"><li>• Company, members, roles, invitations</li><li>• Projects, invoices, invoice source files</li><li>• Vendors, expenses, email history</li><li>• AI configuration and credentials</li><li>• General company settings</li></ul></div>
     <label className="block space-y-1"><span className="field-label">Type {PAYROLL_WORKSPACE_RESET_CONFIRMATION} to confirm</span><input value={confirmText} onChange={(event) => onConfirmTextChange(event.target.value)} className="field-input" autoComplete="off" spellCheck={false} /></label>
   </div>;
 }

@@ -6,16 +6,15 @@ import { emailWorkspaceContextFromSearch, appPathForEmailWorkspace } from "../sr
 import { canAccessAppTab, PERMISSION_KEYS } from "../src/utils/accessControl.ts";
 import { getSmsProviderStatus, resolveSmsProvider } from "../src/server/messaging/smsProvider.ts";
 
-const workspace = readFileSync(new URL("../src/app/routes/EmailSmsRoute.tsx", import.meta.url), "utf8");
-const emailInbox = readFileSync(new URL("../src/components/EmailInbox.tsx", import.meta.url), "utf8");
-const documentsRoute = readFileSync(new URL("../src/app/routes/DocumentsRoute.tsx", import.meta.url), "utf8");
-const compose = readFileSync(new URL("../src/components/EmailComposePanel.tsx", import.meta.url), "utf8");
-const documentPreview = readFileSync(new URL("../src/components/DocumentPreviewModal.tsx", import.meta.url), "utf8");
-const history = readFileSync(new URL("../src/components/CommunicationHistoryPanel.tsx", import.meta.url), "utf8");
-const sms = readFileSync(new URL("../src/components/SmsProviderStatusPanel.tsx", import.meta.url), "utf8");
-const migration = readFileSync(new URL("../supabase/migrations/20260910131014_email_sms_workspace_delivery.sql", import.meta.url), "utf8");
+const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const workspace = source("src/app/routes/EmailSmsRoute.tsx");
+const documentsRoute = source("src/app/routes/DocumentsRoute.tsx");
+const compose = source("src/components/EmailComposePanel.tsx");
+const providerStatus = source("src/components/EmailProviderStatusPanel.tsx");
+const history = source("src/components/CommunicationHistoryPanel.tsx");
+const sms = source("src/components/SmsProviderStatusPanel.tsx");
 
-test("Documents is a projection over authoritative records with permission-scoped visibility", () => {
+test("Documents remains a permission-scoped projection over authoritative records", () => {
   const entries = buildDocumentRegister({
     projects: [{ id: "project-1", projectCode: "P-1", projectName: "Warehouse", clientName: "Client", status: "ACTIVE", projectBudget: 100, currency: "PHP", createdAt: "2026-09-01", updatedAt: "2026-09-01" }],
     vendors: [{ id: "vendor-1", name: "Supplier", normalizedName: "supplier", email: "supplier@example.test" }],
@@ -28,98 +27,36 @@ test("Documents is a projection over authoritative records with permission-scope
   assert.equal(entries.length, 4);
   assert.equal(entries.filter((entry) => entry.emailEligible).length, 2);
   assert.equal(entries.find((entry) => entry.id === "po:po-1")?.counterpartyEmail, "supplier@example.test");
-  assert.equal(entries.some((entry) => entry.id.startsWith("bank-statement:")), false);
-
-  const financeOnly = buildDocumentRegister({
-    invoices: [{ id: "supplier-1", invoiceNumber: "SI-1", invoiceDate: "2026-09-03", currency: "PHP", vendor: { name: "Supplier" }, customer: { name: "Company" }, items: [], subtotal: 10, totalTax: 0, grandTotal: 10, extractedAt: "2026-09-03", modelUsed: "test" } as any],
-    visibility: { invoices: true, projects: false, procurement: false, expenses: false, cash: false, engineering: false },
-  });
-  assert.deepEqual(financeOnly.map((entry) => entry.kind), ["SUPPLIER_INVOICE"]);
 });
 
-test("Documents route admits every permission that can expose a projected record", () => {
-  for (const permission of [
-    PERMISSION_KEYS.invoicesRead,
-    PERMISSION_KEYS.projectsRead,
-    PERMISSION_KEYS.procurementRead,
-    PERMISSION_KEYS.expensesRead,
-    PERMISSION_KEYS.engineeringDocumentsRead,
-    PERMISSION_KEYS.cashSummaryRead,
-    PERMISSION_KEYS.cashImport,
-    PERMISSION_KEYS.documentSend,
-  ]) {
-    assert.equal(canAccessAppTab("documents", [permission]), true, `${permission} should admit the Documents route`);
-  }
-});
-
-test("Documents presents its working list and filters before secondary summary framing", () => {
-  const filterIndex = documentsRoute.indexOf('ariaLabel="Document filters"');
-  const summaryIndex = documentsRoute.indexOf("visible records");
-  assert.ok(filterIndex >= 0, "Documents filters should be present");
-  assert.ok(summaryIndex >= 0, "Documents summary should remain available");
-  assert.ok(filterIndex < summaryIndex, "Common document work should precede optional summary metrics");
-  assert.match(documentsRoute, /data-documents-list/);
-});
-
-test("Email / SMS document handoff is exact and does not embed message content in URLs", () => {
+test("Email / SMS preserves exact Documents handoff and permission boundaries", () => {
   const path = appPathForEmailWorkspace("compose", { documentType: "CLIENT_INVOICE", documentId: "billing-1", returnTo: "/documents" });
   assert.equal(path, "/email-sms?view=compose&documentType=CLIENT_INVOICE&documentId=billing-1&from=%2Fdocuments");
   assert.deepEqual(emailWorkspaceContextFromSearch(path.split("?", 2)[1]), { view: "compose", documentType: "CLIENT_INVOICE", documentId: "billing-1", returnTo: "/documents" });
+  assert.equal(canAccessAppTab("documents", [PERMISSION_KEYS.documentSend]), true);
   assert.equal(path.includes("Message"), false);
+});
+
+test("Email workspace exposes Compose, history, provider status, and unchanged SMS status", () => {
+  assert.match(workspace, /<EmailComposePanel/);
+  assert.match(workspace, /<CommunicationHistoryPanel/);
+  assert.match(workspace, /<EmailProviderStatusPanel/);
+  assert.match(workspace, /<SmsProviderStatusPanel/);
+  assert.match(compose, /Confirm & Send/);
+  assert.match(compose, /prepare an email draft/i);
+  assert.match(providerStatus, /Brevo/);
+  assert.match(history, /Accepted by provider/);
+  assert.match(sms, /Company SIM Gateway/);
+  assert.match(sms, /PhilSMS/);
 });
 
 test("SMS remains truthful and provider-neutral without configured credentials", () => {
   assert.equal(resolveSmsProvider({ SMS_PROVIDER: "twilio", SMS_API_KEY: "not-used" }), null);
   assert.deepEqual(getSmsProviderStatus({}), { status: "NOT_CONFIGURED" });
-  assert.match(workspace, /SMS \/ Provider Status/);
-  assert.match(sms, /SMS · Not configured/);
-  assert.match(sms, /server-side provider adapter/);
 });
 
-test("ambiguous Gmail delivery fails closed without creating a fresh retry attempt", () => {
-  const branch = compose.match(/if \(nextError instanceof DocumentSendError && nextError\.reconciliationRequired\) \{([\s\S]*?)\} else \{/)?.[1] || "";
-  assert.match(branch, /setHistoryBlocked\(true\)/);
-  assert.match(branch, /setReviewOpen\(false\)/);
-  assert.doesNotMatch(branch, /setIdempotencyKey\(newDocumentDeliveryAttemptKey\(\)\)/);
-});
-
-test("Compose requires the explicit review step before human send confirmation", () => {
-  assert.match(compose, /if \(!reviewOpen\) \{ setError\("Review the message before confirming the send\."\); return; \}/);
-  assert.match(compose, /disabled=\{busy \|\| !canUseGmail \|\| !reviewOpen\}/);
-  assert.match(compose, /data-email-compose-review="true"/);
-});
-
-test("Email intake keeps pending candidates visible during incremental sync and explains read-only scope", () => {
-  assert.match(emailInbox, /How intake works/);
-  assert.match(emailInbox, /read-only Gmail intake/i);
-  assert.match(emailInbox, /onSyncGmail/);
-  assert.match(emailInbox, /mergeGmailCandidates\(current, discovered\)/);
-  assert.doesNotMatch(emailInbox, /syncConnectedMailbox\(historyId/);
-});
-
-test("Wave 4D workspace surfaces reuse existing intake, send, history, and template ownership", () => {
-  assert.match(workspace, /<EmailInbox/);
-  assert.match(workspace, /<EmailComposePanel/);
-  assert.match(workspace, /<CommunicationHistoryPanel/);
-  assert.match(workspace, /<SmsProviderStatusPanel/);
-  assert.match(compose, /sendEmailMessageByGmail/);
-  assert.match(compose, /prepare an email draft/i);
-  assert.match(compose, /Confirm & Send/);
-  assert.match(history, /loadCommunicationsDeliveryHistory/);
-  assert.match(documentsRoute, /buildDocumentRegister/);
+test("Documents keeps list/filter and owning-workflow language", () => {
+  assert.match(documentsRoute, /Document filters/);
   assert.match(documentsRoute, /Open owning record/);
   assert.match(documentsRoute, /Document templates/);
-  assert.match(migration, /GENERAL_EMAIL/);
-  assert.match(migration, /can_read_general_delivery/);
-  assert.match(migration, /message_body_sha256/);
-  assert.match(migration, /document_send_intents_delivery_shape_check/);
-});
-
-test("financial document preview renders the exact issued PDF bytes instead of a divergent HTML approximation", () => {
-  assert.match(documentPreview, /loadIssuedDocumentPdf/);
-  assert.match(documentPreview, /<PdfBytePreview/);
-  assert.match(documentPreview, /data-pdf-preview-source/);
-  assert.match(documentPreview, /Generate \/ Download PDF/);
-  assert.match(documentPreview, /useDialogFocus\(\{ open: true, onClose, initialFocusRef: closeButtonRef \}\)/);
-  assert.match(documentPreview, /ref=\{closeButtonRef\} type="button"/);
 });

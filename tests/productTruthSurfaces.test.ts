@@ -6,15 +6,17 @@ function source(path: string) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("Email / SMS describes the supported inbound Gmail and outbound boundaries", () => {
-  const emailInbox = source("src/components/EmailInbox.tsx");
+test("Email / SMS describes the supported outbound and provider boundaries", () => {
+  const workspace = source("src/app/routes/EmailSmsRoute.tsx");
+  const compose = source("src/components/EmailComposePanel.tsx");
+  const provider = source("src/components/EmailProviderStatusPanel.tsx");
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
-  assert.doesNotMatch(emailInbox, /Supported inbox workflows/);
-  assert.match(emailInbox, /How intake works/);
-  assert.match(emailInbox, /Read-only Gmail intake/);
-  assert.match(emailInbox, /Forwarded supplier invoice fallback/);
-  assert.doesNotMatch(emailInbox, /SMS boundary\./i);
-  assert.match(emailInbox, /canManageMailbox &&/);
+  assert.match(workspace, /<EmailComposePanel/);
+  assert.match(workspace, /<CommunicationHistoryPanel/);
+  assert.match(workspace, /<EmailProviderStatusPanel/);
+  assert.doesNotMatch(workspace, /Inbox \/ Intake|Connect Gmail|Sync|Scan|Intake Rules/);
+  assert.match(compose, /Confirm & Send/);
+  assert.match(provider, /Brevo/);
   assert.match(dashboard, /Email \/ SMS/);
   assert.match(dashboard, /delivery history/i);
 });

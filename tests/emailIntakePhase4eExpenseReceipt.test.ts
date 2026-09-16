@@ -11,10 +11,7 @@ import {
   extractPhilippineTaxEvidence,
   evaluateReceiptExtractionQuality,
 } from "../src/lib/receiptExtraction.ts";
-import {
-  extractSuggestedExpense,
-  findPossibleExpenseDuplicates,
-} from "../src/lib/emailIntake.ts";
+import { findPossibleExpenseDuplicates } from "../src/lib/expenseDuplicateDetection.ts";
 import {
   extractVendorEvidenceFromExpense,
   resolveVendorCandidate,
@@ -22,26 +19,8 @@ import {
 import type {
   EmailIntakeProfile,
   Expense,
-  GmailMessageCandidate,
   Vendor,
 } from "../src/types.ts";
-
-function candidate(overrides: Partial<GmailMessageCandidate> = {}): GmailMessageCandidate {
-  return {
-    id: "msg-expense-1",
-    threadId: "thread-1",
-    sender: "billing@petron.com.ph",
-    to: ["ops@engoryx.com"],
-    cc: [],
-    subject: "Official Receipt - Site Fuel Delivery",
-    receivedAt: "2026-08-31T08:30:00.000Z",
-    snippet: "",
-    bodyText: "",
-    labels: ["INBOX"],
-    attachments: [],
-    ...overrides,
-  };
-}
 
 function mockExpense(overrides: Partial<Expense> = {}): Expense {
   return {
@@ -364,7 +343,7 @@ test("29. Pre-extraction duplicate short-circuiting matches exact sourceDocument
 
   assert.equal(duplicates.length, 1);
   assert.equal(duplicates[0].matchType, "SOURCE_DOCUMENT");
-  assert.match(duplicates[0].reason, /already linked to this preserved email receipt source/);
+  assert.match(duplicates[0].reason, /already linked to this preserved source document/);
 });
 
 // 30. Pre-extraction duplicate short-circuiting: matching file SHA-256 across forwarded emails

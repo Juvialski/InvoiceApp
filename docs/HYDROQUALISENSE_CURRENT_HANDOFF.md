@@ -177,18 +177,17 @@ implementation run.
 Email/SMS Reliability & UX Completion now follows the active security phase. The
 remaining Wide Documents managed-upload/artifact work is deferred, not cancelled.
 
-The implementation adds a compact task-first Inbox / Intake, Compose, Sent /
-Delivery History, and SMS status experience; preserves inbound Gmail, source
-evidence, document ownership, human confirmation, delivery history, idempotency,
-and reconciliation; and keeps SMS limited to Company SIM Gateway and PhilSMS.
+The implementation adds a compact Compose, Sent / Delivery History, Email Provider
+Status, and SMS status experience; preserves historical email source evidence,
+document ownership, human confirmation, delivery history, idempotency, and
+reconciliation; and keeps SMS limited to Company SIM Gateway and PhilSMS.
 
-Gmail OAuth callback material is captured once, removed from the React session
-object, and submitted only to an authenticated server path. The server encrypts
-the company/user-scoped refresh token with a dedicated key, refreshes access
-tokens server-side, accepts rotation, retries one expired access token, and
-returns distinct safe states for scopes, provider permission, quota/transient
-failures, setup, and revoked authorization. No raw provider credential is kept in
-ordinary browser local storage or returned to the browser.
+Google Sign-In now requests only the identity scopes `openid email profile`; no
+Gmail mailbox/API scope or provider-token handoff remains in the live product.
+Outbound transactional email uses a server-side Brevo adapter with deployment
+configuration, verified-sender checks, provider message IDs, and truthful
+accepted/failed/unknown outcomes. No provider credential is kept in ordinary
+browser local storage or returned to the browser.
 
 The public `/privacy` and `/terms` pages are session-free and linked from the
 public, sign-in, and authenticated-shell surfaces. The canonical
@@ -198,10 +197,11 @@ still opt into the public funnel with the existing non-secret setting. The user
 confirmed Google Auth Platform is in TESTING and is moving it toward production;
 this repository does not claim that Google publishing or verification is complete.
 
-Current branch evidence includes focused Gmail/OAuth, public-policy, communications
-UX, server authorization, migration replay, pgTAP, and upgrade-path validation.
-No approved SMS credentials/device runtime or controlled provider-backed QA proof
-is available in the current environment, so SMS remains not configured/unverified.
+Current branch evidence includes focused identity-only OAuth, Gmail-retirement,
+Brevo adapter/delivery, public-policy, communications UX, server authorization,
+migration replay, pgTAP, and upgrade-path validation. No approved Brevo QA
+credentials/recipient or SMS credentials/device runtime is available in the
+current environment, so provider runtime states remain not configured/unverified.
 
 ## 2026-09-15 Google OAuth branding verification remediation
 
@@ -215,15 +215,40 @@ without authentication, preserves public `/privacy` and `/terms`, keeps `/dashbo
 and normal operational routes behind the existing authentication and permission flow,
 and leaves noncanonical deployment roots flag-gated. The public surfaces now use the
 exact `Hydroqualisense` product name, explain the business-operations purpose and
-optional Gmail read/send access, and publish the Google API Services User Data Policy /
-Limited Use disclosure. Google re-verification remains external and pending; it is not
-represented as approved here.
+identity-only Google Sign-In, and describe server-side Brevo email without claiming
+provider readiness. External Google Cloud scope removal/publishing remains an
+operator action and is not represented as complete here.
 
-Durable Gmail runtime credential setup remains a separate operator task, and SMS
-provider runtime completion remains separate until controlled approved-provider QA
-evidence exists. Worker Registration remains paused.
+Brevo sender verification/controlled QA and SMS provider runtime completion remain
+separate until controlled approved-provider evidence exists. Worker Registration
+remains paused.
 
 Slice 2 pre-merge evidence is separated by scope: focused dynamic template/Create tests pass 68/68, lint/build and Workflow Map consistency pass, and demo browser QA passes 82/82 responsive scenarios. Authenticated Local-QA records 59/59 route/responsive scenarios with no overflow/errors, but the legacy functional template checks still look for the former Settings-mounted template surface and record 7/9 functional workflows. The new dynamic HSC flow is not represented as authenticated QA-certified because its migration was not promoted to that QA target. Local Docker is unavailable for replay/pgTAP/upgrade validation, and the bundled LibreOffice renderer is unavailable for DOCX visual conversion.
+
+## 2026-09-16 Google Sign-In + Brevo migration handoff
+
+The approved provider decision is implemented on this branch: Google Sign-In is
+identity-only with `openid email profile`; active Gmail mailbox/API read, intake,
+reconnect, refresh-token storage, and send paths are removed; Brevo is the
+server-side outbound transactional-email provider; SMS remains unchanged.
+Historical Gmail-derived source and delivery rows remain readable and are not
+treated as current mailbox access.
+
+Validation for the exact branch includes 198/198 focused changed-surface tests,
+81/81 demo browser scenarios across desktop/laptop/tablet/mobile with no overflow
+or browser/network errors, TypeScript lint, production build, Workflow Map check
+and consistency, 114/114 static migration checks, two passing upgrade fixtures,
+clean local migration replay, and pgTAP PASS (47 files, 1,597 tests). The aggregate
+affected selector selected all 321 repository tests and reached the existing
+visual-harness lifecycle area after unrelated baseline failures; that aggregate is
+not represented as green. No approved Brevo QA credentials/safe recipient were
+available, so live provider sending remains NOT TESTED/UNVERIFIED. No production
+data, provider credentials, or production sends were accessed.
+
+The next release step is deployment-specific QA promotion and controlled Brevo
+provider certification only when the exact QA SHA/migration, client-owned Brevo
+credentials, verified sender, and safe recipient are available. Wide Documents
+remaining managed slices stay deferred and Worker Registration stays paused.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
@@ -238,12 +263,12 @@ Approved provider direction remains:
 
 The remaining provider/readiness implementation should:
 
-- inspect the live Wave 4D contract, current provider-neutral SMS scaffolding, delivery-intent/history model, Gmail implementation, permissions, and completed task-first Email/SMS/Documents UI before changing code;
+- inspect the live Wave 4D contract, current provider-neutral SMS scaffolding, delivery-intent/history model, Brevo implementation, permissions, and completed task-first Email/SMS/Documents UI before changing code;
 - implement or finish the approved server-side provider path without exposing provider credentials to the browser;
 - preserve one reviewed transactional recipient per SMS send and human review/confirmation before consequential outbound sends;
 - keep SMS truthfully unavailable/unverified until controlled provider-backed runtime QA succeeds;
-- preserve inbound Gmail intake and existing issued-document Gmail delivery/history behavior;
-- reconnect/certify Gmail as needed for exact-state provider evidence rather than assuming old authorization is current;
+- keep Google Sign-In identity-only and preserve historical Gmail-derived source/delivery records without restoring mailbox access;
+- certify Brevo only through a controlled QA deployment with client-specific secrets and a verified sender;
 - preserve append-only/company-bound delivery history, idempotency/reconciliation boundaries, and source document ownership;
 - keep AI/provider prerequisites separately truthful; the exercised QA runtime is now available while hosted/provider/release evidence remains separate from Storage and PDF converter truth;
 - preserve the completed UI/UX Round 2 hierarchy while adding provider capability;
@@ -310,9 +335,14 @@ That hosted evidence belongs to that earlier application SHA. The newer UI/UX Ro
 
 ## Current provider / optional capability truth
 
-### Gmail
+### Google Sign-In / Brevo
 
-Exact-state hosted provider proof may require reauthorization. Compose/review remains separate from uncontrolled send. Wave 4D must preserve the human review/confirmation boundary.
+Google Sign-In is identity-only and does not grant company access without a
+resolved membership and permission set. Brevo is the approved outbound email
+provider when a client deployment has a server-only API key and verified sender;
+the current branch has no approved QA credentials/recipient, so live provider
+delivery remains unverified. Historical Gmail source and delivery rows remain
+compatible and are presented as historical records.
 
 ### SMS
 
@@ -402,13 +432,13 @@ Do not skip directly to Worker Registration.
 For the current Email/SMS implementation run, Codex should:
 
 - first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
-- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `SUPABASE_GMAIL_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts;
+- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts;
 - read the completed UI/UX Round 2 design record only as needed to preserve the new interaction baseline;
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
 - use at most one bounded context packet when useful;
-- inspect the existing Email/SMS workspace, Gmail/Auth wiring, server Gmail routes, provider-neutral SMS adapter, delivery history/idempotency model, public entry flow, and permission surfaces before designing changes;
+- inspect the existing Email/SMS workspace, Google Auth wiring, Brevo route/adapter, provider-neutral SMS adapter, delivery history/idempotency model, public entry flow, and permission surfaces before designing changes;
 - preserve source-backed document ownership and the existing Wave 4A-4C delivery/history contracts;
-- keep Gmail refresh credentials server-only and SMS limited to the two approved providers;
+- keep Brevo credentials server-only, retain historical Gmail fields/rows, and keep SMS limited to the two approved providers;
 - keep the canonical `hydroqualisense.com` homepage public while noncanonical operational
   roots remain authenticated unless their deployment explicitly enables the public funnel;
   keep Privacy and Terms session-free;

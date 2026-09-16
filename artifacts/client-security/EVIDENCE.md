@@ -22,11 +22,11 @@ responsibility, not a technical guarantee.
 | Direct restricted URLs remain denied for Finance, Payroll, Viewer, and the restricted custom role. | SOURCE / QA_RUNTIME | App route guard, exact local role manifest, representative forbidden-path checks | PASS | Menu visibility was not used as the sole security boundary. |
 | Automatic Payroll bootstrap does not write during an auth/company-access transition. | SOURCE / QA_RUNTIME | App guard regression test and exact local Payroll deep-link capture | PASS | This prevents transient reload state from attempting a write without ready access context. |
 | The pre-fix QA audit detected real Payroll leakage. | QA_RUNTIME | prior exact QA health and pre-fix role capture | PASS as a historical defect finding | Those pre-fix screenshots are not current-release evidence and are not included in the PDF. |
-| Server-only credentials remain outside ordinary browser state. | SOURCE | existing Supabase/Gmail/AI/Storage server boundaries and focused security tests | PASS at source/test level | Live deployment secret configuration remains an operator check. |
+| Server-only credentials remain outside ordinary browser state. | SOURCE | Google Sign-In identity path, Brevo/AI/Storage server boundaries, and focused security tests | PASS at source/test level | Live deployment secret configuration remains an operator check. |
 | The six role screenshots are authenticated, synthetic, exact-release captures with full navigation context. | QA_RUNTIME | `role-screenshot-manifest.json`; six PNG assets; manual image inspection | PASS for local QA harness | Manifest target: environment `qa`, deployment `local-qa-harness`, migration `20260915095911`, application SHA above. |
 | The client PDF contains the two custody models and the current role evidence. | SOURCE / QA_RUNTIME | client source, six screenshots, PDF, pagewise Poppler renders | PASS: 7 source pages, 7 rendered PDF pages | It is a qualified handoff artifact, not a hosted or production security certification. |
 | Managed Support Access and Independent Client Control are both legitimate handoff models. | HANDOFF_POLICY | client source, deployment strategy, handoff checklist | PASS as documented policy | The selected model is recorded per client; it is not application state. |
-| Gmail authorization is server-held and refreshable. | SOURCE | existing Gmail authorization/credential boundaries | PASS at source level | External OAuth configuration and re-verification remain separate. |
+| Google Sign-In is identity-only and Brevo credentials remain server-side. | SOURCE | identity-only OAuth path, Brevo provider adapter, focused security tests | PASS at source/test level | Client-specific Brevo secret/sender configuration and provider QA remain operator checks. |
 | SMS delivery is available/certified. | VENDOR_CONFIG / QA_RUNTIME | approved provider direction in runbook | NOT CLAIMED - unavailable/unverified | No provider credentials or controlled delivery proof was used. |
 | No standing developer/operator access to confidential production data remains after handoff. | HANDOFF_POLICY | custody checklist | NOT VERIFIED for a specific client | Requires client-owned account custody and removal/revocation evidence. |
 
@@ -57,7 +57,7 @@ user IDs, project IDs, or provider credentials.
 ## Blockers and skipped evidence
 
 - The isolated hosted QA application remains at the earlier release/migration and was not changed by this handoff. The exact branch migration was not promoted remotely because the guarded path lacked the required protected direct-database credential/project contract; it refused before writing.
-- No hosted-provider SMS configuration, controlled SMS send, or Gmail re-authorization proof was performed.
+- No hosted-provider SMS configuration, controlled SMS send, or Brevo controlled-send proof was performed.
 - No production records, production Storage, production Auth, production provider credentials, or confidential client data were inspected or changed.
 - The local synthetic company and Auth users were created only in the disposable local Supabase stack for capture; they are not client or production evidence.
 - A dedicated custom-role concurrency stress fixture was not added in this focused follow-up; existing local database/concurrency coverage remains applicable where selected by the repository tests.

@@ -171,7 +171,7 @@ export function buildDeploymentTransferPreflight(input: TransferPreflightInput):
     manualCheck("storage-object-preservation", "Storage object preservation", "Confirm existing source/issued document object bytes, metadata and hashes remain present and accessible according to permission. Database backup status alone is insufficient."),
     manualCheck("edge-functions", "Edge Functions", "Inventory deployed Edge Functions, schedules, secrets/configuration names and consumers, or record that none are used."),
     manualCheck("database-extensions", "Database extensions", "Record enabled PostgreSQL/Supabase extensions and confirm the destination organization/project retains the required set."),
-    manualCheck("integrations-provider-configuration", "Integrations and provider configuration", "Confirm Gmail/OAuth, AI, email, backup and other provider configuration and scopes through the operator secret stores; do not copy secrets into this report."),
+    manualCheck("integrations-provider-configuration", "Integrations and provider configuration", "Confirm Google Sign-In, Brevo, SMS, AI, backup, and other provider configuration through the operator secret stores; do not copy secrets into this report."),
     manualCheck("post-transfer-smoke", "Post-transfer smoke checks", "Run the non-destructive post-transfer checklist in the Hydroqualisense Deployment and Release Runbook, including authentication, RBAC/RLS/RPC, Storage reads, module loads, health metadata and the verified supplier invoice to linked Expense workflow."),
   );
 

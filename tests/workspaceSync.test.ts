@@ -200,7 +200,7 @@ test("coalesces bursts and emits exactly one follow-up after an active refresh",
 
   const firstFlush = scheduler.flush();
   await firstStarted;
-  scheduler.request(["payroll", "gmail"], "realtime");
+  scheduler.request(["payroll", "cash"], "realtime");
   scheduler.request("payroll-imports", "realtime");
   releaseFirst();
   await firstFlush;
@@ -208,7 +208,7 @@ test("coalesces bursts and emits exactly one follow-up after an active refresh",
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[0].groups, ["invoices", "engineering"]);
   assert.equal(calls[0].reason, "coalesced");
-  assert.deepEqual(calls[1].groups, ["payroll", "gmail", "payroll-imports"]);
+  assert.deepEqual(calls[1].groups, ["payroll", "cash", "payroll-imports"]);
   assert.equal(maxActive, 1, "refreshes never overlap");
 });
 

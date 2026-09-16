@@ -199,17 +199,16 @@ Credential rotation, disablement, removal, and ongoing platform maintenance rema
 
 Settings reads safe AI metadata separately from credential administration. A configured deployment shows Gemini, enabled state, provider validation, and last-tested metadata without exposing a credential. A metadata-load failure is shown as a temporary status-unavailable state and never opens a key form. Initial setup is rendered only after a loaded unconfigured state for an authorized candidate; the server and service-only RPC remain the final authority. An invalid initial credential follows the existing authorized recovery path.
 
-The Email / SMS workspace supports read-only Gmail search/sync, source-preserving import into the existing invoice, statement, and expense review workflows, saved sender rules, a forwarded-invoice fallback, and the bounded SMS paths below. It does not represent broadcast automation. Issued-document email delivery remains owned by the issued-document workflow.
+The Email / SMS workspace supports reviewed outbound Compose, Sent / Delivery History, Email Provider Status, and the bounded SMS paths below. Google Sign-In is identity-only; Gmail mailbox search/sync/import and Gmail API sending are removed. It does not represent broadcast automation. Issued-document email delivery remains owned by the issued-document workflow.
 
-### Gmail provider authorization configuration
+### Google Sign-In and Brevo provider configuration
 
-Gmail callback provider tokens are not a browser persistence mechanism. The
-authenticated callback hands the Google refresh token to the server, which stores
-an encrypted company/user-scoped envelope and refreshes short-lived Gmail access
-tokens server-side. Configure the dedicated server-only `SUPABASE_GMAIL_SERVER_KEY`,
-`GMAIL_CREDENTIALS_MASTER_KEY`, `GMAIL_GOOGLE_CLIENT_ID`, and
-`GMAIL_GOOGLE_CLIENT_SECRET` values described in `SUPABASE_GMAIL_SETUP.md`; keep
-them separate from AI and Storage keys and out of all `VITE_` variables. A 401 is
+Google Sign-In uses the normal Supabase identity-provider flow with only `openid`,
+`email`, and `profile`; no Gmail API scopes or provider refresh token are used.
+Outbound transactional email uses the server-only `BREVO_API_KEY`,
+`BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, and optional reply-to/base URL/timeout
+values described in `GOOGLE_SIGNIN_BREVO_SETUP.md`; keep them separate from AI and
+Storage keys and out of all `VITE_` variables. A 401 is
 refreshed once before reconnect is requested. Missing scopes, invalid/revoked
 authorization, provider policy errors, quota/rate limits, transient failures, and
 deployment setup failures remain distinct safe states, and provider credentials
@@ -230,7 +229,7 @@ Engineering Documents is a project-owned register for drawings, specifications, 
 
 Browser validation has two deliberately separate layers:
 
-1. **Pre-merge local PR/demo QA** builds the checked-out PR, serves `/demo` locally, and checks fictional session-local rendering/navigation/interaction state. It does not mount production Auth, Supabase queries, Storage, Gmail authorization, or company writes.
+1. **Pre-merge local PR/demo QA** builds the checked-out PR, serves `/demo` locally, and checks fictional session-local rendering/navigation/interaction state. It does not mount production Auth, Supabase queries, Storage, provider credentials, or company writes.
 2. **Post-deploy hosted QA** runs only against the isolated QA deployment and uses the protected GitHub `qa` environment credentials. It first polls `/api/health` within a bounded deployment window and continues only when environment, deployment ID, repository SHA, and canonical migration level match the exact workflow checkout. It then checks authenticated session persistence, loaded route contracts, the unauthenticated protected-route boundary, and the safe synthetic Storage byte probe.
 
 The reusable hosted harness is intentionally separate from ordinary PR/demo QA. The protected `Protected QA Release` workflow calls it only after Render readiness and independent migration parity. For a direct/manual rerun, install the QA-only browser dependency, then run it only against the isolated QA deployment:
@@ -293,7 +292,7 @@ Use a private, operator-controlled inventory entry. Do not commit the Client A i
 - enabled database extensions and any client-specific database configuration;
 - the singleton deployment configuration and the expected deployment company boundary;
 - the Render environment variable names that must remain present, without copying their values;
-- Gmail/OAuth, AI, email, backup and other integration/provider configuration and scopes;
+- Google Sign-In/OIDC, Brevo, AI, SMS, backup and other integration/provider configuration and scopes;
 - backup and recovery ownership, restore evidence, recovery target and rollback/forward-recovery expectation;
 - the post-transfer smoke owner, timing and evidence location.
 

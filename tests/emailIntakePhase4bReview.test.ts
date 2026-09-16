@@ -144,13 +144,13 @@ test("Phase 4B review: linked account profile cannot override conflicting instit
   assert.ok(suffixConflict.conflicts.some((item) => item.field === "accountSuffix"));
 });
 
-test("Gmail reconnect review: provider-token invalidation is wired back into React session state", () => {
+test("Google identity sessions remain sanitized and company access is resolved separately", () => {
   const supabaseSource = readFileSync("src/lib/supabase.ts", "utf8");
   const accessSource = readFileSync("src/context/CompanyAccessContext.tsx", "utf8");
 
-  assert.match(supabaseSource, /GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT/);
-  assert.match(supabaseSource, /dispatchEvent\(new Event\(GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT\)\)/);
-  assert.match(accessSource, /addEventListener\(GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT/);
-  assert.match(accessSource, /provider_token:\s*undefined/);
+  assert.match(supabaseSource, /sanitizePersistedAuthSession/);
+  assert.match(supabaseSource, /delete parsed\.provider_token/);
+  assert.doesNotMatch(supabaseSource, /signInWithOAuth[\s\S]{0,500}gmail\./i);
+  assert.match(accessSource, /resolveDeploymentCompanyAccess/);
   assert.match(accessSource, /setSession\(nextSession\)/);
 });

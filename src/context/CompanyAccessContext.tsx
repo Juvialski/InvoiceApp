@@ -37,7 +37,7 @@ import {
 } from "../lib/companyAccess.ts";
 import { clearCompanyContext, setDeploymentCompanyId } from "../lib/companyContext.ts";
 import { assertDeploymentCompanyId, loadDeploymentCompanyId, resolveDeploymentCompanyAccess } from "../lib/deploymentCompany.ts";
-import { GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT, captureGoogleProviderTokens, isSupabaseConfigured, signOutWorkspace, supabase } from "../lib/supabase.ts";
+import { isSupabaseConfigured, signOutWorkspace, supabase } from "../lib/supabase.ts";
 import { hasPermission, type PermissionKey } from "../utils/accessControl.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
 
@@ -129,50 +129,25 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     const applySession = (nextSession: Session | null) => {
       if (!mounted) return;
-      captureGoogleProviderTokens(nextSession);
-      // Provider access/refresh tokens are callback material only. Keep them
-      // out of the React session context and browser-visible application state;
-      // the Gmail handoff reads the private module capture once and sends it
-      // directly to the authenticated server endpoint.
-      const safeSession = nextSession ? {
-        ...nextSession,
-        provider_token: undefined,
-        provider_refresh_token: undefined,
-      } as Session : null;
       const previousUserId = sessionRef.current?.user?.id || null;
-      const nextUserId = safeSession?.user?.id || null;
+      const nextUserId = nextSession?.user?.id || null;
       if (previousUserId !== nextUserId) {
         loadGenerationRef.current += 1;
         accessLoadRef.current = null;
-        resetAuthenticatedContext(nextUserId ? "loading" : "signed-out", nextUserId || undefined, safeSession?.user?.email || undefined);
+        resetAuthenticatedContext(nextUserId ? "loading" : "signed-out", nextUserId || undefined, nextSession?.user?.email || undefined);
         setIsSwitching(Boolean(nextUserId));
       }
-      sessionRef.current = safeSession;
-      setSession(safeSession);
+      sessionRef.current = nextSession;
+      setSession(nextSession);
       setGuestMode(false);
       setAuthResolved(true);
     };
 
-    const handleGoogleProviderTokenCleared = () => {
-      if (!mounted) return;
-      const currentSession = sessionRef.current;
-      if (!currentSession) return;
-      const nextSession = {
-        ...currentSession,
-        provider_token: undefined,
-        provider_refresh_token: undefined,
-      } as Session;
-      sessionRef.current = nextSession;
-      setSession(nextSession);
-    };
-
     void supabase.auth.getSession().then(({ data }) => applySession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => applySession(nextSession));
-    if (typeof window !== "undefined") window.addEventListener(GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT, handleGoogleProviderTokenCleared);
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
-      if (typeof window !== "undefined") window.removeEventListener(GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT, handleGoogleProviderTokenCleared);
     };
   }, [resetAuthenticatedContext]);
 

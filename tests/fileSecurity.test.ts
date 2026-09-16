@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  MAX_GMAIL_ATTACHMENT_COUNT,
   safeStorageSegment,
-  validateGmailAttachmentEnvelope,
-  validateGmailRawMessage,
   validateInvoiceDocumentBytes,
   validatePayrollImportBytes,
 } from "../src/lib/fileSecurity.ts";
@@ -22,12 +19,6 @@ test("Storage path segments reject traversal and separators", () => {
   assert.equal(safeStorageSegment("abc-123", "id"), "abc-123");
   assert.throws(() => safeStorageSegment("../other", "id"), /unsafe path/i);
   assert.throws(() => safeStorageSegment("a/b", "id"), /unsafe path/i);
-});
-
-test("Gmail envelope and raw message limits fail closed", () => {
-  assert.throws(() => validateGmailAttachmentEnvelope(Array.from({ length: MAX_GMAIL_ATTACHMENT_COUNT + 1 }, () => ({ dataBase64: "AA==" }))), /at most/i);
-  assert.doesNotThrow(() => validateGmailRawMessage(new TextEncoder().encode("From: sender@example.com\r\nSubject: Invoice\r\n\r\nBody")));
-  assert.throws(() => validateGmailRawMessage(new Uint8Array([0, 1, 2, 3])), /RFC-style/i);
 });
 
 test("payroll imports require supported signatures", () => {

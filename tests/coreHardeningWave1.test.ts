@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { invitationRedirectUrl, InvitationDeliveryError, deliverCompanyInvitationEmail } from "../src/server/access/invitationDelivery.ts";
 import { normalizeCompanyAccessPayload } from "../src/lib/companyAccess.ts";
 
 const migration = readFileSync(new URL("../supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql", import.meta.url), "utf8");
 const platformMaintenanceCorrection = readFileSync(new URL("../supabase/migrations/20260829020000_core_hardening_wave1_platform_maintenance_correction.sql", import.meta.url), "utf8");
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
-const clientSupabase = readFileSync(new URL("../src/lib/supabase.ts", import.meta.url), "utf8");
 const accessManagement = readFileSync(new URL("../src/components/access/DeploymentAccessManagement.tsx", import.meta.url), "utf8");
 const profile = readFileSync(new URL("../src/components/access/CompanyProfileSettings.tsx", import.meta.url), "utf8");
 const settings = readFileSync(new URL("../src/components/Settings.tsx", import.meta.url), "utf8");
@@ -63,28 +61,6 @@ test("effective access snapshots carry role baseline, custom overrides, and the 
   assert.equal(snapshot.memberships[0]?.permissionOverrides?.[0]?.effect, "GRANT");
 });
 
-test("invitation delivery requires a configured origin and uses injectable Auth clients without exposing secrets", async () => {
-  assert.equal(invitationRedirectUrl({ APP_ORIGIN: "https://engoryx.example" }), "https://engoryx.example/?auth=invite");
-  assert.throws(() => invitationRedirectUrl({ APP_ORIGIN: "https://engoryx.example/path?unsafe=1" }), (error) => error instanceof InvitationDeliveryError && error.code === "NOT_CONFIGURED");
-  assert.throws(() => invitationRedirectUrl({}), (error) => error instanceof InvitationDeliveryError && error.code === "NOT_CONFIGURED");
-
-  let inviteEmail = "";
-  const admin = { auth: { admin: { inviteUserByEmail: async (email: string) => { inviteEmail = email; return { data: { user: { id: "user-a" } }, error: null }; } } } } as any;
-  const result = await deliverCompanyInvitationEmail({ email: "a@example.com", redirectTo: "https://engoryx.example/?auth=invite" }, { SUPABASE_URL: "https://project.supabase.co", SUPABASE_INVITATION_SERVER_KEY: "server-secret" }, { admin });
-  assert.equal(result.method, "invite");
-  assert.equal(inviteEmail, "a@example.com");
-  assert.doesNotMatch(clientSupabase, /SUPABASE_INVITATION_SERVER_KEY|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
-});
-
-test("existing Auth users receive a real sign-in email while database membership remains the gate", async () => {
-  const admin = { auth: { admin: { inviteUserByEmail: async () => ({ data: null, error: { message: "A user with this email address has already been registered" } }) } } } as any;
-  let sentEmail = "";
-  const publicClient = { auth: { signInWithOtp: async (input: any) => { sentEmail = input.email; assert.equal(input.options.shouldCreateUser, false); return { data: {}, error: null }; } } } as any;
-  const result = await deliverCompanyInvitationEmail({ email: "existing@example.com", redirectTo: "https://engoryx.example/?auth=invite" }, { SUPABASE_URL: "https://project.supabase.co", SUPABASE_INVITATION_SERVER_KEY: "server-secret", SUPABASE_PUBLISHABLE_KEY: "publishable-key" }, { admin, public: publicClient });
-  assert.equal(result.method, "sign-in");
-  assert.equal(sentEmail, "existing@example.com");
-});
-
 test("profile and access UI expose truthful states and remain isolated from the demo route", () => {
   assert.match(profile, /Company profile/);
   assert.match(profile, /Read-only/);
@@ -101,8 +77,6 @@ test("profile and access UI expose truthful states and remain isolated from the 
   assert.match(accessManagement, /Add user access/);
   assert.match(accessManagement, /Awaiting signup/);
   assert.doesNotMatch(accessManagement, /Invitation email sent|Delivery failed|Resend/);
-  assert.match(server, /\/api\/company\/invitations/);
-  assert.match(server, /platform_create_company_invitation/);
-  assert.match(server, /platform_mark_company_invitation_delivery/);
+  assert.doesNotMatch(server, /\/api\/company\/invitations|deliverCompanyInvitationEmail/);
   assert.doesNotMatch(server, /SUPABASE_SERVICE_ROLE_KEY/);
 });

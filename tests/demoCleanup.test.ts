@@ -30,7 +30,7 @@ test("legacy demo fingerprints are identified without using currency", () => {
   assert.equal(isLegacyDemoInvoice(invoice({ sourceType: "UPLOAD", invoiceNumber: "INV-2026-8894", currency: "USD" })), false);
 });
 
-test("cleanup preserves real PHP, USD upload, and USD Gmail invoices", () => {
+test("cleanup preserves real PHP, USD upload, and historical email invoices", () => {
   const records = [
     invoice({ id: "legacy-cloudtech", sourceType: "SAMPLE", vendor: { name: "CloudTech Solutions Inc." }, currency: "USD" }),
     invoice({ id: "php-upload", sourceType: "UPLOAD", currency: "PHP" }),

@@ -26,7 +26,7 @@ export type HelpEntryId =
   | "workforce-lifecycle"
   | "compensation-components"
   | "reports"
-  | "gmail-import"
+  | "communications"
   | "documents"
   | "settings"
   | "company-access";
@@ -218,12 +218,12 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     keywords: ["report", "reports", "summary", "export", "financial", "payroll cost"],
   },
   {
-    id: "gmail-import",
+    id: "communications",
     title: "Email / SMS workspace",
-    summary: `Use the ${BRAND.productName} communications center for Gmail intake, reviewed email compose, delivery history, and SMS status.`,
-    details: "Inbox / Intake remains read-only for Gmail discovery and source routing. Compose uses the audited delivery path and the Assistant can prepare drafts, but sending always requires human confirmation. SMS stays unavailable until a provider is configured and tested.",
+    summary: `Use the ${BRAND.productName} communications center for reviewed email compose, delivery history, provider status, and SMS status.`,
+    details: "Compose uses the audited Brevo delivery path and the Assistant can prepare drafts, but sending always requires human confirmation. Sent / Delivery History distinguishes provider acceptance from confirmed delivery. SMS stays unavailable until a provider is configured and tested.",
     routeId: "inbox",
-    keywords: ["gmail", "email", "sms", "inbox", "compose", "send", "delivery", "history", "read-only", "readonly", "import", "message"],
+    keywords: ["email", "sms", "compose", "send", "delivery", "history", "provider", "brevo", "message"],
   },
   {
     id: "documents",
@@ -303,7 +303,7 @@ export function helpEntryPath(entry: HelpCatalogEntry) {
 
 export function unknownHelpResponse(query: string) {
   const label = query.trim() ? ` for “${query.trim().slice(0, 80)}”` : "";
-  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Documents, Email / SMS and Gmail intake, Engineering Documents and blueprints, Daily Site Logs, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, or settings.`;
+  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Documents, Email / SMS communications, Engineering Documents and blueprints, Daily Site Logs, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, or settings.`;
 }
 
 export type HelpResponse =

@@ -8,12 +8,8 @@ import type {
 } from "../../components/engineering/EngineeringCostOperationsDashboard";
 import type {
   AttendanceRecord,
-  EmailClassification,
   Expense,
   FinancialFxSnapshot,
-  GmailConnectionInfo,
-  GmailMessageCandidate,
-  GmailScanWindow,
   InvoiceData,
   InvoiceProjectAllocation,
   LeaveRequest,
@@ -242,7 +238,6 @@ export interface AppRouterProps {
   workspaceOriginLabel?: string;
   uploadProjectContextId?: string | null;
   processingCount?: number;
-  gmailConnection?: GmailConnectionInfo;
   onRetryExtraction?: (invoice: InvoiceData) => Promise<InvoiceData | null>;
   onUpdateInvoice?: (invoice: InvoiceData) => void;
   onInvoiceBack?: () => void | Promise<void>;
@@ -270,12 +265,6 @@ export interface AppRouterProps {
     successful: InvoiceData[],
     failed: Array<{ name: string; error: string }>,
   ) => void;
-  onConnectGmail?: () => Promise<void> | void;
-  onSignOut?: () => Promise<void> | void;
-  onScanGmail?: (window: GmailScanWindow) => Promise<GmailMessageCandidate[]>;
-  onSyncGmail?: () => Promise<GmailMessageCandidate[]>;
-  onImportGmailMessage?: (message: GmailMessageCandidate) => Promise<number>;
-  onProcessEmail?: (input: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }) => Promise<EmailClassification | null>;
 
   // Cash & Banking Data & Handlers
   cashData: CashBankingWorkspaceData;
@@ -582,7 +571,6 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   workspaceOriginLabel,
   uploadProjectContextId,
   processingCount = 0,
-  gmailConnection,
   onRetryExtraction,
   onUpdateInvoice,
   onInvoiceBack,
@@ -607,12 +595,6 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onExtractInvoice,
   onLoadInvoicePreset,
   onBatchExtractComplete,
-  onConnectGmail,
-  onSignOut,
-  onScanGmail,
-  onSyncGmail,
-  onImportGmailMessage,
-  onProcessEmail,
   cashData,
   cashReconciliationCandidates = [],
   canManageCashAccounts = true,
@@ -951,15 +933,6 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         vendors={vendors}
         cashData={cashData}
         engineeringDocumentsData={engineeringDocumentsData}
-        gmailConnection={gmailConnection}
-        processingCount={processingCount}
-        onConnectGmail={onConnectGmail}
-        onSignOut={onSignOut}
-        onScanGmail={onScanGmail}
-        onSyncGmail={onSyncGmail}
-        onImportGmailMessage={onImportGmailMessage}
-        onProcessEmail={onProcessEmail}
-        onOpenInvoice={onSelectInvoice || (() => {})}
         onNavigatePath={onNavigatePath}
       />,
     );
@@ -1006,7 +979,6 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         preferredProjectId={uploadProjectContextId || undefined}
         reviewQueue={reviewQueue}
         processingCount={processingCount}
-        gmailConnection={gmailConnection}
         onSelectInvoice={onSelectInvoice}
         onOpenInvoiceForReview={onOpenInvoiceForReview}
         onStartReview={onStartReview}
@@ -1016,12 +988,6 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onExtract={onExtractInvoice}
         onLoadPreset={onLoadInvoicePreset}
         onBatchComplete={onBatchExtractComplete}
-        onConnectGmail={onConnectGmail}
-        onSignOut={onSignOut}
-        onScanGmail={onScanGmail}
-        onSyncGmail={onSyncGmail}
-        onImportGmailMessage={onImportGmailMessage}
-        onProcessEmail={onProcessEmail}
         purchaseOrders={purchaseOrders}
         purchaseOrderReceipts={receipts}
         purchaseOrderMatches={purchaseOrderMatches}

@@ -4,6 +4,8 @@
 
 **Goal:** Remove active Gmail mailbox/API functionality, make Google identity-only authentication, and provide safe Brevo-backed outbound transactional email through the existing delivery-history contract.
 
+**Status (2026-09-16):** Implementation complete on the task branch. Focused changed-surface tests, demo browser QA, lint/build, Workflow Map, clean migration replay, pgTAP, and serial upgrade fixtures pass. Brevo live delivery remains unverified because approved QA credentials, a verified sender, and a safe recipient were unavailable; the aggregate affected selector is qualified by existing unrelated visual-harness baseline failures.
+
 **Architecture:** Google Sign-In remains a normal Supabase identity-provider flow with `openid email profile` only. Brevo is a deployment-owned server adapter with safe account/sender status checks and a transactional send endpoint. New email delivery intents use `delivery_channel='EMAIL'`, `provider_id='BREVO'`, and `provider_message_id`; existing Gmail source and delivery records remain historical and are not rewritten.
 
 **Tech Stack:** React 19, TypeScript, Vite, Express, Supabase Auth/Postgres/RLS/RPC, Brevo REST API, Node test runner, Playwright/demo QA, existing PDF evidence tooling.
@@ -185,7 +187,7 @@ git commit -m "feat: add server-side Brevo transactional email provider"
 ### Task 4: Extend the existing delivery contract for Brevo without rewriting Gmail history
 
 **Files:**
-- Create: `supabase/migrations/20260915113000_brevo_email_delivery.sql`
+- Create: `supabase/migrations/20260915135236_brevo_email_delivery.sql`
 - Create: `supabase/tests/database/40_brevo_email_delivery.test.sql`
 - Test: `tests/brevoEmailDeliveryMigration.test.ts`
 - Modify: `src/server/documentDelivery/documentDeliveryHistory.ts`
@@ -226,7 +228,7 @@ Expected: PASS for the migration text and history mapping contracts.
 - [ ] **Step 6: Commit the schema contract.**
 
 ```text
-git add supabase/migrations/20260915113000_brevo_email_delivery.sql supabase/tests/database/40_brevo_email_delivery.test.sql src/server/documentDelivery/documentDeliveryHistory.ts src/lib/documentDelivery.ts src/types.ts tests
+git add supabase/migrations/20260915135236_brevo_email_delivery.sql supabase/tests/database/40_brevo_email_delivery.test.sql src/server/documentDelivery/documentDeliveryHistory.ts src/lib/documentDelivery.ts src/types.ts tests
 git commit -m "feat: add Brevo identity to delivery history"
 ```
 

@@ -7,7 +7,7 @@ const publicRoot = readFileSync(new URL("../src/public/PublicFunnelRoot.tsx", im
 const authScreen = readFileSync(new URL("../src/components/auth/AuthScreen.tsx", import.meta.url), "utf8");
 const appShell = readFileSync(new URL("../src/app/AppShell.tsx", import.meta.url), "utf8");
 const mainSource = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
-const setup = readFileSync(new URL("../SUPABASE_GMAIL_SETUP.md", import.meta.url), "utf8");
+const setup = readFileSync(new URL("../GOOGLE_SIGNIN_BREVO_SETUP.md", import.meta.url), "utf8");
 
 test("privacy and terms are public routes while recovery links remain authenticated", () => {
   assert.equal(isPublicFunnelApplicationPath("/privacy"), true);
@@ -35,7 +35,7 @@ test("the canonical product host exposes the public funnel without changing oper
   assert.equal(applicationModeForPath("/", "", "#access_token=redacted&type=recovery", false, "hydroqualisense.com"), "production");
 });
 
-test("public policy surfaces explain Google data use and provide sign-in/legal navigation", () => {
+test("public policy surfaces explain identity-only Google use and provide sign-in/legal navigation", () => {
   for (const phrase of [
     "Hydroqualisense",
     "Projects",
@@ -49,24 +49,18 @@ test("public policy surfaces explain Google data use and provide sign-in/legal n
     "Business communications",
     "Privacy Policy",
     "Terms of Service",
-    "Optional Gmail integration",
-    "your own Google account",
-    "Gmail message metadata",
-    "email sender, recipient, subject, and date",
-    "message content",
-    "selected attachments",
-    "gmail.readonly",
-    "gmail.send",
-    "Google user data is not sold",
-    "not used for advertising",
-    "not transferred to data brokers",
-    "does not use Google Workspace data to train generalized",
-    "support, security, abuse prevention, or legal requirements",
-    "revoke Google authorization",
-    "revoking Gmail access prevents future API access",
-    "does not necessarily erase legitimate company records",
+    "Google Sign-In",
+    "identity only",
+    "openid, email, and profile",
+    "does not read, scan, import from, or send through a Gmail mailbox",
+    "server-side Brevo configuration",
+    "provider acceptance from confirmed delivery",
+    "Google account identity information is not sold",
+    "used for advertising",
+    "transferred to data brokers",
+    "revoke Google Sign-In authorization",
+    "Revoking identity authorization",
     "Google API Services User Data Policy",
-    "Limited Use",
     "https://developers.google.com/terms/api-services-user-data-policy",
     "/privacy",
     "/terms",
@@ -80,4 +74,8 @@ test("public policy surfaces explain Google data use and provide sign-in/legal n
   assert.match(mainSource, /applicationModeForPath\(window\.location\.pathname, window\.location\.search, window\.location\.hash, undefined, window\.location\.hostname\)/);
   assert.match(setup, /https:\/\/hydroqualisense\.com\/privacy/);
   assert.match(setup, /https:\/\/hydroqualisense\.com\/terms/);
+  assert.match(setup, /gmail\.readonly/);
+  assert.match(setup, /gmail\.send/);
+  assert.match(setup, /BREVO_API_KEY/);
+  assert.doesNotMatch(setup, /Gmail setup|Connect Google \+ Gmail|Gmail Inbox/);
 });

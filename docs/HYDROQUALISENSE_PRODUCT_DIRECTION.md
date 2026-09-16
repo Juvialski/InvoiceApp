@@ -85,13 +85,13 @@ It established:
 - actor/audit attribution integrity;
 - null-preserving extraction semantics and removal of implicit VAT-rate validation;
 - validated file bytes before direct AI extraction;
-- durable AI request budgets and bounded Gmail processing;
+- durable AI request budgets and bounded source processing;
 - trusted issued-document rendering with durable send-intent/idempotency state;
 - stronger RBAC/RLS/RPC/grant alignment;
 - durable backup-registration visibility and isolated restore drills;
 - production security headers and final DB security-inventory coverage.
 
-Known external limitation: a real Gmail send still requires a connected Google account/OAuth consent and is not proven by CI alone.
+Known external limitation: a real Brevo send requires client-specific server configuration, a verified sender, and controlled QA evidence; it is not proven by CI alone.
 
 ## Completed operational expansion — Warehouse + Post-Warehouse Integration
 

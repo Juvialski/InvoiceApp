@@ -29,7 +29,7 @@ test("R5 no longer embeds an implicit VAT rate", () => {
 test("R5 issued-document send uses server-rendered snapshot bytes and durable intent state", () => {
   assert.match(server, /renderTrustedIssuedPdf/);
   assert.match(server, /claim_document_send_intent/);
-  assert.match(server, /complete_document_send_intent/);
+  assert.match(server, /complete_email_delivery_intent/);
   assert.doesNotMatch(server, /pdfBase64/);
   assert.match(migration, /status in \('PENDING', 'SENT', 'FAILED', 'UNKNOWN'\)/i);
   assert.match(migration, /trusted_sha256/);
@@ -53,7 +53,7 @@ test("R5 direct extraction rejects malformed/base64 active content before AI", (
   assert.throws(() => validateInvoiceDocumentBytes(new TextEncoder().encode("<svg>active</svg>"), "image/svg+xml", "invoice.svg"), /active|valid/i);
   assert.match(server, /decodeBase64Payload/);
   assert.match(server, /validateInvoiceDocumentBytes/);
-  assert.match(server, /attachmentCount/);
+  assert.match(server, /attachmentName/);
   assert.match(readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8"), /payload\.fileData && payload\.mimeType/);
 });
 

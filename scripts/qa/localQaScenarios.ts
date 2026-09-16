@@ -458,11 +458,11 @@ async function verifySettings(page: any, _viewport: QaViewport): Promise<Scenari
 async function verifyInbox(page: any, _viewport: QaViewport): Promise<ScenarioActionResult> {
   return {
     assertions: [
-      assertion("email-inbox-domain", await page.locator("[data-domain='email-sms-inbox']").count() > 0, "Email / SMS inbox domain is mounted."),
-      assertion("read-only-scope-copy", await page.getByText(/Inbox access: read-only/i).count() > 0 || await page.getByText(/Gmail.*read-only/i).count() > 0, "Inbound Gmail scope is explicitly described."),
-      assertion("compose-direction", await page.getByText(/Compose.*outbound|outbound.*Compose/i).count() > 0 || await page.getByRole("button", { name: /Compose/i }).count() > 0, "Outbound composition remains discoverable."),
+      assertion("email-communications-domain", await page.locator("[data-email-sms-workspace]").count() > 0, "Email / SMS communications workspace is mounted."),
+      assertion("compose-direction", await page.getByRole("button", { name: "Compose", exact: true }).count() > 0, "Reviewed email composition remains discoverable."),
+      assertion("provider-status", await page.getByRole("button", { name: "Email Provider Status", exact: true }).count() > 0, "Email provider status remains discoverable."),
     ],
-    details: "Inbox content is not persisted to evidence; provider scans/imports are not triggered by this scenario.",
+    details: "The communications workspace is inspected without triggering provider sends or mailbox scans.",
   };
 }
 
@@ -790,7 +790,7 @@ export async function runLocalQaScenarios(options: LocalQaScenarioRunOptions): P
       id: `legacy-email-alias-${slug(alias)}-${viewport.name}`,
       surface: "Email / SMS",
       path: alias,
-      interactionState: "legacy Gmail intake alias preserved",
+       interactionState: "legacy communications alias preserved",
       viewport,
       captureScreenshot: false,
       action: verifyInbox,

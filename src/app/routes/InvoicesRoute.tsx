@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { VerificationWorkspace, type SaveState } from "../../components/VerificationWorkspace";
 import { UploadZone, type ExtractPayload } from "../../components/UploadZone";
-import { EmailInbox } from "../../components/EmailInbox";
 import { ReviewQueue } from "../../components/ReviewQueue";
 import { InvoiceDirectory } from "../../components/InvoiceDirectory";
 import { InvoiceDirectoryReadOnly } from "../../components/InvoiceDirectoryReadOnly.tsx";
@@ -11,12 +10,8 @@ import { Vendors } from "../../components/Vendors";
 import { FinancialSettlementCard } from "../../components/FinancialSettlementCard.tsx";
 import { InvoiceSettlementDirectoryPanel } from "../../components/InvoiceSettlementDirectoryPanel.tsx";
 import type {
-  EmailClassification,
   Expense,
   FinancialFxSnapshot,
-  GmailConnectionInfo,
-  GmailMessageCandidate,
-  GmailScanWindow,
   InvoiceData,
   InvoiceProjectAllocation,
   Project,
@@ -61,7 +56,6 @@ export interface InvoicesRouteProps {
   activeSupplierExpenseInvoiceIds?: readonly string[];
   workspaceOriginLabel?: string;
   processingCount?: number;
-  gmailConnection?: GmailConnectionInfo;
   onRetryExtraction?: (invoice: InvoiceData) => Promise<InvoiceData | null>;
   onUpdateInvoice?: (invoice: InvoiceData) => void;
   onBack?: () => void | Promise<void>;
@@ -87,12 +81,6 @@ export interface InvoicesRouteProps {
   onExtract?: (payload: ExtractPayload) => Promise<InvoiceData>;
   onLoadPreset?: (invoice: InvoiceData) => void;
   onBatchComplete?: (successful: InvoiceData[], failed: Array<{ name: string; error: string }>) => void;
-  onConnectGmail?: () => Promise<void> | void;
-  onSignOut?: () => Promise<void> | void;
-  onScanGmail?: (window: GmailScanWindow) => Promise<GmailMessageCandidate[]>;
-  onSyncGmail?: () => Promise<GmailMessageCandidate[]>;
-  onImportGmailMessage?: (message: GmailMessageCandidate) => Promise<number>;
-  onProcessEmail?: (input: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }) => Promise<EmailClassification | null>;
   onNavigatePath?: AppNavigate;
   purchaseOrders?: PurchaseOrder[];
   purchaseOrderReceipts?: PurchaseOrderReceipt[];
@@ -142,7 +130,6 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   activeSupplierExpenseInvoiceIds = [],
   workspaceOriginLabel,
   processingCount = 0,
-  gmailConnection,
   onRetryExtraction,
   onUpdateInvoice = () => {},
   onBack = () => {},
@@ -168,12 +155,6 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onExtract = async () => { throw new Error("Extractor handler not configured."); },
   onLoadPreset,
   onBatchComplete,
-  onConnectGmail = () => {},
-  onSignOut = () => {},
-  onScanGmail = async () => [],
-  onSyncGmail = async () => [],
-  onImportGmailMessage = async () => { throw new Error("Gmail import handler not configured."); },
-  onProcessEmail = async () => { throw new Error("Process email handler not configured."); },
   onNavigatePath,
   purchaseOrders,
   purchaseOrderReceipts,
@@ -198,9 +179,6 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canReadProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementRead);
   const canManageProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementWrite);
   const canManageVendors = hasPermission(permissions, PERMISSION_KEYS.vendorsManage);
-  const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
-  const canImportBankStatements = hasPermission(permissions, PERMISSION_KEYS.cashImport);
-  const canManageExpenses = hasAllPermissions(permissions, [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite]);
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const canRecordInvoicePayment = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.invoicesWrite]);
   const canRecordExpensePayment = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.expensesWrite]);
@@ -322,11 +300,6 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
     );
   }
   if (activeSubTab === "extractor") return <div className="space-y-5">{canExtractInvoices ? <UploadZone onExtract={onExtract} onLoadPreset={onLoadPreset} onBatchComplete={onBatchComplete} isLoading={processingCount > 0} /> : <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950"><strong>Invoice extraction is unavailable for this access profile.</strong><p className="mt-1 text-xs">Creating a reviewable invoice requires invoice management, extraction, and verification permissions so source, invoice, and review history can be persisted together.</p></div>}</div>;
-  if (activeSubTab === "inbox") {
-    const fallbackConnection: GmailConnectionInfo = { configured: false, signedIn: false, hasGmailToken: false };
-    const connection = gmailConnection || fallbackConnection;
-    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} onNavigatePath={onNavigatePath} canManageMailbox={canManageGmail} canProcessInvoices={canExtractInvoices} canImportBankStatements={canImportBankStatements} canManageExpenses={canManageExpenses} />;
-  }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} financialFxSnapshots={financialFxSnapshots} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifySupplierInvoices ? onStartReview : undefined} readOnly={!canVerifySupplierInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} vendors={vendors} canManage={canManageVendors} onDeactivateVendor={onDeactivateVendor} onReactivateVendor={onReactivateVendor} />;
   return <div className="space-y-5">{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}<InvoiceSettlementDirectoryPanel invoices={invoices} expenses={expenses} settlementMatches={settlementMatches} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />{correctionDialog}</div>;

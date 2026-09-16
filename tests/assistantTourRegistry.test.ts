@@ -14,7 +14,7 @@ test("tour registry contains the stable Wave 1 tour set and valid targets", () =
     "engoryx-overview",
     "cash-banking",
     "first-invoice",
-    "gmail-import",
+    "communications",
     "projects-costing",
     "engineering-documents",
     "project-lifecycle",

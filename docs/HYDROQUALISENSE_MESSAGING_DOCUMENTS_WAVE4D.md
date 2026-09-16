@@ -1,6 +1,6 @@
 # HydroQualiSense Wave 4D — Email/SMS Workspace + Documents Workspace
 
-Status: **ACTIVE — EMAIL/SMS RELIABILITY + PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / BLOCKING BEFORE WORKER REGISTRATION**
+Status: **ACTIVE — GOOGLE SIGN-IN + BREVO EMAIL MIGRATION / GMAIL API REMOVED / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / BLOCKING BEFORE WORKER REGISTRATION**
 Date: **2026-09-15**
 Repository: `Juvialski/InvoiceApp`  
 Starting product baseline: merged `main` at `3fd73039afd018b1bb630bfee2a68a38c6d37fcc` (PR #136)
@@ -34,7 +34,7 @@ These waves are valuable foundations, but they do not complete the broader Email
 
 ### Wave 4C — complete through PR #136
 
-- issued Purchase Order and Client Invoice sending through connected Gmail;
+- issued Purchase Order and Client Invoice sending through the configured Brevo account;
 - exact attachment identity/provenance;
 - durable send intents and append-only delivery history;
 - idempotency, explicit resend, reconciliation-required failure handling;
@@ -46,27 +46,24 @@ Wave 4C did **not** implement a unified communications workspace or a real SMS p
 
 The supplier-payables settlement correction is merged on current `main` at `e4ee4ebde489629ee74429b4e37abb511943a51e`. The exact-SHA hosted QA recovery passed after a same-SHA authentication retry, and the canonical QA migration `20260912082656_supplier_payables_settlement_consistency` is promoted with independent parity verification. Authenticated QA supplier-payables certification passed 12/12 assertions, including linked `DRAFT` Expense authority, cash-only payment truth, partial/full/reversed settlement, legacy invoice-match projection, generic-DRAFT and cross-company denials, and permission grants.
 
-This evidence does not complete Wave 4D. SMS remains `Not configured`/unavailable because no approved provider credentials or device runtime are available for QA, Gmail currently needs reauthorization, and Worker Registration remains paused. The production migration was separately promoted under explicit authorization; this checkpoint performed no production write.
+This evidence does not complete Wave 4D. SMS remains `Not configured`/unavailable because no approved provider credentials or device runtime are available for QA, Brevo runtime credentials and a safe recipient are not available in this environment, and Worker Registration remains paused. The production migration was separately promoted under explicit authorization; this checkpoint performed no production write.
 
 ## 2026-09-14 Email/SMS reliability and public OAuth additions
 
-The current implementation adds the following focused reliability and usability
-work while keeping the broader Wave 4D completion gate open:
+The 2026-09-15 implementation adds the following focused provider migration and
+usability work while keeping the broader Wave 4D completion gate open:
 
-- Inbox / Intake now puts page identity, Gmail status, Sync, Scan, Intake Rules,
-  filters, and the review queue ahead of a closed `How intake works` disclosure.
-  Forwarded supplier-invoice intake remains available and SMS setup language stays
-  in the SMS section.
+- Email / SMS now centers Compose, Sent / Delivery History, Email Provider Status,
+  and SMS setup/status; there is no fake inbound mailbox surface.
 - Compose and Sent / Delivery History use compact task-first descriptions while
   retaining explicit human review, delivery history, idempotency, reconciliation,
   and owning-document actions.
-- Gmail OAuth callback material is captured once, removed from the React session
-  object, and sent only to an authenticated server endpoint. The server stores a
-  company/user-scoped AES-GCM envelope using a dedicated server-only key, refreshes
-  access tokens server-side, accepts rotated refresh tokens, retries one expired
-  access token once, and classifies scope, permission, quota, transient, setup, and
-  revoked-authorization outcomes separately. Provider tokens are not stored in
-  ordinary browser local storage or returned in API responses.
+- Google Sign-In requests only `openid email profile`; Gmail mailbox/API read,
+  intake, reconnect, refresh-token storage, and API send are removed. Historical
+  Gmail-derived source and delivery records remain compatible for audit.
+- Brevo is the server-side transactional-email adapter. It checks account/sender
+  setup, maps reviewed recipients/body/attachments, stores the provider message ID,
+  and reports accepted/failed/unknown without calling acceptance delivery.
 - The public `/privacy` and `/terms` pages are session-free and linked from the
   public homepage, sign-in screen, and authenticated shell. The canonical
   `hydroqualisense.com` homepage is host-aware and public without a manual build
@@ -77,11 +74,10 @@ work while keeping the broader Wave 4D completion gate open:
   is compact, setup detail is collapsed, and configuration/readiness continues to
   be reported truthfully until provider-backed QA evidence exists.
 
-The durable Gmail migration is additive and requires the server-only
-`SUPABASE_GMAIL_SERVER_KEY`, `GMAIL_CREDENTIALS_MASTER_KEY`, and matching Google
-OAuth client values described in `SUPABASE_GMAIL_SETUP.md`. Missing external
-configuration remains an operator blocker; it is not represented as a healthy
-Gmail or SMS capability.
+The current Google identity and Brevo server-only configuration is documented in
+`GOOGLE_SIGNIN_BREVO_SETUP.md`. Missing external Brevo credentials, verified
+sender setup, or safe QA recipient remains an operator blocker; it is not
+represented as a healthy Brevo or SMS capability.
 
 ## 2026-09-15 Google OAuth branding verification remediation
 
@@ -93,11 +89,11 @@ The repository-side corrective slice makes the canonical homepage publicly reach
 keeps `/privacy` and `/terms` session-free, preserves authenticated `/dashboard` and
 operational routes, and retains the existing public-funnel flag for deliberately public
 noncanonical deployments. The homepage and policy pages now use the exact
-`Hydroqualisense` product name, explain the business-operations purpose and optional
-Gmail read/send boundary, and link the Google API Services User Data Policy / Limited Use
-disclosure. Google re-verification remains external and pending, not approved.
+`Hydroqualisense` product name, explain the business-operations purpose and
+identity-only Google Sign-In, and describe Brevo as the server-side outbound
+provider when configured. External Google Cloud changes remain outside this repo.
 
-Durable Gmail runtime credential setup remains a separate operator task. SMS provider
+Brevo sender verification/controlled QA remains a separate operator task. SMS provider
 runtime completion remains separate and unavailable until controlled QA evidence exists.
 Worker Registration remains paused.
 
@@ -108,51 +104,47 @@ The intended authenticated product navigation must expose distinct primary areas
 - **Email / SMS**
 - **Documents**
 
-The old standalone `Email Intake` navigation item should not remain the primary product concept after Wave 4D. Existing inbound Gmail intake behavior must be preserved inside the Email / SMS workspace rather than deleted.
+The old standalone `Email Intake` navigation item should not remain the primary product concept after Wave 4D. This migration deliberately removes inbound mailbox intake; historical source records remain available only through their owning workflows and audit/history surfaces.
 
 ## Email / SMS workspace
 
-The Email / SMS workspace is the company's communications center. It should unify inbound email intake and outbound communication without weakening canonical workflow ownership.
+The Email / SMS workspace is the company's communications center for reviewed outbound communication without weakening canonical workflow ownership.
 
 ### Required sections / capabilities
 
 At minimum, design and implement a coherent responsive workspace containing:
 
-1. **Inbox / Intake**
-   - preserve the current read-only Gmail-assisted search/sync/import workflow;
-   - preserve routing of selected source evidence into Supplier Invoice, Expense, and Cash/Bank statement review workflows;
-   - preserve original message/attachment evidence and current bounded processing controls;
-   - reconnect Gmail from this workspace when authorization is missing/expired.
-
-2. **Compose / New Message**
-   - support outbound email composition using the connected Gmail account;
+1. **Compose**
+   - support outbound email composition through the configured server-side Brevo account;
    - support recipient, CC where applicable, subject, body, and supported attachments;
-   - allow attaching an eligible document from the new Documents workspace or from an owning record;
-   - use the existing Wave 4C delivery/idempotency/history contracts instead of creating an unrelated email-sending system;
-   - ordinary non-document email may be supported only through an equally auditable, permission-aware delivery contract rather than bypassing delivery history.
+   - allow attaching an eligible document from the Documents workspace or an owning record;
+   - preserve the existing Wave 4C delivery/idempotency/history contracts.
 
-3. **Assistant-assisted drafting**
+2. **Assistant-assisted drafting**
    - the Assistant may draft or prepare email/SMS content and suggest eligible attachments/recipients based on authorized context;
    - consequential send actions must remain `prepare -> review -> human confirm -> execute`;
    - the Assistant must not silently send email or SMS;
    - the Assistant must not gain broader read/send authority than the current user.
 
-4. **Sent / Delivery History**
+3. **Sent / Delivery History**
    - provide a unified, company-scoped view of supported outbound attempts;
    - surface channel, recipient, subject/summary, linked document when present, sender label, timestamp, status, and safe retry/reconciliation state;
    - preserve the immutable Wave 4C history and idempotency model;
    - do not expose provider credentials, raw tokens, unsafe provider errors, or cross-company records.
 
-5. **SMS**
+4. **SMS**
    - provide the product surface and provider abstraction needed for SMS;
    - SMS must remain visibly `Not configured` / unavailable when no approved provider is configured;
    - do not fake successful sending, delivery receipts, pricing, sender identity, or provider health;
    - once the user selects and configures an approved SMS provider, use server-side credentials only;
    - real provider-backed SMS delivery and delivery-status behavior must be runtime-tested in QA before SMS is marked Available.
 
-### Gmail scope requirement
+### Google and Brevo scope requirement
 
-Outbound Gmail requires the connected Google identity to authorize at least the existing read scope needed by intake and the `gmail.send` scope needed by document/message delivery. Existing OAuth re-consent/reconnect behavior should be reused rather than creating a second Google identity system.
+Google is used for identity only with `openid email profile`. No Gmail API scope,
+mailbox read/intake flow, or Gmail API send path is part of the current product.
+Brevo credentials are server-only and each isolated client deployment may use its
+own client-controlled account and verified sender.
 
 ## Documents workspace
 
@@ -234,11 +226,11 @@ Preserve permission-based authorization rather than role-name checks.
 
 At minimum:
 
-- inbound Gmail access follows the current authorized mailbox/user boundary;
+- Google Sign-In is identity-only and does not grant mailbox access;
 - outbound email/SMS requires dedicated send authority consistent with existing `documents.send` semantics or an explicitly designed messaging permission that does not broaden authority accidentally;
 - Documents visibility is the union of records/artifacts the user is already authorized to read, never a bypass around domain permissions;
 - cross-company leakage is forbidden;
-- Google and SMS provider credentials remain server-side; Gmail callback refresh material is persisted only through the encrypted server credential path;
+- Brevo and SMS provider credentials remain server-side; historical Gmail fields/rows remain read-only provenance rather than active credentials;
 - no AI prompt or assistant tool may reveal inaccessible contacts/documents/history;
 - immutable issued/finalized document history remains intact.
 

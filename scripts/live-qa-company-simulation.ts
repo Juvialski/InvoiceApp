@@ -108,8 +108,6 @@ const EXPECTED_DEPLOYED_SHA = (process.env.QA_E2E_EXPECTED_REPOSITORY_SHA || "")
 const EXPECTED_DEPLOYED_MIGRATION = (process.env.QA_E2E_EXPECTED_MIGRATION_LEVEL || "").trim();
 const QA_EMAIL = (process.env.QA_E2E_EMAIL || "").trim();
 const QA_PASSWORD = process.env.QA_E2E_PASSWORD || "";
-const CONTROLLED_RECIPIENT = (process.env.QA_E2E_CONTROLLED_RECIPIENT || "").trim();
-const SEND_GMAIL = process.env.QA_E2E_SEND_GMAIL === "1";
 const EXISTING_DOCUMENT_NUMBER = (process.env.QA_E2E_EXISTING_DOCUMENT_NUMBER || "").trim();
 const NAVIGATION_TIMEOUT_MS = 60_000;
 const ROUTE_READINESS_TIMEOUT_MS = 30_000;
@@ -155,9 +153,6 @@ function assertInputs() {
   }
   if (Boolean(QA_EMAIL) !== Boolean(QA_PASSWORD) || !QA_EMAIL || !QA_PASSWORD) {
     throw new Error("Live QA requires the explicit QA_E2E_EMAIL and QA_E2E_PASSWORD secret pair.");
-  }
-  if (SEND_GMAIL && !CONTROLLED_RECIPIENT) {
-    throw new Error("QA_E2E_SEND_GMAIL=1 requires an explicit QA_E2E_CONTROLLED_RECIPIENT; the harness never invents recipients.");
   }
 }
 
@@ -595,8 +590,7 @@ async function emailScenario(browser: any, storageState: any) {
   try {
     await page.goto(`${BASE_URL}/email-sms?view=compose`, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
     await waitForHostedQaRouteReadiness(page, ROUTE_READINESS_TIMEOUT_MS);
-    const body = await page.locator("body").innerText();
-    await page.getByRole("textbox", { name: "To", exact: true }).fill(CONTROLLED_RECIPIENT || "qa@example.invalid");
+    await page.getByRole("textbox", { name: "To", exact: true }).fill("qa@example.invalid");
     await page.getByRole("textbox", { name: "Subject", exact: true }).fill(`[HydroQualiSense QA] ${RUN_ID} review`);
     await page.getByRole("textbox", { name: "Message", exact: true }).fill("Synthetic QA message prepared for human review only.");
     await page.getByRole("button", { name: "Preview / Review", exact: true }).click();
@@ -604,27 +598,8 @@ async function emailScenario(browser: any, storageState: any) {
     scenario.screenshots.push(await captureScreenshot(page, "email-sms", "desktop", "compose-review"));
     const reviewVisible = await page.getByText("REVIEW BEFORE SENDING", { exact: true }).count() > 0;
     scenario.assertions.push({ id: "review-gate-visible", passed: reviewVisible, details: reviewVisible ? "Review state is visible." : "Review state is missing." });
-    const sendButton = page.getByRole("button", { name: "Confirm & Send", exact: true });
-    const providerNeedsAttention = /needs reauthorization|authorization expired|connection needs attention/i.test(body);
-    if (providerNeedsAttention) {
-      scenario.classification = "PROVIDER BLOCKER";
-      scenario.details = "Gmail authorization is expired or revoked; compose and review remain available, but no send is attempted.";
-      scenario.aiProviderCalls.push({ feature: "gmail", status: "AUTHORIZATION_REQUIRED", details: "Provider state requires Gmail reconnect." });
-    } else if (!SEND_GMAIL) {
-      scenario.classification = "PASS WITH LIMITATION";
-      scenario.details = "Review gate passed. Actual send is disabled unless QA_E2E_SEND_GMAIL=1 and a controlled recipient is explicitly supplied.";
-    } else if (await sendButton.isEnabled()) {
-      await sendButton.click();
-      await page.waitForTimeout(2_000);
-      await page.getByRole("button", { name: "Sent / Delivery History", exact: true }).click();
-      const history = await page.locator("body").innerText();
-      scenario.assertions.push({ id: "gmail-history", passed: history.includes(RUN_ID), details: history.includes(RUN_ID) ? "The controlled send is visible in delivery history." : "The controlled send is not visible in delivery history." });
-      scenario.classification = scenario.assertions.every((assertion) => assertion.passed) ? "PASS" : "PRODUCT DEFECT";
-      scenario.details = "Controlled Gmail send was enabled explicitly and checked in delivery history.";
-    } else {
-      scenario.classification = "PROVIDER BLOCKER";
-      scenario.details = "The provider or human-review gate kept Confirm & Send disabled.";
-    }
+    scenario.classification = "PASS WITH LIMITATION";
+    scenario.details = "Compose and human review were inspected without sending. Brevo provider delivery requires a separately authorized controlled QA certification with deployment secrets and a verified recipient.";
   } catch (error) {
     scenario.classification = "ENVIRONMENT BLOCKER";
     scenario.details = safe(error);

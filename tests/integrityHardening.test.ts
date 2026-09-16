@@ -32,7 +32,7 @@ const FINANCE = new Set<PermissionKey>([
   PERMISSION_KEYS.invoicesWrite,
   PERMISSION_KEYS.invoicesVerify,
   PERMISSION_KEYS.invoicesExtract,
-  PERMISSION_KEYS.gmailRead,
+  PERMISSION_KEYS.documentSend,
   PERMISSION_KEYS.expensesRead,
   PERMISSION_KEYS.expensesWrite,
   PERMISSION_KEYS.vendorsRead,
@@ -175,7 +175,7 @@ test("Viewer and read-only roles are not offered mutation workflows", () => {
   assert.match(expensesPage, /\{canManage && <th/);
   assert.match(invoicesRoute, /InvoiceDirectoryReadOnly/);
   assert.match(invoicesRoute, /readOnly=\{!canVerifySupplierInvoices\}/);
-  assert.match(invoicesRoute, /canManageMailbox=\{canManageGmail\}/);
+  assert.doesNotMatch(invoicesRoute, /canManageMailbox|canManageGmail/);
 });
 
 test("Project workspace hides inaccessible financial and workforce tabs instead of showing false empty states", () => {

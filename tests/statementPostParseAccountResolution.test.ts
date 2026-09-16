@@ -18,7 +18,22 @@ import type {
   EntityResolutionResult,
   FinancialAccountIdentityEvidence,
 } from "../src/types.ts";
-import type { PendingEmailStatementReview } from "../src/lib/emailIntake.ts";
+
+interface PendingEmailStatementReview {
+  id: string;
+  sourceDocumentId: string;
+  emailMessageId: string;
+  gmailMessageId: string;
+  gmailAttachmentId?: string;
+  fileName: string;
+  mimeType: string;
+  subject: string;
+  sender: string;
+  createdAt: string;
+  confirmedAccountId?: string;
+  matchedProfileId?: string;
+  matchedProfileName?: string;
+}
 
 const sampleAccounts: FinancialAccount[] = [
   {

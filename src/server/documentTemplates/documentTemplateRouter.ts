@@ -649,7 +649,7 @@ export interface IssuedDocumentTemplatePdfDelivery {
 
 /**
  * Render the exact pinned company-template PDF for an outbound send. This is
- * deliberately shared with the document-template route so Gmail cannot drift
+ * deliberately shared with the document-template route so email delivery cannot drift
  * to a second merge or conversion implementation. A missing operational
  * converter is the one compatibility case that returns null to let the caller
  * use the existing programmatic PDF fallback.

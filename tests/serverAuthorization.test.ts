@@ -5,6 +5,7 @@ import test from "node:test";
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 const browserClient = readFileSync(new URL("../src/lib/companyApi.ts", import.meta.url), "utf8");
 const legacyBrowserClient = readFileSync(new URL("../src/lib/supabase.ts", import.meta.url), "utf8");
+const brevoProvider = readFileSync(new URL("../src/server/messaging/brevoEmailProvider.ts", import.meta.url), "utf8");
 const assistantHandler = readFileSync(new URL("../src/server/assistant/assistantHandler.ts", import.meta.url), "utf8");
 
 function routeBody(path: string) {
@@ -14,19 +15,11 @@ function routeBody(path: string) {
   return server.slice(start, next === -1 ? undefined : next);
 }
 
-test("company-specific AI and Gmail routes require a database permission check", () => {
+test("company-specific AI and Brevo email routes require a database permission check", () => {
   for (const [path, permission] of [
-    ["/api/classify-email", "invoices.extract"],
     ["/api/extract-invoice", "invoices.extract"],
     ["/api/extract-expense", "expenses.manage"],
-    ["/api/gmail/profile", "gmail.read"],
-    ["/api/gmail/status", "gmail.read"],
-    ["/api/gmail/scan", "gmail.read"],
-    ["/api/gmail/history", "gmail.read"],
-    ["/api/gmail/import", "gmail.manage"],
-    ["/api/gmail/provider-credential", "gmail.manage"],
-    ["/api/gmail/provider-credential/revoke", "gmail.manage"],
-    ["/api/gmail/send", "documents.send"],
+    ["/api/messaging/email/send", "documents.send"],
   ] as const) {
     const body = routeBody(path);
     assert.match(body, /authorizeCompanyRequest\(req, /);
@@ -40,11 +33,12 @@ test("company-specific AI and Gmail routes require a database permission check",
   assert.match(server, /headerCompanyId !== companyId/);
 });
 
-test("the Express API separates Supabase and Google bearer tokens", () => {
-  assert.match(server, /req\.headers\["x-gmail-access-token"\]/);
+test("the Express API keeps Supabase authentication and Brevo credentials server-side", () => {
+  assert.doesNotMatch(server, /x-gmail-access-token|X-Gmail-Access-Token|gmail\.googleapis\.com/i);
   assert.match(server, /client\.auth\.getUser\(accessToken\)/);
   assert.match(server, /client\.rpc\("has_company_permission"/);
-  assert.doesNotMatch(server, /getGoogleAccessToken[\s\S]{0,250}req\.headers\.authorization/);
+  assert.match(brevoProvider, /BREVO_API_KEY/);
+  assert.doesNotMatch(browserClient, /BREVO_API_KEY|BREVO_SENDER_EMAIL/);
   assert.doesNotMatch(server, /SUPABASE_SERVICE_ROLE_KEY/);
 });
 

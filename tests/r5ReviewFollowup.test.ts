@@ -43,14 +43,11 @@ test("manual upload race recovery filters the canonical source type in SQL", () 
   assert.match(storageRouter, /\.eq\("sha256", hash\)\s*\.in\("source_type", \["UPLOAD", "MANUAL"\]\)\s*\.order\("created_at", \{ ascending: true \}\)\s*\.limit\(1\)/s);
 });
 
-test("initial auth restoration purges staged email review data owned by another user", () => {
-  const guard = readFileSync(new URL("../src/lib/emailIntakeInitialSessionGuard.ts", import.meta.url), "utf8");
+test("Google identity restoration does not mount staged mailbox-review state", () => {
+  const supabase = readFileSync(new URL("../src/lib/supabase.ts", import.meta.url), "utf8");
   const main = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
-  assert.match(guard, /INITIAL_SESSION/);
-  assert.match(guard, /engoryx_pending_email_statement_review_v1/);
-  assert.match(guard, /engoryx_pending_email_expense_review_v1/);
-  assert.match(guard, /ownerId !== userId/);
-  assert.match(main, /emailIntakeInitialSessionGuard/);
+  assert.match(supabase, /sanitizePersistedAuthSession/);
+  assert.doesNotMatch(main, /emailIntakeInitialSessionGuard|pending_email_statement_review|pending_email_expense_review/);
 });
 
 test("durable send-intent policy mirrors document-specific read permissions", () => {

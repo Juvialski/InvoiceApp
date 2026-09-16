@@ -1,7 +1,7 @@
 # Client Security PDF Visual Check
 
 Status: **PASS - QUALIFIED LOCAL QA HANDOFF ARTIFACT; HOSTED DEPLOYMENT CERTIFICATION REMAINS SEPARATE**
-Checked: 2026-09-15
+Checked: 2026-09-16
 
 The PDF was generated from the client-facing source and the exact local
 authenticated synthetic-QA screenshot manifest. The source has seven explicit
@@ -23,7 +23,7 @@ pdftoppm -png -r 150 artifacts/client-security/Hydroqualisense_Client_Security_O
 Pagewise inspection passed for:
 
 - consistent Hydroqualisense header branding, margins, rules, and page numbers;
-- readable role matrix, two custody-model prose, integration notes, and shared-responsibility page;
+- readable role matrix, two custody-model prose, Google Sign-In/Brevo integration notes, and shared-responsibility page;
 - one compact 3-column by 2-row role gallery retaining sidebar/navigation context;
 - no clipped text, broken page overflow, screenshot crop/editing, or unreadable role labels;
 - no secrets, production records, raw provider credentials, migration names, raw permission keys, Git SHAs, or internal agent/CI wording in the client-facing source/output.

@@ -1,10 +1,7 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import {
-  isSupportedBankStatementAttachment,
-  classifyEmailIntakeCandidate,
-} from "../src/lib/emailIntake.ts";
+import { isSupportedBankStatementAttachment } from "../src/lib/sourceAttachment.ts";
 import {
   extractPdfStatementDocument,
   type PdfStatementExtractionResult,
@@ -22,7 +19,6 @@ import {
 } from "../src/lib/statementSessionMemory.ts";
 import {
   validateBankStatementBytes,
-  validateGmailAttachmentBytes,
 } from "../src/lib/fileSecurity.ts";
 import {
   extractAccountEvidenceFromStatement,
@@ -33,7 +29,7 @@ import {
   type FinancialAccount,
   type FinancialImportBatch,
 } from "../src/lib/cashBanking.ts";
-import type { EmailIntakeProfile, GmailMessageCandidate } from "../src/types.ts";
+import type { EmailIntakeProfile } from "../src/types.ts";
 
 const PDF_PADDING = Buffer.from([
   0x28, 0xbf, 0x4e, 0x5e, 0x4e, 0x75, 0x8a, 0x41,
@@ -325,57 +321,6 @@ describe("Phase 4D.1 — Password-Protected PDF Bank Statement Support", () => {
     });
   });
 
-  describe("2. Email Intake Candidate Classification for PDF Statements", () => {
-    it("classifies bank statement email with PDF attachment to BANK_STATEMENT", () => {
-      const candidate: GmailMessageCandidate = {
-        id: "msg-stmt-1",
-        threadId: "th-1",
-        sender: "statements@maya.ph",
-        to: ["ap@company.com"],
-        cc: [],
-        subject: "Your Maya Monthly Statement of Account",
-        bodyText: "Please find attached your monthly statement for January 2026.",
-        receivedAt: "2026-02-01T08:00:00Z",
-        snippet: "Statement attached",
-        labels: [],
-        attachments: [
-          {
-            attachmentId: "att-pdf-1",
-            filename: "Maya_Statement_Jan2026.pdf",
-            mimeType: "application/pdf",
-            size: 15400,
-          },
-        ],
-      };
-
-      const result = classifyEmailIntakeCandidate(candidate);
-      assert.equal(result.suggestedDestination, "BANK_STATEMENT");
-      assert.equal(result.documentType, "STATEMENT");
-      assert.equal(result.statementAttachmentIds?.[0], "att-pdf-1");
-    });
-
-    it("handles zero-attachment statement notification email safely as UNSUPPORTED", () => {
-      const candidate: GmailMessageCandidate = {
-        id: "msg-stmt-no-att",
-        threadId: "th-2",
-        sender: "alerts@bdo.com.ph",
-        to: ["ap@company.com"],
-        cc: [],
-        subject: "Your Bank Statement is Ready for Viewing",
-        bodyText: "Your electronic statement of account is now ready in online banking. Log in to view.",
-        receivedAt: "2026-02-01T08:00:00Z",
-        snippet: "Statement ready",
-        labels: [],
-        attachments: [],
-      };
-
-      const result = classifyEmailIntakeCandidate(candidate);
-      assert.equal(result.documentType, "STATEMENT");
-      assert.equal(result.suggestedDestination, "UNSUPPORTED");
-      assert.equal(result.statementAttachmentIds?.length || 0, 0);
-    });
-  });
-
   describe("3. Unencrypted PDF Statement Extraction", () => {
     it("extracts text, metadata, and structured rows from plain Maya PDF statement", async () => {
       const pdfBytes = createSyntheticPdfStatement();
@@ -547,7 +492,7 @@ describe("Phase 4D.1 — Password-Protected PDF Bank Statement Support", () => {
       });
 
       assert.doesNotThrow(() => {
-        validateGmailAttachmentBytes(validPdf, "application/pdf", "statement.pdf");
+        validateBankStatementBytes(validPdf, "statement.pdf", "application/pdf");
       });
 
       const fakePdf = new Uint8Array([0x00, 0x11, 0x22, 0x33, 0x44]);

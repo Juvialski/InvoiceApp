@@ -8,15 +8,6 @@ export interface CompanyApiRequestOptions extends RequestInit {
   companyId: string;
 }
 
-/** Legacy validation helper retained for older callers; normal Gmail requests no longer send this header. */
-export function gmailProviderAuthorizationHeader(accessToken: string) {
-  const token = accessToken.trim();
-  if (!token || /^Bearer\s/i.test(token) || /\s/.test(token)) {
-    throw new Error("The Gmail provider access token is invalid. Reconnect Google + Gmail.");
-  }
-  return `Bearer ${token}`;
-}
-
 /**
  * Send a request to a company-scoped Express endpoint. The browser does not
  * choose the company: the resolved deployment-company context is authoritative.
