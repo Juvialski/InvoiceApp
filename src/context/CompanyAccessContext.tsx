@@ -35,6 +35,7 @@ import {
   type UpdateCompanyMemberPermissionsInput,
   type UpdateCompanyRoleInput,
 } from "../lib/companyAccess.ts";
+import { isCurrentCompanyAccessRequest, shouldPreserveCompanyAccessDuringRefresh } from "../lib/companyAccessRefresh.ts";
 import { clearCompanyContext, setDeploymentCompanyId } from "../lib/companyContext.ts";
 import { assertDeploymentCompanyId, loadDeploymentCompanyId, resolveDeploymentCompanyAccess } from "../lib/deploymentCompany.ts";
 import { isSupabaseConfigured, signOutWorkspace, supabase } from "../lib/supabase.ts";
@@ -53,6 +54,8 @@ export interface CompanyAccessContextValue {
   permissions: readonly PermissionKey[];
   isPlatformOwner: boolean;
   isSwitching: boolean;
+  isRefreshing: boolean;
+  refreshError: string | null;
   can: (permission: PermissionKey) => boolean;
   refreshAccess: () => Promise<void>;
   /** Compatibility callback. It validates the deployment company and never changes tenants. */
@@ -98,6 +101,8 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   const [guestMode, setGuestMode] = useState(!isSupabaseConfigured);
   const [access, setAccess] = useState<CompanyAccessSnapshot>(() => emptyAccess(isSupabaseConfigured ? "loading" : "guest"));
   const [isSwitching, setIsSwitching] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const accessRef = useRef(access);
   const sessionRef = useRef<Session | null>(null);
   const deploymentCompanyIdRef = useRef<string | null>(null);
@@ -122,6 +127,8 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setGuestMode(true);
       setAuthResolved(true);
+      setIsRefreshing(false);
+      setRefreshError(null);
       resetAuthenticatedContext("guest");
       return undefined;
     }
@@ -134,6 +141,8 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       if (previousUserId !== nextUserId) {
         loadGenerationRef.current += 1;
         accessLoadRef.current = null;
+        setIsRefreshing(false);
+        setRefreshError(null);
         resetAuthenticatedContext(nextUserId ? "loading" : "signed-out", nextUserId || undefined, nextSession?.user?.email || undefined);
         setIsSwitching(Boolean(nextUserId));
       }
@@ -157,6 +166,8 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     if (!supabase || !userId) {
       resetAuthenticatedContext(!isSupabaseConfigured ? "guest" : "signed-out");
       setIsSwitching(false);
+      setIsRefreshing(false);
+      setRefreshError(null);
       return;
     }
 
@@ -166,12 +177,17 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const preserveCurrentAccess = shouldPreserveCompanyAccessDuringRefresh(accessRef.current, userId);
     const generation = ++loadGenerationRef.current;
-    setIsSwitching(true);
-    // Access and deployment identity are revalidated as one unit. Clear first so
-    // a role change, logout/login, or deployment reconfiguration cannot leave a
-    // stale permission/company context usable while the request is in flight.
-    resetAuthenticatedContext("loading", userId, activeSession.user.email || undefined);
+    setRefreshError(null);
+    if (preserveCurrentAccess) {
+      setIsSwitching(false);
+      setIsRefreshing(true);
+    } else {
+      setIsRefreshing(false);
+      setIsSwitching(true);
+      resetAuthenticatedContext("loading", userId, activeSession.user.email || undefined);
+    }
 
     const request = (async () => {
       try {
@@ -179,16 +195,24 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
           loadCompanyAccess(supabase),
           loadDeploymentCompanyId(supabase),
         ]);
-        if (generation !== loadGenerationRef.current || sessionRef.current?.user?.id !== userId) return;
+        if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
         const resolved = resolveDeploymentCompanyAccess(loaded, deploymentCompanyId);
         deploymentCompanyIdRef.current = deploymentCompanyId;
         setAccessSnapshot(resolved);
+        setRefreshError(null);
       } catch (error) {
-        if (generation !== loadGenerationRef.current || sessionRef.current?.user?.id !== userId) return;
+        if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
         const message = safeErrorMessage(error, "Deployment company access could not be loaded.");
-        resetAuthenticatedContext("error", userId, activeSession.user.email || undefined, message);
+        if (preserveCurrentAccess) {
+          setRefreshError(message);
+        } else {
+          resetAuthenticatedContext("error", userId, activeSession.user.email || undefined, message);
+        }
       } finally {
-        if (generation === loadGenerationRef.current) setIsSwitching(false);
+        if (isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) {
+          setIsSwitching(false);
+          setIsRefreshing(false);
+        }
       }
     })();
 
@@ -205,6 +229,8 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     if (!supabase || !session?.user?.id) {
       if (isSupabaseConfigured) resetAuthenticatedContext("signed-out");
       setIsSwitching(false);
+      setIsRefreshing(false);
+      setRefreshError(null);
       return undefined;
     }
     void refreshAccess();
@@ -241,12 +267,16 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   const enterGuestMode = useCallback(() => {
     if (isSupabaseConfigured) throw new Error("Browser-only mode is disabled when Supabase is configured.");
     setGuestMode(true);
+    setIsRefreshing(false);
+    setRefreshError(null);
     resetAuthenticatedContext("guest");
   }, [resetAuthenticatedContext]);
 
   const signOut = useCallback(async () => {
     loadGenerationRef.current += 1;
     accessLoadRef.current = null;
+    setIsRefreshing(false);
+    setRefreshError(null);
     resetAuthenticatedContext(isSupabaseConfigured ? "signed-out" : "guest");
     setIsSwitching(false);
     await signOutWorkspace();
@@ -344,6 +374,8 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       permissions: access.permissions,
       isPlatformOwner: false,
       isSwitching,
+      isRefreshing,
+      refreshError,
       can: (permission) => hasPermission(access.permissions, permission),
       refreshAccess,
       selectCompany,
@@ -366,7 +398,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       loadCompanyPermissionCatalog,
       loadCompanyAccessAudit,
     };
-  }, [access, archiveCompanyRole, authResolved, authorizeCompanyMemberEmail, createCompany, createCompanyRole, enterGuestMode, guestMode, inviteCompanyMember, isSwitching, loadCompanyAccessAudit, loadCompanyInvitations, loadCompanyMembers, loadCompanyPermissionCatalog, loadCompanyRoles, refreshAccess, revokeCompanyInvitation, selectCompany, session, signOut, updateCompany, updateCompanyInvitationPermissions, updateCompanyMember, updateCompanyMemberPermissions, updateCompanyRole]);
+  }, [access, archiveCompanyRole, authResolved, authorizeCompanyMemberEmail, createCompany, createCompanyRole, enterGuestMode, guestMode, inviteCompanyMember, isRefreshing, isSwitching, loadCompanyAccessAudit, loadCompanyInvitations, loadCompanyMembers, loadCompanyPermissionCatalog, loadCompanyRoles, refreshAccess, refreshError, revokeCompanyInvitation, selectCompany, session, signOut, updateCompany, updateCompanyInvitationPermissions, updateCompanyMember, updateCompanyMemberPermissions, updateCompanyRole]);
 
   return <CompanyAccessContext.Provider value={value}>{children}</CompanyAccessContext.Provider>;
 }
