@@ -113,7 +113,11 @@ export function extractFailureContext(log: string, options: FailureContextOption
   const ranges: Array<[number, number]> = [];
 
   for (let index = 0; index < lines.length; index += 1) {
-    if (FAILURE_MARKER.test(lines[index]!)) {
+    const line = lines[index]!;
+    // TAP summary lines are appended separately below. Treating `# fail 0` as a
+    // failure marker can consume the bounded excerpt before the real failing test.
+    if (SUMMARY_LINE.test(line)) continue;
+    if (FAILURE_MARKER.test(line)) {
       ranges.push([
         Math.max(0, index - contextLines),
         Math.min(lines.length - 1, index + contextLines),
