@@ -41,7 +41,7 @@ test("company access request results apply only to the current generation and us
   assert.equal(isCurrentCompanyAccessRequest(4, 4, null, "user-1"), false);
 });
 
-test("provider preserves ready access and records transient background refresh errors separately", () => {
+test("provider preserves ready access and records transient background load errors separately", () => {
   const refreshStart = providerSource.slice(
     providerSource.indexOf("const preserveCurrentAccess"),
     providerSource.indexOf("const request = (async () =>"),
@@ -51,12 +51,22 @@ test("provider preserves ready access and records transient background refresh e
     /if \(preserveCurrentAccess\)[\s\S]*setIsRefreshing\(true\)[\s\S]*else[\s\S]*resetAuthenticatedContext\("loading"/,
   );
 
-  const refreshFailure = providerSource.slice(
-    providerSource.indexOf("} catch (error) {"),
-    providerSource.indexOf("} finally {", providerSource.indexOf("} catch (error) {")),
-  );
+  const loadFailureStart = providerSource.indexOf("const loadFailure = (error: unknown) =>");
+  const loadFailureEnd = providerSource.indexOf("const request = (async () =>", loadFailureStart);
+  const loadFailure = providerSource.slice(loadFailureStart, loadFailureEnd);
   assert.match(
-    refreshFailure,
+    loadFailure,
     /if \(preserveCurrentAccess\)[\s\S]*setRefreshError\(message\)[\s\S]*else[\s\S]*resetAuthenticatedContext\("error"/,
   );
+});
+
+test("provider fails closed when authoritative deployment access resolution fails", () => {
+  const resolutionStart = providerSource.indexOf("const resolved = resolveDeploymentCompanyAccess");
+  const resolutionFailureStart = providerSource.indexOf("} catch (error) {", resolutionStart);
+  const resolutionFailureEnd = providerSource.indexOf("} finally {", resolutionFailureStart);
+  const resolutionFailure = providerSource.slice(resolutionFailureStart, resolutionFailureEnd);
+
+  assert.match(resolutionFailure, /resetAuthenticatedContext\("error"/);
+  assert.doesNotMatch(resolutionFailure, /if \(preserveCurrentAccess\)/);
+  assert.doesNotMatch(resolutionFailure, /setRefreshError\(message\)/);
 });
