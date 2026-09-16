@@ -134,9 +134,14 @@ export function extractFailureContext(log: string, options: FailureContextOption
     .map((line, index) => (SUMMARY_LINE.test(line) ? index : -1))
     .filter((index) => index >= 0);
   if (summaryIndexes.length > 0) {
+    const finalSummaryEnd = summaryIndexes[summaryIndexes.length - 1]!;
+    let finalSummaryStart = finalSummaryEnd;
+    while (finalSummaryStart > 0 && SUMMARY_LINE.test(lines[finalSummaryStart - 1]!)) {
+      finalSummaryStart -= 1;
+    }
     ranges.push([
-      Math.max(0, summaryIndexes[0]! - 1),
-      Math.min(lines.length - 1, summaryIndexes[summaryIndexes.length - 1]! + 1),
+      Math.max(0, finalSummaryStart - 1),
+      Math.min(lines.length - 1, finalSummaryEnd + 1),
     ]);
   }
 
