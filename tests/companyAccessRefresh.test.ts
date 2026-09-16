@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { CompanyAccessSnapshot } from "../src/lib/companyAccess.ts";
 import {
   isCurrentCompanyAccessRequest,
   shouldPreserveCompanyAccessDuringRefresh,
 } from "../src/lib/companyAccessRefresh.ts";
+
+const providerSource = readFileSync(new URL("../src/context/CompanyAccessContext.tsx", import.meta.url), "utf8");
 
 function snapshot(overrides: Partial<CompanyAccessSnapshot> = {}): CompanyAccessSnapshot {
   return {
@@ -36,4 +39,24 @@ test("company access request results apply only to the current generation and us
   assert.equal(isCurrentCompanyAccessRequest(5, 4, "user-1", "user-1"), false);
   assert.equal(isCurrentCompanyAccessRequest(4, 4, "user-2", "user-1"), false);
   assert.equal(isCurrentCompanyAccessRequest(4, 4, null, "user-1"), false);
+});
+
+test("provider preserves ready access and records transient background refresh errors separately", () => {
+  const refreshStart = providerSource.slice(
+    providerSource.indexOf("const preserveCurrentAccess"),
+    providerSource.indexOf("const request = (async () =>"),
+  );
+  assert.match(
+    refreshStart,
+    /if \(preserveCurrentAccess\)[\s\S]*setIsRefreshing\(true\)[\s\S]*else[\s\S]*resetAuthenticatedContext\("loading"/,
+  );
+
+  const refreshFailure = providerSource.slice(
+    providerSource.indexOf("} catch (error) {"),
+    providerSource.indexOf("} finally {", providerSource.indexOf("} catch (error) {")),
+  );
+  assert.match(
+    refreshFailure,
+    /if \(preserveCurrentAccess\)[\s\S]*setRefreshError\(message\)[\s\S]*else[\s\S]*resetAuthenticatedContext\("error"/,
+  );
 });
