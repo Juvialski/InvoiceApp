@@ -60,7 +60,7 @@ test("Wave 6B Agent 1 preserves retry and long-content recovery affordances", ()
 
 test("Wave 6B Agent 1 preserves settlement demo namespace and directory focus routing", () => {
   assert.match(settlements, /invoice\.id\.startsWith\("demo-"\)/);
-  assert.match(settlements, /demoSettlementSummaryForTarget\("INVOICE", invoice\.id\)/);
+  assert.match(settlements, /buildSupplierInvoiceSettlementProjections\(invoices, expenses, settlementMatches, today\)/);
   assert.match(settlements, /!invoice\.id\.startsWith\("demo-"\) && !invoice\.id\.startsWith\("local-"\)/);
   assert.match(settlements, /appPathForInvoice\(invoice\.id\)/);
   assert.match(settlements, /focus-visible:ring-2 focus-visible:ring-indigo-500/);
