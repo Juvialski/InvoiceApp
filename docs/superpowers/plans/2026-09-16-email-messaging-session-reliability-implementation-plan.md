@@ -184,12 +184,14 @@ Do not claim the overall approved phase complete until the accepted design’s a
 
 ## Current execution marker
 
-- **Current phase:** Phase 1 — Company-access loading reliability
-- **Status:** IN PROGRESS
+- **Completed phase:** Phase 1 — Company-access loading reliability
+- **Completion PR:** #175
 - **Starting `main`:** `fadd8e270da16a1f3f545ab843c466169e9a4ba6`
-- **Next phase after safe completion:** Phase 2 — Authenticated request recovery
+- **Proven behavior:** same-user `ready` company access is retained during background revalidation; refresh progress/errors are separate from authoritative access state; logout/user changes still invalidate immediately; stale generation/user responses cannot restore obsolete access.
+- **Database validation:** not applicable; Phase 1 changes no migrations, RLS, RPC, triggers, database lifecycle behavior, or financial semantics.
+- **Next phase:** Phase 2 — Authenticated request recovery
 
-This marker must be updated at the end of every completed phase. A fresh chat must not infer completion from conversation history; verify the merged repository state first.
+This marker is present on the Phase 1 branch and becomes the durable handoff when PR #175 is safely merged. A fresh chat must still verify live `main`, PR state, and exact-head CI instead of trusting conversation history.
 
 ## Fresh-chat bootstrap
 
