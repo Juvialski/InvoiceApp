@@ -53,15 +53,16 @@ BREVO_API_KEY=...
 BREVO_SENDER_EMAIL=verified-sender@example.com
 BREVO_SENDER_NAME=Company name
 # BREVO_REPLY_TO=reply@example.com
-# BREVO_API_BASE_URL=https://api.brevo.com
+# BREVO_API_BASE_URL=https://api.brevo.com/v3
 # BREVO_REQUEST_TIMEOUT_MS=10000
 ```
 
-The server calls Brevo's transactional endpoint `POST /v3/smtp/email` and checks
-the account and sender configuration before sending. The sender or domain must
-be verified in Brevo before sending. The application reports `NOT_CONFIGURED`,
-`SENDER_SETUP_REQUIRED`, `READY`, or `CONNECTION_PROBLEM`; an API key string alone
-does not make a deployment ready.
+The server uses Brevo's v3 API (`GET /account`, `GET /senders`, and
+`POST /smtp/email` relative to the default `https://api.brevo.com/v3` base URL)
+and checks the account and sender configuration before sending. The sender or
+domain must be verified in Brevo before sending. The application reports
+`NOT_CONFIGURED`, `SENDER_SETUP_REQUIRED`, `READY`, or `CONNECTION_PROBLEM`; an
+API key string alone does not make a deployment ready.
 
 The send flow remains `prepare -> review -> human confirm -> execute`. It keeps
 company permission checks, idempotent delivery intent, immutable document/PDF
@@ -85,5 +86,7 @@ optional hosted fallback. SMS requires its own provider-backed QA evidence.
 
 Historical Gmail-derived source metadata and prior Gmail delivery rows remain
 readable for provenance and audit. They are not active mailbox access and must
-not be deleted merely to simplify this provider migration. New outbound email
-records use the `EMAIL` channel and `BREVO` provider identity.
+not be deleted merely to simplify this provider migration. The retired encrypted
+Gmail refresh-token credential store is intentionally removed because it is not
+historical business evidence and is no longer used by the product. New outbound
+email records use the `EMAIL` channel and `BREVO` provider identity.
