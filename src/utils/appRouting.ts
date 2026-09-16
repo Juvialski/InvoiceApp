@@ -32,7 +32,7 @@ export interface WarehouseContext {
 
 export type ProjectWorkspaceView = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "materials-equipment" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
-export type EmailWorkspaceView = "inbox" | "compose" | "sent" | "sms";
+export type EmailWorkspaceView = "compose" | "sent" | "email-status" | "sms";
 export type EmailWorkspaceChannel = "email" | "sms";
 export type EmailWorkspaceDocumentType = "PURCHASE_ORDER" | "CLIENT_INVOICE";
 
@@ -192,11 +192,11 @@ export function appPathForDocumentsWorkspace(view: DocumentWorkspaceView = "libr
 }
 
 export function appPathForEmailWorkspace(
-  view: EmailWorkspaceView = "inbox",
+  view: EmailWorkspaceView = "compose",
   options: { channel?: EmailWorkspaceChannel; documentType?: EmailWorkspaceDocumentType; documentId?: string; returnTo?: string } = {},
 ) {
   const query = new URLSearchParams();
-  if (view !== "inbox") setRouteQueryValue(query, "inbox", "view", view, true);
+  setRouteQueryValue(query, "inbox", "view", view, true);
   if (view === "compose") setRouteQueryValue(query, "inbox", "channel", options.channel);
   setRouteQueryValue(query, "inbox", "documentType", options.documentType);
   setRouteQueryValue(query, "inbox", "documentId", options.documentId);
@@ -399,10 +399,10 @@ export function attendanceDateFromSearch(search: string) {
 
 export function emailWorkspaceContextFromSearch(search: string): EmailWorkspaceContext {
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
-  const rawView = (routeQueryValue(query, "inbox", "view") || "inbox").trim().toLowerCase();
-  const view: EmailWorkspaceView = ["inbox", "compose", "sent", "sms"].includes(rawView)
-    ? rawView as EmailWorkspaceView
-    : "inbox";
+  const rawView = (routeQueryValue(query, "inbox", "view") || "compose").trim().toLowerCase();
+  const view: EmailWorkspaceView = rawView === "sent" || rawView === "email-status" || rawView === "sms"
+    ? rawView
+    : "compose";
   const rawDocumentType = (routeQueryValue(query, "inbox", "documentType") || "").trim().toUpperCase();
   const documentType = ["PURCHASE_ORDER", "CLIENT_INVOICE"].includes(rawDocumentType)
     ? rawDocumentType as EmailWorkspaceDocumentType

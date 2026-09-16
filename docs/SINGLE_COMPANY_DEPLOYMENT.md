@@ -78,7 +78,7 @@ Run the database verification/migration harness and targeted probes for:
 - rejection of a different company ID;
 - Storage paths under `companies/<deployment-company-id>/...`;
 - rejection of a different company prefix;
-- Gmail connection/sync/message rows scoped to the deployment company;
+- historical email connection/sync/message rows scoped to the deployment company;
 - invoice/email/payroll/engineering source attachments staying inside company-prefixed Storage paths;
 - immutable payroll, invoice, engineering-history, and settlement invariants.
 
@@ -95,14 +95,14 @@ The administrator manages users only within the configured deployment company. D
 
 ### 10. Run role smoke tests
 
-At minimum verify each seeded role against login, Dashboard, Projects/project workspace, Invoices/review, Gmail, Expenses, Payroll, Reports, Cash & Banking, Settings, and Assistant behavior.
+At minimum verify each seeded role against login, Dashboard, Projects/project workspace, Invoices/review, Email / SMS, Expenses, Payroll, Reports, Cash & Banking, Settings, and Assistant behavior.
 
 Preserve the existing hardening expectations:
 
 - Finance/Viewer do not receive payroll-sensitive detail;
 - Payroll does not receive supplier invoice/expense detail without those permissions;
 - Viewer does not receive mutation controls;
-- Gmail read and Gmail manage remain distinct;
+- historical email provenance remains company-scoped and does not grant mailbox/API access;
 - incomplete cross-domain totals are withheld or explicitly partial;
 - canonical route/deep-link authorization fails closed;
 - Assistant actions use the same permissions and confirmation gates as deterministic application actions.

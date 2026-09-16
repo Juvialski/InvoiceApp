@@ -3,10 +3,10 @@ import { requireActiveCompanyId } from "./companyContext.ts";
 import type { FinancialDocumentSnapshot } from "./documentGeneration.ts";
 
 /**
- * Provider-neutral delivery vocabulary. Gmail and the approved SMS paths use
+ * Provider-neutral delivery vocabulary. Brevo email and the approved SMS paths use
  * the same attempt/history contract instead of creating parallel senders.
  */
-export type DocumentDeliveryChannel = "GMAIL" | "SMS";
+export type DocumentDeliveryChannel = "EMAIL" | "GMAIL" | "SMS";
 export type DocumentDeliveryStatus = "PENDING" | "ACCEPTED" | "SENT" | "DELIVERED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 export type DocumentDeliveryAttachmentSource =
   | "COMPANY_TEMPLATE_PDF"
@@ -73,7 +73,10 @@ function safeHistoryEntry(value: unknown): DocumentDeliveryHistoryEntry | null {
     : source === "PROGRAMMATIC_PDF_FALLBACK" ? "PROGRAMMATIC_PDF_FALLBACK" : source === "NONE" ? "NONE" : "LEGACY_PDF";
   const deliveryKindValue = String(row.deliveryKind || "ISSUED_DOCUMENT").toUpperCase();
   const deliveryKind: DocumentDeliveryKind = deliveryKindValue === "GENERAL_EMAIL" ? "GENERAL_EMAIL" : deliveryKindValue === "GENERAL_SMS" ? "GENERAL_SMS" : "ISSUED_DOCUMENT";
-  const channel = deliveryKind === "GENERAL_SMS" || String(row.channel || "").toUpperCase() === "SMS" ? "SMS" : "GMAIL";
+  const providerId = typeof row.providerId === "string" && row.providerId.trim() ? row.providerId.trim().slice(0, 80) : "";
+  const channel = deliveryKind === "GENERAL_SMS" || String(row.channel || "").toUpperCase() === "SMS"
+    ? "SMS"
+    : String(row.channel || "").toUpperCase() === "EMAIL" || providerId.toUpperCase() === "BREVO" ? "EMAIL" : "GMAIL";
   const documentType = String(row.documentType || "").toUpperCase();
   const documentId = String(row.documentId || "").trim();
   const attachmentSize = Number(row.attachmentSize);
@@ -102,7 +105,7 @@ function safeHistoryEntry(value: unknown): DocumentDeliveryHistoryEntry | null {
     reconciliationRequired,
     resendAllowed: row.resendAllowed === true && !reconciliationRequired && (status === "SENT" || status === "FAILED"),
     attemptCount: Number.isFinite(attemptCount) && attemptCount > 0 ? Math.trunc(attemptCount) : 1,
-    ...(typeof row.providerId === "string" && row.providerId.trim() ? { providerId: row.providerId.trim().slice(0, 80) } : {}),
+    ...(providerId ? { providerId } : {}),
     ...(providerMessageId ? { providerMessageId } : {}),
     ...(typeof row.providerStatus === "string" && row.providerStatus.trim() ? { providerStatus: row.providerStatus.trim().slice(0, 80) } : {}),
   };

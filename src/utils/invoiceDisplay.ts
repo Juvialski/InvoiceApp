@@ -100,7 +100,7 @@ function prettifyType(value: unknown, fallback: string) {
 
 function sourceTypeLabel(sourceType: unknown) {
   switch (text(sourceType).toUpperCase()) {
-    case "EMAIL": return "Gmail";
+    case "EMAIL": return "Email";
     case "PASTED_TEXT": return "Pasted text";
     case "SAMPLE": return "Demo";
     case "UPLOAD":

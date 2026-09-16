@@ -67,7 +67,7 @@ const CAPABILITY_CARDS: ReadonlyArray<{ icon: LucideIcon; title: string; detail:
   { icon: Boxes, title: "Inventory and equipment", detail: "Explain warehouse stock, project allocation, and equipment through auditable records." },
   { icon: HardHat, title: "Field operations", detail: "Coordinate equipment, site logs, documents, and operational observations." },
   { icon: Building2, title: "Workforce and payroll", detail: "Support workforce and payroll operations with permission-aware access." },
-  { icon: Mail, title: "Business communications", detail: "Review inbound business email and prepare user-confirmed outbound communication." },
+  { icon: Mail, title: "Business communications", detail: "Prepare reviewed outbound email, inspect delivery history, and keep provider status truthful." },
 ];
 
 const DEPLOYMENT_CARDS: ReadonlyArray<{ icon: LucideIcon; title: string; detail: string }> = [
@@ -153,7 +153,7 @@ function PublicLandingPage({ onRequestDemo }: { onRequestDemo: () => void }) {
               {BRAND.productName} is a business operations platform connecting projects, procurement, finance, invoices, expenses, documents, payroll, communications, inventory, equipment, and field operations while preserving the source and history each workflow depends on.
             </p>
             <p className="mt-5 max-w-xl text-xs font-bold leading-6 text-slate-400">Projects · Procurement · Supplier invoices / expenses · Finance · Documents · Payroll · Inventory / equipment · Business communications</p>
-            <p className="mt-4 max-w-xl text-xs leading-6 text-slate-400">Existing users can select Client sign in above to open their company workspace. Gmail is an optional connection explained below.</p>
+            <p className="mt-4 max-w-xl text-xs leading-6 text-slate-400">Existing users can select Client sign in above to open their company workspace. Google Sign-In is used for identity only; transactional email is provider-gated.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button type="button" onClick={onRequestDemo} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3.5 text-sm font-black text-white shadow-xl shadow-indigo-950/30 transition hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300">
                 Request a demo <ArrowRight className="h-4 w-4" />
@@ -190,17 +190,17 @@ function PublicLandingPage({ onRequestDemo }: { onRequestDemo: () => void }) {
         </div>
       </section>
 
-      <section id="gmail-integration" className="border-y border-indigo-100 bg-indigo-50/70">
+      <section id="google-signin-email" className="border-y border-indigo-100 bg-indigo-50/70">
         <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-12 sm:px-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-start lg:px-12 lg:py-16">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Optional integration</p>
-            <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-slate-950">Optional Gmail integration</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-700">You choose whether to connect your own Google account. Hydroqualisense requests Gmail access only when a selected business-email workflow needs it.</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Identity and communications</p>
+            <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-slate-950">Google Sign-In, Brevo email</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-700">Google Sign-In establishes identity for the client workspace. Hydroqualisense does not request Gmail mailbox access, read Gmail messages, or send through Gmail. When enabled for a deployment, outbound transactional email uses the company&apos;s server-side Brevo configuration.</p>
           </div>
           <ul className="grid gap-3 text-sm leading-6 text-slate-700 sm:grid-cols-2">
-            <li className="rounded-2xl border border-indigo-100 bg-white p-4"><strong className="text-slate-950">Read access:</strong> <code className="text-xs font-bold text-indigo-700">gmail.readonly</code> supports authorized business-email intake and selected review workflows, including relevant messages and attachments.</li>
-            <li className="rounded-2xl border border-indigo-100 bg-white p-4"><strong className="text-slate-950">Send access:</strong> <code className="text-xs font-bold text-indigo-700">gmail.send</code> is used only for outbound business communication that the user has reviewed and explicitly authorized.</li>
-            <li className="rounded-2xl border border-indigo-100 bg-white p-4 sm:col-span-2"><strong className="text-slate-950">Bounded connection:</strong> connecting Gmail does not give Hydroqualisense unrestricted mailbox authority or create a wholesale mailbox backup.</li>
+            <li className="rounded-2xl border border-indigo-100 bg-white p-4"><strong className="text-slate-950">Identity scopes:</strong> Google OIDC requests only <code className="text-xs font-bold text-indigo-700">openid email profile</code> for sign-in.</li>
+            <li className="rounded-2xl border border-indigo-100 bg-white p-4"><strong className="text-slate-950">Transactional email:</strong> Brevo accepts a reviewed message only when the deployment has a verified sender and server-side provider configuration.</li>
+            <li className="rounded-2xl border border-indigo-100 bg-white p-4 sm:col-span-2"><strong className="text-slate-950">Human confirmation:</strong> recipients, content, and document attachments remain reviewable, and provider acceptance is not presented as confirmed delivery.</li>
           </ul>
         </div>
       </section>
@@ -272,16 +272,13 @@ const POLICY_SECTIONS = {
       ],
     },
     {
-      title: "Google Workspace and Gmail Data",
+      title: "Google Sign-In and transactional email",
       paragraphs: [
-        "When you voluntarily connect your own Google account, Hydroqualisense may access only the Google data needed for the approved workflow: Gmail message metadata; email sender, recipient, subject, and date information where needed; message content where needed for the selected workflow; selected attachments relevant to selected intake workflows; and Gmail sending capability for explicitly authorized outbound messages.",
-        "The applicable Gmail permissions are gmail.readonly for read-only business-email intake and selected review or import workflows, and gmail.send for outbound business messages that the user explicitly authorizes. Hydroqualisense does not copy an entire mailbox as a wholesale backup and connecting Gmail does not give Hydroqualisense unrestricted mailbox authority.",
-        "Hydroqualisense uses Gmail information to discover and review business emails; process supplier invoices, receipts, statements, or related authorized records; preserve source evidence when the user deliberately imports or routes a message or attachment; and prepare or send user-authorized outbound business messages.",
-        "A selected message, attachment, or source item may become part of a company business record when the user intentionally imports or routes it. Gmail authorization credentials are handled separately from ordinary company records. Records that form part of financial or audit history may be retained according to the application's business-record and history model rather than silently deleted. Ordinary Gmail access is not a wholesale mailbox backup service.",
-        "Google user data is not sold, is not used for advertising, and is not transferred to data brokers. Information may be processed by infrastructure or service providers only as necessary to deliver a user-requested feature and subject to the application's configured service boundaries, including Supabase for authentication, database, and storage; Google APIs when Gmail is connected; the configured AI service for a requested AI workflow; and an approved messaging provider when that capability is enabled.",
-        "When a user invokes an AI-assisted workflow and selected Google-sourced content is needed, that selected content may be processed by the configured AI service solely to provide the requested product feature. Hydroqualisense does not use Google Workspace data to train generalized or non-personalized AI or machine-learning models. Hydroqualisense does not make independent promises about a third-party provider's practices beyond the service boundaries configured for the deployment.",
-        "Routine manual reading of connected mailboxes is not part of the product workflow. Authorized personnel may access relevant information only as needed for support, security, abuse prevention, or legal requirements, or for a user/company-authorized troubleshooting request, subject to access controls.",
-        "Users can revoke Google authorization through their Google Account permissions or security settings and can disconnect the integration in Hydroqualisense where supported. Revoking Gmail access prevents future API access, but does not necessarily erase legitimate company records or source evidence already deliberately imported into Hydroqualisense.",
+        "Google Sign-In is used to establish account identity through the configured authentication service. Hydroqualisense requests the OIDC identity scopes openid, email, and profile and does not request Gmail mailbox read, modify, or send scopes.",
+        "Hydroqualisense does not read, scan, import from, or send through a Gmail mailbox. Historical records that were deliberately created through an earlier email workflow may retain source and provider identifiers for audit and provenance; those identifiers do not represent current mailbox access.",
+        "When enabled for a deployment, outbound transactional email is sent through the company's server-side Brevo configuration. The application requires human review and confirmation, preserves the immutable document/PDF provenance and delivery intent, and distinguishes Brevo provider acceptance from confirmed delivery.",
+        "Google account identity information is not sold, used for advertising, or transferred to data brokers. Information may be processed by configured infrastructure, AI, and messaging providers only as necessary to deliver the requested feature and subject to the deployment's service boundaries.",
+        "Users can revoke Google Sign-In authorization through their Google Account permissions or security settings. Revoking identity authorization prevents future sign-in through that provider but does not necessarily erase legitimate company records or historical source evidence already retained by the company.",
       ],
     },
     {
@@ -294,7 +291,7 @@ const POLICY_SECTIONS = {
     {
       title: "Service providers",
       paragraphs: [
-        "The product relies on configured infrastructure and integration providers, including the authentication/database/storage service, Google APIs when Gmail is connected, and the AI or messaging providers an operator deliberately configures. Provider availability, terms, retention, and regional handling may be governed by those providers' own policies. Hydroqualisense does not claim a provider is in use unless the relevant deployment configuration and workflow require it.",
+        "The product relies on configured infrastructure and integration providers, including the authentication/database/storage service, Google Sign-In for identity, Brevo for outbound email when configured, and the AI or SMS providers an operator deliberately configures. Provider availability, terms, retention, and regional handling may be governed by those providers' own policies. Hydroqualisense does not claim a provider is in use unless the relevant deployment configuration and workflow require it.",
       ],
     },
     {
@@ -323,7 +320,7 @@ const POLICY_SECTIONS = {
     {
       title: "Connected services and messages",
       paragraphs: [
-        "If you connect Google/Gmail or another supported provider, that service remains a third-party dependency and is subject to its own terms, availability, permissions, and policy decisions. You are responsible for choosing the account and scopes you authorize and for reviewing messages, recipients, documents, and attachments before sending them.",
+        "Google Sign-In, Brevo, SMS, and other supported providers remain third-party dependencies subject to their own terms, availability, permissions, and policy decisions. You are responsible for choosing the account you authorize and for reviewing messages, recipients, documents, and attachments before sending them.",
         "You are responsible for the content and destination of messages and documents you send. The application may require review, confirmation, permissions, and reconciliation before a consequential send is completed.",
       ],
     },
@@ -365,7 +362,7 @@ function PublicPolicyPage({ kind }: { kind: "privacy" | "terms" }) {
           <div className="mt-8 space-y-8">
             {sections.map((section) => {
               const id = `${kind}-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-              return <section key={section.title} aria-labelledby={id}><h2 id={id} className="text-lg font-black text-slate-950">{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph} className="mt-3 text-sm leading-7 text-slate-700">{paragraph}</p>)}{isPrivacy && section.title === "Google Workspace and Gmail Data" && <p className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm leading-7 text-indigo-950">Hydroqualisense&apos;s use and transfer of information received from Google APIs adheres to the <a href={GOOGLE_API_SERVICES_USER_DATA_POLICY_URL} target="_blank" rel="noreferrer" className="font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-900">Google API Services User Data Policy, including the Limited Use requirements</a>.</p>}</section>;
+              return <section key={section.title} aria-labelledby={id}><h2 id={id} className="text-lg font-black text-slate-950">{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph} className="mt-3 text-sm leading-7 text-slate-700">{paragraph}</p>)}{isPrivacy && section.title === "Google Sign-In and transactional email" && <p className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm leading-7 text-indigo-950">Hydroqualisense&apos;s use and transfer of Google account information follows the <a href={GOOGLE_API_SERVICES_USER_DATA_POLICY_URL} target="_blank" rel="noreferrer" className="font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-900">Google API Services User Data Policy</a>.</p>}</section>;
             })}
           </div>
         </div>

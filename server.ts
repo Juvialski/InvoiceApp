@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import { createHash, randomUUID } from "crypto";
 import type { InvoiceData } from "./src/types.ts";
 import { buildClientInvoicePdf, buildPurchaseOrderPdf, type ClientInvoiceDocumentSnapshot, type PurchaseOrderDocumentSnapshot } from "./src/lib/documentGeneration.ts";
-import { decodeBase64Payload, MAX_EXTRACTION_TEXT_CHARS, MAX_GMAIL_ATTACHMENT_BYTES, MAX_GMAIL_ATTACHMENT_COUNT, MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, MAX_GMAIL_RAW_BYTES, validateGmailAttachmentEnvelope, validateGmailAttachmentBytes, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./src/lib/fileSecurity.ts";
+import { decodeBase64Payload, MAX_EXTRACTION_TEXT_CHARS, validateInvoiceDocumentBytes } from "./src/lib/fileSecurity.ts";
 import { AiRequestBudgetError, claimAiRequest, releaseAiRequest } from "./src/server/ai/aiRequestBudget.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import { createStorageRouter } from "./src/server/storage/storageRouter.ts";
@@ -19,12 +19,12 @@ import { companyAiServerSupabase } from "./src/server/ai/companyAiServerSupabase
 import { bootstrapDeploymentCompanyAiCredential, canBootstrapDeploymentCompanyAiCredential, disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, loadServerCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, recordServerCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
 import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, isCompanyAiFallbackEligible, logCompanyAiFailure, resolveCompanyAiRuntime, resolveCompanyAiRuntimeCapability, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
 import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
-import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyInvitationEmail, invitationRedirectUrl } from "./src/server/access/invitationDelivery.ts";
 import { validatePublicProspectSubmission } from "./src/lib/publicProspect.ts";
 import { releaseMetadataFromEnv } from "./src/server/releaseMetadata.ts";
 import { loadServerPdfLogo } from "./src/server/documentPdfLogo.ts";
 import { DOCUMENT_PDF_UNAVAILABLE_MESSAGE, getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
 import { checkSmsProviderOverview, getSmsProviderStatus, resolveSmsProvider } from "./src/server/messaging/smsProvider.ts";
+import { checkBrevoEmailProvider, createBrevoEmailProvider } from "./src/server/messaging/brevoEmailProvider.ts";
 import { normalizePhilippineMobileNumber, SMS_MAX_MESSAGE_LENGTH } from "./src/lib/smsNumber.ts";
 import {
   chooseBestExtractionCandidate,
@@ -40,9 +40,6 @@ import {
   resolveInvoiceMonetarySemantics,
 } from "./src/utils/invoiceMonetarySemantics.ts";
 import { businessDateForTimeZone } from "./src/utils/businessDate.ts";
-import { authorizedGmailRequest, invalidateGmailAccessToken, loadGmailCredentialMetadata } from "./src/server/gmail/gmailAccess.ts";
-import { GmailAuthorizationError } from "./src/server/gmail/gmailAuthorization.ts";
-import { createServerGmailCredentialRepository } from "./src/server/gmail/gmailProviderCredentials.ts";
 
 dotenv.config();
 
@@ -51,8 +48,6 @@ const PORT = Number(process.env.PORT || 3000);
 const PRIMARY_MODEL = COMPANY_AI_PRIMARY_MODEL;
 const ACCURACY_MODEL = COMPANY_AI_FALLBACK_MODEL;
 type CompanyPermission =
-  | "gmail.read"
-  | "gmail.manage"
   | "invoices.extract"
   | "expenses.manage"
   | "company.settings.read"
@@ -66,8 +61,6 @@ type CompanyPermission =
 interface CompanyRequestAuthorization {
   accessToken: string;
   companyId: string;
-  /** Legacy rollout fallback only; normal Gmail requests use the server-held refresh credential. */
-  googleAccessToken?: string;
   supabase: SupabaseClient;
   user: User;
 }
@@ -169,8 +162,7 @@ async function authorizeCompanyRequest(req: express.Request, permission: Company
     throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission for this company operation.");
   }
 
-  const googleAccessToken = firstHeaderValue(req.headers["x-gmail-access-token"]).trim() || undefined;
-  return { accessToken, companyId, googleAccessToken, supabase: client, user: data.user };
+  return { accessToken, companyId, supabase: client, user: data.user };
 }
 
 async function authenticateServerRequest(req: express.Request) {
@@ -231,95 +223,8 @@ function rpcRow(value: unknown) {
   return rpcRows(value)[0] || null;
 }
 
-function accessRpcStatus(error: unknown) {
-  const code = error && typeof error === "object" && "code" in error ? String(error.code || "") : "";
-  if (code === "42501") return 403;
-  if (code === "22023" || code === "22P02") return 400;
-  if (code === "23505") return 409;
-  return 503;
-}
-
-function accessRpcMessage(error: unknown, fallback: string) {
-  const code = error && typeof error === "object" && "code" in error ? String(error.code || "") : "";
-  if (code === "42501") return "You do not have permission for this company access operation.";
-  if (code === "23505") return "That email already has a pending invitation or company membership.";
-  if (code === "22023" || code === "22P02") return "The company access request is invalid.";
-  return fallback;
-}
-
-function invitationEmail(value: unknown) {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
-function invitationRole(value: unknown) {
-  return typeof value === "string" ? value.trim().toUpperCase() : "";
-}
-
-function normalizeInvitationOverrides(value: unknown) {
-  if (value === undefined) return undefined;
-  if (!Array.isArray(value)) return null;
-  return value.map((item) => {
-    if (!item || typeof item !== "object") return item;
-    const row = item as Record<string, unknown>;
-    return {
-      permission_key: typeof row.permission_key === "string" ? row.permission_key.trim().toLowerCase() : typeof row.permissionKey === "string" ? row.permissionKey.trim().toLowerCase() : "",
-      effect: typeof row.effect === "string" ? row.effect.trim().toUpperCase() : "",
-    };
-  });
-}
-
-class InvitationEmailRequestError extends Error {
-  readonly invitation: Record<string, any>;
-
-  constructor(invitation: Record<string, any>) {
-    super("The invitation record was created, but the invitation email could not be sent.");
-    this.name = "InvitationEmailRequestError";
-    this.invitation = invitation;
-  }
-}
-
-async function sendAndRecordInvitationEmail(
-  admin: SupabaseClient,
-  actorUserId: string,
-  invitation: Record<string, any>,
-) {
-  const invitationId = typeof invitation.id === "string" ? invitation.id : "";
-  const email = invitationEmail(invitation.normalized_email || invitation.email);
-  if (!invitationId || !email) throw new InvitationEmailRequestError(invitation);
-  try {
-    await deliverCompanyInvitationEmail(
-      { email, redirectTo: invitationRedirectUrl() },
-      process.env,
-      { admin },
-    );
-    const { data, error } = await admin.rpc("platform_mark_company_invitation_delivery", {
-      p_actor_user_id: actorUserId,
-      p_invitation_id: invitationId,
-      p_delivery_status: "SENT",
-    });
-    if (error) throw new InvitationDeliveryError("PROVIDER_UNAVAILABLE");
-    return rpcRow(data) || invitation;
-  } catch {
-    const { data } = await admin.rpc("platform_mark_company_invitation_delivery", {
-      p_actor_user_id: actorUserId,
-      p_invitation_id: invitationId,
-      p_delivery_status: "FAILED",
-      p_delivery_error: "Invitation email delivery failed.",
-    });
-    throw new InvitationEmailRequestError(rpcRow(data) || invitation);
-  }
-}
 
 const EXTRACTION_TIMEOUT_MS = 60_000;
-const GMAIL_HISTORY_MAX_PAGES = 20;
-const GMAIL_HISTORY_MAX_MESSAGE_IDS = 500;
-const GMAIL_HISTORY_MAX_LOADED_MESSAGES = 200;
-const GMAIL_HISTORY_BUDGET_MS = 30_000;
-const GMAIL_HISTORY_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
-const GMAIL_MAX_QUERY_CHARS = 2_000;
-const GMAIL_IMPORT_MAX_TOTAL_BYTES = 30 * 1024 * 1024;
-const GMAIL_MAX_API_RESPONSE_BYTES = 20 * 1024 * 1024;
-const GMAIL_REQUEST_TIMEOUT_MS = 15_000;
 const AI_TEXT_MAX_CHARS = MAX_EXTRACTION_TEXT_CHARS;
 
 function selectModel(requestedModel?: unknown) {
@@ -345,7 +250,6 @@ app.use((_req, res, next) => {
     const connectSources = [
       "'self'",
       configuredOrigin(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
-      "https://gmail.googleapis.com",
       "https://generativelanguage.googleapis.com",
       "wss:",
     ].filter(Boolean).join(" ");
@@ -739,133 +643,6 @@ app.get("/api/health", async (_req, res) => {
   });
 });
 
-// Legacy delivery compatibility only. The primary Company Access UI now uses
-// authorize_company_member_email() directly with the authenticated browser
-// session, so this SMTP/secret-dependent route is not required for access.
-app.post("/api/company/invitations", async (req, res) => {
-  let auth: CompanyRequestAuthorization;
-  try {
-    auth = await authorizeCompanyRequest(req, "company.members.manage");
-  } catch (error) {
-    return res.status(authorizationErrorStatus(error)).json({ success: false, error: authorizationErrorMessage(error, "Company invitation authorization failed.") });
-  }
-
-  const email = invitationEmail(req.body?.email);
-  const roleKey = invitationRole(req.body?.roleKey);
-  const overrides = normalizeInvitationOverrides(req.body?.permissionOverrides);
-  const requestedExpiry = req.body?.expiresAt;
-  if (!email || !roleKey || (overrides === null) || (requestedExpiry !== undefined && typeof requestedExpiry !== "string")) {
-    return res.status(400).json({ success: false, error: "A valid invitation email, role, and optional expiry are required." });
-  }
-  if (requestedExpiry) {
-    const parsedExpiry = new Date(requestedExpiry);
-    if (Number.isNaN(parsedExpiry.getTime())) return res.status(400).json({ success: false, error: "The invitation expiry is invalid." });
-  }
-
-  let admin: SupabaseClient;
-  try {
-    admin = createInvitationServerClient();
-  } catch (error) {
-    const message = error instanceof InvitationDeliveryError && error.code === "NOT_CONFIGURED"
-      ? "Invitation delivery is not configured on this deployment."
-      : "Invitation delivery is temporarily unavailable.";
-    return res.status(503).json({ success: false, code: "INVITATION_DELIVERY_UNAVAILABLE", error: message });
-  }
-
-  const createArgs: Record<string, unknown> = {
-    p_actor_user_id: auth.user.id,
-    p_company_id: auth.companyId,
-    p_email: email,
-    p_role_key: roleKey,
-  };
-  if (requestedExpiry) createArgs.p_expires_at = requestedExpiry;
-  if (overrides !== undefined) createArgs.p_permission_overrides = overrides;
-
-  let invitation: Record<string, any> | null;
-  try {
-    const { data, error } = await admin.rpc("platform_create_company_invitation", createArgs);
-    if (error) return res.status(accessRpcStatus(error)).json({ success: false, error: accessRpcMessage(error, "The invitation could not be created.") });
-    invitation = rpcRow(data);
-    if (!invitation) return res.status(503).json({ success: false, error: "The invitation record was not returned." });
-  } catch {
-    return res.status(503).json({ success: false, error: "The invitation could not be created safely." });
-  }
-
-  try {
-    const sentInvitation = await sendAndRecordInvitationEmail(admin, auth.user.id, invitation);
-    return res.status(201).json({ success: true, status: "SENT", invitation: sentInvitation });
-  } catch (error) {
-    const failedInvitation = error instanceof InvitationEmailRequestError ? error.invitation : invitation;
-    return res.status(502).json({
-      success: false,
-      code: "INVITATION_DELIVERY_FAILED",
-      error: "The invitation record was created, but the invitation email could not be sent. Check the deployment email configuration and use Resend.",
-      invitation: failedInvitation,
-    });
-  }
-});
-
-app.post("/api/company/invitations/:invitationId/resend", async (req, res) => {
-  let auth: CompanyRequestAuthorization;
-  try {
-    auth = await authorizeCompanyRequest(req, "company.members.manage");
-  } catch (error) {
-    return res.status(authorizationErrorStatus(error)).json({ success: false, error: authorizationErrorMessage(error, "Company invitation authorization failed.") });
-  }
-
-  const invitationId = String(req.params.invitationId || "").trim();
-  if (!UUID_PATTERN.test(invitationId)) return res.status(400).json({ success: false, error: "A valid invitation is required." });
-
-  let admin: SupabaseClient;
-  try {
-    admin = createInvitationServerClient();
-  } catch {
-    return res.status(503).json({ success: false, code: "INVITATION_DELIVERY_UNAVAILABLE", error: "Invitation delivery is not configured on this deployment." });
-  }
-
-  const { data: listed, error: listError } = await auth.supabase.rpc("platform_list_company_invitations", { p_company_id: auth.companyId });
-  if (listError) return res.status(accessRpcStatus(listError)).json({ success: false, error: accessRpcMessage(listError, "The invitation could not be loaded.") });
-  const existing = rpcRows(listed).find((row) => row.id === invitationId);
-  if (!existing) return res.status(404).json({ success: false, error: "The invitation was not found in this deployment company." });
-  if (String(existing.status || "").toUpperCase() === "ACCEPTED") return res.status(409).json({ success: false, error: "Accepted invitations cannot be resent." });
-
-  let invitation: Record<string, any> | null = null;
-  const expiresAt = typeof existing.expires_at === "string" ? new Date(existing.expires_at).getTime() : 0;
-  if (String(existing.status || "").toUpperCase() === "PENDING" && expiresAt > Date.now()) {
-    const { data, error } = await admin.rpc("platform_reset_company_invitation_delivery", {
-      p_actor_user_id: auth.user.id,
-      p_invitation_id: invitationId,
-    });
-    if (error) return res.status(accessRpcStatus(error)).json({ success: false, error: accessRpcMessage(error, "The invitation could not be prepared for resend.") });
-    invitation = rpcRow(data);
-  } else {
-    const email = invitationEmail(existing.normalized_email);
-    const roleKey = invitationRole(existing.role_key);
-    if (!email || !roleKey) return res.status(400).json({ success: false, error: "The existing invitation is missing valid delivery details." });
-    const { data, error } = await admin.rpc("platform_create_company_invitation", {
-      p_actor_user_id: auth.user.id,
-      p_company_id: auth.companyId,
-      p_email: email,
-      p_role_key: roleKey,
-    });
-    if (error) return res.status(accessRpcStatus(error)).json({ success: false, error: accessRpcMessage(error, "A replacement invitation could not be created.") });
-    invitation = rpcRow(data);
-  }
-  if (!invitation) return res.status(503).json({ success: false, error: "The invitation record was not returned." });
-
-  try {
-    const sentInvitation = await sendAndRecordInvitationEmail(admin, auth.user.id, invitation);
-    return res.json({ success: true, status: "SENT", invitation: sentInvitation });
-  } catch (error) {
-    const failedInvitation = error instanceof InvitationEmailRequestError ? error.invitation : invitation;
-    return res.status(502).json({
-      success: false,
-      code: "INVITATION_DELIVERY_FAILED",
-      error: "The invitation record exists, but the invitation email could not be sent. Check the deployment email configuration and retry.",
-      invitation: failedInvitation,
-    });
-  }
-});
 
 function platformCompanyAiPath(req: express.Request) {
   return String(req.params.companyId || "").trim();
@@ -1084,10 +861,13 @@ app.get("/api/document-delivery-history", async (req, res) => {
 app.get("/api/messaging/status", async (req, res) => {
   try {
     const auth = await authorizeCompanyRequest(req, "documents.send");
+    let email;
+    try { email = await checkBrevoEmailProvider(process.env); }
+    catch { email = { status: "CONNECTION_PROBLEM", message: "Email provider status could not be checked safely." } as const; }
     let sms;
     try { sms = await checkSmsProviderOverview(process.env); }
     catch { sms = getSmsProviderStatus(process.env); }
-    return res.json({ success: true, data: { companyId: auth.companyId, sms } });
+    return res.json({ success: true, data: { companyId: auth.companyId, email, sms } });
   } catch (error) {
     const status = error instanceof ApiAuthorizationError ? error.status : 503;
     return res.status(status).json({ success: false, error: error instanceof Error ? error.message : "Messaging provider status is unavailable." });
@@ -1214,136 +994,6 @@ app.get("/api/storage/health", async (req, res) => {
     return res.json({ success: true, data: { companyId: auth.companyId, ...getStorageHealth(process.env) } });
   } catch (error) {
     return res.status(authorizationErrorStatus(error)).json({ success: false, error: authorizationErrorMessage(error, "Storage health is unavailable.") });
-  }
-});
-
-app.post("/api/classify-email", async (req, res) => {
-  let budgetAuth: CompanyRequestAuthorization | null = null;
-  let aiBudgetClaimed = false;
-  try {
-    const auth = await authorizeCompanyRequest(req, "invoices.extract");
-    budgetAuth = auth;
-    const { sender = "", subject = "", body = "", attachmentNames = [], model = PRIMARY_MODEL } = req.body || {};
-    if (typeof sender !== "string" || typeof subject !== "string" || typeof body !== "string" || !Array.isArray(attachmentNames)) return res.status(400).json({ success: false, error: "Email content has an invalid shape." });
-    if (!subject && !body && !attachmentNames.length) return res.status(400).json({ success: false, error: "Email content is required." });
-    if (sender.length > 2_000 || subject.length > 2_000 || body.length > AI_TEXT_MAX_CHARS || attachmentNames.length > MAX_GMAIL_ATTACHMENT_COUNT || attachmentNames.some((item: unknown) => String(item || "").length > 300)) {
-      return res.status(413).json({ success: false, error: "Email classification input exceeds the safe size limit." });
-    }
-    // Resolve company configuration before reserving provider budget. A
-    // missing/disabled/misconfigured company must not consume request_count.
-    await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
-    await claimAiRequest(auth.supabase, auth.companyId, "EMAIL_CLASSIFICATION", { maxRequests: 60, maxConcurrency: 4 });
-    aiBudgetClaimed = true;
-    const prompt = `Classify whether this email is related to an invoice or adjacent financial document. Use the email subject, sender, body, and attachment names. Do not assume an attachment is an invoice only because it is a PDF. Recognize Philippine terms including invoice, sales invoice, service invoice, VAT invoice, billing, statement of account, SOA, BIR, VAT, TIN, and amount due. Treat "Official Receipt", "SOA", and "Billing Statement" as candidate finance documents, not automatically as a principal invoice. For current Philippine workflow, an Official Receipt may be RECEIPT or SUPPLEMENTARY_DOCUMENT; preserve uncertainty and route it to human review.\n\nSender: ${sender}\nSubject: ${subject}\nAttachments: ${attachmentNames.join(", ") || "None"}\n\nBody:\n${body}`;
-    const { response, modelUsed } = await withCompanyAiRuntime(
-      { supabase: auth.supabase, companyId: auth.companyId },
-      (runtime) => generateStructured(
-        runtime.geminiClient,
-        model,
-        { parts: [{ text: prompt }] },
-        "You classify finance emails for an invoice operations workspace. Return conservative structured JSON. Never invent a legal conclusion from a title alone. Keep documentType broad and use invoiceSubtype only when the source supports it. A receipt is not automatically an invoice.",
-        emailClassificationSchema,
-      ),
-    );
-    const data = JSON.parse(response.text || "{}");
-    res.json({ success: true, data, modelUsed });
-  } catch (error: any) {
-    const status = apiErrorStatus(error);
-    if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/classify-email: request failed.");
-    res.status(status).json({ success: false, error: apiErrorMessage(error, "Email classification failed."), ...apiAiErrorDetails(error) });
-  } finally {
-    if (aiBudgetClaimed && budgetAuth) await releaseAiRequest(budgetAuth.supabase, budgetAuth.companyId, "EMAIL_CLASSIFICATION");
-  }
-});
-
-app.post("/api/classify-email-batch", async (req, res) => {
-  let budgetAuth: CompanyRequestAuthorization | null = null;
-  let aiBudgetClaimed = false;
-  try {
-    const auth = await authorizeCompanyRequest(req, "gmail.read");
-    budgetAuth = auth;
-    const { items = [], model = PRIMARY_MODEL } = req.body || {};
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.json({ success: true, data: { classifications: [] } });
-    }
-    if (items.length > 10) return res.status(413).json({ success: false, error: "Email batch classification is limited to 10 messages per request." });
-
-    const boundedItems = items.slice(0, 10).map((item: any) => ({
-      messageId: String(item.messageId || "").trim(),
-      sender: String(item.sender || "").trim(),
-      subject: String(item.subject || "").trim(),
-      snippet: String(item.snippet || "").trim().slice(0, 300),
-      attachmentNames: Array.isArray(item.attachmentNames) ? item.attachmentNames.map((n: any) => String(n || "").trim()).slice(0, 5) : [],
-    })).filter((item) => Boolean(item.messageId));
-
-    if (boundedItems.length === 0) {
-      return res.json({ success: true, data: { classifications: [] } });
-    }
-    if (boundedItems.some((item) => item.sender.length > 2_000 || item.subject.length > 2_000 || item.snippet.length > 2_000 || item.attachmentNames.some((name) => name.length > 300))) {
-      return res.status(413).json({ success: false, error: "Email batch classification input exceeds the safe size limit." });
-    }
-    await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
-    await claimAiRequest(auth.supabase, auth.companyId, "EMAIL_BATCH_CLASSIFICATION", { maxRequests: 30, maxConcurrency: 2 });
-    aiBudgetClaimed = true;
-
-    const prompt = `You are a financial email classifier for an operations workspace. Classify each email into one of these destinations:
-- "INVOICE": for vendor bills, sales invoices, service invoices, VAT invoices, billing notices demanding payment.
-- "BANK_STATEMENT": for official bank transaction records, monthly account statements, e-statements (usually with attached CSV or XLSX).
-- "EXPENSE": for official receipts, cash receipts, payment proofs, reimbursements, petty cash slips, ride/food/fuel receipts.
-- "UNSUPPORTED": for general correspondence, marketing, non-finance messages, or ambiguous cases.
-
-CRITICAL INSTRUCTIONS:
-1. Every classification object in the output MUST include its exact input messageId.
-2. suggestedDestination must be exactly one of: "INVOICE", "BANK_STATEMENT", "EXPENSE", "UNSUPPORTED".
-3. Confidence should be an integer between 0 and 100.
-4. Reason should be a concise 1-sentence explanation.
-
-Here are the candidate emails to classify:
-${JSON.stringify(boundedItems, null, 2)}`;
-
-    const { response, modelUsed } = await withCompanyAiRuntime(
-      { supabase: auth.supabase, companyId: auth.companyId },
-      (runtime) => generateStructured(
-        runtime.geminiClient,
-        model,
-        { parts: [{ text: prompt }] },
-        "Classify ambiguous finance email candidates conservatively. Always preserve exact messageIds and return structured JSON.",
-        emailBatchClassificationSchema,
-      ),
-    );
-
-    const parsed = JSON.parse(response.text || "{}");
-    const rawClassifications: any[] = Array.isArray(parsed.classifications) ? parsed.classifications : [];
-
-    const validMessageIds = new Set(boundedItems.map((item) => item.messageId));
-    const seenMessageIds = new Set<string>();
-    const classifications: Array<{ messageId: string; suggestedDestination: string; confidence: number; reason: string }> = [];
-
-    for (const item of rawClassifications) {
-      const msgId = String(item.messageId || "").trim();
-      if (!msgId || !validMessageIds.has(msgId) || seenMessageIds.has(msgId)) continue;
-      seenMessageIds.add(msgId);
-
-      const dest = String(item.suggestedDestination || "UNSUPPORTED").toUpperCase();
-      const validDest = ["INVOICE", "BANK_STATEMENT", "EXPENSE", "UNSUPPORTED"].includes(dest) ? dest : "UNSUPPORTED";
-      const confidence = Math.max(0, Math.min(100, Math.round(Number(item.confidence) || 50)));
-      const reason = String(item.reason || "").trim() || (validDest === "UNSUPPORTED" ? "Ambiguous email metadata." : `Classified as ${validDest}.`);
-
-      classifications.push({
-        messageId: msgId,
-        suggestedDestination: validDest,
-        confidence,
-        reason,
-      });
-    }
-
-    res.json({ success: true, data: { classifications }, modelUsed });
-  } catch (error: any) {
-    const status = apiErrorStatus(error);
-    if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/classify-email-batch: request failed.");
-    res.status(status).json({ success: false, error: apiErrorMessage(error, "Email batch classification failed."), ...apiAiErrorDetails(error) });
-  } finally {
-    if (aiBudgetClaimed && budgetAuth) await releaseAiRequest(budgetAuth.supabase, budgetAuth.companyId, "EMAIL_BATCH_CLASSIFICATION");
   }
 });
 
@@ -1917,7 +1567,7 @@ Rules:
       paymentMethod,
       referenceNumber,
       projectId: projectReference,
-      notes: `Staged from Email Intake AI extraction: ${emailContext?.subject || fileName || "Receipt"}${payee ? ` from ${payee}` : ""}`,
+      notes: `Staged from email document AI extraction: ${emailContext?.subject || fileName || "Receipt"}${payee ? ` from ${payee}` : ""}`,
       confidenceScore: typeof extracted?.confidenceScore === "number" && Number.isFinite(extracted.confidenceScore) ? Math.max(0, Math.min(100, extracted.confidenceScore)) : undefined,
       merchantIdentity: extracted?.merchantIdentity || {},
       rawJson: responseText,
@@ -1948,469 +1598,33 @@ Rules:
 
 
 
-function decodeBase64UrlText(value?: string) {
-  if (!value) return "";
-  try {
-    const bytes = decodeBase64Payload(value, MAX_GMAIL_RAW_BYTES, "Gmail text");
-    return new TextDecoder("utf-8", { fatal: false }).decode(bytes).slice(0, AI_TEXT_MAX_CHARS);
-  } catch {
-    return "";
-  }
+interface NormalizedEmailRecipient {
+  email: string;
+  name?: string;
 }
 
-function toStandardBase64(value?: string) {
-  if (!value) return "";
-  try {
-    return Buffer.from(decodeBase64Payload(value, MAX_GMAIL_ATTACHMENT_BYTES, "Gmail attachment")).toString("base64");
-  } catch {
-    return "";
-  }
-}
-
-async function gmailFetch(accessToken: string, pathName: string, init?: RequestInit, maxResponseBytes = GMAIL_MAX_API_RESPONSE_BYTES) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), GMAIL_REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/" + pathName, {
-      ...init,
-      signal: controller.signal,
-      headers: {
-        Authorization: "Bearer " + accessToken,
-        Accept: "application/json",
-        ...(init?.headers || {}),
-      },
-    });
-    const declaredLength = Number(response.headers.get("content-length") || 0);
-    if (declaredLength > maxResponseBytes) {
-      const error: any = new Error("Gmail response exceeded the safe server-side size limit.");
-      error.status = 413;
-      throw error;
-    }
-    const responseBytes = new Uint8Array(await response.arrayBuffer());
-    if (responseBytes.byteLength > maxResponseBytes) {
-      const error: any = new Error("Gmail response exceeded the safe server-side size limit.");
-      error.status = 413;
-      throw error;
-    }
-    const payload = JSON.parse(new TextDecoder("utf-8", { fatal: false }).decode(responseBytes) || "{}");
-    if (!response.ok) {
-      const error: any = new Error(payload?.error?.message || "Gmail API request failed (" + response.status + ").");
-      error.status = response.status;
-      error.payload = payload;
-      throw error;
-    }
-    return payload;
-  } catch (error: any) {
-    if (error?.name === "AbortError") {
-      const timeoutError: any = new Error("Gmail API request timed out within the server safety budget.");
-      timeoutError.status = 504;
-      throw timeoutError;
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function headerValue(payload: any, name: string) {
-  const headers = payload?.headers || [];
-  return headers.find((header: any) => String(header?.name || "").toLowerCase() === name.toLowerCase())?.value || "";
-}
-
-function splitAddresses(value: string) {
-  if (!value) return [];
-  return value.split(",").map((item) => item.trim()).filter(Boolean);
-}
-
-function parseSender(value: string) {
-  const match = value.match(/^(.*?)\s*<([^>]+)>\s*$/);
-  if (match) return { name: match[1].replace(/^"|"$/g, "").trim(), email: match[2].trim() };
-  return { name: "", email: value.trim() };
-}
-
-function collectMimeParts(payload: any) {
-  const bodyText: string[] = [];
-  const bodyHtml: string[] = [];
-  const attachments: Array<{ attachmentId: string; partId?: string; attachmentIndex: number; filename: string; mimeType: string; size: number; inlineDataBase64?: string }> = [];
-  let attachmentIndex = 0;
-
-  const walk = (part: any) => {
-    if (!part) return;
-    const mimeType = String(part.mimeType || "").toLowerCase();
-    const filename = String(part.filename || "");
-    const body = part.body || {};
-
-    if (!filename && body.data && mimeType === "text/plain") bodyText.push(decodeBase64UrlText(body.data));
-    if (!filename && body.data && mimeType === "text/html") bodyHtml.push(decodeBase64UrlText(body.data));
-
-    if (filename) {
-      const currentIndex = attachmentIndex;
-      attachmentIndex += 1;
-      if (attachments.length < MAX_GMAIL_ATTACHMENT_COUNT) {
-        attachments.push({
-          // Gmail's attachment id is stable. MIME part ids are the deterministic
-          // fallback for inline/file parts that do not expose one.
-          attachmentId: body.attachmentId || `inline-${part.partId || currentIndex}`,
-          partId: part.partId,
-          attachmentIndex: currentIndex,
-          filename,
-          mimeType: part.mimeType || "application/octet-stream",
-          size: Number(body.size || 0),
-          inlineDataBase64: body.data ? toStandardBase64(body.data) : undefined,
-        });
-      }
-    }
-    for (const child of part.parts || []) walk(child);
-  };
-
-  walk(payload);
-  return {
-    bodyText: bodyText.join("\n\n").trim().slice(0, AI_TEXT_MAX_CHARS),
-    bodyHtml: bodyHtml.join("\n").trim().slice(0, AI_TEXT_MAX_CHARS),
-    attachmentCount: attachmentIndex,
-    attachments,
-  };
-}
-
-function summarizeGmailMessage(message: any) {
-  const parsed = collectMimeParts(message.payload || {});
-  const receivedHeader = headerValue(message.payload, "Date");
-  const receivedAt = message.internalDate
-    ? new Date(Number(message.internalDate)).toISOString()
-    : receivedHeader
-      ? new Date(receivedHeader).toISOString()
-      : new Date().toISOString();
-  const sender = headerValue(message.payload, "From");
-  const senderParts = parseSender(sender);
-  return {
-    id: message.id,
-    threadId: message.threadId,
-    historyId: message.historyId,
-    internalDate: message.internalDate,
-    sender,
-    senderName: senderParts.name,
-    senderEmail: senderParts.email,
-    to: splitAddresses(headerValue(message.payload, "To")),
-    cc: splitAddresses(headerValue(message.payload, "Cc")),
-    subject: headerValue(message.payload, "Subject"),
-    receivedAt,
-    snippet: message.snippet || "",
-    bodyText: parsed.bodyText || message.snippet || "",
-    bodyHtml: parsed.bodyHtml || "",
-    labels: message.labelIds || [],
-    hasAttachments: parsed.attachmentCount > 0,
-    attachments: parsed.attachments.map(({ inlineDataBase64, ...attachment }) => attachment),
-  };
-}
-
-async function gmailRequestForAuth(auth: CompanyRequestAuthorization, pathName: string, init?: RequestInit, maxResponseBytes?: number) {
-  return authorizedGmailRequest(
-    { companyId: auth.companyId, userId: auth.user.id, legacyAccessToken: auth.googleAccessToken },
-    gmailFetch,
-    pathName,
-    init,
-    maxResponseBytes,
-  );
-}
-
-async function getGmailMessageFull(auth: CompanyRequestAuthorization, messageId: string) {
-  return gmailRequestForAuth(auth, `messages/${encodeURIComponent(messageId)}?format=full`);
-}
-
-function gmailRouteError(error: unknown, fallback: string) {
-  if (error instanceof ApiAuthorizationError) return { status: error.status, code: error.code, message: error.message };
-  if (error instanceof GmailAuthorizationError) return { status: error.status, code: error.code, message: error.message };
-  const code = String((error as { code?: unknown })?.code || "");
-  if (code === "42501") return { status: 403, code: "FORBIDDEN", message: "You do not have permission for this Gmail operation." };
-  if (code === "23514") return { status: 409, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", message: "This Gmail delivery request is already bound to a different delivery attempt." };
-  const status = Number((error as { status?: unknown })?.status);
-  return { status: Number.isInteger(status) && status >= 400 && status <= 599 ? status : 503, code: "GMAIL_PROVIDER_UNAVAILABLE", message: fallback };
-}
-
-app.post("/api/gmail/provider-credential", async (req, res) => {
-  try {
-    const auth = await authorizeCompanyRequest(req, "gmail.manage");
-    const refreshToken = typeof req.body?.providerRefreshToken === "string" ? req.body.providerRefreshToken.trim() : "";
-    if (!refreshToken || refreshToken.length > 4096 || /[\u0000-\u001f\u007f]/.test(refreshToken)) {
-      return res.status(400).json({ success: false, code: "GMAIL_REFRESH_TOKEN_INVALID", error: "A valid Google refresh token is required to finish Gmail setup." });
-    }
-    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
-    if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ success: false, code: "GMAIL_ACCOUNT_INVALID", error: "A valid connected Google account is required." });
-    }
-    const scopes = Array.isArray(req.body?.scopes) ? req.body.scopes : [];
-    const stored = await createServerGmailCredentialRepository(process.env).store({
-      companyId: auth.companyId,
-      userId: auth.user.id,
-      email,
-      scopes,
-      refreshToken,
-    });
-    invalidateGmailAccessToken({ companyId: auth.companyId, userId: auth.user.id });
-    return res.json({ success: true, data: { status: stored.status, email: stored.email } });
-  } catch (error) {
-    const mapped = gmailRouteError(error, "Gmail authorization could not be saved securely.");
-    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
-  }
-});
-
-app.post("/api/gmail/provider-credential/revoke", async (req, res) => {
-  try {
-    const auth = await authorizeCompanyRequest(req, "gmail.manage");
-    await createServerGmailCredentialRepository(process.env).revoke(auth.companyId, auth.user.id);
-    invalidateGmailAccessToken({ companyId: auth.companyId, userId: auth.user.id });
-    return res.json({ success: true, data: { status: "REVOKED" } });
-  } catch (error) {
-    const mapped = gmailRouteError(error, "Gmail authorization could not be disconnected safely.");
-    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
-  }
-});
-
-app.get("/api/gmail/status", async (req, res) => {
-  try {
-    const auth = await authorizeCompanyRequest(req, "gmail.read");
-    const { data: connection, error } = await auth.supabase
-      .from("gmail_connections")
-      .select("email,last_history_id,last_synced_at")
-      .eq("company_id", auth.companyId)
-      .eq("user_id", auth.user.id)
-      .eq("provider", "google")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    const credential = await loadGmailCredentialMetadata(auth.companyId, auth.user.id, process.env);
-    if (credential && !("companyId" in credential)) {
-      return res.json({ success: true, data: { status: "UNAVAILABLE", credentialStatus: "UNAVAILABLE" } });
-    }
-    const hasRequiredGmailScopes = credential && "companyId" in credential
-      && credential.scopes.includes("https://www.googleapis.com/auth/gmail.readonly")
-      && credential.scopes.includes("https://www.googleapis.com/auth/gmail.send");
-    const credentialStatus = credential && "companyId" in credential
-      ? (credential.status === "ACTIVE" && !hasRequiredGmailScopes ? "MISSING" : credential.status)
-      : "MISSING";
-    const credentialNeedsReconnect = Boolean(credential && "companyId" in credential && credentialStatus !== "ACTIVE");
-    const credentialEmail = credential && "companyId" in credential ? credential.email : "";
-    const status = credentialStatus === "ACTIVE"
-      ? "HEALTHY"
-      : credentialNeedsReconnect || connection
-        ? "RECONNECT_REQUIRED"
-        : "NEVER_CONNECTED";
-    const userMetadata = auth.user.user_metadata && typeof auth.user.user_metadata === "object" ? auth.user.user_metadata as Record<string, unknown> : {};
-    const displayName = typeof userMetadata.full_name === "string" ? userMetadata.full_name.trim().slice(0, 160) : "";
-    return res.json({ success: true, data: {
-      status,
-      credentialStatus,
-      ...(credentialEmail || connection?.email ? { email: credentialEmail || connection?.email } : {}),
-      ...(displayName ? { displayName } : {}),
-      ...(connection?.last_history_id ? { lastHistoryId: connection.last_history_id } : {}),
-      ...(connection?.last_synced_at ? { lastSyncedAt: connection.last_synced_at } : {}),
-    } });
-  } catch (error) {
-    const mapped = gmailRouteError(error, "Gmail connection status is unavailable.");
-    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
-  }
-});
-
-app.get("/api/gmail/profile", async (req, res) => {
-  try {
-    const auth = await authorizeCompanyRequest(req, "gmail.read");
-    const profile = await gmailRequestForAuth(auth, "profile");
-    res.json({ success: true, data: profile });
-  } catch (error: any) {
-    const mapped = gmailRouteError(error, "Could not read Gmail profile safely.");
-    res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
-  }
-});
-
-app.post("/api/gmail/scan", async (req, res) => {
-  try {
-    const auth = await authorizeCompanyRequest(req, "gmail.read");
-    const maxResults = Math.max(1, Math.min(50, Number(req.body?.maxResults || 25)));
-    const query = String(req.body?.query || "newer_than:30d {subject:invoice subject:\"sales invoice\" subject:\"service invoice\" subject:\"VAT invoice\" subject:billing subject:SOA \"statement of account\" \"credit note\" \"tax invoice\" BIR VAT TIN \"amount due\" filename:pdf filename:png filename:jpg filename:jpeg}");
-    if (query.length > GMAIL_MAX_QUERY_CHARS) return res.status(400).json({ success: false, error: "Gmail search query is too long." });
-    const ids: string[] = [];
-    let pageToken = "";
-    let resultSizeEstimate = 0;
-    let pages = 0;
-    do {
-      pages += 1;
-      const params = new URLSearchParams({ maxResults: String(Math.max(1, Math.min(100, maxResults - ids.length))), q: query });
-      if (pageToken) params.set("pageToken", pageToken);
-      const list = await gmailRequestForAuth(auth, `messages?${params.toString()}`) as any;
-      resultSizeEstimate = Number(list.resultSizeEstimate || resultSizeEstimate);
-      ids.push(...(list.messages || []).map((entry: any) => entry.id).filter(Boolean));
-      pageToken = String(list.nextPageToken || "");
-    } while (pageToken && ids.length < maxResults && pages < 5);
-    ids.splice(maxResults);
-    const messages: any[] = [];
-    for (let i = 0; i < ids.length; i += 6) {
-      const batch = ids.slice(i, i + 6);
-      const loaded = await Promise.all(batch.map((id: string) => getGmailMessageFull(auth, id)));
-      messages.push(...loaded.map(summarizeGmailMessage));
-    }
-    const profile = await gmailRequestForAuth(auth, "profile") as any;
-    res.json({ success: true, data: { messages, resultSizeEstimate: resultSizeEstimate || messages.length, historyId: profile.historyId, emailAddress: profile.emailAddress } });
-  } catch (error: any) {
-    const mapped = gmailRouteError(error, "Gmail scan could not be completed safely.");
-    res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
-  }
-});
-
-app.post("/api/gmail/history", async (req, res) => {
-  const startedAt = Date.now();
-  try {
-    const auth = await authorizeCompanyRequest(req, "gmail.read");
-    const startHistoryId = String(req.body?.startHistoryId || "").trim();
-    if (!/^\d{1,100}$/.test(startHistoryId)) return res.status(400).json({ success: false, error: "A valid Gmail history ID is required. Run an initial scan first." });
-    const ids = new Set<string>();
-    let pageToken = "";
-    let pagesFetched = 0;
-    let truncated = false;
-    let resyncRequired = false;
-    do {
-      if (Date.now() - startedAt > GMAIL_HISTORY_BUDGET_MS) { truncated = true; resyncRequired = true; break; }
-      pagesFetched += 1;
-      const params = new URLSearchParams({ startHistoryId, historyTypes: "messageAdded", maxResults: "100" });
-      if (pageToken) params.set("pageToken", pageToken);
-      const history = await gmailRequestForAuth(auth, "history?" + params.toString()) as any;
-      for (const event of history.history || []) {
-        for (const added of event.messagesAdded || []) {
-          if (added?.message?.id) ids.add(String(added.message.id));
-          if (ids.size >= GMAIL_HISTORY_MAX_MESSAGE_IDS) { truncated = true; resyncRequired = true; break; }
-        }
-        if (resyncRequired) break;
-      }
-      pageToken = String(history.nextPageToken || "");
-      if (pagesFetched >= GMAIL_HISTORY_MAX_PAGES && pageToken) { truncated = true; resyncRequired = true; }
-    } while (pageToken && !truncated);
-    const idList = Array.from(ids).slice(0, GMAIL_HISTORY_MAX_LOADED_MESSAGES);
-    if (ids.size > GMAIL_HISTORY_MAX_LOADED_MESSAGES) { truncated = true; resyncRequired = true; }
-    const messages: any[] = [];
-    let messageBytes = 0;
-    for (let i = 0; i < idList.length; i += 6) {
-      if (Date.now() - startedAt > GMAIL_HISTORY_BUDGET_MS) { truncated = true; resyncRequired = true; break; }
-      const batch = idList.slice(i, i + 6);
-      const loaded = await Promise.all(batch.map((id) => getGmailMessageFull(auth, id)));
-      for (const message of loaded) {
-        const summary = summarizeGmailMessage(message);
-        messageBytes += Buffer.byteLength(JSON.stringify(summary), "utf8");
-        if (messageBytes > GMAIL_HISTORY_MAX_RESPONSE_BYTES) { truncated = true; resyncRequired = true; break; }
-        messages.push(summary);
-      }
-      if (messageBytes > GMAIL_HISTORY_MAX_RESPONSE_BYTES) break;
-    }
-    const profile = truncated && resyncRequired ? {} : await gmailRequestForAuth(auth, "profile") as any;
-    return res.json({ success: true, data: { messages, historyId: truncated ? startHistoryId : profile.historyId, emailAddress: profile.emailAddress, complete: !truncated, continuation: truncated ? { startHistoryId, pageToken: resyncRequired ? undefined : pageToken || undefined, pagesFetched, messageIdsReturned: messages.length, resyncRequired } : undefined } });
-  } catch (error: any) {
-    if (error?.status === 404) return res.status(409).json({ success: false, code: "HISTORY_EXPIRED", error: "Gmail history cursor expired. Run a fresh scan to rebuild sync state." });
-    const mapped = gmailRouteError(error, "Gmail incremental sync could not be completed safely.");
-    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
-  }
-});
-
-app.post("/api/gmail/import", async (req, res) => {
-  try {
-    const auth = await authorizeCompanyRequest(req, "gmail.manage");
-    const messageId = String(req.body?.messageId || "").trim();
-    if (!/^[A-Za-z0-9_-]{1,200}$/.test(messageId)) return res.status(400).json({ success: false, error: "A valid Gmail messageId is required." });
-    const full = await getGmailMessageFull(auth, messageId) as any;
-    const summary: any = summarizeGmailMessage(full);
-    const parsed = collectMimeParts(full.payload || {});
-    if (parsed.attachmentCount > MAX_GMAIL_ATTACHMENT_COUNT) return res.status(413).json({ success: false, error: "Gmail message has too many attachments to import safely." });
-    const attachments: any[] = [];
-    let attachmentBytes = 0;
-    for (const attachment of parsed.attachments) {
-      if (attachment.size > MAX_GMAIL_ATTACHMENT_BYTES) return res.status(413).json({ success: false, error: "A Gmail attachment exceeds the safe size limit." });
-      let dataBase64 = attachment.inlineDataBase64 || "";
-      if (!dataBase64 && attachment.attachmentId && !attachment.attachmentId.startsWith("inline-")) {
-        const payload = await gmailRequestForAuth(auth, "messages/" + encodeURIComponent(messageId) + "/attachments/" + encodeURIComponent(attachment.attachmentId)) as any;
-        dataBase64 = toStandardBase64(payload.data || "");
-      }
-      if (!dataBase64) return res.status(413).json({ success: false, error: "A Gmail attachment could not be loaded within the safe import budget." });
-      let bytes: Uint8Array;
-      try { bytes = decodeBase64Payload(dataBase64, MAX_GMAIL_ATTACHMENT_BYTES, "Gmail attachment"); validateGmailAttachmentBytes(bytes, attachment.mimeType, attachment.filename); }
-      catch (error: any) { return res.status(400).json({ success: false, error: error?.message || "A Gmail attachment is invalid." }); }
-      attachmentBytes += bytes.byteLength;
-      if (attachmentBytes > MAX_GMAIL_ATTACHMENT_TOTAL_BYTES) return res.status(413).json({ success: false, error: "Gmail attachment payload exceeds the 25 MB aggregate limit." });
-      const normalizedData = Buffer.from(bytes).toString("base64");
-      attachments.push({ attachmentId: attachment.attachmentId, partId: attachment.partId, attachmentIndex: attachment.attachmentIndex, filename: attachment.filename, mimeType: attachment.mimeType, size: bytes.byteLength, dataBase64: normalizedData });
-    }
-    validateGmailAttachmentEnvelope(attachments);
-    const raw = await gmailRequestForAuth(auth, "messages/" + encodeURIComponent(messageId) + "?format=raw") as any;
-    let rawBytes: Uint8Array;
-    try { rawBytes = decodeBase64Payload(String(raw.raw || ""), MAX_GMAIL_RAW_BYTES, "Gmail raw message"); validateGmailRawMessage(rawBytes); }
-    catch (error: any) { return res.status(400).json({ success: false, error: error?.message || "Gmail raw message is invalid." }); }
-    if (attachmentBytes + rawBytes.byteLength > GMAIL_IMPORT_MAX_TOTAL_BYTES) return res.status(413).json({ success: false, error: "Gmail attachment and raw-message payload exceeds the safe import limit." });
-    return res.json({ success: true, data: { ...summary, attachments, rawBase64Url: raw.raw || "" } });
-  } catch (error: any) {
-    const mapped = gmailRouteError(error, "Could not import Gmail message safely.");
-    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
-  }
-});
-
-function normalizedEmailList(value: unknown, label: string) {
-  const raw = Array.isArray(value) ? value.map((item) => String(item || "")) : String(value || "").split(",");
-  const values = raw.map((item) => item.trim()).filter(Boolean);
-  if (values.length > 20) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", `${label} has too many recipients.`);
-  for (const item of values) {
-    if (!/^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/.test(item)) {
+function normalizedEmailList(value: unknown, label: string): NormalizedEmailRecipient[] {
+  const raw: unknown[] = Array.isArray(value) ? value : value === undefined || value === null ? [] : String(value).split(",");
+  const present = raw.filter((item) => {
+    const row = item && typeof item === "object" && !Array.isArray(item) ? item as Record<string, unknown> : { email: item };
+    return String(row.email || "").trim().length > 0;
+  });
+  const values = present.map((item) => {
+    const row = item && typeof item === "object" && !Array.isArray(item) ? item as Record<string, unknown> : { email: item };
+    const email = String(row.email || "").trim().toLowerCase();
+    const name = String(row.name || "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 120);
+    if (!/^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/.test(email) || email.length > 320) {
       throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", `${label} contains an invalid email address.`);
     }
-  }
+    return { email, ...(name ? { name } : {}) };
+  }).filter((item) => item.email);
+  if (values.length > 20) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", `${label} has too many recipients.`);
   return values;
 }
 
 function safeMailHeader(value: unknown, fallback: string) {
   const normalized = String(value || fallback).replace(/[\r\n]+/g, " ").trim();
   return normalized.slice(0, 500) || fallback;
-}
-
-function base64Url(value: Buffer) {
-  return value.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function buildDocumentMimeMessage(input: { to: string[]; cc: string[]; subject: string; message: string; attachmentName?: string; pdfBytes?: Buffer }) {
-  if (!input.pdfBytes || !input.attachmentName) {
-    return Buffer.from([
-      `To: ${input.to.join(", ")}`,
-      ...(input.cc.length ? [`Cc: ${input.cc.join(", ")}`] : []),
-      `Subject: ${input.subject}`,
-      "MIME-Version: 1.0",
-      "Content-Type: text/plain; charset=UTF-8",
-      "Content-Transfer-Encoding: 8bit",
-      "",
-      input.message,
-      "",
-    ].join("\r\n"), "utf8");
-  }
-  const boundary = `=_HydroQualiSense_${randomUUID()}`;
-  const attachment = input.pdfBytes.toString("base64").replace(/(.{1,76})/g, "$1\r\n").trim();
-  const headers = [
-    `To: ${input.to.join(", ")}`,
-    ...(input.cc.length ? [`Cc: ${input.cc.join(", ")}`] : []),
-    `Subject: ${input.subject}`,
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-  ];
-  const raw = [
-    ...headers,
-    "",
-    `--${boundary}`,
-    "Content-Type: text/plain; charset=UTF-8",
-    "Content-Transfer-Encoding: 8bit",
-    "",
-    input.message,
-    `--${boundary}`,
-    `Content-Type: application/pdf; name="${input.attachmentName}"`,
-    "Content-Transfer-Encoding: base64",
-    `Content-Disposition: attachment; filename="${input.attachmentName}"`,
-    "",
-    attachment,
-    `--${boundary}--`,
-    "",
-  ].join("\r\n");
-  return Buffer.from(raw, "utf8");
 }
 
 type IssuedDocumentType = "PURCHASE_ORDER" | "CLIENT_INVOICE";
@@ -2460,8 +1674,11 @@ function documentSendResponseData(intent: Record<string, any>, extras: Record<st
     : source === "PROGRAMMATIC_PDF_FALLBACK" ? "PROGRAMMATIC_PDF_FALLBACK" : undefined;
   const trustedSha256 = String(intent.trusted_sha256 || "").toLowerCase();
   return {
-    status: "SENT" as const,
-    ...(intent.gmail_message_id ? { gmailMessageId: String(intent.gmail_message_id) } : {}),
+    status: String(extras.status || intent.status || "UNKNOWN").toUpperCase(),
+    ...(intent.provider_id ? { providerId: String(intent.provider_id) } : {}),
+    ...(intent.provider_message_id ? { providerMessageId: String(intent.provider_message_id) } : {}),
+    ...(intent.provider_status ? { providerStatus: String(intent.provider_status) } : {}),
+    ...(intent.reconciliation_required ? { reconciliationRequired: true } : {}),
     ...(intent.attachment_name ? { attachmentName: String(intent.attachment_name).slice(0, 180) } : {}),
     ...(attachmentSource ? { attachmentSource } : {}),
     ...(/^[0-9a-f]{64}$/.test(trustedSha256) ? { attachmentSha256: trustedSha256 } : {}),
@@ -2493,6 +1710,150 @@ async function renderTrustedIssuedPdf(row: { id: string; document_type: string; 
   }
   return pdfBytes;
 }
+
+function emailRouteError(error: unknown, fallback: string) {
+  if (error instanceof ApiAuthorizationError) return { status: error.status, code: error.code, message: error.message };
+  const providerCode = error && typeof error === "object" && "code" in error ? String((error as Record<string, unknown>).code || "") : "";
+  if (providerCode === "23514" || providerCode === "22023" || providerCode === "22P02") return { status: 400, code: "EMAIL_REQUEST_INVALID", message: "The email request is invalid." };
+  if (providerCode === "42501") return { status: 403, code: "FORBIDDEN", message: "You do not have permission for this company email operation." };
+  return { status: 503, code: "EMAIL_SEND_RECONCILE_REQUIRED", message: fallback };
+}
+
+app.post("/api/messaging/email/send", async (req, res) => {
+  let auth: CompanyRequestAuthorization | null = null;
+  let sendIntentId = "";
+  let intentStateCompleted = false;
+  try {
+    auth = await authorizeCompanyRequest(req, "documents.send");
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) return res.status(400).json({ success: false, code: "EMAIL_REQUEST_INVALID", error: "The email request payload is invalid." });
+    if (req.body.confirmed !== true) return res.status(400).json({ success: false, code: "EMAIL_HUMAN_CONFIRMATION_REQUIRED", error: "Review the email and confirm it before sending." });
+    const requestedType = String(req.body.documentType || "").trim().toUpperCase();
+    const documentType = issuedDocumentType(requestedType);
+    const generalEmail = requestedType === "GENERAL_EMAIL";
+    if (!documentType && !generalEmail) return res.status(400).json({ success: false, code: "EMAIL_REQUEST_INVALID", error: "A supported email or issued document type is required." });
+    const documentId = String(req.body.documentId || "").trim();
+    const snapshotId = String(req.body.snapshotId || "").trim();
+    let snapshot: { id: string; document_type: string; document_id: string; document_number: string; template_version: string; template_version_id?: string | null; template_sha256?: string | null; snapshot: unknown } | null = null;
+    if (documentType) {
+      if (!UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) return res.status(400).json({ success: false, code: "EMAIL_REQUEST_INVALID", error: "An issued document snapshot is required before sending." });
+      const { data: allowed, error: permissionError } = await auth.supabase.rpc("has_company_permission", { p_company_id: auth.companyId, p_permission_key: documentReadPermission(documentType) });
+      if (permissionError || allowed !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission to send this document type.");
+      await assertIssuedDocumentDeliveryLifecycle(auth, documentType, documentId);
+      const { data: loadedSnapshot, error: snapshotError } = await auth.supabase
+        .from("issued_document_snapshots")
+        .select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot")
+        .eq("company_id", auth.companyId)
+        .eq("id", snapshotId)
+        .eq("document_type", documentType)
+        .eq("document_id", documentId)
+        .maybeSingle();
+      if (snapshotError) throw snapshotError;
+      if (!loadedSnapshot) throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued document snapshot is unavailable. Generate the document again before sending.");
+      snapshot = loadedSnapshot as typeof snapshot;
+    } else if (documentId || snapshotId) {
+      throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "An ordinary email cannot include issued-document identifiers.");
+    }
+
+    const recipients = normalizedEmailList(req.body.to, "To");
+    const cc = normalizedEmailList(req.body.cc, "CC");
+    if (!recipients.length) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "At least one To recipient is required.");
+    const subject = safeMailHeader(req.body.subject, documentType && snapshot ? (documentType === "PURCHASE_ORDER" ? "Purchase Order " : "Client Invoice ") + snapshot.document_number : "New message");
+    const message = typeof req.body.message === "string" ? req.body.message.replace(/[\u0000]/g, "").trim().slice(0, 20_000) : "";
+    if (!message) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A message body is required.");
+    const attachmentName = documentType && snapshot
+      ? safeMailHeader(req.body.attachmentName, String(snapshot.document_number) + ".pdf").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 180) || String(snapshot.document_number) + ".pdf"
+      : undefined;
+    let attachmentSource: DocumentAttachmentSource | "NONE" = "NONE";
+    let pdfBytes: Buffer | undefined;
+    if (documentType && snapshot) {
+      const templatePdf = await finalizeIssuedDocumentTemplatePdfForDelivery(
+        { accessToken: auth.accessToken, companyId: auth.companyId, supabase: auth.supabase, user: auth.user },
+        {},
+        { snapshotId, documentType, documentId },
+      );
+      attachmentSource = templatePdf ? "COMPANY_TEMPLATE_PDF" : "PROGRAMMATIC_PDF_FALLBACK";
+      pdfBytes = templatePdf ? Buffer.from(templatePdf.bytes) : await renderTrustedIssuedPdf(snapshot, documentType);
+    }
+
+    const provider = createBrevoEmailProvider(process.env);
+    if (!provider) return res.status(503).json({ success: false, code: "EMAIL_NOT_CONFIGURED", error: "Brevo email is not configured on this deployment." });
+    const providerStatus = await provider.checkStatus();
+    if (providerStatus.status !== "READY") {
+      const code = providerStatus.status === "SENDER_SETUP_REQUIRED" ? "EMAIL_SENDER_SETUP_REQUIRED" : providerStatus.status === "NOT_CONFIGURED" ? "EMAIL_NOT_CONFIGURED" : "EMAIL_PROVIDER_UNAVAILABLE";
+      return res.status(503).json({ success: false, code, error: providerStatus.message });
+    }
+
+    const trustedSha256 = pdfBytes ? createHash("sha256").update(pdfBytes).digest("hex") : null;
+    const messageBodySha256 = createHash("sha256").update(message, "utf8").digest("hex");
+    const requestedKey = String(req.body.idempotencyKey || "").trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(requestedKey)) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A valid email send identity is required.");
+    const claimResult = await auth.supabase.rpc("claim_document_send_intent", {
+      p_snapshot_id: snapshotId || null,
+      p_document_type: documentType || "GENERAL_EMAIL",
+      p_document_id: documentId || null,
+      p_idempotency_key: requestedKey,
+      p_trusted_sha256: trustedSha256,
+      p_recipients: recipients.map((item) => item.email),
+      p_cc: cc.map((item) => item.email),
+      p_subject: subject,
+      p_attachment_name: attachmentName || null,
+      p_message_body_sha256: messageBodySha256,
+    });
+    if (claimResult.error) throw claimResult.error;
+    const claim = rpcRow(claimResult.data);
+    const intent = claim?.intent && typeof claim.intent === "object" ? claim.intent as Record<string, any> : null;
+    if (!intent?.id) throw new Error("The email delivery intent was not returned.");
+    if (String(intent.attachment_source || "").toUpperCase() !== attachmentSource) throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued PDF provenance changed while preparing this send. Check delivery history before retrying.");
+    if (claim?.idempotent === true) return res.json({ success: true, data: documentSendResponseData(intent, { status: intent.status, idempotent: true }) });
+    if (claim?.claimed !== true) return res.status(409).json({ success: false, code: "EMAIL_SEND_RECONCILE_REQUIRED", error: "This email send is already in progress or requires reconciliation. Check Sent / Delivery History before retrying." });
+    sendIntentId = String(intent.id);
+
+    const providerResult = await provider.send({
+      to: recipients,
+      cc,
+      subject,
+      textContent: message,
+      ...(pdfBytes && attachmentName ? { attachment: { name: attachmentName, contentBase64: pdfBytes.toString("base64") } } : {}),
+      idempotencyKey: requestedKey,
+    });
+    const completion = await auth.supabase.rpc("complete_email_delivery_intent", {
+      p_intent_id: sendIntentId,
+      p_status: providerResult.status,
+      p_provider_message_id: providerResult.providerMessageId || null,
+      p_provider_status: providerResult.providerStatus || null,
+      p_error_message: providerResult.status === "FAILED" ? providerResult.safeMessage : null,
+      p_reconciliation_required: providerResult.reconciliationRequired,
+    });
+    if (completion.error) return res.status(503).json({ success: false, code: "EMAIL_SEND_RECONCILE_REQUIRED", error: "The provider response was received, but durable email history could not be completed. Do not resend until history is reconciled." });
+    intentStateCompleted = true;
+    const completedRow = rpcRow(completion.data);
+    const completedIntent = completedRow?.intent && typeof completedRow.intent === "object" ? completedRow.intent as Record<string, any> : intent;
+    const data = documentSendResponseData(completedIntent, {
+      status: providerResult.status,
+      providerId: providerResult.providerId,
+      providerMessageId: providerResult.providerMessageId,
+      providerStatus: providerResult.providerStatus,
+      reconciliationRequired: providerResult.reconciliationRequired,
+      idempotent: false,
+    });
+    if (providerResult.status === "UNKNOWN" || providerResult.reconciliationRequired) return res.status(503).json({ success: false, code: "EMAIL_SEND_RECONCILE_REQUIRED", error: providerResult.safeMessage, data });
+    if (providerResult.status === "FAILED") return res.status(502).json({ success: false, code: "EMAIL_SEND_FAILED", error: providerResult.safeMessage, data });
+    return res.status(202).json({ success: true, data });
+  } catch (error) {
+    if (sendIntentId && auth && !intentStateCompleted) {
+      const completion = await auth.supabase.rpc("complete_email_delivery_intent", {
+        p_intent_id: sendIntentId,
+        p_status: "UNKNOWN",
+        p_provider_status: "unhandled-error",
+        p_error_message: "Email delivery could not be confirmed.",
+        p_reconciliation_required: true,
+      });
+      if (completion.error) return res.status(503).json({ success: false, code: "EMAIL_SEND_RECONCILE_REQUIRED", error: "The email send could not be reconciled safely. Check Sent / Delivery History before retrying." });
+    }
+    const mapped = emailRouteError(error, sendIntentId ? "The email send could not be completed safely. Check Sent / Delivery History before retrying." : "The email could not be sent safely.");
+    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
+  }
+});
 
 app.get("/api/issued-documents/:documentType/:documentId/pdf", async (req, res) => {
   try {
@@ -2536,139 +1897,6 @@ app.get("/api/issued-documents/:documentType/:documentId/pdf", async (req, res) 
   }
 });
 
-async function recordDocumentSendAudit(auth: CompanyRequestAuthorization, input: {
-  sendIntentId: string;
-  status: "SENT" | "FAILED";
-  gmailMessageId?: string;
-  errorMessage?: string;
-}) {
-  if (!input.sendIntentId) throw new Error("The document send intent is required before recording delivery history.");
-  const { data, error } = await auth.supabase.rpc("record_document_send_audit", {
-    p_intent_id: input.sendIntentId,
-    p_gmail_message_id: input.gmailMessageId || null,
-    p_status: input.status,
-    p_error_message: input.errorMessage || null,
-  });
-  if (error) throw error;
-  const audit = rpcRow(data)?.audit;
-  return String(audit && typeof audit === "object" ? (audit as Record<string, unknown>).id || "" : "");
-}
-
-app.post("/api/gmail/send", async (req, res) => {
-  let auth: CompanyRequestAuthorization | null = null;
-  let sendIntentId: string | null = null;
-  let intentStateCompleted = false;
-  let gmailDelivered = false;
-  try {
-    auth = await authorizeCompanyRequest(req, "documents.send");
-    const requestedType = String(req.body?.documentType || "").trim().toUpperCase();
-    const documentType = issuedDocumentType(requestedType);
-    const generalEmail = requestedType === "GENERAL_EMAIL";
-    if (!documentType && !generalEmail) return res.status(400).json({ success: false, error: "A supported email or issued document type is required." });
-    const documentId = String(req.body?.documentId || "").trim();
-    const snapshotId = String(req.body?.snapshotId || "").trim();
-    let snapshot: { id: string; document_type: string; document_id: string; document_number: string; template_version: string; template_version_id?: string | null; template_sha256?: string | null; snapshot: unknown } | null = null;
-    if (documentType) {
-      if (!UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) return res.status(400).json({ success: false, error: "An issued document snapshot is required before sending." });
-      const documentPermission = documentReadPermission(documentType);
-      const { data: allowed, error: permissionError } = await auth.supabase.rpc("has_company_permission", { p_company_id: auth.companyId, p_permission_key: documentPermission });
-      if (permissionError || allowed !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission to send this document type.");
-      await assertIssuedDocumentDeliveryLifecycle(auth, documentType, documentId);
-      const { data: loadedSnapshot, error: snapshotError } = await auth.supabase
-        .from("issued_document_snapshots")
-        .select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot")
-        .eq("company_id", auth.companyId)
-        .eq("id", snapshotId)
-        .eq("document_type", documentType)
-        .eq("document_id", documentId)
-        .maybeSingle();
-      if (snapshotError) throw snapshotError;
-      if (!loadedSnapshot) throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued document snapshot is unavailable. Generate the document again before sending.");
-      snapshot = loadedSnapshot as typeof snapshot;
-    } else if (documentId || snapshotId) {
-      throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "An ordinary email cannot include issued-document identifiers.");
-    }
-    const recipients = normalizedEmailList(req.body?.to, "To");
-    const cc = normalizedEmailList(req.body?.cc, "CC");
-    if (!recipients.length) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "At least one To recipient is required.");
-    const subject = safeMailHeader(req.body?.subject, documentType && snapshot ? (documentType === "PURCHASE_ORDER" ? "Purchase Order " : "Client Invoice ") + snapshot.document_number : "New message");
-    const message = String(req.body?.message || "").replace(/[\u0000]/g, "").slice(0, 20_000);
-    if (!message.trim()) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A message body is required.");
-    const attachmentName = documentType && snapshot
-      ? safeMailHeader(req.body?.attachmentName, String(snapshot.document_number) + ".pdf").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 180) || String(snapshot.document_number) + ".pdf"
-      : undefined;
-    let attachmentSource: DocumentAttachmentSource | "NONE" = "NONE";
-    let pdfBytes: Buffer | undefined;
-    if (documentType && snapshot) {
-      const templatePdf = await finalizeIssuedDocumentTemplatePdfForDelivery(
-        { accessToken: auth.accessToken, companyId: auth.companyId, supabase: auth.supabase, user: auth.user },
-        {},
-        { snapshotId, documentType, documentId },
-      );
-      attachmentSource = templatePdf ? "COMPANY_TEMPLATE_PDF" : "PROGRAMMATIC_PDF_FALLBACK";
-      pdfBytes = templatePdf ? Buffer.from(templatePdf.bytes) : await renderTrustedIssuedPdf(snapshot, documentType);
-    }
-    const trustedSha256 = pdfBytes ? createHash("sha256").update(pdfBytes).digest("hex") : null;
-    const messageBodySha256 = createHash("sha256").update(message, "utf8").digest("hex");
-    const requestedKey = String(req.body?.idempotencyKey || "").trim();
-    if (requestedKey && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(requestedKey)) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "Send idempotency key is invalid.");
-    const idempotencyKey = requestedKey || "document:" + createHash("sha256").update(JSON.stringify({ snapshotId: snapshotId || null, documentType: documentType || "GENERAL_EMAIL", documentId: documentId || null, recipients, cc, subject, message, attachmentName: attachmentName || null, attachmentSource, templateVersionId: snapshot?.template_version_id || null, templateSha256: snapshot?.template_sha256 || null, trustedSha256 })).digest("hex");
-    const claimResult = await auth.supabase.rpc("claim_document_send_intent", {
-      p_snapshot_id: snapshotId || null, p_document_type: documentType || "GENERAL_EMAIL", p_document_id: documentId || null, p_idempotency_key: idempotencyKey,
-      p_trusted_sha256: trustedSha256, p_recipients: recipients, p_cc: cc, p_subject: subject, p_attachment_name: attachmentName || null, p_message_body_sha256: messageBodySha256,
-    });
-    if (claimResult.error) throw claimResult.error;
-    const claim = rpcRow(claimResult.data);
-    const intent = claim?.intent && typeof claim.intent === "object" ? claim.intent as Record<string, any> : null;
-    if (!intent?.id) throw new Error("The document send intent was not returned.");
-    if (String(intent.attachment_source || "").toUpperCase() !== attachmentSource) {
-      throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued PDF provenance changed while preparing this send. Check delivery history before retrying.");
-    }
-    if (String(intent.status) === "SENT") {
-      const { data: audit, error: auditError } = await auth.supabase
-        .from("document_send_audits")
-        .select("id")
-        .eq("company_id", auth.companyId)
-        .eq("send_intent_id", String(intent.id))
-        .maybeSingle();
-      if (auditError || !audit) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail accepted the document, but its immutable delivery history is incomplete. Do not resend until send history is reconciled." });
-      return res.json({ success: true, data: documentSendResponseData(intent, { idempotent: true }) });
-    }
-    if (claim?.claimed !== true) return res.status(409).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "This issued document send is already in progress or requires reconciliation. Check send history before retrying." });
-    sendIntentId = String(intent.id);
-    let sent: any;
-    try {
-      sent = await gmailRequestForAuth(auth!, "messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: base64Url(buildDocumentMimeMessage({ to: recipients, cc, subject, message, ...(attachmentName ? { attachmentName } : {}), ...(pdfBytes ? { pdfBytes } : {}) })) }) });
-      gmailDelivered = true;
-    } catch (error: any) {
-      const providerStatus = Number(error?.status || 0);
-      const knownFailure = providerStatus >= 400 && providerStatus < 500;
-      const completion = await auth.supabase.rpc("complete_document_send_intent", { p_intent_id: sendIntentId, p_status: knownFailure ? "FAILED" : "UNKNOWN", p_error_message: "Gmail delivery could not be confirmed." });
-      if (!completion.error) intentStateCompleted = true;
-      if (completion.error || !knownFailure) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail delivery could not be confirmed. Do not resend until this send intent is reconciled." });
-      try {
-        await recordDocumentSendAudit(auth, { sendIntentId, status: "FAILED", errorMessage: "Gmail rejected the issued document send." });
-      } catch {
-        return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail rejected the document, but the durable send history could not be recorded. Check send history before retrying." });
-      }
-      return res.status(providerStatus || 502).json({ success: false, code: error instanceof GmailAuthorizationError ? error.code : "DOCUMENT_SEND_FAILED", error: error instanceof GmailAuthorizationError ? error.message : "Gmail rejected the issued document send. The failed attempt was recorded." });
-    }
-    const gmailMessageId = String(sent?.id || "");
-    const completion = await auth.supabase.rpc("complete_document_send_intent", { p_intent_id: sendIntentId, p_status: "SENT", p_gmail_message_id: gmailMessageId, p_error_message: null });
-    if (completion.error) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail accepted the document, but the durable send state could not be completed. Do not resend until send history is reconciled." });
-    intentStateCompleted = true;
-    const auditId = await recordDocumentSendAudit(auth, { sendIntentId, status: "SENT", gmailMessageId });
-    return res.json({ success: true, data: documentSendResponseData(intent, { gmailMessageId, auditId, idempotent: false }) });
-  } catch (error: any) {
-    if (gmailDelivered) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail accepted the document, but durable send history could not be completed. Do not resend until send history is reconciled." });
-    if (sendIntentId && auth && !intentStateCompleted) {
-      const completion = await auth.supabase.rpc("complete_document_send_intent", { p_intent_id: sendIntentId, p_status: "FAILED", p_error_message: "The send was not accepted by Gmail." });
-      if (completion.error) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "The send attempt could not be reconciled safely. Do not resend until send history is checked." });
-    }
-    const mapped = gmailRouteError(error, "The issued document could not be sent safely. Check the send intent and document history before retrying.");
-    return res.status(mapped.status).json({ success: false, code: mapped.code, error: mapped.message });
-  }
-});
 
 async function start() {
   if (process.env.NODE_ENV !== "production") {

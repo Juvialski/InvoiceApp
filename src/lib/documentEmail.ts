@@ -1,23 +1,27 @@
 import { companyApiRequest } from "./companyApi.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
-import { clearGoogleProviderTokens } from "./supabase.ts";
 import type { FinancialDocumentSnapshot } from "./documentGeneration.ts";
 import type { DocumentDeliveryAttachmentSource } from "./documentDelivery.ts";
 
+export interface EmailRecipient {
+  readonly email: string;
+  readonly name?: string;
+}
+
 export interface SendFinancialDocumentInput {
-  snapshot: FinancialDocumentSnapshot;
-  to: string;
-  cc?: string;
-  subject: string;
-  message: string;
-  attachmentName: string;
-  idempotencyKey?: string;
+  readonly snapshot: FinancialDocumentSnapshot;
+  readonly to: string;
+  readonly cc?: string;
+  readonly subject: string;
+  readonly message: string;
+  readonly attachmentName: string;
+  readonly idempotencyKey?: string;
 }
 
 export interface SendEmailMessageInput {
   readonly snapshot?: FinancialDocumentSnapshot;
-  readonly to: readonly string[];
-  readonly cc?: readonly string[];
+  readonly to: readonly (string | EmailRecipient)[];
+  readonly cc?: readonly (string | EmailRecipient)[];
   readonly subject: string;
   readonly message: string;
   readonly attachmentName?: string;
@@ -25,14 +29,16 @@ export interface SendEmailMessageInput {
 }
 
 export interface DocumentSendResult {
-  status: "SENT";
-  gmailMessageId?: string;
-  auditId?: string;
-  idempotent?: boolean;
-  attachmentSource?: DocumentDeliveryAttachmentSource;
-  attachmentSha256?: string;
-  attachmentName?: string;
-  templateVersion?: string;
+  readonly status: "ACCEPTED" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN";
+  readonly providerId?: "BREVO";
+  readonly providerMessageId?: string;
+  readonly providerStatus?: string;
+  readonly idempotent?: boolean;
+  readonly reconciliationRequired?: boolean;
+  readonly attachmentSource?: DocumentDeliveryAttachmentSource;
+  readonly attachmentSha256?: string;
+  readonly attachmentName?: string;
+  readonly templateVersion?: string;
 }
 
 export class DocumentSendError extends Error {
@@ -49,14 +55,18 @@ export class DocumentSendError extends Error {
   }
 }
 
-function recipients(value: string) {
+function recipients(value: string): string[] {
   return value.split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
 }
 
-export async function sendEmailMessageByGmail(input: SendEmailMessageInput): Promise<DocumentSendResult> {
+function normalizeRecipient(value: string | EmailRecipient): EmailRecipient {
+  return typeof value === "string" ? { email: value } : value;
+}
+
+export async function sendEmailMessage(input: SendEmailMessageInput): Promise<DocumentSendResult> {
   let response: Response;
   try {
-    response = await companyApiRequest("/api/gmail/send", {
+    response = await companyApiRequest("/api/messaging/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       companyId: requireActiveCompanyId(),
@@ -64,26 +74,28 @@ export async function sendEmailMessageByGmail(input: SendEmailMessageInput): Pro
         documentType: input.snapshot?.documentType || "GENERAL_EMAIL",
         ...(input.snapshot?.documentId ? { documentId: input.snapshot.documentId } : {}),
         ...(input.snapshot?.snapshotId ? { snapshotId: input.snapshot.snapshotId } : {}),
-        to: input.to,
-        cc: input.cc || [],
+        to: input.to.map(normalizeRecipient),
+        cc: (input.cc || []).map(normalizeRecipient),
         subject: input.subject,
         message: input.message,
         ...(input.snapshot ? { attachmentName: input.attachmentName || "issued-document.pdf" } : {}),
         ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+        confirmed: true,
       }),
     });
   } catch {
-    throw new DocumentSendError("The Gmail message could not be confirmed. Check delivery history before retrying.", { code: "DOCUMENT_SEND_RECONCILE_REQUIRED", reconciliationRequired: true });
+    throw new DocumentSendError("Email acceptance could not be confirmed. Check Sent / Delivery History before retrying.", { code: "DOCUMENT_SEND_RECONCILE_REQUIRED", reconciliationRequired: true });
   }
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.success) {
+  if (!response.ok || payload.success !== true) {
     const responseCode = typeof payload.code === "string" ? payload.code : undefined;
-    if (responseCode === "GMAIL_REAUTH_REQUIRED" || responseCode === "GMAIL_DURABLE_CONNECTION_REQUIRED") clearGoogleProviderTokens();
-    const reconciliationRequired = responseCode === "DOCUMENT_SEND_RECONCILE_REQUIRED"
-      || response.status >= 500
+    const reconciliationRequired = payload.data?.reconciliationRequired === true
+      || responseCode === "DOCUMENT_SEND_RECONCILE_REQUIRED"
+      || responseCode === "EMAIL_SEND_RECONCILE_REQUIRED"
+      || (!responseCode && response.status >= 500)
       || (response.ok && payload.success !== true);
     const code = responseCode || (!reconciliationRequired ? "DOCUMENT_SEND_FAILED" : undefined);
-    throw new DocumentSendError(payload.error || "Gmail could not send the message.", {
+    throw new DocumentSendError(payload.error || "The email could not be sent safely.", {
       code,
       status: response.status,
       reconciliationRequired,
@@ -92,8 +104,8 @@ export async function sendEmailMessageByGmail(input: SendEmailMessageInput): Pro
   return payload.data as DocumentSendResult;
 }
 
-export async function sendFinancialDocumentByGmail(input: SendFinancialDocumentInput): Promise<DocumentSendResult> {
-  return sendEmailMessageByGmail({
+export async function sendFinancialDocumentByEmail(input: SendFinancialDocumentInput): Promise<DocumentSendResult> {
+  return sendEmailMessage({
     snapshot: input.snapshot,
     to: recipients(input.to),
     cc: recipients(input.cc || ""),

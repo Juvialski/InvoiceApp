@@ -107,7 +107,7 @@ Both models can use temporary incident access: **client approval -> named limite
 
 ### Email
 
-Gmail authorization and provider credentials are handled through the server. The application keeps human review before a consequential outbound send and retains delivery history for supported document workflows.
+Google Sign-In is used for identity only; HydroQualiSense does not request Gmail mailbox access. When configured for an isolated client deployment, Brevo credentials and outbound transactional-email calls remain server-side. The application keeps human review before a consequential send and retains delivery history for supported document workflows.
 
 ### AI and private files
 

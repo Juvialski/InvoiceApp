@@ -2,11 +2,11 @@
 
 Status: **COMPLETE FOUNDATION — EXTENDED BY THE ACTIVE WAVE 4D WORKSPACE**
 
-Wave 4C established the issued-document Gmail sender and durable send-intent/audit contract for `PURCHASE_ORDER` and `CLIENT_INVOICE`. The active Wave 4D workspace extends those same intent/audit tables with an audited `GENERAL_EMAIL` shape for ordinary messages; it does not create a second document or delivery system.
+Wave 4C established the issued-document email sender and durable send-intent/audit contract for `PURCHASE_ORDER` and `CLIENT_INVOICE`. The current Google Sign-In + Brevo migration uses those same intent/audit tables with an audited `GENERAL_EMAIL` shape for ordinary messages; it does not create a second document or delivery system. Historical Gmail rows remain readable.
 
 ## Delivery path
 
-`authoritative issued snapshot -> pinned immutable template version -> deterministic merged DOCX -> finalized company-template PDF when the converter is operational -> Gmail attachment -> durable intent and audit history`
+`authoritative issued snapshot -> pinned immutable template version -> deterministic merged DOCX -> finalized company-template PDF when the converter is operational -> Brevo attachment -> durable intent and audit history`
 
 When the snapshot is historically unpinned, the deployment converter is unavailable, or the document is on the legacy path, the server-rendered programmatic issued PDF remains the compatibility fallback. A configured template version is never silently replaced with another version. If a configured template cannot be safely finalized while the converter is available, the send fails safely rather than switching presentation paths without evidence.
 

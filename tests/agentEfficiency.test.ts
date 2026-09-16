@@ -211,6 +211,34 @@ test('failure extractor keeps the useful failure neighborhood and final summary 
   assert.doesNotMatch(excerpt, /successful diagnostic line 0\n/);
 });
 
+test('failure extractor ignores nested passing summaries so later failures remain visible', () => {
+  const nestedPasses = Array.from({ length: 30 }, (_, index) => [
+    `# Subtest: passing file ${index}`,
+    `ok ${index + 1} - passing file ${index}`,
+    '# tests 1',
+    '# pass 1',
+    '# fail 0',
+    `passing tail ${index}`,
+  ]).flat();
+  const log = [
+    ...nestedPasses,
+    'not ok 401 - provider contract remains exact',
+    '  error: expected READY to equal NOT_CONFIGURED',
+    '  code: ERR_ASSERTION',
+    'post-failure noise',
+    '# tests 401',
+    '# pass 400',
+    '# fail 1',
+    '# skipped 0',
+    '# duration_ms 5000',
+  ].join('\n');
+  const excerpt = extractFailureContext(log, { maxLines: 30, maxChars: 2_000, contextLines: 2 });
+  assert.match(excerpt, /not ok 401/);
+  assert.match(excerpt, /ERR_ASSERTION/);
+  assert.match(excerpt, /# fail 1/);
+  assert.doesNotMatch(excerpt, /# Subtest: passing file 0/);
+});
+
 test('warning extraction is bounded and de-duplicates repeated warnings', () => {
   const log = ['Warning: alpha', 'Warning: alpha', 'npm warn beta', 'normal output'].join('\n');
   assert.deepEqual(extractWarnings(log), ['Warning: alpha', 'npm warn beta']);

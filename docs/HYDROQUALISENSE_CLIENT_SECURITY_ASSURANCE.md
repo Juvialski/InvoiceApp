@@ -224,7 +224,7 @@ Audit at least:
    - protected `main`, applicable CI, exact-head review, migration separation, and deployment identity are represented accurately;
    - distinguish code deployment authority from database/data-plane authority.
 9. **External integrations**
-   - Gmail/AI/SMS/provider credentials are server-side where designed;
+   - Google Sign-In is identity-only; Brevo/AI/SMS/provider credentials are server-side where designed;
    - scopes and human confirmation boundaries are represented accurately;
    - unfinished provider certification is not presented as a completed security control.
 
@@ -267,7 +267,7 @@ Rules:
 - Do not claim certifications that have not been obtained: no SOC 2, ISO 27001, PCI DSS, HIPAA, GDPR certification, OWASP certification, third-party penetration-test result, or similar badge by implication.
 - Do not claim generic phrases such as “military-grade,” “unhackable,” “zero risk,” or “100% secure.”
 - Do not promise encryption characteristics, backup recovery times, retention periods, geographic residency, or vendor guarantees unless the exact current configuration/evidence supports them.
-- Do not include secrets, full tokens, private keys, passwords, confidential client rows, production employee data, production financial data, real Gmail content, or real client source documents in evidence artifacts.
+- Do not include secrets, full tokens, private keys, passwords, confidential client rows, production employee data, production financial data, live mailbox content, or real client source documents in evidence artifacts.
 
 ## Client PDF deliverable
 
@@ -278,7 +278,7 @@ Suggested structure:
 1. **Security at a glance** — isolated client deployment, authenticated access, least privilege, audit/history, server-side secrets, separate QA.
 2. **Who can access what** — compact starter-role matrix for Company Admin / Finance / Payroll / Viewer plus a clear custom-role capability section showing that companies can create/edit their own roles and choose permitted operational access.
 3. **How client data is isolated and protected** — one-client deployment boundary, company/RLS/RPC/Storage defense in depth, sensitive-history controls.
-4. **Integrations and secrets** — Google/Gmail, AI, SMS/other providers only to the extent currently verified; human review/confirmation boundaries where applicable.
+4. **Integrations and secrets** — Google Sign-In, Brevo, AI, SMS/other providers only to the extent currently verified; human review/confirmation boundaries where applicable.
 5. **After handoff: client-controlled production** — no standing developer data-plane access target, QA-first bugfix model, reviewed release path, emergency-access exception policy.
 6. **Evidence and shared responsibility** — selected screenshots, what Hydroqualisense controls, what the client controls, verification date/version.
 
@@ -345,7 +345,7 @@ The phase is complete only when:
 - the final PDF is concise, polished, readable, and visually certified page-by-page;
 - the evidence manifest maps material client claims to verified evidence;
 - roadmap/handoff/agent policy are synchronized to reflect this prioritized phase and its final state;
-- unfinished Gmail/SMS/Google verification/provider readiness remains represented truthfully;
+- unfinished Google external verification, Brevo sender/runtime, and SMS provider readiness remains represented truthfully;
 - Worker Registration remains paused unless the user explicitly reprioritizes again.
 
 ## Out of scope

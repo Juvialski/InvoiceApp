@@ -15,10 +15,8 @@ function between(source: string, start: string, end: string) {
 
 test("provider budget claims follow company AI preflight for every production endpoint", () => {
   for (const [start, end] of [
-    ['app.post("/api/classify-email"', 'app.post("/api/classify-email-batch"'],
-    ['app.post("/api/classify-email-batch"', 'function compactParty'],
     ['app.post("/api/extract-invoice"', 'const expenseSchema'],
-    ['app.post("/api/extract-expense"', 'function getGoogleAccessToken'],
+    ['app.post("/api/extract-expense"', 'interface NormalizedEmailRecipient'],
   ] as const) {
     const route = between(server, start, end);
     assert.ok(route.indexOf("resolveCompanyAiRuntime") < route.indexOf("claimAiRequest"), `${start} must preflight before claiming budget`);

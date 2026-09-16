@@ -56,7 +56,7 @@ export const Reports: React.FC<ReportsProps> = ({ invoices, fxSnapshots = [], ba
     <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Report summary">
       <MetricCard label="Verified" value={reviewQuality.verified} detail="Active supplier documents" icon={CheckCircle2} tone="success" />
       <MetricCard label="Needs review" value={reviewQuality.needsReview} detail="Human action" icon={AlertTriangle} tone="warning" />
-      <MetricCard label="Gmail sourced" value={invoices.filter((invoice) => invoice.sourceType === "EMAIL").length} detail="All retained records" icon={Mail} tone="info" />
+      <MetricCard label="Email sourced" value={invoices.filter((invoice) => invoice.sourceType === "EMAIL").length} detail="Includes retained historical email records" icon={Mail} tone="info" />
       <MetricCard label="Potential duplicates" value={reviewQuality.potentialDuplicate} detail="Review signal" icon={FileWarning} tone="danger" />
     </section>
 

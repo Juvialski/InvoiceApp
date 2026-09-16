@@ -49,12 +49,12 @@ Current sequence:
 4. Wave 3 — deliberate payroll/subcontract/PO workflow decisions — complete on merged `main`.
 5. Wave 4A — company document templates / mail merge foundation — complete.
 6. Wave 4B — high-fidelity PDF finalization foundation — complete for the programmatic fallback; converter-backed company-template capability remains separately constrained/certified.
-7. Wave 4C — issued-document Gmail delivery/history foundation — complete.
+7. Wave 4C — issued-document email delivery/history foundation — complete.
 8. Wave 4D — Email/SMS Workspace + Documents Workspace — partially implemented but **not complete**.
 9. **UI/UX Round 2 — App-Wide Usability Simplification & Information Architecture — COMPLETE in PR #161.** Its workflow-first information architecture and usability rules remain the application UI baseline.
 10. **Wide Documents Phase — DEFERRED by explicit 2026-09-14 user reprioritization.** Its remaining managed-upload/artifact slices remain incomplete and must be resumed deliberately.
 11. **Client Security Assurance & Handoff — ACTIVE by explicit user approval.** Implement and security-test company-scoped custom roles, complete the focused handoff/security audit, produce evidence, and generate the client security PDF without unsupported claims or production mutation.
-12. **Email/SMS Reliability & UX Completion — follows the security phase.** Preserve the durable Gmail path, public OAuth policy surfaces, approved Company SIM Gateway / PhilSMS boundaries, human confirmation, and truthful provider readiness.
+12. **Google Sign-In + Brevo Transactional Email Migration — ACTIVE by explicit user approval.** Google is identity-only; Gmail mailbox/API read, intake, and send are removed; Brevo is the server-side outbound email provider; preserve approved Company SIM Gateway / PhilSMS boundaries, human confirmation, and truthful provider readiness.
 13. **Remaining Wave 4D provider/readiness completion — follows the active reliability slice while any approved provider-backed criteria remain incomplete.**
 14. **Wide Documents remaining managed slices — DEFERRED** by explicit reprioritization.
 15. Worker Registration — **PAUSED by explicit user instruction** until broader Wave 4D is genuinely complete and the user explicitly resumes Worker Registration.
@@ -72,7 +72,7 @@ The completed UI/UX Round 2 design and acceptance record is:
 
 `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`
 
-Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the active Email/SMS phase, read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `SUPABASE_GMAIL_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts. Read the Wide Documents contract when that deferred phase is deliberately resumed.
+Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the active Email/SMS phase, read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts. Read the Wide Documents contract when that deferred phase is deliberately resumed.
 
 The 2026-09-15 reprioritization does **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved after the security phase. The security phase must preserve company isolation, permission-based authority, protected platform/root boundaries, and truthful provider states.
 
@@ -84,12 +84,12 @@ The completed UI/UX Round 2 standard remains stronger than a no-overflow pass: m
 
 Do **not** suggest, prepare, or start Worker Registration as the next product phase while any of the following remain unfinished:
 
-- the top-level **Email / SMS** communications workspace is not genuinely usable while preserving inbound Gmail intake;
+- the top-level **Email / SMS** communications workspace is not genuinely usable for reviewed Compose, Sent / Delivery History, and truthful provider status;
 - the separate top-level **Documents** workspace is not genuinely usable as permission-aware access to document-bearing records/artifacts without duplicating canonical source ownership;
 - outbound email composition/history is still effectively limited to scattered record-local controls rather than being usable from the Email/SMS communications experience;
 - SMS remains only scaffolding and no approved provider-backed sending path has been configured and runtime-tested in QA;
 - Assistant-assisted message drafting/attachment selection does not preserve human review/confirmation before sending;
-- existing Wave 4A/4B/4C template, PDF, Gmail delivery, idempotency, reconciliation, lifecycle, and immutable-history foundations are not integrated into the broader workspaces.
+- existing Wave 4A/4B/4C template, PDF, email delivery, idempotency, reconciliation, lifecycle, and immutable-history foundations are not integrated into the broader workspaces.
 
 Wave 4A-4C are supporting foundations for the broader Email/SMS + Documents product phase. They must not be represented as satisfying this completion gate by themselves.
 

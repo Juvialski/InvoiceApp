@@ -1,8 +1,5 @@
 export const MAX_INVOICE_SOURCE_BYTES = 10 * 1024 * 1024;
-export const MAX_GMAIL_RAW_BYTES = 10 * 1024 * 1024;
-export const MAX_GMAIL_ATTACHMENT_COUNT = 20;
-export const MAX_GMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-export const MAX_GMAIL_ATTACHMENT_TOTAL_BYTES = 25 * 1024 * 1024;
+export const MAX_SOURCE_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_PAYROLL_IMPORT_BYTES = 15 * 1024 * 1024;
 export const MAX_EXTRACTION_TEXT_CHARS = 200_000;
 
@@ -100,16 +97,8 @@ export function validateInvoiceDocumentBytes(bytes: Uint8Array, mimeType: string
   }
 }
 
-export function validateGmailRawMessage(bytes: Uint8Array) {
-  assertNonEmptyWithinLimit(bytes, MAX_GMAIL_RAW_BYTES, "Gmail raw message");
-  const sample = new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, Math.min(bytes.byteLength, 64 * 1024)));
-  if (sample.includes("\u0000") || !/^(?:[!-9;-~]+):\s*.*$/m.test(sample)) {
-    throw new Error("Gmail raw message does not contain a valid RFC-style message header.");
-  }
-}
-
 export function validateBankStatementBytes(bytes: Uint8Array, fileName: string, mimeType?: string) {
-  assertNonEmptyWithinLimit(bytes, MAX_GMAIL_ATTACHMENT_BYTES, "Bank statement source");
+  assertNonEmptyWithinLimit(bytes, MAX_SOURCE_ATTACHMENT_BYTES, "Bank statement source");
   const ext = extension(fileName);
   const mime = normalizedMime(mimeType);
 
@@ -140,25 +129,6 @@ export function validateBankStatementBytes(bytes: Uint8Array, fileName: string, 
   }
 
   throw new Error("Bank statement files must be PDF, CSV, XLS, XLSX, or XLSM files.");
-}
-
-export function validateGmailAttachmentBytes(bytes: Uint8Array, mimeType: string | undefined, fileName: string | undefined) {
-  assertNonEmptyWithinLimit(bytes, MAX_GMAIL_ATTACHMENT_BYTES, "Gmail attachment");
-  const ext = extension(fileName);
-  const mime = normalizedMime(mimeType);
-
-  if (["csv", "xlsx", "xls", "xlsm"].includes(ext) || ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel.sheet.macroenabled.12"].includes(mime)) {
-    validateBankStatementBytes(bytes, fileName || "statement.csv", mimeType);
-    return;
-  }
-
-  validateInvoiceDocumentBytes(bytes, mimeType, fileName);
-}
-
-export function validateGmailAttachmentEnvelope(attachments: readonly { dataBase64?: string }[]) {
-  if (attachments.length > MAX_GMAIL_ATTACHMENT_COUNT) throw new Error(`Gmail messages may import at most ${MAX_GMAIL_ATTACHMENT_COUNT} attachments.`);
-  const estimatedTotal = attachments.reduce((sum, attachment) => sum + estimateBase64DecodedBytes(attachment.dataBase64 || ""), 0);
-  if (estimatedTotal > MAX_GMAIL_ATTACHMENT_TOTAL_BYTES) throw new Error("Gmail attachment payload exceeds the 25 MB aggregate limit.");
 }
 
 export function validatePayrollImportBytes(bytes: Uint8Array, fileName: string, mimeType?: string) {

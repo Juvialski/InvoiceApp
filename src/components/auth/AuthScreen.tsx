@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import type { Session, User } from "@supabase/supabase-js";
 import {
-  connectGoogleAndGmail,
   getAuthRedirectUrl,
   normalizeAuthEmail,
   sendPasswordResetEmail,
+  signInWithGoogle,
   signInWithEmail,
   signUpWithEmail,
   updatePassword,
@@ -236,7 +236,7 @@ export function AuthScreen({
     setNotice(null);
     try {
       if (onGoogleSignIn) await onGoogleSignIn();
-      else await connectGoogleAndGmail();
+      else await signInWithGoogle();
     } catch (error) {
       setNotice({ kind: "error", message: errorMessage(error) });
     } finally {

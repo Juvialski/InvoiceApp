@@ -18,8 +18,6 @@ export const PERMISSION_KEYS = {
   invoicesWrite: "invoices.manage",
   invoicesVerify: "invoices.verify",
   invoicesExtract: "invoices.extract",
-  gmailRead: "gmail.read",
-  gmailManage: "gmail.manage",
   documentSend: "documents.send",
   vendorsRead: "vendors.read",
   vendorsManage: "vendors.manage",
@@ -86,7 +84,7 @@ export const ROUTE_PERMISSION_REQUIREMENTS: Readonly<Partial<Record<AppTab, Perm
   warehouse: PERMISSION_KEYS.inventoryRead,
   equipment: PERMISSION_KEYS.equipmentRead,
   extractor: PERMISSION_KEYS.invoicesExtract,
-  inbox: PERMISSION_KEYS.gmailRead,
+  inbox: PERMISSION_KEYS.documentSend,
   review: PERMISSION_KEYS.invoicesRead,
   invoices: PERMISSION_KEYS.invoicesRead,
   payroll: PERMISSION_KEYS.payrollRead,
@@ -99,7 +97,6 @@ export const ROUTE_PERMISSION_REQUIREMENTS: Readonly<Partial<Record<AppTab, Perm
 
 export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, readonly PermissionKey[]>>> = Object.freeze({
   reports: [PERMISSION_KEYS.reportsPayrollRead],
-  inbox: [PERMISSION_KEYS.documentSend],
   documents: [
     PERMISSION_KEYS.projectsRead,
     PERMISSION_KEYS.procurementRead,
@@ -171,7 +168,6 @@ export function defaultAppTabForPermissions(permissions: Iterable<PermissionKey>
     PERMISSION_KEYS.cashSummaryRead,
     PERMISSION_KEYS.invoicesRead,
     PERMISSION_KEYS.expensesRead,
-    PERMISSION_KEYS.gmailRead,
     PERMISSION_KEYS.reportsRead,
   ])) return "payroll";
   if (hasPermission(permissions, PERMISSION_KEYS.dashboardView)) return "dashboard";
@@ -192,8 +188,6 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.invoicesWrite]: "Invoice editing",
     [PERMISSION_KEYS.invoicesVerify]: "Invoice verification",
     [PERMISSION_KEYS.invoicesExtract]: "Invoice extraction",
-    [PERMISSION_KEYS.gmailRead]: "Gmail",
-    [PERMISSION_KEYS.gmailManage]: "Gmail connection management",
     [PERMISSION_KEYS.documentSend]: "Issued-document sending",
     [PERMISSION_KEYS.vendorsRead]: "Vendors",
     [PERMISSION_KEYS.vendorsManage]: "Vendor management",
@@ -260,7 +254,6 @@ export function permissionGroupDisplayName(permission: PermissionKey | null | un
     company: "Company administration",
     engineering: "Engineering",
     expenses: "Expenses",
-    gmail: "Gmail",
     invoices: "Invoices",
     inventory: "Warehouse",
     payroll: "Payroll",

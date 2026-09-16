@@ -35,7 +35,6 @@ const FINANCE_PERMISSIONS: PermissionKey[] = [
   PERMISSION_KEYS.invoicesWrite,
   PERMISSION_KEYS.invoicesVerify,
   PERMISSION_KEYS.invoicesExtract,
-  PERMISSION_KEYS.gmailRead,
   PERMISSION_KEYS.documentSend,
   PERMISSION_KEYS.vendorsRead,
   PERMISSION_KEYS.vendorsManage,

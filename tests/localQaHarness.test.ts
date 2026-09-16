@@ -51,7 +51,7 @@ test("Local-QA scenario evidence keeps AI-unconfigured responses explicit and SM
   assert.match(scenarios, /details:not\(\[open\]\)/);
   assert.match(scenarios, /No SMS provider or send action is used/);
   assert.match(scenarios, /Prepared by \/ Processed by name/);
-  assert.doesNotMatch(scenarios, /sendEmailMessageByGmail|sendSms/i);
+  assert.doesNotMatch(scenarios, /sendEmailMessageByGmail|QA_E2E_SEND_GMAIL|sendSms/i);
 });
 
 test("Procurement Local-QA opens the RFQ action from the RFQ tab and fails closed when required controls are absent", () => {

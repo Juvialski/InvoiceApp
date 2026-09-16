@@ -13,7 +13,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForPurchaseOrder, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, FinancialFxSnapshot, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
+import { Department, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -33,9 +33,7 @@ import { useCompanyAccess } from "./context/CompanyAccessContext.tsx";
 import { companyApiRequest } from "./lib/companyApi.ts";
 import type { PayrollSchedule } from "./lib/payrollSchedule";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./lib/payrollAutomation";
-import { clearGoogleProviderTokens, connectGoogleAndGmail, isSupabaseConfigured, supabase } from "./lib/supabase";
-import { getGoogleProviderRefreshToken, loadGmailConnectionStatus, persistGoogleProviderCredential, type GmailConnectionStatusData } from "./lib/gmail.ts";
-import { classifyEmailIntakeCandidate, scanConnectedMailbox, syncConnectedMailbox } from "./lib/emailIntake";
+import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import {
   applyInvoiceCorrectionInSupabase,
   confirmPurchaseOrderMatch,
@@ -53,12 +51,9 @@ import {
   fetchSupplierQuotations,
   fetchVendors,
   findExistingInvoiceBySource,
-  loadGmailSyncState,
   loadInvoicesFromSupabase,
   listCompanyVendors,
-  listEmailIntakeProfiles,
   loadSourcePayloadForRetry,
-  markEmailClassification,
   markSourceDocumentStatus,
   persistNewInvoice,
   persistExtractionAttempt,
@@ -72,9 +67,6 @@ import {
   readVendorsFromLocal,
   recordPurchaseOrderReceipt,
   revertSupplierQuotationSelection,
-  saveGmailMessageSource,
-  saveGmailSyncState,
-  saveManualEmailRecord,
   saveManualSourceDocument,
   savePurchaseOrder,
   saveRFQ,
@@ -293,38 +285,6 @@ function localFallbackInvoices() {
   return saved.map(prepareStoredInvoice);
 }
 
-function fileToBase64(file: File): Promise<{ fileData: string; mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve({ fileData: result.split(",")[1], mimeType: file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/png") });
-    };
-    reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
-    reader.readAsDataURL(file);
-  });
-}
-
-function isExtractableAttachment(mimeType: string, filename: string) {
-  const normalizedMime = String(mimeType || "").trim().toLowerCase();
-  const normalizedFilename = String(filename || "").trim().toLowerCase();
-  if (normalizedMime === "image/svg+xml" || normalizedFilename.endsWith(".svg")) {
-    return false;
-  }
-  return (
-    normalizedMime === "application/pdf" ||
-    (normalizedMime.startsWith("image/") && !normalizedMime.includes("svg")) ||
-    /\.(pdf|png|jpe?g|webp)$/i.test(normalizedFilename)
-  );
-}
-
-function gmailQueryDate(value: string, exclusive = false) {
-  const parsed = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return value.replaceAll("-", "/");
-  if (exclusive) parsed.setUTCDate(parsed.getUTCDate() + 1);
-  return parsed.toISOString().slice(0, 10).replaceAll("-", "/");
-}
-
 function valueAtPath(value: any, path: string) {
   return path.split(".").reduce((current, key) => current?.[key], value);
 }
@@ -428,9 +388,6 @@ function InvoiceWorkspace() {
   const [workspaceLoading, setWorkspaceLoading] = useState(isSupabaseConfigured);
   const guestModeRef = useRef(guestModeState);
   guestModeRef.current = guestModeState;
-  const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
-  const [gmailServerStatus, setGmailServerStatus] = useState<GmailConnectionStatusData | null>(null);
-  const persistedGmailRefreshTokenRef = useRef("");
   const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const saveStateRef = useRef<SaveState>("saved");
@@ -666,7 +623,6 @@ function InvoiceWorkspace() {
     setPayrollWorkspaceLoadState(isSupabaseConfigured ? "loading" : "idle");
     setPayrollPeriodPreparationState(isSupabaseConfigured ? "PREPARING" : "READY");
     setPayrollRefreshing(false);
-    setSyncState({});
   };
 
   const retryPayrollPeriodPreparation = () => {
@@ -677,7 +633,7 @@ function InvoiceWorkspace() {
     setPayrollGenerationRetry((value) => value + 1);
   };
 
-  const allWorkspaceRefreshGroups: readonly WorkspaceRefreshGroup[] = ["invoices", "cash", "engineering", "payroll", "payroll-imports", "gmail"];
+  const allWorkspaceRefreshGroups: readonly WorkspaceRefreshGroup[] = ["invoices", "cash", "engineering", "payroll", "payroll-imports"];
 
   const currentWorkspaceLoadToken = () => {
     const userId = sessionRef.current?.user?.id;
@@ -697,9 +653,7 @@ function InvoiceWorkspace() {
         ? can(PERMISSION_KEYS.payrollRead)
         : group === "payroll-imports"
           ? hasAnyPermission(permissions, [PERMISSION_KEYS.payrollImport, PERMISSION_KEYS.payrollWrite])
-          : group === "gmail"
-            ? can(PERMISSION_KEYS.gmailRead)
-            : false);
+          : false);
 
   type EngineeringWorkspaceGroup = {
     projects: Project[];
@@ -731,7 +685,7 @@ function InvoiceWorkspace() {
     laborAggregates: ProjectLaborCostAggregate[];
     laborAggregateLoadState: ProjectLaborAggregateLoadState;
   };
-  type WorkspaceGroupData = InvoiceData[] | EngineeringWorkspaceGroup | PayrollWorkspaceData | PayrollImportWorkspaceData | CashBankingWorkspaceData | { lastHistoryId?: string; lastSyncedAt?: string };
+  type WorkspaceGroupData = InvoiceData[] | EngineeringWorkspaceGroup | PayrollWorkspaceData | PayrollImportWorkspaceData | CashBankingWorkspaceData;
 
   const applyInvoicesForWorkspace = (prepared: InvoiceData[], token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
@@ -932,19 +886,13 @@ function InvoiceWorkspace() {
     setCashData(data);
   };
 
-  const loadGmailGroup = async () => loadGmailSyncState();
-  const applyGmailForWorkspace = (data: { lastHistoryId?: string; lastSyncedAt?: string }, token: { generation: number; userId: string; companyId: string }) => {
-    if (!canApplyWorkspaceResult(token)) return;
-    setSyncState(data);
-  };
-
   const loadWorkspaceGroup = async (group: WorkspaceRefreshGroup, options: { preserveExisting?: boolean } = {}): Promise<WorkspaceGroupData> => {
     if (group === "invoices") return loadInvoicesGroup();
     if (group === "engineering") return loadEngineeringGroup(options.preserveExisting === true);
     if (group === "cash") return loadCashGroup();
     if (group === "payroll") return loadPayrollGroup();
     if (group === "payroll-imports") return loadPayrollImportsGroup();
-    return loadGmailGroup();
+    throw new Error(`Unsupported workspace refresh group: ${group}`);
   };
 
   const applyWorkspaceGroup = (group: WorkspaceRefreshGroup, data: WorkspaceGroupData, token: { generation: number; userId: string; companyId: string }) => {
@@ -953,7 +901,6 @@ function InvoiceWorkspace() {
     else if (group === "cash") applyCashForWorkspace(data as CashBankingWorkspaceData, token);
     else if (group === "payroll") applyPayrollForWorkspace(data as PayrollWorkspaceData, token);
     else if (group === "payroll-imports") applyPayrollImportsForWorkspace(data as PayrollImportWorkspaceData, token);
-    else applyGmailForWorkspace(data as { lastHistoryId?: string; lastSyncedAt?: string }, token);
   };
 
   const refreshWorkspaceGroup = async (group: WorkspaceRefreshGroup, token: { generation: number; userId: string; companyId: string }, options: { force?: boolean; reason?: string } = {}) => {
@@ -979,7 +926,7 @@ function InvoiceWorkspace() {
     });
     try {
       const data = await request.promise;
-      if (canApplyWorkspaceResult(token)) applyWorkspaceGroup(group, data, token);
+      if (canApplyWorkspaceResult(token)) applyWorkspaceGroup(group, data as WorkspaceGroupData, token);
     } catch (error) {
       if (canApplyWorkspaceResult(token) && !hasUsableCachedData) {
         if (group === "engineering") setProjectCostDomainLoadState("failed");
@@ -1033,40 +980,6 @@ function InvoiceWorkspace() {
     }
   };
 
-  const gmailProviderRefreshToken = getGoogleProviderRefreshToken(session);
-  useEffect(() => {
-    if (!supabase || !session?.user?.id || !activeCompanyId || access.status !== "ready") {
-      setGmailServerStatus(null);
-      persistedGmailRefreshTokenRef.current = "";
-      return undefined;
-    }
-    if (!hasPermission(permissions, PERMISSION_KEYS.gmailRead)) {
-      setGmailServerStatus(null);
-      return undefined;
-    }
-    const userId = session.user.id;
-    const companyId = activeCompanyId;
-    let cancelled = false;
-    const persistKey = gmailProviderRefreshToken ? `${companyId}:${userId}:${gmailProviderRefreshToken}` : "";
-    void (async () => {
-      if (gmailProviderRefreshToken && hasPermission(permissions, PERMISSION_KEYS.gmailManage) && persistedGmailRefreshTokenRef.current !== persistKey) {
-        try {
-          await persistGoogleProviderCredential(session, companyId);
-          persistedGmailRefreshTokenRef.current = persistKey;
-        } catch {
-          // The status endpoint below reports the durable setup state without
-          // exposing callback or provider credential details.
-        }
-      }
-      try {
-        const status = await loadGmailConnectionStatus(companyId);
-        if (!cancelled) setGmailServerStatus(status);
-      } catch {
-        if (!cancelled) setGmailServerStatus({ status: "UNAVAILABLE", credentialStatus: "UNAVAILABLE" });
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [access.status, activeCompanyId, gmailProviderRefreshToken, permissions, session]);
   useEffect(() => {
     if (!authResolved) return undefined;
     const activeSession = session;
@@ -1087,7 +1000,6 @@ function InvoiceWorkspace() {
       invoicesRef.current = local;
       setInvoices(local);
       setPayrollImportData(readPayrollImportWorkspaceFromLocal());
-      setSyncState({});
       setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
       setExpenses(readExpensesFromLocal());
       setFinancialFxSnapshots(readFinancialFxSnapshotsFromLocal());
@@ -1776,10 +1688,7 @@ function InvoiceWorkspace() {
       sourcePayloadsRef.current.set(prepared.id, payload);
       if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", prepared.documentType);
       try {
-        const [existingVendors, existingProfiles] = await Promise.all([
-          listCompanyVendors().catch(() => []),
-          listEmailIntakeProfiles().catch(() => []),
-        ]);
+        const existingVendors = await listCompanyVendors().catch(() => []);
         const evidence = extractVendorEvidenceFromInvoice(prepared, prepared.sourceMetadata);
         const resolution = resolveVendorCandidate(
           {
@@ -1794,7 +1703,7 @@ function InvoiceWorkspace() {
             },
           },
           existingVendors,
-          existingProfiles,
+          undefined,
         );
         prepared.entityResolution = resolution;
       } catch {
@@ -1804,406 +1713,6 @@ function InvoiceWorkspace() {
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Invoice extraction failed. Check the document and try again."));
       throw error;
-    } finally {
-      setProcessingCount((n) => Math.max(0, n - 1));
-    }
-  };
-
-  const handleProcessEmail = async ({ sender, subject, receivedAt, body, attachments }: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }): Promise<EmailClassification | null> => {
-    if (isSupabaseConfigured && !hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify])) {
-      throw new Error("Invoice extraction requires invoice management, extraction, and verification permissions in this company.");
-    }
-    setProcessingCount((n) => n + 1);
-    try {
-      let classification: EmailClassification = classifyEmailIntakeCandidate({
-        id: "manual",
-        threadId: "manual",
-        sender,
-        to: [],
-        cc: [],
-        subject,
-        receivedAt,
-        snippet: body.slice(0, 200),
-        bodyText: body,
-        labels: [],
-        attachments: attachments.map((file, i) => ({ attachmentId: String(i), filename: file.name, mimeType: file.type || "application/octet-stream", size: file.size })),
-      });
-      if (!classification.isInvoiceLike && (classification as any).suggestedDestination === "UNSUPPORTED") {
-        try {
-          const classifyResponse = await companyApiRequest("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender, subject, body, attachmentNames: attachments.map((file) => file.name), model: "gemini-3.5-flash-lite" }), companyId: companyAccess.activeCompanyId || "" });
-          const classifyResult = await classifyResponse.json();
-          if (classifyResponse.ok && classifyResult.success) {
-            classification = classifyResult.data;
-          }
-        } catch {
-          // fallback to deterministic result
-        }
-      }
-      const manualEmail = session ? await saveManualEmailRecord({ sender, subject, receivedAt, body }) : undefined;
-      const extractedInvoices: InvoiceData[] = [];
-      let failureCount = 0;
-
-      if (attachments.length > 0) {
-        for (const attachment of attachments) {
-          if (!isExtractableAttachment(attachment.type || "application/octet-stream", attachment.name)) {
-            continue;
-          }
-          try {
-            const encoded = await fileToBase64(attachment);
-            const storedSource = session ? await saveManualSourceDocument({ ...encoded, fileName: attachment.name, emailMessageId: manualEmail?.id, sourceType: "EMAIL" }) : undefined;
-            const sourceCriteria = {
-              sourceSha256: storedSource?.sha256,
-              sourceDocumentId: storedSource?.id,
-              fileName: attachment.name,
-            };
-            const existingMatch = findExistingInvoiceForSourcePayload(sourceCriteria, invoicesRef.current);
-            let existingInvoice = existingMatch.existingInvoice;
-            if (!existingInvoice && session && supabase && storedSource) {
-              existingInvoice = (await findExistingInvoiceBySource(sourceCriteria).catch(() => null)) || undefined;
-            }
-
-            if (existingInvoice) {
-              const matchedCandidate: InvoiceData = {
-                ...existingInvoice,
-                duplicateStatus: "POSSIBLE_DUPLICATE",
-                duplicateOfId: existingInvoice.id,
-                duplicateReasons: existingMatch.reasons.length
-                  ? existingMatch.reasons
-                  : [`Identical source attachment already processed as Invoice ${existingInvoice.invoiceNumber || existingInvoice.id}.`],
-                reviewStatus: existingInvoice.reviewStatus || "NEEDS_REVIEW",
-              };
-              sourcePayloadsRef.current.set(matchedCandidate.id, { ...encoded, fileName: attachment.name, model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath } });
-              extractedInvoices.push(matchedCandidate);
-              if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", matchedCandidate.documentType);
-            } else {
-              let extracted = await extractPayload({
-                ...encoded,
-                fileName: attachment.name,
-                model: "gemini-3.5-flash-lite",
-                sourceType: "EMAIL",
-                emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath },
-              });
-              extracted = { ...extracted, fileSize: attachment.size, fileType: encoded.mimeType, sourceEmailId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath, sourceSha256: storedSource?.sha256, previewUrl: storedSource?.previewUrl || extracted.previewUrl };
-              const saved = await saveExtracted(extracted, storedSource?.previewUrl);
-              sourcePayloadsRef.current.set(saved.id, { ...encoded, fileName: attachment.name, model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath } });
-              extractedInvoices.push(saved);
-              if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", saved.documentType);
-            }
-          } catch (attError) {
-            failureCount += 1;
-            console.warn(`Extraction failed for attachment ${attachment.name}:`, attError);
-          }
-        }
-      } else {
-        let extracted = await extractPayload({ textData: body || subject, fileName: subject || "Email invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, emailRecordId: manualEmail?.id } });
-        extracted = { ...extracted, sourceEmailId: manualEmail?.id };
-        const saved = await saveExtracted(extracted);
-        sourcePayloadsRef.current.set(saved.id, { textData: body || subject, fileName: subject || "Email invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, emailRecordId: manualEmail?.id } });
-        extractedInvoices.push(saved);
-      }
-      if (extractedInvoices.length) {
-        try {
-          const [existingVendors, existingProfiles] = await Promise.all([
-            listCompanyVendors().catch(() => []),
-            listEmailIntakeProfiles().catch(() => []),
-          ]);
-          const candidateItems = extractedInvoices.map((inv) => ({
-            candidateId: inv.id,
-            evidence: extractVendorEvidenceFromInvoice(inv, inv.sourceMetadata),
-            sourceRef: {
-              fileName: inv.fileName,
-              sender,
-              subject,
-            },
-          }));
-          const { resolutions } = resolveBatchVendors(candidateItems, existingVendors, existingProfiles);
-          for (const inv of extractedInvoices) {
-            if (resolutions[inv.id]) {
-              inv.entityResolution = resolutions[inv.id];
-            }
-          }
-        } catch {
-          // Safe fallback
-        }
-        startReview(extractedInvoices, undefined, "inbox");
-      }
-      if (extractedInvoices.length > 0) {
-        const msg = failureCount > 0
-          ? `Processed ${extractedInvoices.length} invoice${extractedInvoices.length === 1 ? "" : "s"} (${failureCount} attachment${failureCount === 1 ? "" : "s"} skipped or failed).`
-          : `Email processed: ${classification.documentType || "financial document"} detected and saved for review.`;
-        showNotification(failureCount > 0 ? "info" : "success", msg);
-      } else if (failureCount > 0) {
-        showNotification("error", `Could not extract invoices from ${failureCount} attachment${failureCount === 1 ? "" : "s"}.`);
-      }
-      return classification;
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Email processing failed. Check the message and try again."));
-      return null;
-    } finally {
-      setProcessingCount((n) => Math.max(0, n - 1));
-    }
-  };
-
-  const gmailRequest = async (path: string, body?: any) => {
-    const response = await companyApiRequest(path, { method: body ? "POST" : "GET", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, companyId: companyAccess.activeCompanyId || "" });
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      if (result.code === "GMAIL_REAUTH_REQUIRED" || result.code === "GMAIL_DURABLE_CONNECTION_REQUIRED") clearGoogleProviderTokens();
-      const error: any = new Error(result.error || "Gmail request failed.");
-      error.code = result.code;
-      throw error;
-    }
-    return result.data;
-  };
-
-  const handleScanGmail = async (window: GmailScanWindow | number): Promise<GmailMessageCandidate[]> => {
-    if (!session) throw new Error("Connect Google + Gmail first.");
-    setProcessingCount((n) => n + 1);
-    try {
-      const selectedWindow = typeof window === "number" ? { days: window } : window;
-      const result = await scanConnectedMailbox(selectedWindow);
-      if (result.complete !== false && result.historyId) {
-        setSyncState((curr) => ({ ...curr, lastHistoryId: result.historyId, lastSyncedAt: result.lastSyncedAt }));
-      }
-      showNotification(result.complete === false ? "info" : "success", result.complete === false
-        ? "Gmail scan was bounded before completion. Run a fresh scan to advance the cursor safely."
-        : `Scanned Gmail and discovered ${result.messages.length} likely finance email${result.messages.length === 1 ? "" : "s"}.`);
-      return result.messages;
-    } finally {
-      setProcessingCount((n) => Math.max(0, n - 1));
-    }
-  };
-
-  const handleSyncGmail = async (): Promise<GmailMessageCandidate[]> => {
-    if (!session) throw new Error("Connect Google + Gmail first.");
-    if (!syncState.lastHistoryId) return handleScanGmail({ days: 30 });
-    setProcessingCount((n) => n + 1);
-    try {
-      const result = await syncConnectedMailbox(syncState.lastHistoryId);
-      if (result.complete !== false && result.historyId) {
-        setSyncState((curr) => ({ ...curr, lastHistoryId: result.historyId, lastSyncedAt: result.lastSyncedAt }));
-      }
-      showNotification(result.complete === false ? "info" : "success", result.complete === false
-        ? "Gmail incremental sync was bounded before completion. Run a fresh scan to resynchronize safely."
-        : (result.messages.length ? `Found ${result.messages.length} new/changed Gmail message${result.messages.length === 1 ? "" : "s"}.` : "Gmail is up to date."));
-      return result.messages;
-    } catch (error: any) {
-      if (error?.code === "HISTORY_EXPIRED") {
-        showNotification("info", "Gmail's incremental cursor expired. Rebuilding it with a fresh 30-day scan.");
-        return handleScanGmail({ days: 30 });
-      }
-      throw error;
-    } finally {
-      setProcessingCount((n) => Math.max(0, n - 1));
-    }
-  };
-
-  const handleImportGmailMessage = async (candidate: GmailMessageCandidate) => {
-    if (!session) throw new Error("Connect Google + Gmail first.");
-    if (isSupabaseConfigured && !hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify])) {
-      throw new Error("Invoice extraction requires invoice management, extraction, and verification permissions in this company.");
-    }
-    setProcessingCount((n) => n + 1);
-    try {
-      const imported = await gmailRequest("/api/gmail/import", { messageId: candidate.id }) as GmailImportedMessage;
-      const stored = await saveGmailMessageSource(imported);
-      if (candidate.classification) await markEmailClassification(stored.email.id, candidate.classification);
-      let extractedCount = 0;
-      let failureCount = 0;
-      const extractedInvoices: InvoiceData[] = [];
-
-      for (let index = 0; index < imported.attachments.length; index += 1) {
-        const attachment = imported.attachments[index];
-        if (!attachment.dataBase64 || !isExtractableAttachment(attachment.mimeType, attachment.filename)) continue;
-        const source = stored.documents.find((d) => (attachment.attachmentId && d.gmailAttachmentId === attachment.attachmentId) || d.filename === attachment.filename) || stored.documents[index];
-        try {
-          const sourceCriteria = {
-            sourceSha256: source?.sha256,
-            sourceDocumentId: source?.id,
-            gmailMessageId: imported.id,
-            gmailAttachmentId: attachment.attachmentId,
-            fileName: attachment.filename,
-          };
-          const existingMatch = findExistingInvoiceForSourcePayload(sourceCriteria, invoicesRef.current);
-          let existingInvoice = existingMatch.existingInvoice;
-          if (!existingInvoice && session && supabase && source) {
-            existingInvoice = (await findExistingInvoiceBySource(sourceCriteria).catch(() => null)) || undefined;
-          }
-
-          if (existingInvoice) {
-            const matchedCandidate: InvoiceData = {
-              ...existingInvoice,
-              duplicateStatus: "POSSIBLE_DUPLICATE",
-              duplicateOfId: existingInvoice.id,
-              duplicateReasons: existingMatch.reasons.length
-                ? existingMatch.reasons
-                : [`Identical source attachment already processed as Invoice ${existingInvoice.invoiceNumber || existingInvoice.id}.`],
-              reviewStatus: existingInvoice.reviewStatus || "NEEDS_REVIEW",
-            };
-            sourcePayloadsRef.current.set(matchedCandidate.id, {
-              fileData: attachment.dataBase64,
-              mimeType: attachment.mimeType,
-              fileName: attachment.filename,
-              model: "gemini-3.5-flash-lite",
-              sourceType: "EMAIL",
-              emailContext: {
-                sender: imported.sender,
-                subject: imported.subject,
-                receivedAt: imported.receivedAt,
-                body: imported.bodyText,
-                attachmentName: attachment.filename,
-                gmailAttachmentId: attachment.attachmentId,
-                emailReference: imported.id,
-                gmailMessageId: imported.id,
-                gmailThreadId: imported.threadId,
-                emailRecordId: stored.email.id,
-                sourceDocumentId: source?.id,
-                sourceStoragePath: source?.storagePath,
-                rawEmailStoragePath: stored.email.rawStoragePath,
-              },
-            });
-            extractedInvoices.push(matchedCandidate);
-            if (source?.id) await markSourceDocumentStatus(source.id, "EXTRACTED", matchedCandidate.documentType);
-            extractedCount += 1;
-          } else {
-            let extracted = await extractPayload({
-              fileData: attachment.dataBase64,
-              mimeType: attachment.mimeType,
-              fileName: attachment.filename,
-              model: "gemini-3.5-flash-lite",
-              sourceType: "EMAIL",
-              emailContext: {
-                sender: imported.sender,
-                subject: imported.subject,
-                receivedAt: imported.receivedAt,
-                body: imported.bodyText,
-                attachmentName: attachment.filename,
-                gmailAttachmentId: attachment.attachmentId,
-                emailReference: imported.id,
-                gmailMessageId: imported.id,
-                gmailThreadId: imported.threadId,
-                emailRecordId: stored.email.id,
-                sourceDocumentId: source?.id,
-                sourceStoragePath: source?.storagePath,
-                rawEmailStoragePath: stored.email.rawStoragePath,
-              },
-            });
-            extracted = {
-              ...extracted,
-              fileName: attachment.filename,
-              fileSize: attachment.size,
-              fileType: attachment.mimeType,
-              sourceEmailId: stored.email.id,
-              sourceDocumentId: source?.id,
-              sourceStoragePath: source?.storagePath,
-              sourceSha256: source?.sha256,
-              previewUrl: source?.previewUrl,
-            };
-            const saved = await saveExtracted(extracted, source?.previewUrl);
-            sourcePayloadsRef.current.set(saved.id, {
-              fileData: attachment.dataBase64,
-              mimeType: attachment.mimeType,
-              fileName: attachment.filename,
-              model: "gemini-3.5-flash-lite",
-              sourceType: "EMAIL",
-              emailContext: {
-                sender: imported.sender,
-                subject: imported.subject,
-                receivedAt: imported.receivedAt,
-                body: imported.bodyText,
-                attachmentName: attachment.filename,
-                gmailAttachmentId: attachment.attachmentId,
-                emailReference: imported.id,
-                gmailMessageId: imported.id,
-                gmailThreadId: imported.threadId,
-                emailRecordId: stored.email.id,
-                sourceDocumentId: source?.id,
-                sourceStoragePath: source?.storagePath,
-                rawEmailStoragePath: stored.email.rawStoragePath,
-              },
-            });
-            extractedInvoices.push(saved);
-            if (source?.id) await markSourceDocumentStatus(source.id, "EXTRACTED", extracted.documentType);
-            extractedCount += 1;
-          }
-        } catch (attError) {
-          failureCount += 1;
-          console.warn(`Extraction failed for Gmail attachment ${attachment.filename}:`, attError);
-        }
-      }
-
-      if (extractedCount === 0 && candidate.classification?.isInvoiceLike && imported.bodyText) {
-        let extracted = await extractPayload({
-          textData: imported.bodyText,
-          fileName: imported.subject || "Gmail invoice",
-          model: "gemini-3.5-flash-lite",
-          sourceType: "EMAIL",
-          emailContext: { sender: imported.sender, subject: imported.subject, receivedAt: imported.receivedAt, body: imported.bodyText, emailReference: imported.id, gmailMessageId: imported.id, gmailThreadId: imported.threadId, emailRecordId: stored.email.id, rawEmailStoragePath: stored.email.rawStoragePath },
-        });
-        extracted = { ...extracted, sourceEmailId: stored.email.id };
-        const saved = await saveExtracted(extracted);
-        sourcePayloadsRef.current.set(saved.id, { textData: imported.bodyText, fileName: imported.subject || "Gmail invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender: imported.sender, subject: imported.subject, receivedAt: imported.receivedAt, body: imported.bodyText, emailReference: imported.id, gmailMessageId: imported.id, gmailThreadId: imported.threadId, emailRecordId: stored.email.id, rawEmailStoragePath: stored.email.rawStoragePath } });
-        extractedInvoices.push(saved);
-        extractedCount = 1;
-      }
-      if (extractedInvoices.length) {
-        try {
-          const [existingVendors, existingProfiles] = await Promise.all([
-            listCompanyVendors().catch(() => []),
-            listEmailIntakeProfiles().catch(() => []),
-          ]);
-          const matchingProfile = existingProfiles.find((p) => p.id === candidate.classification?.matchedProfileId);
-          const candidateItems = extractedInvoices.map((inv) => ({
-            candidateId: inv.id,
-            evidence: extractVendorEvidenceFromInvoice(inv, inv.sourceMetadata, matchingProfile),
-            sourceRef: {
-              messageId: candidate.id,
-              subject: candidate.subject,
-              sender: candidate.sender,
-              fileName: inv.fileName,
-              attachmentId: inv.sourceMetadata?.gmailAttachmentId,
-            },
-          }));
-          const { resolutions } = resolveBatchVendors(candidateItems, existingVendors, existingProfiles);
-          for (const inv of extractedInvoices) {
-            if (resolutions[inv.id]) {
-              const res = resolutions[inv.id];
-              const preliminaryOverride = (candidate as any).preliminaryResolution as EntityResolutionResult | undefined;
-              // Authoritative extracted evidence wins. Only adopt preliminary override if there are no contradictory conflicts
-              if (
-                preliminaryOverride &&
-                preliminaryOverride.proposedAction === "LINK_EXISTING" &&
-                preliminaryOverride.matchedEntityId &&
-                (!res.conflicts || res.conflicts.length === 0) &&
-                (!res.matchedEntityId || res.matchedEntityId === preliminaryOverride.matchedEntityId)
-              ) {
-                const chosenVendor = existingVendors.find((v) => v.id === preliminaryOverride.matchedEntityId);
-                inv.entityResolution = {
-                  ...res,
-                  proposedAction: "LINK_EXISTING",
-                  matchedEntityId: preliminaryOverride.matchedEntityId,
-                  matchedEntityName: chosenVendor?.name || preliminaryOverride.matchedEntityName,
-                  matchReasons: [`User confirmed vendor in Email Intake: ${chosenVendor?.name || preliminaryOverride.matchedEntityId}.`, ...res.matchReasons],
-                };
-              } else {
-                inv.entityResolution = res;
-              }
-            }
-          }
-        } catch {
-          // Safe fallback
-        }
-        startReview(extractedInvoices, undefined, "inbox");
-      }
-      if (extractedInvoices.length > 0) {
-        const msg = failureCount > 0
-          ? `Saved original Gmail message; extracted ${extractedCount} invoice${extractedCount === 1 ? "" : "s"} (${failureCount} attachment${failureCount === 1 ? "" : "s"} failed).`
-          : `Saved original Gmail message and ${stored.documents.length} attachment${stored.documents.length === 1 ? "" : "s"}; created ${extractedCount} invoice extraction${extractedCount === 1 ? "" : "s"}.`;
-        showNotification(failureCount > 0 ? "info" : "success", msg);
-      } else if (failureCount > 0) {
-        showNotification("error", `Could not extract invoices from ${failureCount} attachment${failureCount === 1 ? "" : "s"}.`);
-      }
-      return extractedCount;
     } finally {
       setProcessingCount((n) => Math.max(0, n - 1));
     }
@@ -4519,10 +4028,7 @@ function InvoiceWorkspace() {
   const handleBatchComplete = async (successful: InvoiceData[], failed: Array<{ name: string; error: string }>) => {
     if (successful.length) {
       try {
-        const [existingVendors, existingProfiles] = await Promise.all([
-          listCompanyVendors().catch(() => []),
-          listEmailIntakeProfiles().catch(() => []),
-        ]);
+        const existingVendors = await listCompanyVendors().catch(() => []);
         const candidateItems = successful.map((inv) => ({
           candidateId: inv.id,
           evidence: extractVendorEvidenceFromInvoice(inv, inv.sourceMetadata),
@@ -4534,7 +4040,7 @@ function InvoiceWorkspace() {
             attachmentId: inv.sourceMetadata?.gmailAttachmentId,
           },
         }));
-        const { resolutions } = resolveBatchVendors(candidateItems, existingVendors, existingProfiles);
+        const { resolutions } = resolveBatchVendors(candidateItems, existingVendors);
         for (const inv of successful) {
           if (resolutions[inv.id]) {
             inv.entityResolution = resolutions[inv.id];
@@ -4629,7 +4135,7 @@ function InvoiceWorkspace() {
       : workspaceOrigin === "projects"
         ? "Projects"
         : workspaceOrigin === "inbox"
-          ? "Gmail Inbox"
+        ? "Email / SMS"
           : workspaceOrigin === "review"
             ? "Review Queue"
             : workspaceOrigin === "extractor"
@@ -4795,21 +4301,6 @@ function InvoiceWorkspace() {
 
   const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods, fxSnapshots: financialFxSnapshots, settlementMatches: cashData.matches, today: supplierSettlementToday }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, financialFxSnapshots, cashData.matches, supplierSettlementToday]);
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID").length;
-  const gmailConnection: GmailConnectionInfo = {
-    configured: isSupabaseConfigured,
-    signedIn: Boolean(session),
-    hasGmailToken: gmailServerStatus?.status === "HEALTHY",
-    // The authenticated sign-in email is not evidence of a connected Gmail
-    // mailbox; only the server-derived connection status supplies this field.
-    email: gmailServerStatus?.email,
-    displayName: gmailServerStatus?.displayName || session?.user?.user_metadata?.full_name,
-    lastHistoryId: gmailServerStatus?.lastHistoryId || syncState.lastHistoryId,
-    lastSyncedAt: gmailServerStatus?.lastSyncedAt || syncState.lastSyncedAt,
-    ...(gmailServerStatus?.credentialStatus ? { credentialStatus: gmailServerStatus.credentialStatus } : {}),
-    ...(gmailServerStatus?.status === "UNAVAILABLE" ? { authError: "Gmail server authorization setup is unavailable." } : {}),
-    ...(gmailServerStatus?.status === "RECONNECT_REQUIRED" ? { authError: "Gmail authorization must be reconnected." } : {}),
-  };
-
   const routeProject = route.kind === "project" ? resolveEntityById(projects, route.projectId) : undefined;
   const routeInvoice = route.kind === "invoice" || route.kind === "review-invoice"
     ? resolveEntityById(invoices, route.invoiceId)
@@ -5138,13 +4629,6 @@ function InvoiceWorkspace() {
           onLoadInvoicePreset={(invoice) => void handleLoadPreset(invoice)}
           onBatchExtractComplete={handleBatchComplete}
           processingCount={processingCount}
-          gmailConnection={gmailConnection}
-          onConnectGmail={connectGoogleAndGmail}
-          onSignOut={handleSignOut}
-          onScanGmail={handleScanGmail}
-          onSyncGmail={handleSyncGmail}
-          onImportGmailMessage={handleImportGmailMessage}
-          onProcessEmail={handleProcessEmail}
           onSelectInvoice={openInvoice}
           onOpenInvoiceForReview={openInvoiceForReview}
           onStartReview={(queue) => startReview(queue, undefined, "review")}

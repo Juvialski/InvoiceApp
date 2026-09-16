@@ -1,6 +1,10 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: **Core finance Email Intake complete.** Phase 1 through Phase 4F are merged.
+Status: **DEPRECATED / HISTORICAL.** This roadmap records the superseded Gmail
+Email Intake implementation. The current product direction is Google Sign-In for
+identity only, no inbound Gmail mailbox access, and Brevo for outbound
+transactional email. Use `GOOGLE_SIGNIN_BREVO_SETUP.md` and the active
+HydroQualiSense roadmap for current work; do not restore the Gmail phases below.
 
 Merged sequence:
 

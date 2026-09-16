@@ -46,7 +46,7 @@ Relevant completed work includes:
 - Wave 3 payroll/subcontract/PO workflow decisions — complete;
 - Wave 4A Company Document Templates / Mail Merge Foundation — complete;
 - Wave 4B High-Fidelity PDF Finalization Foundation — complete for the programmatic fallback;
-- Wave 4C outbound issued-document Gmail delivery/history foundation — complete;
+- Wave 4C outbound issued-document email delivery/history foundation — complete;
 - Wave 4D Email/SMS + Documents workspaces — partially implemented but **not complete**;
 - full live-QA harness and observed-flow hardening — complete;
 - first focused UI/UX remediation — complete;
@@ -143,19 +143,21 @@ Current pre-merge evidence: the focused dynamic template/Create suite passes 68/
 
 ## 2026-09-14 Email/SMS Reliability & UX reprioritization
 
-The user explicitly reprioritized the current implementation run to the focused
-Email/SMS Reliability & UX Completion slice. The remaining Wide Documents managed
-upload/artifact work is deferred; it is not represented as complete or cancelled.
+The user explicitly approved the Google Sign-In + Brevo Transactional Email
+Migration as the current implementation slice. The remaining Wide Documents
+managed upload/artifact work is deferred; it is not represented as complete or
+cancelled.
 
 The current branch implementation adds:
 
-- a task-first Inbox / Intake hierarchy with Gmail status, Sync, Scan, Intake Rules,
-  filters, and queue work ahead of a closed `How intake works` disclosure;
-- compact Compose, Sent / Delivery History, and SMS provider status framing while
-  preserving human confirmation, delivery history, idempotency, and reconciliation;
-- encrypted company/user-scoped Gmail refresh credentials, server-side access-token
-  refresh with one safe expiry retry, rotated-token persistence, and distinct safe
-  provider/scope/permission/quota/revocation outcomes;
+- compact Compose, Sent / Delivery History, Email Provider Status, and SMS provider
+  status framing while preserving human confirmation, delivery history, idempotency,
+  and reconciliation;
+- Google Sign-In requests only `openid email profile`; Gmail mailbox/API read,
+  intake, reconnect, refresh-token storage, and API send are removed from the live
+  product;
+- Brevo is the server-side outbound transactional-email provider, with deployment
+  secrets and verified sender state reported truthfully;
 - public, session-free `/privacy` and `/terms` pages linked from the public, sign-in,
   and authenticated-shell surfaces, plus the restrained Hydroqualisense homepage copy
   required for OAuth configuration. The canonical `hydroqualisense.com` host exposes
@@ -165,10 +167,10 @@ The current branch implementation adds:
   current environment. SMS remains `NOT_CONFIGURED`/unavailable and the approved
   Company SIM Gateway / PhilSMS choices remain unchanged.
 
-The durable Gmail migration, server-only keys, Google OAuth homepage/policy URLs,
-Google Testing-state limitation, and operator verification checklist are documented
-in `SUPABASE_GMAIL_SETUP.md`. No Google publishing/verification completion or
-production mutation is claimed.
+The Google identity-only configuration, Brevo server-only setup, external Google
+Cloud scope-removal action, provider readiness states, and operator checklist are
+documented in `GOOGLE_SIGNIN_BREVO_SETUP.md`. No external Google publishing or
+provider-runtime completion is claimed.
 
 ## 2026-09-15 Google OAuth branding verification remediation
 
@@ -180,14 +182,15 @@ The repository-side remediation now makes the canonical `hydroqualisense.com` ro
 session-free public Hydroqualisense homepage, keeps `/privacy` and `/terms` public,
 retains authentication for `/dashboard` and normal operational routes, and leaves the
 existing public-funnel flag as the opt-in path for noncanonical deployments. The public
-homepage and policy pages identify Hydroqualisense, explain the business-operations
-purpose and optional Gmail read/send boundary, and publish the Google API Services User
-Data Policy / Limited Use disclosure. This is repository-side remediation only; Google
-re-verification remains an external pending action and is not claimed as approved.
+homepage and policy pages identify Hydroqualisense, explain that Google is identity-only,
+and describe Brevo as the configured outbound provider when deployment setup is ready.
+This is repository-side remediation only; external Google Cloud changes and provider
+verification remain operator actions and are not claimed as complete.
 
-Durable Gmail runtime credential setup and controlled provider testing remain separate
-operator work. SMS provider runtime completion remains separate and unavailable until
-approved provider-backed QA evidence exists. Worker Registration remains paused.
+Brevo runtime sender verification and controlled provider testing remain separate
+operator work when deployment secrets are unavailable. SMS provider runtime completion
+remains separate and unavailable until approved provider-backed QA evidence exists.
+Worker Registration remains paused.
 
 ## 2026-09-15 Client Security Assurance & Handoff reprioritization
 
@@ -200,6 +203,19 @@ The required handoff checklist and evidence matrix are:
 - `docs/HYDROQUALISENSE_CLIENT_SECURITY_HANDOFF_CHECKLIST.md`
 - `artifacts/client-security/EVIDENCE.md`
 
+## 2026-09-16 Google Sign-In + Brevo implementation state
+
+The current branch implements the approved identity/provider decision and is not
+provider-runtime certified. Focused changed-surface tests pass 198/198; demo
+browser QA passes 81/81 across responsive viewports; lint/build/Workflow Map
+checks pass; static migration checks pass 114/114; both upgrade fixtures pass;
+clean migration replay and pgTAP pass with 47 files and 1,597 tests. No approved
+Brevo QA credentials, verified sender, or safe recipient were available, so live
+Brevo sending remains not tested/unverified. The aggregate affected selector
+selected all 321 tests but reached existing unrelated visual-harness lifecycle
+failures; it is not represented as a green full-suite result. No production
+mutation occurred.
+
 ## Immediate implementation sequence
 
 The user explicitly reprioritized the current implementation run on 2026-09-15. The reconciled sequence is:
@@ -209,8 +225,9 @@ The user explicitly reprioritized the current implementation run on 2026-09-15. 
    - carry the qualified evidence matrix, exact local synthetic-QA manifest, and seven-page client PDF into the deployment-specific release process;
    - promote and verify the exact branch release/migration in isolated hosted QA only when the guarded QA operator path is available; do not infer production authorization.
 
-2. **Email/SMS Reliability & UX Completion — NEXT IMPLEMENTATION PHASE**
-   - preserve durable Gmail authorization recovery, public OAuth policy surfaces, inbound Gmail, human confirmation, and truthful provider states.
+2. **Google Sign-In + Brevo Transactional Email Migration — CURRENT IMPLEMENTATION PHASE**
+   - remove Gmail API read/send/intake and mailbox credential flows;
+   - keep Google identity-only sign-in, Brevo server-side outbound email, human confirmation, historical Gmail provenance, and truthful provider states.
 
 3. **Remaining Wave 4D messaging-provider/readiness completion**
    - Company SIM Gateway remains primary/recommended;
@@ -263,7 +280,7 @@ Overall QA remains not ready because broader readiness/provider limitations rema
 
 - Wave 4D provider-backed completion/runtime evidence is incomplete;
 - SMS has approved provider paths but no controlled configured runtime-certified deployment yet;
-- Gmail exact-state provider proof may require reauthorization;
+- Brevo sender/runtime proof requires client-specific QA configuration and a verified sender;
 - subcontract settlement remains fixture-blocked where no safe fixture exists;
 - company-template Starter/Upload Storage authority and the real authenticated AI Analyze/Prepare/Generate/Test DOCX workflow are locally certified for the exercised QA target; high-fidelity PDF conversion remains unavailable;
 - the newer UI/UX Round 2 application code still requires appropriate hosted exact-SHA evidence before release-readiness claims can move from the older hosted-certified application SHA.

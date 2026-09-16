@@ -60,8 +60,7 @@
         "src/utils/accessControl.ts",
         "supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql",
         "supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql",
-        "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql",
-        "src/server/access/invitationDelivery.ts"
+        "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql"
       ],
       "testRefs": [
         "tests/companyAccess.test.ts",
@@ -1117,7 +1116,6 @@
       ],
       "fileRefs": [
         "server.ts",
-        "src/server/access/invitationDelivery.ts",
         "src/context/CompanyAccessContext.tsx",
         "src/lib/companyAccess.ts",
         "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql",
@@ -1730,13 +1728,14 @@
         ],
         "scope": "production-and-demo"
       },
-      "description": "Company communications route for preserved Gmail intake, reviewable email/SMS compose, delivery history, and truthful provider status; legacy /email-intake and /inbox paths remain compatible aliases.",
+      "description": "Company communications route for reviewable email/SMS compose, delivery history, and truthful provider status; legacy /email-intake and /inbox paths remain compatible aliases.",
       "fileRefs": [
         "src/utils/routes.ts",
         "src/utils/appRouting.ts",
         "src/app/routes/AppRouter.tsx",
         "src/app/routes/EmailSmsRoute.tsx",
-        "src/components/EmailInbox.tsx"
+        "src/components/EmailComposePanel.tsx",
+        "src/components/EmailProviderStatusPanel.tsx"
       ],
       "testRefs": [
         "tests/appRouting.test.ts",
@@ -1784,25 +1783,22 @@
       "domain": "finance",
       "type": "screen",
       "scope": "company",
-      "description": "One responsive communications center for preserved Gmail intake, reviewable outbound email/SMS compose, company-scoped delivery history, and two provider-backed SMS paths behind a server-only adapter.",
+      "description": "One responsive communications center for reviewable outbound email/SMS compose, company-scoped delivery history, Brevo provider status, and two provider-backed SMS paths behind server-only adapters.",
       "fileRefs": [
         "src/app/routes/EmailSmsRoute.tsx",
-        "src/components/EmailInbox.tsx",
         "src/components/EmailComposePanel.tsx",
+        "src/components/EmailProviderStatusPanel.tsx",
         "src/components/SmsComposePanel.tsx",
         "src/components/CommunicationHistoryPanel.tsx",
         "src/components/SmsProviderStatusPanel.tsx"
       ],
       "testRefs": [
-        "tests/emailIntakePhase1.test.ts",
         "tests/documentDelivery.test.ts",
         "tests/emailSmsDocumentsWorkspace.test.ts",
         "tests/smsProvider.test.ts",
         "tests/smsDeliveryContract.test.ts"
       ],
       "permissionKeys": [
-        "gmail.read",
-        "gmail.manage",
         "documents.send"
       ],
       "invariantIds": [
@@ -4100,10 +4096,9 @@
       "domain": "finance",
       "type": "data",
       "scope": "company",
-      "description": "Uploaded/pasted source or imported email attachment retained with source metadata and provenance.",
+      "description": "Uploaded/pasted source or historical imported email attachment retained with source metadata and provenance.",
       "fileRefs": [
         "src/components/UploadZone.tsx",
-        "src/components/EmailInbox.tsx",
         "src/types.ts",
         "src/lib/persistence.ts"
       ],
@@ -4112,9 +4107,7 @@
         "tests/assistantAttachedInvoice.test.ts"
       ],
       "permissionKeys": [
-        "invoices.extract",
-        "gmail.read",
-        "gmail.manage"
+        "invoices.extract"
       ]
     },
     {
@@ -9291,7 +9284,6 @@
       "kind": "navigation",
       "label": "communications center",
       "permissionKeys": [
-        "gmail.read",
         "documents.send"
       ]
     },

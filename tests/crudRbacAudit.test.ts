@@ -8,7 +8,7 @@ import { hasAllPermissions, PERMISSION_KEYS } from "../src/utils/accessControl.t
 const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const appShell = readFileSync(new URL("../src/app/AppShell.tsx", import.meta.url), "utf8");
 const invoicesRoute = readFileSync(new URL("../src/app/routes/InvoicesRoute.tsx", import.meta.url), "utf8");
-const emailInbox = readFileSync(new URL("../src/components/EmailInbox.tsx", import.meta.url), "utf8");
+const emailCompose = readFileSync(new URL("../src/components/EmailComposePanel.tsx", import.meta.url), "utf8");
 const cashRoute = readFileSync(new URL("../src/app/routes/CashBankingRoute.tsx", import.meta.url), "utf8");
 const cashPage = readFileSync(new URL("../src/components/CashBankingPage.tsx", import.meta.url), "utf8");
 const settlementWorkspace = readFileSync(new URL("../src/components/CashSettlementAllocationWorkspace.tsx", import.meta.url), "utf8");
@@ -38,9 +38,8 @@ test("cross-domain UI actions are gated by their complete effective permission c
   assert.match(invoicesRoute, /const canVerifyInvoices = hasAllPermissions\(permissions, \[PERMISSION_KEYS\.invoicesWrite, PERMISSION_KEYS\.invoicesVerify\]\)/);
   assert.match(invoicesRoute, /canVerifySupplierInvoices = canVerifyInvoices && hasPermission\(permissions, PERMISSION_KEYS\.expensesWrite\)/);
   assert.match(invoicesRoute, /const canExtractInvoices = hasAllPermissions\(permissions, \[PERMISSION_KEYS\.invoicesWrite, PERMISSION_KEYS\.invoicesExtract, PERMISSION_KEYS\.invoicesVerify\]\)/);
-  assert.match(invoicesRoute, /canProcessInvoices=\{canExtractInvoices\}/);
-  assert.match(emailInbox, /if \(!canProcessInvoices\)/);
-  assert.match(emailInbox, /Requires invoice permission/);
+  assert.match(invoicesRoute, /canExtractInvoices/);
+  assert.match(emailCompose, /Brevo|Confirm & Send/);
   assert.match(invoicesRoute, /const canManageProjectAllocations = hasAllPermissions\(permissions, \[PERMISSION_KEYS\.invoicesWrite, PERMISSION_KEYS\.projectsWrite\]\)/);
   assert.match(projectWorkspace, /const canManageInvoiceAllocations = canManageProject && hasPermission\(permissions, PERMISSION_KEYS\.invoicesWrite\)/);
   assert.match(projectWorkspace, /const canExtractInvoices = hasAllPermissions\(permissions, \[PERMISSION_KEYS\.invoicesWrite, PERMISSION_KEYS\.invoicesExtract, PERMISSION_KEYS\.invoicesVerify\]\)/);

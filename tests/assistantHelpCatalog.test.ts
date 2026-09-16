@@ -11,7 +11,7 @@ test("help search returns only current HydroQualiSense features with determinist
   const payrollMatches = searchHelpCatalog("payroll import");
   assert.equal(payrollMatches[0]?.id, "payroll-runs-imports");
   assert.equal(helpEntryPath(payrollMatches[0]!), "/payroll");
-  assert.equal(searchHelpCatalog("gmail read-only")[0]?.id, "gmail-import");
+  assert.equal(searchHelpCatalog("brevo email history")[0]?.id, "communications");
   assert.equal(searchHelpCatalog("made-up CRM integration").length, 0);
 });
 

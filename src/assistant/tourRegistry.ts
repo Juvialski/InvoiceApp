@@ -5,7 +5,7 @@ export const ASSISTANT_TOUR_IDS = [
   "engoryx-overview",
   "cash-banking",
   "first-invoice",
-  "gmail-import",
+  "communications",
   "projects-costing",
   "engineering-documents",
   "project-lifecycle",
@@ -70,7 +70,7 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
   "engoryx-overview": {
     id: "engoryx-overview",
     title: `${BRAND.productName} overview`,
-    summary: "See how invoices, projects, payroll, Gmail intake, and reports fit together.",
+    summary: "See how invoices, projects, payroll, communications, and reports fit together.",
     steps: [
       routeStep("overview-dashboard", "Start at the dashboard", "Use the dashboard for the current cost and operations picture.", "dashboard"),
       routeStep("overview-invoices", "Work with invoices", "Extract new invoices, review AI results, and keep verified invoice records together.", "invoices"),
@@ -97,13 +97,13 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
       routeStep("first-invoice-directory", "Find the saved record", "The Invoices directory is the place to reopen verified invoice records.", "invoices"),
     ],
   },
-  "gmail-import": {
-    id: "gmail-import",
-    title: "Import from Gmail",
-    summary: "Use Gmail read-only intake to find messages and bring invoice sources into review.",
+  "communications": {
+    id: "communications",
+    title: "Email / SMS communications",
+    summary: "Compose reviewed email, inspect delivery history, and check provider status.",
     steps: [
-      routeStep("gmail-inbox", "Open Email / SMS", "Connect Gmail with read-only access, scan messages, compose outbound email, and review delivery history.", "inbox"),
-      routeStep("gmail-review", "Review imported invoices", "Imported sources still go through the normal invoice review flow.", "review"),
+      routeStep("communications-compose", "Open Email / SMS", "Prepare an email or SMS message, review its recipients and attachments, and confirm any send deliberately.", "inbox"),
+      routeStep("communications-history", "Review delivery history", "Use Sent / Delivery History to distinguish provider acceptance from confirmed delivery and resolve ambiguous sends.", "inbox"),
     ],
   },
   "projects-costing": {
@@ -205,7 +205,7 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
     summary: "Ask questions, attach bounded source files, and confirm actions deliberately.",
     steps: [
       assistantStep("assistant-panel", "Open the assistant", `This drawer is your workspace for verified ${BRAND.productName} help and safe navigation.`, "assistant-panel"),
-      assistantStep("assistant-composer", "Ask a focused question", "Describe the invoice, project, expense, attendance, payroll, report, Gmail, or settings task you need.", "assistant-composer"),
+      assistantStep("assistant-composer", "Ask a focused question", "Describe the invoice, project, expense, attendance, payroll, report, communications, or settings task you need.", "assistant-composer"),
       assistantStep("assistant-attach", "Attach source context", "Attach only supported PDF, image, spreadsheet, CSV, or text files within the size limits.", "assistant-attach"),
       assistantStep("assistant-send", "Review before acting", "The assistant can show references and prepared actions; financial changes always remain confirmation-gated.", "assistant-send"),
     ],

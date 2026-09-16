@@ -1,6 +1,5 @@
 import React from "react";
 import { ExpensesPage } from "../../components/expenses/ExpensesPage";
-import { ConnectedExpenseReview } from "../../components/ConnectedExpenseReview.tsx";
 import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../../types";
 import type { FinancialFxSnapshotInput } from "../../lib/financialFx.ts";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
@@ -42,12 +41,6 @@ export const ExpensesRoute: React.FC<ExpensesRouteProps> = (props) => {
 
   return (
     <div className="space-y-5">
-      <ConnectedExpenseReview
-        projects={props.projects}
-        existingExpenses={props.expenses}
-        canManage={canManage}
-        onSaveExpense={props.onSave}
-      />
       <ExpensesPage {...props} canRecordPayments={canRecordPayments} canReversePayments={canRecordPayments} />
     </div>
   );

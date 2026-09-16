@@ -28,7 +28,7 @@ test("workforce platform UI keeps dialogs, filters, access states, and Assistant
   assert.match(workers, /History retained · offboard instead/);
   assert.match(assignments, /aria-describedby="assignment-form-description"/);
   assert.match(assignments, /Multiple concurrent projects do not split or duplicate payroll cost/);
-  assert.match(payrollV2, /aria-label="Payroll workspace sections"/);
+  assert.match(payrollV2, /aria-label="Payroll workflow navigation"/);
   assert.match(payrollV2, /aria-current=\{tab === value \? "page" : undefined\}/);
 
   assert.match(documents, /aria-label="Filter engineering documents by type"/);

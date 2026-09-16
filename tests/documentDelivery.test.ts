@@ -124,6 +124,53 @@ test("SMS history maps provider lifecycle states without treating an accepted qu
   assert.equal(history[1]?.reconciliationRequired, true);
 });
 
+test("Brevo history labels provider acceptance separately from confirmed delivery", () => {
+  const history = mapDocumentDeliveryHistory([
+    {
+      id: "brevo-accepted",
+      delivery_channel: "EMAIL",
+      delivery_kind: "GENERAL_EMAIL",
+      document_type: "GENERAL_EMAIL",
+      sender_user_id: "user-1",
+      recipients: ["client@example.test"],
+      cc: [],
+      subject: "Reviewed email",
+      provider_id: "BREVO",
+      provider_message_id: "<brevo-1@example.test>",
+      provider_status: "accepted",
+      message_body_sha256: HASH,
+      status: "ACCEPTED",
+      attempt_count: 1,
+      updated_at: "2026-09-10T11:00:00Z",
+    },
+  ], [
+    {
+      id: "brevo-audit-1",
+      send_intent_id: "brevo-accepted",
+      delivery_channel: "EMAIL",
+      delivery_kind: "GENERAL_EMAIL",
+      document_type: "GENERAL_EMAIL",
+      sender_user_id: "user-1",
+      recipients: ["client@example.test"],
+      cc: [],
+      subject: "Reviewed email",
+      provider_id: "BREVO",
+      provider_message_id: "<brevo-1@example.test>",
+      provider_status: "accepted",
+      message_body_sha256: HASH,
+      status: "ACCEPTED",
+      created_at: "2026-09-10T11:00:01Z",
+    },
+  ], "user-1");
+  assert.equal(history[0]?.channel, "EMAIL");
+  assert.equal(history[0]?.providerId, "BREVO");
+  assert.equal(history[0]?.providerMessageId, "<brevo-1@example.test>");
+  assert.equal(history[0]?.status, "ACCEPTED");
+  assert.equal(history[0]?.reconciliationRequired, false);
+  assert.equal(history[0]?.resendAllowed, false);
+  assert.match(history[0]?.safeMessage || "", /accepted.*not confirmed/i);
+});
+
 test("pre-intent immutable audit rows remain visible as legacy delivery history", () => {
   const history = mapDocumentDeliveryHistory([], [
     {
@@ -152,7 +199,7 @@ test("terminal delivery outcomes commit their audit atomically while ambiguous o
   assert.match(documentEmail, /!reconciliationRequired \? "DOCUMENT_SEND_FAILED" : undefined/);
 });
 
-test("Wave 4C reuses Gmail sending, binds exact PDF provenance, and exposes read-only history", () => {
+test("Email sending binds exact PDF provenance and exposes read-only history", () => {
   assert.match(server, /finalizeIssuedDocumentTemplatePdfForDelivery/);
   assert.match(server, /app\.get\("\/api\/document-delivery-history"/);
   assert.match(server, /attachmentSource/);
@@ -169,4 +216,10 @@ test("Wave 4C reuses Gmail sending, binds exact PDF provenance, and exposes read
   assert.match(migration, /procurement\.read/);
   assert.match(migration, /projects\.read/);
   assert.match(migration, /grant execute on function public\.record_document_send_audit/i);
+});
+
+test("issued-document preview uses Brevo email delivery without labeling acceptance as delivery", () => {
+  assert.match(preview, /sendFinancialDocumentByEmail/);
+  assert.doesNotMatch(preview, /sendFinancialDocumentByGmail|Gmail/);
+  assert.match(preview, /accepted.*delivery is not confirmed|accepted.*not confirmed/i);
 });

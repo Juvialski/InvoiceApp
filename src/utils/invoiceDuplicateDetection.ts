@@ -62,7 +62,7 @@ export function findExistingInvoiceForSourcePayload(
     }
 
     if (gmailMessageId && gmailAttachmentId && candidateMsgId === gmailMessageId && candidateAttId === gmailAttachmentId) {
-      reasons.push(`Gmail message and attachment ID match existing Invoice ${candidate.invoiceNumber || candidate.id}.`);
+      reasons.push(`Historical email message and attachment ID match existing Invoice ${candidate.invoiceNumber || candidate.id}.`);
       return { isDuplicate: true, existingInvoice: candidate, reasons };
     }
   }
@@ -115,7 +115,7 @@ export function evaluateInvoiceDuplicateEvidence(
       reasons.push(`Same source document record as Invoice ${candidate.invoiceNumber || candidate.id}.`);
     }
     if (sameGmailAtt) {
-      reasons.push(`Same Gmail message and attachment ID as Invoice ${candidate.invoiceNumber || candidate.id}.`);
+      reasons.push(`Same historical email message and attachment ID as Invoice ${candidate.invoiceNumber || candidate.id}.`);
     }
 
     const sameVendor = Boolean(vendor && candidateVendor === vendor && (!taxId || !candidateTaxId || candidateTaxId === taxId));

@@ -13,7 +13,6 @@ export const WORKSPACE_REFRESH_GROUPS = [
   "engineering",
   "payroll",
   "payroll-imports",
-  "gmail",
 ] as const;
 
 export type WorkspaceRefreshGroup = (typeof WORKSPACE_REFRESH_GROUPS)[number];
@@ -110,10 +109,6 @@ export const WORKSPACE_REFRESH_TABLES: Readonly<Record<WorkspaceRefreshGroup, re
     "payroll_import_rows",
     "payroll_import_templates",
   ]),
-  gmail: Object.freeze([
-    "gmail_connections",
-    "gmail_sync_state",
-  ]),
 });
 
 /**
@@ -193,8 +188,6 @@ export const WORKSPACE_TABLE_REFRESH_GROUPS: Readonly<Record<string, readonly Wo
   payroll_import_batches: ["payroll-imports"],
   payroll_import_rows: ["payroll-imports"],
   payroll_import_templates: ["payroll-imports"],
-  gmail_connections: ["gmail"],
-  gmail_sync_state: ["gmail"],
 });
 
 const EMPTY_GROUPS: readonly WorkspaceRefreshGroup[] = Object.freeze([]);

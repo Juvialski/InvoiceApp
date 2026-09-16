@@ -74,7 +74,7 @@ Target lifecycle:
 6. apply the exact approved migration set from the shared repository;
 7. create the initial authorized company/admin records through guarded bootstrap tooling;
 8. configure storage/backup/provider settings;
-9. connect approved external services such as Gmail only for that client deployment;
+9. configure approved external services such as Google Sign-In, Brevo, AI, and SMS only for that client deployment;
 10. run deployment smoke, authorization, DB and backup checks;
 11. record deployed repository SHA and database migration state;
 12. hand over client access.
@@ -104,7 +104,7 @@ A release should be promoted deliberately across client deployments. Do not assu
 
 Client-facing Settings should describe the configured deployment, not the repository roadmap. The internal feature registry is operator/development information and must not expose PRs, migration names, QA gates, agent terminology, speculative Engoryx-era features, or future Worker Registration/Attendance/Face Recognition work to ordinary users.
 
-Email Intake is an inbound, read-only Gmail surface for searching/syncing finance-related messages and routing selected source evidence into the existing invoice, statement, and expense workflows. Saved sender rules and a forwarded-invoice fallback are supported. SMS/broadcast automation is not implied, and issued-document email delivery remains in the workflow that owns the issued record.
+Email / SMS is an outbound communications workspace for reviewed Compose, Sent / Delivery History, and provider status. Google Sign-In is identity-only; Gmail mailbox access and inbound intake are not part of the product. Brevo is the server-side transactional-email provider when a client deployment has a verified sender. SMS/broadcast automation is not implied, and issued-document email delivery remains in the workflow that owns the issued record.
 
 Engineering Documents is project-owned and revision-aware. Drawings, specifications, reports, calculations, submittals, source bytes, hashes, annotations, and lifecycle history remain under the engineering document contracts. Supplier evidence, issued financial documents, and other attachments remain owned by their canonical workflows; a navigation hub may link them but must not duplicate their authority or lifecycle.
 
@@ -112,7 +112,7 @@ AI status and credential administration remain separate. A configured deployment
 
 Browser evidence is deliberately layered:
 
-1. **Pre-merge local PR/demo QA** targets a locally built `/demo` workspace with fictional session-local data and no production Auth, Supabase, Storage, Gmail, or company writes.
+1. **Pre-merge local PR/demo QA** targets a locally built `/demo` workspace with fictional session-local data and no production Auth, Supabase, Storage, provider credentials, or company writes.
 2. **Post-deploy hosted QA** targets only the isolated QA Render deployment, uses protected GitHub `qa` environment credentials, waits for exact `/api/health` environment/deployment/repository-SHA/migration identity, and runs safe synthetic integration probes. It refuses production hosts and cleans temporary namespaced Storage objects.
 
 Hosted QA is not a substitute for local migration/RLS/invariant validation, and a hosted result from an older SHA is never evidence for a newer release. Application promotion and database migration promotion remain separate operator decisions.
@@ -272,7 +272,7 @@ The intended handoff boundary is precise: after completed handoff there should b
 no standing developer/operator access to the client's confidential production data
 plane. This does not mean reviewed software releases cannot change production
 behavior. The checklist distinguishes technical application controls from
-client-owned Supabase, Render, Google, AI, Gmail, and SMS/provider account custody.
+client-owned Supabase, Render, Google Sign-In, Brevo, AI, and SMS/provider account custody.
 Exceptional incident access must be client-granted, narrowly scoped, time-bounded,
 audited, and revoked afterward. The application cannot revoke an external account
 it does not own.
