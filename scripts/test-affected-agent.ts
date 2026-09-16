@@ -82,6 +82,17 @@ export function executeAffectedTestsCompact(
   return executeCommand('node', args, cwd);
 }
 
+function failedTapHeadlines(output: string, limit = 20): string[] {
+  const headlines: string[] = [];
+  for (const rawLine of output.replaceAll('\r\n', '\n').split('\n')) {
+    const line = rawLine.trim();
+    if (!/^not ok\b/i.test(line)) continue;
+    headlines.push(line);
+    if (headlines.length >= limit) break;
+  }
+  return headlines;
+}
+
 export function formatCompactExecutionResult(
   selection: ImpactSelectionResult,
   execution: CompactTestExecutionResult,
@@ -102,7 +113,12 @@ export function formatCompactExecutionResult(
   }
 
   if (execution.exitCode !== 0) {
+    const failedTests = failedTapHeadlines(execution.output);
     lines.push(`command=${execution.command}`);
+    if (failedTests.length > 0) {
+      lines.push('failed_tests:');
+      for (const failedTest of failedTests) lines.push(`- ${failedTest}`);
+    }
     lines.push('failure_context:');
     lines.push(extractFailureContext(execution.output, { maxLines: 100, maxChars: 12_000, contextLines: 8 }));
   }
