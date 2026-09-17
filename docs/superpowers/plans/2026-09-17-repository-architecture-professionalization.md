@@ -4,13 +4,13 @@
 
 **Goal:** Make the current Hydroqualisense repository front door accurately communicate the maturity of the live platform and remove stale live Engoryx/npm/Bun identity signals without changing product behavior.
 
-**Architecture:** This document is the original Slice 1 implementation plan for the approved professionalization design. Slice 1 updated executable branding/package contracts, removed package-manager ambiguity, rewrote the repository-facing documentation around the live architecture, and moved provider setup documentation into `docs/`. Slice 2 subsequently decomposed `src/App.tsx` in PR #180; Slice 3 (`server.ts` decomposition) remains separate and intentionally unstarted.
+**Architecture:** This document is the original Slice 1 implementation plan for the approved professionalization design. Slice 1 updated executable branding/package contracts, removed package-manager ambiguity, rewrote the repository-facing documentation around the live architecture, and moved provider setup documentation into `docs/`. Slice 2 subsequently decomposed `src/App.tsx` in PR #180, and Slice 3 decomposed `server.ts` in PR #182.
 
 **Tech Stack:** React 19, TypeScript, Vite, Express, Supabase/Postgres/RLS, Node test runner, GitHub Actions, Astryx theme tooling.
 
 **Spec:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 
-**Professionalization status (2026-09-17):** Slice 1 complete in PR #178. Slice 2 (`src/App.tsx` domain-controller decomposition) complete in PR #180 and merged as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) remains intentionally unstarted. PR #176 Email/SMS reliability work remains isolated and was untouched by Slice 2.
+**Professionalization status (2026-09-18):** Slice 1 complete in PR #178. Slice 2 (`src/App.tsx` domain-controller decomposition) complete in PR #180 and merged as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) complete in PR #182 and merged as `7b13b1723f400da4207c6112b314065cc2a4d7fd`. PR #176 Email/SMS reliability work remains isolated and was untouched by Slices 2-3.
 
 ## Slice 2 completion record
 
@@ -294,4 +294,4 @@ Slice 1 completion was recorded after exact-head evidence. This document now als
 
 - [x] **Step 5: Merge only after separate exact-head review confirms safety**
 
-PR #178 was merged after separate review. Slice 2 was subsequently implemented and merged independently in PR #180. Slice 3 remains unstarted until explicitly resumed.
+PR #178 was merged after separate review. Slice 2 was subsequently implemented and merged independently in PR #180. Slice 3 was implemented and merged independently in PR #182 after exact-head review and CI verification.
