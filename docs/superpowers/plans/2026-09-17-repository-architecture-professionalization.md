@@ -1,10 +1,10 @@
-# Repository & Architecture Professionalization Implementation Plan
+# Repository Front Door Professionalization Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make Hydroqualisense present and read like a professionally engineered operations platform while reducing the two largest orchestration hotspots without changing product behavior.
+**Goal:** Make the current Hydroqualisense repository front door accurately communicate the maturity of the live platform and remove stale live Engoryx/npm/Bun identity signals without changing product behavior.
 
-**Architecture:** Execute three independently reviewable slices. Slice 1 fixes repository-facing truth, npm/package hygiene, current runtime naming, and architecture documentation. Slice 2 extracts bounded application controllers from `src/App.tsx` using existing `src/features/*` patterns. Slice 3 extracts shared authorization and remaining inline API domains from `server.ts` into `src/server/*` modules while preserving route contracts.
+**Architecture:** This plan implements Slice 1 of the approved professionalization design only. It updates executable branding/package contracts, removes package-manager ambiguity, rewrites the repository-facing documentation around the live architecture, and moves provider setup documentation into `docs/`. `src/App.tsx` and `server.ts` decomposition are deliberately separate follow-up plans after this slice is merged and the live files are re-inspected.
 
 **Tech Stack:** React 19, TypeScript, Vite, Express, Supabase/Postgres/RLS, Node test runner, GitHub Actions, Astryx theme tooling.
 
@@ -13,29 +13,27 @@
 ## Global Constraints
 
 - Preserve one deployment -> one client company and all existing `company_id`, membership, RLS, permission, and company-bound integrity controls.
-- Preserve financial, payroll, procurement, billing, collection, settlement, inventory, document, and audit history semantics.
+- Preserve financial, payroll, procurement, billing, collection, settlement, inventory, document, and audit/history semantics.
 - Unknown monetary values must never silently become zero.
-- Preserve existing routes/deep links and current provider behavior.
+- Preserve routes/deep links and current Email/SMS/provider behavior.
 - Do not edit PR #176-owned files while it remains active: `src/lib/authenticatedRequestRecovery.ts`, `src/lib/companyApi.ts`, `tests/authenticatedRequestRecovery.test.ts`.
-- No database migration or production mutation is part of this work.
-- npm is the authoritative package manager because CI runs `npm ci`.
-- Use focused/new tests -> `npm run test:affected:agent` -> only relevant lint/build/browser/Workflow Map checks. Do not ritual-run `test:full`.
+- No database migration or production mutation.
+- npm is authoritative because protected CI runs `npm ci`; remove `bun.lock`.
+- Historical `docs/ENGORYX_*.md` filenames may remain as history. Current runtime/package/type identifiers should use Hydroqualisense/product-neutral naming.
 - Container-local validation is unavailable in this ChatGPT session because the container cannot resolve GitHub; use exact-head GitHub Actions evidence and do not claim local test execution.
 
 ---
 
-## Slice 1 — Repository front door and runtime naming
-
-### Task 1: Lock the current-brand contract with a failing regression test
+### Task 1: Lock the current runtime identity with a failing regression test
 
 **Files:**
 - Modify: `tests/brandConfig.test.ts`
 
 **Interfaces:**
-- Consumes: `BRAND`, `package.json`, live UI entry files.
-- Produces: an executable contract that current package and theme identifiers use Hydroqualisense naming while historical documentation filenames may remain unchanged.
+- Consumes: `BRAND`, `package.json`, `src/main.tsx`, `src/ui/index.ts`.
+- Produces: executable contract requiring current package/theme/provider naming.
 
-- [ ] **Step 1: Change the package expectation before production code**
+- [ ] **Step 1: Change package expectation before production code**
 
 Replace:
 
@@ -49,21 +47,28 @@ with:
 assert.equal(pkgJson.name, 'hydroqualisense');
 ```
 
-Add source checks that read `src/main.tsx`, `src/ui/index.ts`, and `src/ui/HydroqualisenseThemeProvider.tsx` and assert that the live entry points contain `HydroqualisenseThemeProvider` / `hydroqualisenseTheme` and do not expose `EngoryxThemeProvider` / `engoryxTheme`.
+Add source assertions that:
 
-- [ ] **Step 2: Commit the red test only**
-
-Commit message:
-
-```text
-test: require current Hydroqualisense runtime identity
+```ts
+const mainSource = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
+const uiIndexSource = readFileSync(new URL('../src/ui/index.ts', import.meta.url), 'utf8');
+assert.match(mainSource, /HydroqualisenseThemeProvider/);
+assert.doesNotMatch(mainSource, /EngoryxThemeProvider/);
+assert.match(uiIndexSource, /hydroqualisenseTheme/);
+assert.doesNotMatch(uiIndexSource, /engoryxTheme/);
 ```
 
-- [ ] **Step 3: Open/update the draft PR and verify the test fails for the intended reason**
+- [ ] **Step 2: Commit only the red test**
 
-Expected failing reason: the package and live theme/provider identifiers are still `engoryx` / `Engoryx` and/or the new Hydroqualisense provider file does not yet exist.
+Commit message: `test: require current Hydroqualisense runtime identity`.
 
-### Task 2: Normalize package manager and live theme identity
+- [ ] **Step 3: Open the draft PR and verify exact-head Application Validation fails for the expected stale identity**
+
+Expected failure: package name and/or live theme/provider identifiers still use Engoryx naming.
+
+---
+
+### Task 2: Normalize npm/package and live UI theme identity
 
 **Files:**
 - Modify: `package.json`
@@ -71,286 +76,209 @@ Expected failing reason: the package and live theme/provider identifiers are sti
 - Delete: `bun.lock`
 - Create: `src/ui/HydroqualisenseThemeProvider.tsx`
 - Create: `src/ui/hydroqualisenseTheme.ts`
-- Regenerate/create: `src/ui/hydroqualisense.css`
-- Regenerate/create: `src/ui/hydroqualisense.js`
-- Regenerate/create: `src/ui/hydroqualisense.d.ts`
+- Create/regenerate: `src/ui/hydroqualisense.css`
+- Create/regenerate: `src/ui/hydroqualisense.js`
+- Create/regenerate: `src/ui/hydroqualisense.d.ts`
 - Modify: `src/ui/icons.ts`
 - Modify: `src/ui/index.ts`
 - Modify: `src/main.tsx`
-- Delete after replacements are wired: `src/ui/EngoryxThemeProvider.tsx`, `src/ui/engoryxTheme.ts`, `src/ui/engoryx.css`, `src/ui/engoryx.js`, `src/ui/engoryx.d.ts`
+- Delete: `src/ui/EngoryxThemeProvider.tsx`
+- Delete: `src/ui/engoryxTheme.ts`
+- Delete: `src/ui/engoryx.css`
+- Delete: `src/ui/engoryx.js`
+- Delete: `src/ui/engoryx.d.ts`
 
 **Interfaces:**
-- Produces: `HydroqualisenseThemeProvider`, `hydroqualisenseTheme`, `hydroqualisenseIconRegistry`.
-- Build contract: `astryx theme build src/ui/hydroqualisenseTheme.ts --out src/ui/hydroqualisense.css --icons-specifier ./icons.ts`.
+- `HydroqualisenseThemeProvider`
+- `HydroqualisenseThemeProviderProps`
+- `hydroqualisenseTheme`
+- `hydroqualisenseIconRegistry`
+- Build command: `astryx theme build src/ui/hydroqualisenseTheme.ts --out src/ui/hydroqualisense.css --icons-specifier ./icons.ts`
 
-- [ ] **Step 1: Rename package identity without changing dependency versions**
+- [ ] **Step 1: Rename package identity only**
 
-Set `package.json.name` and the root package name entries in `package-lock.json` to `hydroqualisense`. Preserve version `0.3.0` and all dependency versions.
+Set `package.json.name`, `package-lock.json.name`, and `package-lock.json.packages[""].name` to `hydroqualisense`. Preserve version `0.3.0` and every dependency/version.
 
-- [ ] **Step 2: Make npm the only committed lockfile**
+- [ ] **Step 2: Delete `bun.lock`**
 
-Delete `bun.lock`. Do not add a replacement lockfile.
+Do not introduce another lockfile.
 
-- [ ] **Step 3: Rename theme source symbols mechanically**
+- [ ] **Step 3: Rename theme symbols without changing visual values**
 
-Use these exact public identifiers:
+In the renamed theme source:
 
 ```ts
-export const hydroqualisenseIconRegistry: IconRegistry = { ... }
-export const hydroqualisenseTheme = defineTheme({ name: "hydroqualisense", ... })
-export interface HydroqualisenseThemeProviderProps { ... }
-export function HydroqualisenseThemeProvider(...) { ... }
+const hydroqualisenseSyntax = defineSyntaxTheme({
+  name: "hydroqualisense-syntax",
+  // existing tokens unchanged
+});
+
+export const hydroqualisenseTheme = defineTheme({
+  name: "hydroqualisense",
+  syntax: hydroqualisenseSyntax,
+  // existing typography, motion, tokens and component values unchanged
+  icons: hydroqualisenseIconRegistry,
+});
 ```
 
-Preserve all existing tokens, colors, typography, component configuration, and icons. This is a naming refactor, not a visual redesign.
+The provider becomes:
 
-- [ ] **Step 4: Update app entry and UI barrel imports**
+```tsx
+export interface HydroqualisenseThemeProviderProps {
+  children: ReactNode;
+  mode?: AstryxThemeMode;
+}
 
-`src/main.tsx` must wrap the app with `HydroqualisenseThemeProvider`. `src/ui/index.ts` must export the new theme/provider names and use current-product wording in its comment.
+export function HydroqualisenseThemeProvider({ children, mode = "light" }: HydroqualisenseThemeProviderProps) {
+  return <Theme theme={hydroqualisenseTheme} mode={mode}>{children}</Theme>;
+}
+```
 
-- [ ] **Step 5: Update Astryx build script**
+- [ ] **Step 4: Update `src/main.tsx` and `src/ui/index.ts` to the new exports**
 
-Change only the source/output filenames required by the rename. Preserve the existing `astryx:theme` build step and all other scripts.
+No route/component behavior changes.
 
-- [ ] **Step 6: Verify the brand regression is green through CI**
+- [ ] **Step 5: Update `package.json` Astryx paths and regenerate equivalent generated artifacts**
 
-Required evidence: the targeted brand test passes; Application Validation can install with `npm ci`, typecheck, and build with the renamed generated theme files.
+Generated CSS/JS/type output must remain behaviorally equivalent except identifier/name strings and filenames.
 
-### Task 3: Remove live Engoryx feature-registry identifiers without rewriting historical docs
+- [ ] **Step 6: Push and verify the Task 1 regression turns green**
+
+Application Validation must also prove `npm ci`, TypeScript lint/typecheck, affected tests, and production build.
+
+---
+
+### Task 3: Remove current live Engoryx feature-registry type identifiers
 
 **Files:**
+- Modify: `tests/brandConfig.test.ts`
 - Modify: `src/features/types.ts`
 - Modify: `src/features/registry.ts`
 - Modify: `src/features/availability.ts`
-- Modify: `tests/brandConfig.test.ts`
-- Modify any current imports discovered by exact compile/CI failure.
+- Modify compile consumers only when exact-head CI identifies them.
 
 **Interfaces:**
-- Rename `EngoryxFeatureDefinition` -> `ProductFeatureDefinition`.
-- Rename `ENGORYX_FEATURE_REGISTRY` -> `PRODUCT_FEATURE_REGISTRY`.
-- Preserve all feature IDs, statuses, permissions, routes, and historical `docs/ENGORYX_*.md` references.
+- `EngoryxFeatureDefinition` -> `ProductFeatureDefinition`
+- `ENGORYX_FEATURE_REGISTRY` -> `PRODUCT_FEATURE_REGISTRY`
+- Existing `getFeaturesByPhase`, `getFeaturesByStatus`, `getFeatureById` signatures remain functionally identical.
 
-- [ ] **Step 1: Update the existing test first**
+- [ ] **Step 1: Change the test import first**
 
-Change the test import and assertions to use `PRODUCT_FEATURE_REGISTRY` before changing production exports.
+```ts
+import { PRODUCT_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getFeatureById } from '../src/features/registry.ts';
+```
 
-- [ ] **Step 2: Commit the failing contract**
+Change the registry-length assertion to `PRODUCT_FEATURE_REGISTRY.length`.
 
-Expected red reason: the new exports do not exist yet.
+- [ ] **Step 2: Verify RED in exact-head CI because the new export does not yet exist**
 
-- [ ] **Step 3: Rename only live TypeScript symbols**
+- [ ] **Step 3: Rename production types/constants mechanically**
 
-Do not rename feature IDs or historical documentation filenames in this task.
+Preserve feature IDs, phases, statuses, permissions, route IDs, open-source candidates, and historical documentation references exactly.
 
-- [ ] **Step 4: Run exact-head CI and fix compile consumers only**
+- [ ] **Step 4: Fix only compile consumers of the renamed current identifiers**
 
-No behavioral changes are permitted.
+No feature/status/roadmap behavior changes.
 
-### Task 4: Replace the stale README with a current engineering front door
+---
+
+### Task 4: Replace README with the current repository front door
 
 **Files:**
 - Replace: `README.md`
 - Create: `docs/architecture/OVERVIEW.md`
 
 **Interfaces:**
-- README links to the architecture overview, active roadmap, current handoff, deployment runbook, and Workflow Map.
-- Architecture overview documents ownership boundaries rather than duplicating the generated Workflow Map.
+- README links to `docs/architecture/OVERVIEW.md`, active roadmap, current handoff, deployment runbook/strategy, and generated Workflow Map.
 
-- [ ] **Step 1: Rewrite README around current product truth**
-
-Required top-level sections:
+- [ ] **Step 1: Use these README sections**
 
 ```text
-Hydroqualisense
-What the platform does
-Architecture at a glance
-Engineering invariants
-Repository structure
-Local development
-Validation and CI
-Deployment model
-Current project status
+# Hydroqualisense
+## What the platform does
+## Architecture at a glance
+## Engineering invariants
+## Repository structure
+## Local development
+## Validation and CI
+## Deployment model
+## Current project status
 ```
 
-The README must explicitly state the current stack and implemented capabilities, and must not lead with historical September 5 roadmap reset material.
+The README must describe React/Vite, Express, Supabase/Postgres/RLS/Storage, server-only provider integrations, migrations, tests, protected CI, local/hosted QA, and the isolated-client deployment model. It must not lead with the old September 5 roadmap reset.
 
-- [ ] **Step 2: Add `docs/architecture/OVERVIEW.md`**
+- [ ] **Step 2: Add architecture overview**
 
-Document these boundaries:
+Document this flow:
 
 ```text
 Browser/UI -> route components -> domain controllers/libs -> authenticated server APIs -> Supabase/Postgres/Storage
 ```
 
-Explain that financial and operational source ownership is domain-specific, authorization is permission-based, consequential AI writes require confirmation, and one deployment serves one client company.
+Document these ownership boundaries:
+- supplier invoices/source evidence vs Expense/payable authority;
+- client billing vs collections;
+- inventory movements vs derived balances;
+- payroll detail vs project labor aggregates;
+- immutable/issued document history;
+- permission-based authorization and one-company deployment boundary;
+- human confirmation for consequential AI-assisted actions.
 
-- [ ] **Step 3: Keep evidence truthful**
+- [ ] **Step 3: Keep claims evidence-based**
 
-Describe tests/CI that exist; do not invent coverage percentages, certifications, SOC claims, uptime claims, or provider readiness.
+No invented coverage percentage, uptime, compliance certification, provider readiness, or production certification.
 
-### Task 5: Move provider setup documentation under `docs/`
+---
+
+### Task 5: Move Google/Brevo setup under `docs/` and update all references
 
 **Files:**
-- Create: `docs/GOOGLE_SIGNIN_BREVO_SETUP.md` with the exact current root document content.
+- Create: `docs/GOOGLE_SIGNIN_BREVO_SETUP.md` with exact current root content.
 - Delete: `GOOGLE_SIGNIN_BREVO_SETUP.md`
-- Modify references in: `AGENTS.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`, and any other current file found by repository search.
+- Modify: `AGENTS.md`
+- Modify: `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`
+- Modify: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`
+- Modify any additional exact reference discovered by repository/API search.
 
 **Interfaces:**
-- New canonical path: `docs/GOOGLE_SIGNIN_BREVO_SETUP.md`.
+- Canonical path: `docs/GOOGLE_SIGNIN_BREVO_SETUP.md`.
 
-- [ ] **Step 1: Copy content without changing provider policy**
-- [ ] **Step 2: Update every live reference**
-- [ ] **Step 3: Delete the root copy only after references are updated**
-
-### Task 6: Record repository metadata limitation truthfully
-
-**Files:**
-- Modify: `README.md` only if needed to surface canonical production URL.
-- No fake config file.
-
-- [ ] **Step 1: Check connected GitHub capabilities for repository metadata writes**
-
-Desired metadata:
-
-```text
-Description: Hydroqualisense — operations platform for projects, procurement, finance, payroll, inventory, documents, and business communications.
-Homepage: https://hydroqualisense.com
-Topics: typescript, react, supabase, operations, project-management, finance, payroll, inventory
-```
-
-- [ ] **Step 2: Apply only if the connector exposes a supported repository-update action**
-
-If not exposed, record the limitation in the PR description rather than creating a misleading repository file.
-
-### Task 7: Slice 1 final validation and diff review
-
-**Files:**
-- No new functional files unless validation exposes a concrete issue.
-
-- [ ] **Step 1: Inspect the complete branch diff**
-
-Reject scope creep: no database, financial-semantic, provider behavior, permission, route, or PR #176-owned changes.
-
-- [ ] **Step 2: Require exact-head GitHub Actions evidence**
-
-Expected applicable checks:
-- Application Validation & Build — heavy, because package/source/tests changed.
-- Demo/browser QA — only if its classifier marks the entry/UI rename relevant.
-- Workflow Map — only if classifier marks affected inputs relevant.
-- Database workflow should fast-pass as database-unaffected.
-
-- [ ] **Step 3: Do not claim local validation**
-
-The current ChatGPT container cannot reach GitHub/npm, so exact-head CI is the executable evidence for this slice.
+- [ ] **Step 1: Copy document content unchanged**
+- [ ] **Step 2: Replace every current reference with the canonical `docs/` path**
+- [ ] **Step 3: Delete the root file only after references are fixed**
 
 ---
 
-## Slice 2 — `src/App.tsx` decomposition
-
-### Task 8: Establish App composition boundary tests before extraction
+### Task 6: Repository metadata and final exact-head verification
 
 **Files:**
-- Create: `tests/appCompositionArchitecture.test.ts`
-- Modify later: `src/App.tsx`
-- Create later: focused controllers under existing `src/features/*` domains.
+- No fake metadata/config file.
+- Update PR description with any connector limitation.
 
 **Interfaces:**
-- `App.tsx` remains the top-level production composition entry.
-- New controllers expose explicit typed state/actions; no global state library.
+- Desired GitHub description: `Hydroqualisense — operations platform for projects, procurement, finance, payroll, inventory, documents, and business communications.`
+- Desired homepage: `https://hydroqualisense.com`
+- Desired topics: `typescript`, `react`, `supabase`, `operations`, `project-management`, `finance`, `payroll`, `inventory`.
 
-- [ ] **Step 1: Add a structural regression that fails on the current monolith**
+- [ ] **Step 1: Apply repository metadata only if a supported repository-update action exists**
 
-The test should verify that targeted domain orchestration imports are owned by dedicated controller modules rather than directly by `App.tsx`. Start with one bounded domain at a time; do not assert an arbitrary total line-count threshold.
+If not exposed by the connected GitHub capability, state that precise limitation in the PR; do not pretend metadata changed.
 
-- [ ] **Step 2: Verify RED through the draft PR CI**
+- [ ] **Step 2: Inspect the complete PR diff**
 
-### Task 9: Extract finance/cash/billing orchestration as the first App slice
+There must be no migration, database, financial-semantic, provider-behavior, route, permission, or PR #176-owned changes.
 
-**Files:**
-- Create: `src/features/finance/useFinanceWorkspaceController.ts`
-- Modify: `src/App.tsx`
-- Add focused controller tests.
+- [ ] **Step 3: Verify exact-head CI**
 
-**Interfaces:**
-- Controller owns cash/banking, client billing/collection, expense, FX, and supplier-settlement workspace orchestration already coordinated in `App.tsx`.
-- It must consume existing `src/lib/*` functions rather than duplicating persistence or financial semantics.
+Required evidence:
+- Application Validation & Build: green on exact head.
+- Database workflow: expected fast-pass/database-unaffected unless classifier behavior says otherwise.
+- Browser/Workflow Map: inspect only if their classifiers mark this diff relevant.
 
-- [ ] **Step 1: Write focused controller contract tests first**
-- [ ] **Step 2: Move existing orchestration with behavior unchanged**
-- [ ] **Step 3: Keep cross-domain callbacks explicit**
-- [ ] **Step 4: Run focused -> affected -> lint/build -> relevant browser/Workflow Map CI**
+- [ ] **Step 4: Synchronize professionalization documentation only to completed truth**
 
-### Task 10: Continue App extraction by existing domain boundaries
+Mark Slice 1 complete in the professionalization spec/plan or current handoff only after exact-head evidence supports it. Do not change the active product sequence: Email/SMS reliability remains the active product track.
 
-**Files:**
-- Create as justified by actual App sections: `src/features/payroll/usePayrollWorkspaceController.ts`, `src/features/inventory/useInventoryWorkspaceController.ts`, `src/features/procurement/useProcurementWorkspaceController.ts`.
-- Reuse existing project and engineering controllers instead of replacing them.
-- Modify: `src/App.tsx`, `src/app/routes/AppRouter.tsx` only where narrow route-contract grouping reduces coupling.
+- [ ] **Step 5: Merge only after separate exact-head review confirms safety**
 
-**Interfaces:**
-- Each controller has one domain responsibility.
-- `AppRouter` may receive grouped immutable domain contracts instead of hundreds of unrelated scalar props, but route behavior must remain unchanged.
-
-- [ ] **Step 1: One domain per red/green cycle**
-- [ ] **Step 2: Do not create a single replacement mega-hook**
-- [ ] **Step 3: Stop extraction where remaining code is genuinely cross-domain composition/session/navigation**
-
----
-
-## Slice 3 — `server.ts` decomposition
-
-### Task 11: Extract shared request authorization first
-
-**Files:**
-- Create: `src/server/auth/companyAuthorization.ts`
-- Create focused tests under `tests/` using existing server authorization patterns.
-- Modify: `server.ts`.
-
-**Interfaces:**
-
-```ts
-requestBearerToken(req)
-serverSupabaseConfiguration()
-requestSupabaseClient(accessToken)
-publicSupabaseClient()
-authenticateServerRequest(req)
-authorizeCompanyRequest(req, permission)
-authorizePlatformCompanyRequest(req, companyId)
-ApiAuthorizationError
-```
-
-Preserve current status codes, error codes, fail-closed behavior, deployment-company checks, and permission RPC calls exactly.
-
-- [ ] **Step 1: Write authorization contract tests before moving code**
-- [ ] **Step 2: Verify RED based on missing module exports**
-- [ ] **Step 3: Move implementation without semantic edits**
-- [ ] **Step 4: Run focused server authorization tests and exact-head affected CI**
-
-### Task 12: Move remaining inline route domains into existing `src/server/*` structure
-
-**Files:**
-- Create routers only for inline domains that still live in `server.ts` after inspection.
-- Modify: `server.ts` to middleware/process/router composition.
-
-**Interfaces:**
-- Existing assistant, AI, messaging, storage, document-template, and delivery modules remain authoritative.
-- Moved routers receive required dependencies explicitly rather than importing browser-side state.
-
-- [ ] **Step 1: Inventory inline `app.get/post/...` routes and group by existing domain**
-- [ ] **Step 2: For each group, add/identify an API contract test and verify RED before extraction**
-- [ ] **Step 3: Move one group at a time and preserve path/method/status/error/idempotency contracts**
-- [ ] **Step 4: Leave `server.ts` responsible for startup, global middleware, dependency composition, router mounting, and static/Vite serving**
-
----
-
-## Final synchronization
-
-### Task 13: Reconcile documentation and handoff truth
-
-**Files:**
-- Modify only if stale: `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`, active professionalization spec/plan.
-
-- [ ] **Step 1: Review exact final diff and implemented slice status**
-- [ ] **Step 2: Mark only actually completed slices complete**
-- [ ] **Step 3: Preserve Email/SMS reliability as the active product track; this architecture effort does not silently replace product priorities**
-- [ ] **Step 4: Verify no claim depends on stale CI or a different PR head**
+After merge, re-read live `main` before planning Slice 2 (`src/App.tsx` decomposition).
