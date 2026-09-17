@@ -215,8 +215,8 @@ export const hydroqualisenseTheme = defineTheme({
     statusdot: {
       "variant:success": { backgroundColor: "light-dark(#059669, #34d399)" },
       "variant:warning": { backgroundColor: "light-dark(#d97706, #fbbf24)" },
-      "variant:error": { backgroundColor: "light-dark(#e11d48, #f43f5e" },
-      "variant:accent": { backgroundColor: "light-dark(#4f46e5, #818cf8" },
+      "variant:error": { backgroundColor: "light-dark(#e11d48, #f43f5e)" },
+      "variant:accent": { backgroundColor: "light-dark(#4f46e5, #818cf8)" },
     },
   },
 
