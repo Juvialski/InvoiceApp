@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ENGORYX_FEATURE_REGISTRY } from "../src/features/registry.ts";
+import { PRODUCT_FEATURE_REGISTRY } from "../src/features/registry.ts";
 import { featureAvailability, featureAvailabilityLabel } from "../src/features/availability.ts";
 import { getHelpResponse, searchHelpCatalog } from "../src/assistant/helpCatalog.ts";
 
@@ -10,7 +10,7 @@ function source(path: string) {
 }
 
 test("the Phase 2 feature remains explicitly unavailable and its registry is operator-only", () => {
-  const feature = ENGORYX_FEATURE_REGISTRY.find((candidate) => candidate.id === "eng-schedule-gantt");
+  const feature = PRODUCT_FEATURE_REGISTRY.find((candidate) => candidate.id === "eng-schedule-gantt");
   assert.ok(feature);
   assert.equal(feature.status, "PLANNED");
   assert.equal(featureAvailability(feature), "PLANNED_NOT_AVAILABLE");

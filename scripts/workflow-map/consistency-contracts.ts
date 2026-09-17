@@ -3,7 +3,7 @@ import { ASSISTANT_PREPARED_ACTION_STATUSES } from "../../src/assistant/assistan
 import { CONFIRMATION_REQUIRED } from "../../src/assistant/confirmationPolicy.ts";
 import { DEMO_QA_SCENARIOS } from "../qa/demoScenarios.ts";
 import { DEMO_APP_ROOT_PATH, DEMO_ROOT_PATH, DEMO_ROUTE_CONTRACTS } from "../../src/demo/demoRouting.ts";
-import { ENGORYX_FEATURE_REGISTRY } from "../../src/features/registry.ts";
+import { PRODUCT_FEATURE_REGISTRY } from "../../src/features/registry.ts";
 import { DAILY_LOG_TRANSITIONS, DAILY_SITE_LOG_STATUSES } from "../../src/lib/dailySiteLogs.ts";
 import { RFI_STATUSES, RFI_TRANSITIONS, SUBMITTAL_STATUSES, SUBMITTAL_TRANSITIONS } from "../../src/lib/engineeringCoordination.ts";
 import { SETTLEMENT_RECORD_STATUSES } from "../../src/lib/financialSettlement.ts";
@@ -347,7 +347,7 @@ export const WORKFLOW_MAP_CONSISTENCY_CONTRACTS: WorkflowMapConsistencyContracts
     { graphNodeId: "cash-settlement-lifecycle", requiredStatuses: SETTLEMENT_RECORD_STATUSES },
   ],
   permissionKeys: ALL_PERMISSION_KEYS,
-  activeFeatureRouteIds: [...new Set(ENGORYX_FEATURE_REGISTRY.filter((feature) => feature.status === "ACTIVE").flatMap((feature) => feature.routeId ? [feature.routeId] : []))],
+  activeFeatureRouteIds: [...new Set<string>(PRODUCT_FEATURE_REGISTRY.filter((feature) => feature.status === "ACTIVE").flatMap((feature): string[] => feature.routeId ? [feature.routeId] : []))],
   featureRouteNodeIds: ["route-dashboard", "route-cash", "route-projects", "route-invoices", "route-expenses", "route-payroll", "route-reports"],
   assistant: {
     tools: ASSISTANT_TOOL_DEFINITIONS.map(({ name, riskTier, requiresConfirmation }) => ({ name, riskTier, requiresConfirmation })),

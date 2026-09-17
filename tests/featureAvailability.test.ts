@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ENGORYX_FEATURE_REGISTRY } from "../src/features/registry.ts";
+import { PRODUCT_FEATURE_REGISTRY } from "../src/features/registry.ts";
 import {
   featureAvailability,
   featureAvailabilityLabel,
@@ -18,7 +18,7 @@ test("feature status maps to explicit in-app availability labels", () => {
 });
 
 test("every registered feature has an unambiguous product availability state", () => {
-  for (const feature of ENGORYX_FEATURE_REGISTRY) {
+  for (const feature of PRODUCT_FEATURE_REGISTRY) {
     const availability = featureAvailability(feature);
     if (feature.status === "ACTIVE") assert.equal(availability, "AVAILABLE_NOW", feature.id);
     if (feature.status === "PLANNED") assert.equal(availability, "PLANNED_NOT_AVAILABLE", feature.id);
@@ -27,7 +27,7 @@ test("every registered feature has an unambiguous product availability state", (
 });
 
 test("unfinished near-term phases remain planned and explicitly unavailable rather than active", () => {
-  const planned = ENGORYX_FEATURE_REGISTRY.filter((feature) => feature.status === "PLANNED");
+  const planned = PRODUCT_FEATURE_REGISTRY.filter((feature) => feature.status === "PLANNED");
   assert.ok(planned.length > 0);
   assert.ok(planned.every((feature) => featureAvailabilityLabel(featureAvailability(feature)) === "Planned — not available"));
   assert.ok(planned.every((feature) => feature.phase >= 2));

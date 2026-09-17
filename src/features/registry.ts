@@ -1,7 +1,7 @@
-import type { EngoryxFeatureDefinition } from './types.ts';
+import type { ProductFeatureDefinition } from './types.ts';
 import { BRAND } from '../config/brand.ts';
 
-export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Object.freeze([
+export const PRODUCT_FEATURE_REGISTRY: readonly ProductFeatureDefinition[] = Object.freeze([
   // Phase 0: Core Foundation (Active)
   {
     id: 'core-dashboard',
@@ -234,14 +234,14 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
   },
 ]);
 
-export function getFeaturesByPhase(phase: number): readonly EngoryxFeatureDefinition[] {
-  return ENGORYX_FEATURE_REGISTRY.filter((feature) => feature.phase === phase);
+export function getFeaturesByPhase(phase: number): readonly ProductFeatureDefinition[] {
+  return PRODUCT_FEATURE_REGISTRY.filter((feature) => feature.phase === phase);
 }
 
-export function getFeaturesByStatus(status: EngoryxFeatureDefinition['status']): readonly EngoryxFeatureDefinition[] {
-  return ENGORYX_FEATURE_REGISTRY.filter((feature) => feature.status === status);
+export function getFeaturesByStatus(status: ProductFeatureDefinition['status']): readonly ProductFeatureDefinition[] {
+  return PRODUCT_FEATURE_REGISTRY.filter((feature) => feature.status === status);
 }
 
-export function getFeatureById(id: string): EngoryxFeatureDefinition | undefined {
-  return ENGORYX_FEATURE_REGISTRY.find((feature) => feature.id === id);
+export function getFeatureById(id: string): ProductFeatureDefinition | undefined {
+  return PRODUCT_FEATURE_REGISTRY.find((feature) => feature.id === id);
 }

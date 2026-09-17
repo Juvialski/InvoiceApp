@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { BRAND, formatBreadcrumb, formatPageTitle } from '../src/config/brand.ts';
-import { ENGORYX_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getFeatureById } from '../src/features/registry.ts';
+import { PRODUCT_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getFeatureById } from '../src/features/registry.ts';
 
 test('brand configuration contains canonical Hydroqualisense values', () => {
   assert.equal(BRAND.productName, 'Hydroqualisense');
@@ -30,7 +30,7 @@ test('page title and breadcrumb formatting helpers produce correct branded label
   assert.equal(formatBreadcrumb('Payroll'), 'Hydroqualisense / Payroll');
 });
 
-test('index.html, metadata.json, and package.json are synchronized with Hydroqualisense brand', () => {
+test('repository and live UI entry points use the current Hydroqualisense identity', () => {
   const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(indexHtml, /<title>Hydroqualisense \| Hydroqualisense Solutions Corp\.<\/title>/);
   assert.match(indexHtml, /<link rel="canonical" href="https:\/\/hydroqualisense\.com" \/>/);
@@ -43,11 +43,49 @@ test('index.html, metadata.json, and package.json are synchronized with Hydroqua
   assert.match(metadataJson.description, /projects.*procurement.*supplier invoices.*finance.*documents.*payroll.*inventory.*equipment.*business communications/i);
 
   const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-  assert.equal(pkgJson.name, 'engoryx');
+  assert.equal(pkgJson.name, 'hydroqualisense');
+  assert.match(pkgJson.scripts['astryx:theme'], /hydroqualisenseTheme\.ts/);
+  assert.match(pkgJson.scripts['astryx:theme'], /hydroqualisense\.css/);
+  assert.doesNotMatch(pkgJson.scripts['astryx:theme'], /engoryx/i);
+
+  const mainSource = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  const uiIndexSource = readFileSync(new URL('../src/ui/index.ts', import.meta.url), 'utf8');
+  const providerSource = readFileSync(new URL('../src/ui/HydroqualisenseThemeProvider.tsx', import.meta.url), 'utf8');
+  const themeSource = readFileSync(new URL('../src/ui/hydroqualisenseTheme.ts', import.meta.url), 'utf8');
+  const iconSource = readFileSync(new URL('../src/ui/icons.ts', import.meta.url), 'utf8');
+  const appCssSource = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+  const serverSource = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
+
+  assert.match(mainSource, /HydroqualisenseThemeProvider/);
+  assert.doesNotMatch(mainSource, /EngoryxThemeProvider/);
+  assert.match(uiIndexSource, /hydroqualisenseTheme/);
+  assert.match(uiIndexSource, /hydroqualisenseIconRegistry/);
+  assert.doesNotMatch(uiIndexSource, /engoryx/i);
+  assert.match(providerSource, /hydroqualisenseTheme/);
+  assert.doesNotMatch(providerSource, /engoryx/i);
+  assert.match(themeSource, /name: "hydroqualisense"/);
+  assert.doesNotMatch(themeSource, /engoryx/i);
+  assert.match(iconSource, /hydroqualisenseIconRegistry/);
+  assert.doesNotMatch(iconSource, /engoryx/i);
+  assert.match(appCssSource, /\.\/ui\/hydroqualisense\.css/);
+  assert.doesNotMatch(appCssSource, /engoryx\.css/i);
+  assert.match(serverSource, /A valid Hydroqualisense session is required/);
+  assert.match(serverSource, /another Hydroqualisense deployment company/);
+  assert.match(serverSource, /standard Hydroqualisense categories/);
+  assert.doesNotMatch(serverSource, /InvoiceApp session|Engoryx deployment company|standard Engoryx categories/);
+
+  assert.equal(existsSync(new URL('../src/ui/hydroqualisense.css', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../src/ui/hydroqualisense.js', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../src/ui/hydroqualisense.d.ts', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../src/ui/engoryxTheme.ts', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../src/ui/EngoryxThemeProvider.tsx', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../src/ui/engoryx.css', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../src/ui/engoryx.js', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../src/ui/engoryx.d.ts', import.meta.url)), false);
 });
 
 test('feature registry covers all operational and roadmap engineering phases', () => {
-  assert.ok(ENGORYX_FEATURE_REGISTRY.length >= 8);
+  assert.ok(PRODUCT_FEATURE_REGISTRY.length >= 8);
 
   const phase0 = getFeaturesByPhase(0);
   assert.ok(phase0.length >= 7);

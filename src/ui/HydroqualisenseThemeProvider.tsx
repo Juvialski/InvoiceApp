@@ -1,25 +1,23 @@
 import React, { type ComponentProps, type ReactNode } from "react";
 import { Theme } from "@astryxdesign/core/theme";
-import { engoryxTheme } from "./engoryx";
+import { hydroqualisenseTheme } from "./hydroqualisense";
 
 type AstryxThemeMode = NonNullable<ComponentProps<typeof Theme>["mode"]>;
 
-export interface EngoryxThemeProviderProps {
+export interface HydroqualisenseThemeProviderProps {
   children: ReactNode;
   mode?: AstryxThemeMode;
 }
 
-export function EngoryxThemeProvider({
+export function HydroqualisenseThemeProvider({
   children,
   mode = "light",
-}: EngoryxThemeProviderProps): React.JSX.Element {
+}: HydroqualisenseThemeProviderProps): React.JSX.Element {
   return (
-    <Theme theme={engoryxTheme} mode={mode}>
+    <Theme theme={hydroqualisenseTheme} mode={mode}>
       {children}
     </Theme>
   );
 }
 
-export default EngoryxThemeProvider;
-
-
+export default HydroqualisenseThemeProvider;

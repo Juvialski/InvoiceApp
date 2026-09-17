@@ -1,9 +1,8 @@
 import { defineTheme, defineSyntaxTheme } from "@astryxdesign/core/theme";
-import { engoryxIconRegistry } from "./icons.ts";
+import { hydroqualisenseIconRegistry } from "./icons.ts";
 
-
-const engoryxSyntax = defineSyntaxTheme({
-  name: "engoryx-syntax",
+const hydroqualisenseSyntax = defineSyntaxTheme({
+  name: "hydroqualisense-syntax",
   tokens: {
     keyword: ["#4f46e5", "#818cf8"],
     string: ["#059669", "#34d399"],
@@ -22,8 +21,8 @@ const engoryxSyntax = defineSyntaxTheme({
   },
 });
 
-export const engoryxTheme = defineTheme({
-  name: "engoryx",
+export const hydroqualisenseTheme = defineTheme({
+  name: "hydroqualisense",
 
   typography: {
     scale: { base: 14, ratio: 1.18 },
@@ -47,7 +46,7 @@ export const engoryxTheme = defineTheme({
 
   motion: { fast: 120, medium: 240, slow: 450, ratio: 0.75 },
 
-  syntax: engoryxSyntax,
+  syntax: hydroqualisenseSyntax,
 
   tokens: {
     // Backgrounds
@@ -57,7 +56,7 @@ export const engoryxTheme = defineTheme({
     "--color-background-popover": ["#ffffff", "#1e293b"],
     "--color-background-muted": ["#f1f5f9", "#1e293b"],
 
-    // Accent & Brand (Engoryx Navy / Indigo)
+    // Accent & Brand (HydroQualiSense Navy / Indigo)
     "--color-accent": ["#4f46e5", "#818cf8"],
     "--color-accent-muted": ["#eef2ff", "#312e81"],
     "--color-neutral": ["#0000000D", "#FFFFFF14"],
@@ -221,7 +220,7 @@ export const engoryxTheme = defineTheme({
     },
   },
 
-  icons: engoryxIconRegistry,
+  icons: hydroqualisenseIconRegistry,
 });
 
-export default engoryxTheme;
+export default hydroqualisenseTheme;

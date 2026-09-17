@@ -75,7 +75,7 @@ usability work while keeping the broader Wave 4D completion gate open:
   be reported truthfully until provider-backed QA evidence exists.
 
 The current Google identity and Brevo server-only configuration is documented in
-`GOOGLE_SIGNIN_BREVO_SETUP.md`. Missing external Brevo credentials, verified
+`docs/GOOGLE_SIGNIN_BREVO_SETUP.md`. Missing external Brevo credentials, verified
 sender setup, or safe QA recipient remains an operator blocker; it is not
 represented as a healthy Brevo or SMS capability.
 

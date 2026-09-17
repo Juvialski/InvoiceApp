@@ -72,7 +72,7 @@ The completed UI/UX Round 2 design and acceptance record is:
 
 `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`
 
-Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the active Email/SMS phase, read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts. Read the Wide Documents contract when that deferred phase is deliberately resumed.
+Treat that document as the standing usability/information-architecture baseline when later work touches authenticated UI. For the active Email/SMS phase, read `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `docs/GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts. Read the Wide Documents contract when that deferred phase is deliberately resumed.
 
 The 2026-09-15 reprioritization does **not** cancel Wave 4D or change its approved provider direction. Existing Email/SMS/Documents implementation, Company SIM Gateway primary direction, PhilSMS optional fallback direction, delivery-intent history, provider-neutral/server-side adapter boundaries, and human send-confirmation boundaries remain valid and must be preserved after the security phase. The security phase must preserve company isolation, permission-based authority, protected platform/root boundaries, and truthful provider states.
 
