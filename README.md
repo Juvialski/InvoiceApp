@@ -10,7 +10,7 @@ The application uses a React 19 + TypeScript + Vite client, an Express/Node serv
 
 Each production deployment belongs to exactly one client company and uses that company's own Supabase project, environment configuration, users, storage, and provider credentials. Rows still carry `company_id` and database authorization remains company-bound as defense in depth.
 
-See [Architecture Overview](docs/ARCHITECTURE.md) and the generated [Workflow Map](docs/architecture/APP_WORKFLOW_MAP.md) for more detail.
+See [Architecture Overview](docs/architecture/OVERVIEW.md) and the generated [Workflow Map](docs/architecture/APP_WORKFLOW_MAP.md) for more detail.
 
 ## Product domains
 
