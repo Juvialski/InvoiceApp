@@ -2,7 +2,7 @@
 
 Status: **ACTIVE — CLIENT SECURITY ASSURANCE & HANDOFF IN PROGRESS / FLEXIBLE CUSTOM-RBAC IMPLEMENTATION ADDED BUT LOCAL DB RUNTIME CERTIFICATION BLOCKED BY UNAVAILABLE DOCKER / CLIENT SECURITY PDF HANDOFF DRAFT PENDING QA EVIDENCE / EMAIL-SMS RELIABILITY FOLLOWS / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-15**
+Last updated: **2026-09-17**
 
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
@@ -215,6 +215,22 @@ Brevo sending remains not tested/unverified. The aggregate affected selector
 selected all 321 tests but reached existing unrelated visual-harness lifecycle
 failures; it is not represented as a green full-suite result. No production
 mutation occurred.
+
+## 2026-09-17 Repository Front Door Professionalization — Slice 1 complete
+
+PR #178 completes the Repository Front Door / Hygiene slice. The repository now
+uses the Hydroqualisense package and live Astryx theme identity, npm with the
+authoritative package-lock, the canonical architecture overview, current setup
+document links, and a concise repository-facing architecture/invariant guide.
+Generated theme artifacts were regenerated from the npm Astryx command, and the
+remaining current feature-registry and API-facing identity consumers were aligned
+without changing product behavior.
+
+This is repository hygiene, not a product-phase reprioritization. The active
+Client Security Assurance & Handoff phase remains first; Email/SMS reliability
+remains a separate follow-on product track, Wide Documents managed slices remain
+deferred, Worker Registration remains paused, and the later App.tsx/server.ts
+decomposition slices were not started.
 
 ## Immediate implementation sequence
 

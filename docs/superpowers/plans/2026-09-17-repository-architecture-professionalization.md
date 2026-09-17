@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 
+**Slice 1 status (2026-09-17):** Complete on PR #178. Slice 2 (`src/App.tsx` decomposition) and Slice 3 (`server.ts` decomposition) remain intentionally unstarted.
+
 ## Global Constraints
 
 - Preserve one deployment -> one client company and all existing `company_id`, membership, RLS, permission, and company-bound integrity controls.
@@ -33,7 +35,7 @@
 - Consumes: `BRAND`, `package.json`, `src/main.tsx`, `src/ui/index.ts`.
 - Produces: executable contract requiring current package/theme/provider naming.
 
-- [ ] **Step 1: Change package expectation before production code**
+- [x] **Step 1: Change package expectation before production code**
 
 Replace:
 
@@ -58,11 +60,11 @@ assert.match(uiIndexSource, /hydroqualisenseTheme/);
 assert.doesNotMatch(uiIndexSource, /engoryxTheme/);
 ```
 
-- [ ] **Step 2: Commit only the red test**
+- [x] **Step 2: Commit only the red test**
 
 Commit message: `test: require current Hydroqualisense runtime identity`.
 
-- [ ] **Step 3: Open the draft PR and verify exact-head Application Validation fails for the expected stale identity**
+- [x] **Step 3: Open the draft PR and verify exact-head Application Validation fails for the expected stale identity**
 
 Expected failure: package name and/or live theme/provider identifiers still use Engoryx naming.
 
@@ -96,15 +98,15 @@ Expected failure: package name and/or live theme/provider identifiers still use 
 - `hydroqualisenseIconRegistry`
 - Build command: `astryx theme build src/ui/hydroqualisenseTheme.ts --out src/ui/hydroqualisense.css --icons-specifier ./icons.ts`
 
-- [ ] **Step 1: Rename package identity only**
+- [x] **Step 1: Rename package identity only**
 
 Set `package.json.name`, `package-lock.json.name`, and `package-lock.json.packages[""].name` to `hydroqualisense`. Preserve version `0.3.0` and every dependency/version.
 
-- [ ] **Step 2: Delete `bun.lock`**
+- [x] **Step 2: Delete `bun.lock`**
 
 Do not introduce another lockfile.
 
-- [ ] **Step 3: Rename theme symbols without changing visual values**
+- [x] **Step 3: Rename theme symbols without changing visual values**
 
 In the renamed theme source:
 
@@ -135,15 +137,15 @@ export function HydroqualisenseThemeProvider({ children, mode = "light" }: Hydro
 }
 ```
 
-- [ ] **Step 4: Update `src/main.tsx` and `src/ui/index.ts` to the new exports**
+- [x] **Step 4: Update `src/main.tsx` and `src/ui/index.ts` to the new exports**
 
 No route/component behavior changes.
 
-- [ ] **Step 5: Update `package.json` Astryx paths and regenerate equivalent generated artifacts**
+- [x] **Step 5: Update `package.json` Astryx paths and regenerate equivalent generated artifacts**
 
 Generated CSS/JS/type output must remain behaviorally equivalent except identifier/name strings and filenames.
 
-- [ ] **Step 6: Push and verify the Task 1 regression turns green**
+- [x] **Step 6: Push and verify the Task 1 regression turns green**
 
 Application Validation must also prove `npm ci`, TypeScript lint/typecheck, affected tests, and production build.
 
@@ -163,7 +165,7 @@ Application Validation must also prove `npm ci`, TypeScript lint/typecheck, affe
 - `ENGORYX_FEATURE_REGISTRY` -> `PRODUCT_FEATURE_REGISTRY`
 - Existing `getFeaturesByPhase`, `getFeaturesByStatus`, `getFeatureById` signatures remain functionally identical.
 
-- [ ] **Step 1: Change the test import first**
+- [x] **Step 1: Change the test import first**
 
 ```ts
 import { PRODUCT_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getFeatureById } from '../src/features/registry.ts';
@@ -171,13 +173,13 @@ import { PRODUCT_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getF
 
 Change the registry-length assertion to `PRODUCT_FEATURE_REGISTRY.length`.
 
-- [ ] **Step 2: Verify RED in exact-head CI because the new export does not yet exist**
+- [x] **Step 2: Verify RED in exact-head CI because the new export does not yet exist**
 
-- [ ] **Step 3: Rename production types/constants mechanically**
+- [x] **Step 3: Rename production types/constants mechanically**
 
 Preserve feature IDs, phases, statuses, permissions, route IDs, open-source candidates, and historical documentation references exactly.
 
-- [ ] **Step 4: Fix only compile consumers of the renamed current identifiers**
+- [x] **Step 4: Fix only compile consumers of the renamed current identifiers**
 
 No feature/status/roadmap behavior changes.
 
@@ -192,7 +194,7 @@ No feature/status/roadmap behavior changes.
 **Interfaces:**
 - README links to `docs/architecture/OVERVIEW.md`, active roadmap, current handoff, deployment runbook/strategy, and generated Workflow Map.
 
-- [ ] **Step 1: Use these README sections**
+- [x] **Step 1: Use these README sections**
 
 ```text
 # Hydroqualisense
@@ -208,7 +210,7 @@ No feature/status/roadmap behavior changes.
 
 The README must describe React/Vite, Express, Supabase/Postgres/RLS/Storage, server-only provider integrations, migrations, tests, protected CI, local/hosted QA, and the isolated-client deployment model. It must not lead with the old September 5 roadmap reset.
 
-- [ ] **Step 2: Add architecture overview**
+- [x] **Step 2: Add architecture overview**
 
 Document this flow:
 
@@ -225,7 +227,7 @@ Document these ownership boundaries:
 - permission-based authorization and one-company deployment boundary;
 - human confirmation for consequential AI-assisted actions.
 
-- [ ] **Step 3: Keep claims evidence-based**
+- [x] **Step 3: Keep claims evidence-based**
 
 No invented coverage percentage, uptime, compliance certification, provider readiness, or production certification.
 
@@ -244,9 +246,9 @@ No invented coverage percentage, uptime, compliance certification, provider read
 **Interfaces:**
 - Canonical path: `docs/GOOGLE_SIGNIN_BREVO_SETUP.md`.
 
-- [ ] **Step 1: Copy document content unchanged**
-- [ ] **Step 2: Replace every current reference with the canonical `docs/` path**
-- [ ] **Step 3: Delete the root file only after references are fixed**
+- [x] **Step 1: Copy document content unchanged**
+- [x] **Step 2: Replace every current reference with the canonical `docs/` path**
+- [x] **Step 3: Delete the root file only after references are fixed**
 
 ---
 
@@ -261,25 +263,27 @@ No invented coverage percentage, uptime, compliance certification, provider read
 - Desired homepage: `https://hydroqualisense.com`
 - Desired topics: `typescript`, `react`, `supabase`, `operations`, `project-management`, `finance`, `payroll`, `inventory`.
 
-- [ ] **Step 1: Apply repository metadata only if a supported repository-update action exists**
+- [x] **Step 1: Apply repository metadata only if a supported repository-update action exists**
 
 If not exposed by the connected GitHub capability, state that precise limitation in the PR; do not pretend metadata changed.
 
-- [ ] **Step 2: Inspect the complete PR diff**
+- [x] **Step 2: Inspect the complete PR diff**
 
 There must be no migration, database, financial-semantic, provider-behavior, route, permission, or PR #176-owned changes.
 
-- [ ] **Step 3: Verify exact-head CI**
+- [x] **Step 3: Verify exact-head CI**
 
 Required evidence:
 - Application Validation & Build: green on exact head.
 - Database workflow: expected fast-pass/database-unaffected unless classifier behavior says otherwise.
 - Browser/Workflow Map: inspect only if their classifiers mark this diff relevant.
 
-- [ ] **Step 4: Synchronize professionalization documentation only to completed truth**
+- [x] **Step 4: Synchronize professionalization documentation only to completed truth**
 
 Mark Slice 1 complete in the professionalization spec/plan or current handoff only after exact-head evidence supports it. Do not change the active product sequence: Email/SMS reliability remains the active product track.
 
 - [ ] **Step 5: Merge only after separate exact-head review confirms safety**
 
 After merge, re-read live `main` before planning Slice 2 (`src/App.tsx` decomposition).
+
+> The merge step remains intentionally open for the separate ChatGPT review/merge pass; Codex does not merge its own PR.

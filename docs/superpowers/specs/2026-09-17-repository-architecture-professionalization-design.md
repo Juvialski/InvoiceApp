@@ -14,6 +14,8 @@ This phase is not a feature rewrite. It must preserve current financial semantic
 
 The work is split into three slices so each can be reviewed and validated independently.
 
+Slice 1 is complete in PR #178. The later App.tsx and server.ts decomposition slices remain separate follow-up work and were not started by this PR.
+
 ### Slice 1 — Repository front door and hygiene
 
 Update repository-facing material so an external engineer can understand the product and engineering model quickly and accurately.
