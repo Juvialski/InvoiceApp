@@ -30,7 +30,7 @@ test('page title and breadcrumb formatting helpers produce correct branded label
   assert.equal(formatBreadcrumb('Payroll'), 'Hydroqualisense / Payroll');
 });
 
-test('index.html, metadata.json, and package.json are synchronized with Hydroqualisense brand', () => {
+test('index.html, metadata.json, package.json, and live UI entry points are synchronized with Hydroqualisense brand', () => {
   const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(indexHtml, /<title>Hydroqualisense \| Hydroqualisense Solutions Corp\.<\/title>/);
   assert.match(indexHtml, /<link rel="canonical" href="https:\/\/hydroqualisense\.com" \/>/);
@@ -43,7 +43,14 @@ test('index.html, metadata.json, and package.json are synchronized with Hydroqua
   assert.match(metadataJson.description, /projects.*procurement.*supplier invoices.*finance.*documents.*payroll.*inventory.*equipment.*business communications/i);
 
   const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-  assert.equal(pkgJson.name, 'engoryx');
+  assert.equal(pkgJson.name, 'hydroqualisense');
+
+  const mainSource = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  const uiIndexSource = readFileSync(new URL('../src/ui/index.ts', import.meta.url), 'utf8');
+  assert.match(mainSource, /HydroqualisenseThemeProvider/);
+  assert.doesNotMatch(mainSource, /EngoryxThemeProvider/);
+  assert.match(uiIndexSource, /hydroqualisenseTheme/);
+  assert.doesNotMatch(uiIndexSource, /engoryxTheme/);
 });
 
 test('feature registry covers all operational and roadmap engineering phases', () => {
