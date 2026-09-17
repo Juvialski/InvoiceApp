@@ -16,7 +16,7 @@ export type FeatureCategory =
   | 'procurement'
   | 'intelligence';
 
-export interface EngoryxFeatureDefinition {
+export interface HydroqualisenseFeatureDefinition {
   readonly id: string;
   readonly name: string;
   readonly description: string;
