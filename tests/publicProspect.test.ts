@@ -13,6 +13,7 @@ import { releaseMetadataFromEnv } from "../src/server/releaseMetadata.ts";
 const migration = readFileSync(new URL("../supabase/migrations/20260907024119_public_prospect_funnel.sql", import.meta.url), "utf8");
 const deploymentGateMigration = readFileSync(new URL("../supabase/migrations/20260907121500_public_prospect_funnel_deployment_gate.sql", import.meta.url), "utf8");
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const publicProspectRouter = readFileSync(new URL("../src/server/publicProspects/publicProspectRouter.ts", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const publicRoot = readFileSync(new URL("../src/public/PublicFunnelRoot.tsx", import.meta.url), "utf8");
 const manifestSource = readFileSync(new URL("../src/lib/deploymentManifest.ts", import.meta.url), "utf8");
@@ -85,13 +86,14 @@ test("canonical public routes are host-aware while noncanonical roots and passwo
 });
 
 test("server public intake uses a bounded parser, rate limit, anonymous RPC, and no provisioning side effect", () => {
-  assert.match(server, /app\.post\("\/api\/public\/prospects"/);
-  assert.match(server, /express\.json\(\{ limit: "32kb", strict: true \}\)/);
-  assert.match(server, /PUBLIC_PROSPECT_RATE_LIMIT = 5/);
-  assert.match(server, /publicSupabaseClient\(\)\.rpc\("submit_public_prospect"/);
-  assert.match(server, /No deployment or account was created/);
-  assert.match(server, /honeypot/i);
-  assert.match(server, /req\.body\?\.website/);
+  assert.match(server, /app\.use\("\/api\/public", createPublicProspectRouter\(\)\)/);
+  assert.match(publicProspectRouter, /router\.post\("\/prospects"/);
+  assert.match(publicProspectRouter, /express\.json\(\{ limit: "32kb", strict: true \}\)/);
+  assert.match(publicProspectRouter, /PUBLIC_PROSPECT_RATE_LIMIT = 5/);
+  assert.match(publicProspectRouter, /publicSupabaseClient\(\)\.rpc\("submit_public_prospect"/);
+  assert.match(publicProspectRouter, /No deployment or account was created/);
+  assert.match(publicProspectRouter, /honeypot/i);
+  assert.match(publicProspectRouter, /req\.body\?\.website/);
   assert.doesNotMatch(server, /SUPABASE_SERVICE_ROLE_KEY/);
 });
 

@@ -55,6 +55,8 @@ test('repository and live UI entry points use the current Hydroqualisense identi
   const iconSource = readFileSync(new URL('../src/ui/icons.ts', import.meta.url), 'utf8');
   const appCssSource = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
   const serverSource = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
+  const authorizationSource = readFileSync(new URL('../src/server/auth/serverAuthorization.ts', import.meta.url), 'utf8');
+  const extractionSource = readFileSync(new URL('../src/server/invoiceExtraction/invoiceExtractionRouter.ts', import.meta.url), 'utf8');
 
   assert.match(mainSource, /HydroqualisenseThemeProvider/);
   assert.doesNotMatch(mainSource, /EngoryxThemeProvider/);
@@ -69,9 +71,9 @@ test('repository and live UI entry points use the current Hydroqualisense identi
   assert.doesNotMatch(iconSource, /engoryx/i);
   assert.match(appCssSource, /\.\/ui\/hydroqualisense\.css/);
   assert.doesNotMatch(appCssSource, /engoryx\.css/i);
-  assert.match(serverSource, /A valid Hydroqualisense session is required/);
-  assert.match(serverSource, /another Hydroqualisense deployment company/);
-  assert.match(serverSource, /standard Hydroqualisense categories/);
+  assert.match(authorizationSource, /A valid Hydroqualisense session is required/);
+  assert.match(authorizationSource, /another Hydroqualisense deployment company/);
+  assert.match(extractionSource, /standard Hydroqualisense categories/);
   assert.doesNotMatch(serverSource, /InvoiceApp session|Engoryx deployment company|standard Engoryx categories/);
 
   assert.equal(existsSync(new URL('../src/ui/hydroqualisense.css', import.meta.url)), true);

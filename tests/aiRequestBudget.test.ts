@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const invoiceRouter = readFileSync(new URL("../src/server/invoiceExtraction/invoiceExtractionRouter.ts", import.meta.url), "utf8");
 const assistant = readFileSync(new URL("../src/server/assistant/assistantHandler.ts", import.meta.url), "utf8");
 
 function between(source: string, start: string, end: string) {
@@ -15,10 +15,10 @@ function between(source: string, start: string, end: string) {
 
 test("provider budget claims follow company AI preflight for every production endpoint", () => {
   for (const [start, end] of [
-    ['app.post("/api/extract-invoice"', 'const expenseSchema'],
-    ['app.post("/api/extract-expense"', 'interface NormalizedEmailRecipient'],
+    ['router.post("/extract-invoice"', 'router.post("/extract-expense"'],
+    ['router.post("/extract-expense"', "return router"],
   ] as const) {
-    const route = between(server, start, end);
+    const route = between(invoiceRouter, start, end);
     assert.ok(route.indexOf("resolveCompanyAiRuntime") < route.indexOf("claimAiRequest"), `${start} must preflight before claiming budget`);
   }
   const handler = between(assistant, "async function handleAssistantRequest", "async function loadActionEvent");

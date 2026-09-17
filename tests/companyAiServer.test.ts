@@ -4,6 +4,9 @@ import test from "node:test";
 import { companyAiServerSupabase } from "../src/server/ai/companyAiServerSupabase.ts";
 
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const companyAiRouter = readFileSync(new URL("../src/server/ai/companyAiRouter.ts", import.meta.url), "utf8");
+const authorization = readFileSync(new URL("../src/server/auth/serverAuthorization.ts", import.meta.url), "utf8");
+const invoiceRouter = readFileSync(new URL("../src/server/invoiceExtraction/invoiceExtractionRouter.ts", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("../src/server/ai/companyAiRuntime.ts", import.meta.url), "utf8");
 const credentials = readFileSync(new URL("../src/server/ai/companyAiCredentials.ts", import.meta.url), "utf8");
 const handler = readFileSync(new URL("../src/server/assistant/assistantHandler.ts", import.meta.url), "utf8");
@@ -20,17 +23,17 @@ test("company AI endpoints are internal-operator scoped and metadata-only", () =
     "/api/platform/companies/:companyId/ai-config/gemini/disable",
     "/api/platform/companies/:companyId/ai-config/gemini/enable",
     "/api/platform/companies/:companyId/ai-config/gemini",
-  ]) assert.match(server, new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(server, /authorizePlatformCompanyRequest/);
-  assert.match(server, /is_platform_admin/);
+  ]) assert.match(companyAiRouter, new RegExp(path.replace("/api", "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(companyAiRouter, /authorizePlatformCompanyRequest/);
+  assert.match(authorization, /is_platform_admin/);
   assert.match(credentials, /platform_store_company_ai_credential/);
   assert.match(credentials, /isDeploymentAiBootstrapAuthorized/);
-  assert.match(server, /bootstrapAuthorized/);
-  assert.match(server, /resolveCompanyAiRuntimeCapability/);
-  assert.match(server, /runtimeCapability/);
-  assert.match(server, /invalidateCompanyAiRuntime/);
-  assert.doesNotMatch(server, /res\.json\([^\n]*apiKey/i);
-  assert.doesNotMatch(server, /console\.(?:log|info|warn|error)\([\s\S]{0,300}(?:apiKey|ciphertext|authTag|plaintext)/i);
+  assert.match(companyAiRouter, /bootstrapAuthorized/);
+  assert.match(companyAiRouter, /resolveCompanyAiRuntimeCapability/);
+  assert.match(companyAiRouter, /runtimeCapability/);
+  assert.match(companyAiRouter, /invalidateCompanyAiRuntime/);
+  assert.doesNotMatch(companyAiRouter, /res\.json\([^\n]*apiKey/i);
+  assert.doesNotMatch(companyAiRouter, /console\.(?:log|info|warn|error)\([\s\S]{0,300}(?:apiKey|ciphertext|authTag|plaintext)/i);
   assert.doesNotMatch(api, /localStorage|sessionStorage|credential\.ciphertext|plaintext/i);
   assert.match(migration, /revoke execute on function public\.resolve_company_ai_credential\(uuid\) from public, anon/);
   assert.match(hardeningMigration, /revoke execute on function public\.resolve_company_ai_credential\(uuid\) from public, anon, authenticated/);
@@ -42,18 +45,19 @@ test("company AI endpoints are internal-operator scoped and metadata-only", () =
 });
 
 test("initial deployment AI bootstrap is exact-deployment, server-encrypted, and browser-safe", () => {
-  assert.match(server, /\/api\/deployment\/company-ai/);
-  assert.match(server, /\/api\/deployment\/company-ai\/gemini\/bootstrap/);
-  assert.match(server, /authorizeCompanyRequest\(req, "company\.settings\.manage"\)/);
-  assert.match(server, /companyAiServerSupabase\(\)/);
-  assert.match(server, /encryptCompanyGeminiCredential\(apiKey, auth\.companyId\)/);
+  assert.match(server, /createCompanyAiRouter/);
+  assert.match(companyAiRouter, /\/deployment\/company-ai/);
+  assert.match(companyAiRouter, /\/deployment\/company-ai\/gemini\/bootstrap/);
+  assert.match(companyAiRouter, /authorizeCompanyRequest\(req, "company\.settings\.manage"\)/);
+  assert.match(companyAiRouter, /companyAiServerSupabase\(\)/);
+  assert.match(companyAiRouter, /encryptCompanyGeminiCredential\(apiKey, auth\.companyId\)/);
   assert.match(credentials, /bootstrap_deployment_company_ai_credential/);
   assert.match(credentials, /recordServerCompanyAiTest/);
-  assert.match(server, /canBootstrapDeploymentCompanyAiCredential/);
+  assert.match(companyAiRouter, /canBootstrapDeploymentCompanyAiCredential/);
 });
 
 test("all production Gemini paths resolve the centralized company runtime", () => {
-  assert.match(server, /resolveCompanyAiRuntime\(\{ supabase: auth\.supabase, companyId: auth\.companyId \}\)/);
+  assert.match(invoiceRouter, /resolveCompanyAiRuntime\(\{ supabase: auth\.supabase, companyId: auth\.companyId \}\)/);
   assert.match(handler, /withCompanyAiRuntime\(\{ supabase: auth\.supabase, companyId: auth\.companyId \}/);
   assert.match(runtime, /ALLOW_GLOBAL_GEMINI_FALLBACK/);
   assert.match(runtime, /AI_NOT_CONFIGURED_FOR_COMPANY/);

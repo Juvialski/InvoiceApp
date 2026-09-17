@@ -58,6 +58,7 @@
         "src/context/CompanyAccessContext.tsx",
         "src/lib/companyAccess.ts",
         "src/utils/accessControl.ts",
+        "src/server/auth/serverAuthorization.ts",
         "supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql",
         "supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql",
         "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql"
@@ -96,6 +97,7 @@
         "src/public/PublicFunnelRoot.tsx",
         "src/lib/publicProspect.ts",
         "server.ts",
+        "src/server/publicProspects/publicProspectRouter.ts",
         "supabase/migrations/20260907024119_public_prospect_funnel.sql"
       ],
       "testRefs": [
@@ -793,6 +795,7 @@
         "src/lib/publicProspect.ts",
         "src/public/PublicFunnelRoot.tsx",
         "server.ts",
+        "src/server/publicProspects/publicProspectRouter.ts",
         "supabase/migrations/20260907024119_public_prospect_funnel.sql"
       ],
       "testRefs": [
@@ -1035,6 +1038,7 @@
       "fileRefs": [
         "src/utils/accessControl.ts",
         "src/lib/companyAccess.ts",
+        "src/server/auth/serverAuthorization.ts",
         "supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql",
         "supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql",
         "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql"
@@ -1790,7 +1794,10 @@
         "src/components/EmailProviderStatusPanel.tsx",
         "src/components/SmsComposePanel.tsx",
         "src/components/CommunicationHistoryPanel.tsx",
-        "src/components/SmsProviderStatusPanel.tsx"
+        "src/components/SmsProviderStatusPanel.tsx",
+        "src/server/messaging/messagingRouter.ts",
+        "src/server/documentDelivery/documentDeliveryRouter.ts",
+        "src/server/documentDelivery/issuedDocumentRouter.ts"
       ],
       "testRefs": [
         "tests/documentDelivery.test.ts",
@@ -1851,6 +1858,7 @@
       "fileRefs": [
         "src/server/messaging/smsProvider.ts",
         "src/lib/messaging.ts",
+        "src/server/messaging/messagingRouter.ts",
         "server.ts"
       ],
       "testRefs": [
@@ -4128,7 +4136,10 @@
         "src/utils/invoiceWorkspace.ts",
         "src/utils/invoiceLogic.ts",
         "src/App.tsx",
-        "src/server/ai/companyAiRuntime.ts"
+        "src/server/ai/companyAiRuntime.ts",
+        "src/server/invoiceExtraction/invoiceExtractionRouter.ts",
+        "src/server/invoiceExtraction/invoiceExtractionService.ts",
+        "src/server/invoiceExtraction/invoiceExtractionSchema.ts"
       ],
       "testRefs": [
         "tests/invoiceLogic.test.ts",
@@ -4150,6 +4161,10 @@
       "fileRefs": [
         "src/server/ai/companyAiRuntime.ts",
         "src/server/ai/companyAiCredentials.ts",
+        "src/server/ai/companyAiRouter.ts",
+        "src/server/invoiceExtraction/invoiceExtractionRouter.ts",
+        "src/server/invoiceExtraction/invoiceExtractionService.ts",
+        "src/server/invoiceExtraction/invoiceExtractionSchema.ts",
         "src/utils/invoiceLogic.ts"
       ],
       "testRefs": [

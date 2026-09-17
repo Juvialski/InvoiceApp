@@ -14,7 +14,7 @@ This phase is not a feature rewrite. It must preserve current financial semantic
 
 The work is split into three slices so each can be reviewed and validated independently.
 
-Slice 1 is complete in PR #178. Slice 2 (`src/App.tsx` decomposition) is complete in PR #180 and merged on `main` as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) remains intentionally unstarted.
+Slice 1 is complete in PR #178. Slice 2 (`src/App.tsx` decomposition) is complete in PR #180 and merged on `main` as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) is implemented in the current feature branch and remains separate from the active Email/SMS work.
 
 ### Slice 1 — Repository front door and hygiene
 
@@ -84,6 +84,14 @@ Acceptance goals:
 - Authorization logic has one auditable implementation boundary.
 - Domain routers can be tested without loading unrelated server functionality where practical.
 - No secrets move into browser-visible code or client storage.
+
+#### Slice 3 implementation status — 2026-09-18
+
+The behavior-preserving decomposition is implemented from the fetched `main` base. `server.ts` is reduced from 1,925 lines to 118 lines and now owns bootstrap, common middleware/body parsing, health, router mounting, Vite/static serving, and listen startup. Server authorization has one fail-closed implementation boundary at `src/server/auth/serverAuthorization.ts`.
+
+The moved API boundaries are `publicProspects/publicProspectRouter.ts`, `ai/companyAiRouter.ts`, `invoiceExtraction/invoiceExtractionRouter.ts` plus its schema/service modules, `documentDelivery/documentDeliveryRouter.ts`, `documentDelivery/issuedDocumentRouter.ts` plus shared delivery helpers, `messaging/messagingRouter.ts`, and `storage/storageHealthRouter.ts`. The existing assistant, storage, document-template, AI, document-delivery, and messaging implementations remain the underlying authorities.
+
+Focused authorization/router contract tests and TypeScript lint pass. No database, migration, provider-runtime, production, or PR #176-owned files changed in this slice.
 
 ## Non-goals
 

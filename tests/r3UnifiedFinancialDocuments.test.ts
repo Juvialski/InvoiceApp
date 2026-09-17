@@ -136,10 +136,12 @@ test("R3 primary navigation exposes the authoritative supplier invoice module al
 
 test("Transactional email requires explicit Brevo endpoint, snapshot identity, and audited status", () => {
   const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
-  assert.match(server, /app\.post\("\/api\/messaging\/email\/send"/);
-  assert.match(server, /authorizeCompanyRequest\(req, "documents\.send"\)/);
-  assert.match(server, /issued_document_snapshots/);
-  assert.match(server, /complete_email_delivery_intent/);
-  assert.match(server, /Brevo/i);
-  assert.match(server, /providerResult\.status === "FAILED"/);
+  const messaging = readFileSync(new URL("../src/server/messaging/messagingRouter.ts", import.meta.url), "utf8");
+  assert.match(server, /createMessagingRouter/);
+  assert.match(messaging, /router\.post\("\/messaging\/email\/send"/);
+  assert.match(messaging, /authorizeCompanyRequest\(req, "documents\.send"\)/);
+  assert.match(messaging, /issued_document_snapshots/);
+  assert.match(messaging, /complete_email_delivery_intent/);
+  assert.match(messaging, /Brevo/i);
+  assert.match(messaging, /providerResult\.status === "FAILED"/);
 });
