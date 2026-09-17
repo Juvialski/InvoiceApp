@@ -18,6 +18,7 @@ import {
   resolveCompanyAiRuntime,
 } from "../ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../ai/companyAiTypes.ts";
+import { markCompanyAiCredentialInvalid } from "../ai/companyAiCredentials.ts";
 import {
   ApiAuthorizationError,
   authorizeCompanyRequest,
