@@ -36,7 +36,7 @@ const iconProps = {
   "aria-hidden": true as const,
 };
 
-export const engoryxIconRegistry: IconRegistry = {
+export const hydroqualisenseIconRegistry: IconRegistry = {
   close: React.createElement(X, iconProps),
   chevronDown: React.createElement(ChevronDown, iconProps),
   chevronLeft: React.createElement(ChevronLeft, iconProps),
@@ -67,5 +67,4 @@ export const engoryxIconRegistry: IconRegistry = {
   microphone: React.createElement(Mic, iconProps),
 };
 
-export default engoryxIconRegistry;
-
+export default hydroqualisenseIconRegistry;
