@@ -4,13 +4,23 @@
 
 **Goal:** Make the current Hydroqualisense repository front door accurately communicate the maturity of the live platform and remove stale live Engoryx/npm/Bun identity signals without changing product behavior.
 
-**Architecture:** This plan implements Slice 1 of the approved professionalization design only. It updates executable branding/package contracts, removes package-manager ambiguity, rewrites the repository-facing documentation around the live architecture, and moves provider setup documentation into `docs/`. `src/App.tsx` and `server.ts` decomposition are deliberately separate follow-up plans after this slice is merged and the live files are re-inspected.
+**Architecture:** This document is the original Slice 1 implementation plan for the approved professionalization design. Slice 1 updated executable branding/package contracts, removed package-manager ambiguity, rewrote the repository-facing documentation around the live architecture, and moved provider setup documentation into `docs/`. Slice 2 subsequently decomposed `src/App.tsx` in PR #180; Slice 3 (`server.ts` decomposition) remains separate and intentionally unstarted.
 
 **Tech Stack:** React 19, TypeScript, Vite, Express, Supabase/Postgres/RLS, Node test runner, GitHub Actions, Astryx theme tooling.
 
 **Spec:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 
-**Slice 1 status (2026-09-17):** Complete on PR #178. Slice 2 (`src/App.tsx` decomposition) and Slice 3 (`server.ts` decomposition) remain intentionally unstarted.
+**Professionalization status (2026-09-17):** Slice 1 complete in PR #178. Slice 2 (`src/App.tsx` domain-controller decomposition) complete in PR #180 and merged as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) remains intentionally unstarted. PR #176 Email/SMS reliability work remains isolated and was untouched by Slice 2.
+
+## Slice 2 completion record
+
+PR #180 extracted three focused controller boundaries from `App.tsx`:
+
+- procurement -> `src/features/procurement/useProcurementController.ts`;
+- inventory/materials/equipment -> `src/features/inventory/useInventoryEquipmentController.ts`;
+- Cash & Banking/reconciliation -> `src/features/finance/useCashBankingController.ts`.
+
+`App.tsx` still owns authentication, navigation, workspace synchronization, cross-domain derived views/integration, payroll and remaining invoice/expense orchestration, and `AppRouter` composition. This is a material context reduction, not a claim that `App.tsx` is fully decomposed. No replacement mega-controller/global state bag was introduced. PR #180 changed no database/migration/provider/production files and none of PR #176's owned recovery files. Its exact PR head passed all four protected checks before merge.
 
 ## Global Constraints
 
@@ -280,10 +290,8 @@ Required evidence:
 
 - [x] **Step 4: Synchronize professionalization documentation only to completed truth**
 
-Mark Slice 1 complete in the professionalization spec/plan or current handoff only after exact-head evidence supports it. Do not change the active product sequence: Email/SMS reliability remains the active product track.
+Slice 1 completion was recorded after exact-head evidence. This document now also records the later Slice 2 completion without changing the active product sequence: Email/SMS reliability remains the active product track.
 
-- [ ] **Step 5: Merge only after separate exact-head review confirms safety**
+- [x] **Step 5: Merge only after separate exact-head review confirms safety**
 
-After merge, re-read live `main` before planning Slice 2 (`src/App.tsx` decomposition).
-
-> The merge step remains intentionally open for the separate ChatGPT review/merge pass; Codex does not merge its own PR.
+PR #178 was merged after separate review. Slice 2 was subsequently implemented and merged independently in PR #180. Slice 3 remains unstarted until explicitly resumed.

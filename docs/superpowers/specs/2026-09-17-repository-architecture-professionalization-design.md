@@ -14,7 +14,7 @@ This phase is not a feature rewrite. It must preserve current financial semantic
 
 The work is split into three slices so each can be reviewed and validated independently.
 
-Slice 1 is complete in PR #178. The later App.tsx and server.ts decomposition slices remain separate follow-up work and were not started by this PR.
+Slice 1 is complete in PR #178. Slice 2 (`src/App.tsx` decomposition) is complete in PR #180 and merged on `main` as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) remains intentionally unstarted.
 
 ### Slice 1 — Repository front door and hygiene
 
@@ -35,7 +35,16 @@ Required changes:
 
 ### Slice 2 — `src/App.tsx` decomposition
 
-`src/App.tsx` is currently an oversized application orchestration hub. Decompose it incrementally without changing product behavior.
+`src/App.tsx` was an oversized application orchestration hub. Slice 2 decomposes it incrementally without changing product behavior.
+
+Merged implementation in PR #180:
+
+- procurement lifecycle state and mutations are owned by `src/features/procurement/useProcurementController.ts`;
+- inventory, project materials/equipment, canonical equipment, and warehouse movement state/mutations are owned by `src/features/inventory/useInventoryEquipmentController.ts`;
+- Cash & Banking state and reconciliation/transfer mutations are owned by `src/features/finance/useCashBankingController.ts`;
+- `App.tsx` retains authentication, navigation, workspace synchronization, cross-domain synchronization/derived views, payroll and remaining invoice/expense orchestration, and `AppRouter` composition;
+- the controllers expose explicit typed workspace/mutation contracts rather than persistence modules or a replacement global state bag;
+- no database, migration, provider, production, or PR #176-owned Email/SMS reliability files changed.
 
 Target structure:
 
@@ -53,6 +62,8 @@ Acceptance goals:
 - Domain-specific mutations can be understood and tested without reading the entire application shell.
 - Existing route behavior and deep links remain compatible.
 - Existing financial/source-of-truth rules are unchanged.
+
+Slice 2 materially advances these goals but does not claim that `App.tsx` is fully decomposed. Payroll/workforce, invoice/expense orchestration, engineering/document coordination, and broad `AppRouter` composition remain in `App.tsx`; those retained responsibilities are deliberate boundaries rather than a replacement mega-controller. PR #180 exact-head protected CI passed Application Validation & Build, Database Migrations & Upgrade Suite, `chromium-demo-qa`, and Graph and Source Contract Consistency before merge.
 
 ### Slice 3 — `server.ts` decomposition
 
@@ -103,13 +114,13 @@ The following are invariants for all slices:
 
 ## Interaction with active work
 
-PR #176 (`phase-2-authenticated-request-recovery`) is active and modifies:
+PR #176 (`phase-2-authenticated-request-recovery`) remains isolated from this professionalization track and owns:
 
 - `src/lib/authenticatedRequestRecovery.ts`
 - `src/lib/companyApi.ts`
 - `tests/authenticatedRequestRecovery.test.ts`
 
-This professionalization work must not edit those files until PR #176 is merged or explicitly abandoned. Any App/server decomposition must consume their eventual merged behavior rather than reimplementing it.
+PR #180 did not edit those files. Any later App/server decomposition must continue consuming the Email/SMS reliability implementation rather than reimplementing or competing with it.
 
 ## Validation strategy
 
@@ -142,7 +153,7 @@ Do not run the historical full suite merely because refactoring occurred. Escala
 
 ## Delivery strategy
 
-Implement this as a dedicated feature branch and PR separate from the Email/SMS reliability PR. Keep commits slice-oriented and reviewable. Before opening the PR, review the complete diff for accidental behavior changes, stale branding, duplicated abstractions, and scope creep.
+Implement each slice as a dedicated feature branch and PR separate from the Email/SMS reliability PR. Keep commits slice-oriented and reviewable. Before opening a PR, review the complete diff for accidental behavior changes, stale branding, duplicated abstractions, and scope creep.
 
 Codex/local implementation must not merge its own PR. A separate review pass should inspect the exact final head, applicable CI, mergeability, and unresolved blockers before merge.
 
