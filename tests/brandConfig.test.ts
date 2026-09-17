@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { BRAND, formatBreadcrumb, formatPageTitle } from '../src/config/brand.ts';
-import { HYDROQUALISENSE_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getFeatureById } from '../src/features/registry.ts';
+import { PRODUCT_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getFeatureById } from '../src/features/registry.ts';
 
 test('brand configuration contains canonical Hydroqualisense values', () => {
   assert.equal(BRAND.productName, 'Hydroqualisense');
@@ -69,6 +69,9 @@ test('repository and live UI entry points use the current Hydroqualisense identi
   assert.match(appCssSource, /\.\/ui\/hydroqualisense\.css/);
   assert.doesNotMatch(appCssSource, /engoryx\.css/i);
 
+  assert.equal(existsSync(new URL('../src/ui/hydroqualisense.css', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../src/ui/hydroqualisense.js', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../src/ui/hydroqualisense.d.ts', import.meta.url)), true);
   assert.equal(existsSync(new URL('../src/ui/engoryxTheme.ts', import.meta.url)), false);
   assert.equal(existsSync(new URL('../src/ui/EngoryxThemeProvider.tsx', import.meta.url)), false);
   assert.equal(existsSync(new URL('../src/ui/engoryx.css', import.meta.url)), false);
@@ -77,7 +80,7 @@ test('repository and live UI entry points use the current Hydroqualisense identi
 });
 
 test('feature registry covers all operational and roadmap engineering phases', () => {
-  assert.ok(HYDROQUALISENSE_FEATURE_REGISTRY.length >= 8);
+  assert.ok(PRODUCT_FEATURE_REGISTRY.length >= 8);
 
   const phase0 = getFeaturesByPhase(0);
   assert.ok(phase0.length >= 7);
