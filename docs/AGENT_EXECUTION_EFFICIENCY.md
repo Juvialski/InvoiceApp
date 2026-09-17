@@ -123,3 +123,35 @@ After implementation: focused/new tests -> affected tests -> only relevant extra
 ## 9. Efficiency evidence
 
 Useful evidence is compact: changed-file count, applicable risk domain, tests actually selected, affected-test result, whether DB/browser/Workflow Map validation was required, and any real blocker. Do not collect metrics that cost more time than they save.
+
+## 10. Architecture as context budget
+
+Repository structure directly affects agent token use, reasoning load, edit reliability, merge conflict frequency, and test-impact breadth. Architectural work should therefore optimize for **bounded context surfaces**, not merely shorter files.
+
+For routine domain work, prefer a path such as:
+
+`route/page -> focused domain controller -> domain service/persistence -> focused tests`
+
+A task should not need to load the full `src/App.tsx` or `server.ts` when the changed behavior is local to one domain.
+
+When decomposing large modules:
+
+- extract by real product responsibility, not arbitrary line count;
+- keep interfaces narrow and typed;
+- avoid replacement mega-hooks, giant helper modules, mutable global bags, or excessive tiny-file indirection;
+- keep shared cross-domain lifecycle code shared only when it is genuinely cross-domain;
+- keep central composition files stable so domain-local changes stop touching them unnecessarily;
+- prefer structures that let `agent:context` capture the relevant implementation without pulling unrelated domains;
+- preserve existing security, financial, database, history, route, and provider invariants.
+
+Do not spend runtime calculating precise token savings. Use cheap structural evidence instead:
+
+- can a domain task avoid opening the full central composition file?
+- can a domain change avoid modifying that central file?
+- does affected-test selection stay focused or become narrower?
+- is the final diff mostly local to the intended domain?
+- can the lead reason about the change through one bounded context packet without losing required implementation detail?
+
+If a refactor shortens files but increases required file hopping, duplicated abstractions, or total context needed to understand a change, it does **not** satisfy the efficiency objective.
+
+The current continuation design for this work is `docs/superpowers/specs/2026-09-17-repository-professionalization-continuation-design.md`.
