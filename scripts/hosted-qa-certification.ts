@@ -49,7 +49,7 @@ interface HostedRouteContract {
 const ROUTE_CONTRACTS: readonly HostedRouteContract[] = [
   { route: "/dashboard", heading: "Executive Dashboard", requiredText: ["Supplier document operations"] },
   { route: "/projects", heading: "Portfolio Management", requiredText: ["Portfolio snapshot"] },
-  { route: "/expenses", heading: "Expenses", requiredText: ["Supplier invoice documents remain supporting context"] },
+  { route: "/expenses", heading: "Expenses", requiredText: ["Expense register"] },
   { route: "/procurement", heading: "Procurement & Purchase Orders", requiredText: ["Purchase Orders"] },
   { route: "/warehouse", heading: "Warehouse Inventory", requiredText: ["Movement-derived stock truth"] },
   { route: "/payroll", heading: "Payroll & labor", requiredText: ["Active workers"] },
