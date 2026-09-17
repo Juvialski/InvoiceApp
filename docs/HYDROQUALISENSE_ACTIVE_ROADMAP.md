@@ -169,7 +169,7 @@ The current branch implementation adds:
 
 The Google identity-only configuration, Brevo server-only setup, external Google
 Cloud scope-removal action, provider readiness states, and operator checklist are
-documented in `GOOGLE_SIGNIN_BREVO_SETUP.md`. No external Google publishing or
+documented in `docs/GOOGLE_SIGNIN_BREVO_SETUP.md`. No external Google publishing or
 provider-runtime completion is claimed.
 
 ## 2026-09-15 Google OAuth branding verification remediation

@@ -20,7 +20,7 @@
 - No database migration or production mutation.
 - npm is authoritative because protected CI runs `npm ci`; remove `bun.lock`.
 - Historical `docs/ENGORYX_*.md` filenames may remain as history. Current runtime/package/type identifiers should use Hydroqualisense/product-neutral naming.
-- Container-local validation is unavailable in this ChatGPT session because the container cannot resolve GitHub; use exact-head GitHub Actions evidence and do not claim local test execution.
+- Run local validation when the repository environment supports it, while still requiring exact-head GitHub Actions evidence for the PR; do not infer provider, hosted-QA, or production certification from local tests.
 
 ---
 
@@ -79,6 +79,7 @@ Expected failure: package name and/or live theme/provider identifiers still use 
 - Create/regenerate: `src/ui/hydroqualisense.css`
 - Create/regenerate: `src/ui/hydroqualisense.js`
 - Create/regenerate: `src/ui/hydroqualisense.d.ts`
+- Create/regenerate: `src/ui/hydroqualisense.variants.d.ts`
 - Modify: `src/ui/icons.ts`
 - Modify: `src/ui/index.ts`
 - Modify: `src/main.tsx`

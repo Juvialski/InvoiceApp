@@ -1,4 +1,4 @@
-export { hydroqualisenseTheme } from "./hydroqualisenseTheme.ts";
+export { hydroqualisenseTheme } from "./hydroqualisense.js";
 export { hydroqualisenseIconRegistry } from "./icons.ts";
 export { HydroqualisenseThemeProvider, type HydroqualisenseThemeProviderProps } from "./HydroqualisenseThemeProvider.tsx";
 

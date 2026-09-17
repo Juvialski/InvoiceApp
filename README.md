@@ -1,10 +1,12 @@
-# HydroQualiSense
+# Hydroqualisense
+
+## What the platform does
 
 HydroQualiSense is an operations platform for engineering and project-based companies. It combines project controls, supplier invoices and expenses, cash and banking, procurement, workforce/payroll, engineering records, reporting, document workflows, and controlled outbound communications in one company-scoped application.
 
 The GitHub repository may remain named `InvoiceApp`; that repository name is not product branding.
 
-## Architecture
+## Architecture at a glance
 
 The application uses a React 19 + TypeScript + Vite client, an Express/Node server, and Supabase for PostgreSQL, Auth, Storage, RLS, database functions, and persisted business history. Production bundles the client with Vite and the server with esbuild. Deployments run as a web service, with Render used by the current deployment workflow.
 
@@ -16,7 +18,7 @@ See [Architecture Overview](docs/architecture/OVERVIEW.md) and the generated [Wo
 
 Current implemented domains include project workspaces and cost controls, supplier invoices and human verification, direct expenses, cash and banking reconciliation, procurement and purchase orders, client billing and collections, attendance/payroll and labor allocation, engineering documents and revisions, RFIs/submittals/site logs, reporting, document templates/exports, guarded AI assistance, and Email/SMS workflows.
 
-## Security and data invariants
+## Engineering invariants
 
 - One deployment serves one client company; browser state, URLs, Assistant arguments, or headers cannot switch tenant context.
 - RBAC and database RLS both enforce authorization. Security-definer database functions must perform their own membership and permission checks.
@@ -25,7 +27,16 @@ Current implemented domains include project workspaces and cost controls, suppli
 - Document ownership, revisions, source evidence, and generated-output provenance remain traceable.
 - Consequential AI-assisted actions remain permission-gated and require the product's explicit confirmation flow.
 
-## Development
+## Repository structure
+
+- `src/` — React/Vite application, route components, domain controllers/libs, shared authorization, and UI foundations.
+- `server.ts` — Express composition and authenticated server API routes.
+- `supabase/` — forward-only PostgreSQL migrations and database tests for RLS, grants, lifecycle, and integrity contracts.
+- `scripts/` — focused test selection, Workflow Map tooling, QA harnesses, and deployment/release checks.
+- `docs/` — current product direction, architecture, deployment, provider setup, and domain contracts.
+- `.github/workflows/` — protected application, database, browser-QA, and source-contract validation.
+
+## Local development
 
 Use Node/npm as the repository package workflow. `package-lock.json` is authoritative; Bun is not part of the supported workflow.
 
@@ -48,21 +59,21 @@ npm run build
 
 Database/security-contract changes additionally require real local Supabase validation when applicable: clean migration replay, pgTAP, migration/upgrade-path tests, and relevant runtime RLS/RPC/concurrency coverage. Static SQL checks are not a substitute for PostgreSQL execution.
 
-## CI and QA
+## Validation and CI
 
 Pull requests use repository workflows for application validation, database migration/invariant checks, Workflow Map consistency, and browser/visual QA where applicable. Evidence must belong to the exact PR head being reviewed; results from an older commit do not certify a newer one.
 
 QA is the read/write certification environment. Production changes follow the deployment and migration policies in the repository and are not part of ordinary feature validation.
 
-## Deployment and provider setup
+## Deployment model
 
 HydroQualiSense is deployed one company per application/Supabase environment. See [Single-Company Deployment](docs/SINGLE_COMPANY_DEPLOYMENT.md), [Deployment Runbook](docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md), and [Google Sign-In and Brevo Setup](docs/GOOGLE_SIGNIN_BREVO_SETUP.md).
 
 Never commit provider secrets or expose server-only credentials through `VITE_` variables, client responses, logs, screenshots, or generated documents.
 
-## Current project authority
+## Current project status
 
-For active direction and handoff state, use:
+This repository front door covers the completed Repository Front Door / Hygiene slice only. Email/SMS reliability remains a separate product track, and the later `src/App.tsx` and `server.ts` decomposition slices are not included here. For the live direction and handoff state, use:
 
 - [Active Roadmap](docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md)
 - [Current Handoff](docs/HYDROQUALISENSE_CURRENT_HANDOFF.md)

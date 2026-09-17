@@ -91,7 +91,7 @@ function requestBearerToken(req: express.Request) {
   const authorization = firstHeaderValue(req.headers.authorization);
   const match = authorization.match(/^Bearer\s+([^\s]+)$/i);
   if (!match) {
-    throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid InvoiceApp session is required.");
+    throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid Hydroqualisense session is required.");
   }
   return match[1];
 }
@@ -133,7 +133,7 @@ async function authorizeCompanyRequest(req: express.Request, permission: Company
   const client = requestSupabaseClient(accessToken);
   const { data, error } = await client.auth.getUser(accessToken);
   if (error || !data.user) {
-    throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid InvoiceApp session is required.");
+    throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid Hydroqualisense session is required.");
   }
 
   const companyId = firstHeaderValue(req.headers["x-company-id"]).trim();
@@ -146,7 +146,7 @@ async function authorizeCompanyRequest(req: express.Request, permission: Company
     throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Deployment company authorization is temporarily unavailable.");
   }
   if (deploymentCompanyId !== companyId) {
-    throw new ApiAuthorizationError(403, "FORBIDDEN", "This request cannot target another Engoryx deployment company.");
+    throw new ApiAuthorizationError(403, "FORBIDDEN", "This request cannot target another Hydroqualisense deployment company.");
   }
 
   const { data: allowed, error: permissionError } = await client.rpc("has_company_permission", {
@@ -169,7 +169,7 @@ async function authenticateServerRequest(req: express.Request) {
   const accessToken = requestBearerToken(req);
   const client = requestSupabaseClient(accessToken);
   const { data, error } = await client.auth.getUser(accessToken);
-  if (error || !data.user) throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid InvoiceApp session is required.");
+  if (error || !data.user) throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid Hydroqualisense session is required.");
   return { accessToken, supabase: client, user: data.user };
 }
 
@@ -178,11 +178,11 @@ async function authorizePlatformCompanyRequest(req: express.Request, companyId: 
   const auth = await authenticateServerRequest(req);
   const headerCompanyId = firstHeaderValue(req.headers["x-company-id"]).trim();
   if (headerCompanyId && (!UUID_PATTERN.test(headerCompanyId) || headerCompanyId !== companyId)) {
-    throw new ApiAuthorizationError(403, "FORBIDDEN", "This request cannot target another Engoryx deployment company.");
+    throw new ApiAuthorizationError(403, "FORBIDDEN", "This request cannot target another Hydroqualisense deployment company.");
   }
   const { data: deploymentCompanyId, error: deploymentError } = await auth.supabase.rpc("get_deployment_company_id");
   if (deploymentError || deploymentCompanyId !== companyId) {
-    throw new ApiAuthorizationError(deploymentError ? 503 : 403, deploymentError ? "SERVER_AUTH_UNAVAILABLE" : "FORBIDDEN", deploymentError ? "Deployment company authorization is temporarily unavailable." : "Platform maintenance cannot target another Engoryx deployment company.");
+    throw new ApiAuthorizationError(deploymentError ? 503 : 403, deploymentError ? "SERVER_AUTH_UNAVAILABLE" : "FORBIDDEN", deploymentError ? "Deployment company authorization is temporarily unavailable." : "Platform maintenance cannot target another Hydroqualisense deployment company.");
   }
   const { data, error } = await auth.supabase.rpc("is_platform_admin");
   if (error) throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is temporarily unavailable.");
@@ -1495,7 +1495,7 @@ Rules:
 2. Never guess, estimate, or invent missing financial amounts, dates, reference numbers, or currency.
 3. If an amount is not visible, return null (do not return 0 unless the receipt explicitly states 0).
 4. For currency: recognize ₱, PHP, Php as PHP; recognize USD, EUR, SGD, JPY, GBP, CAD, AUD. If currency is not explicitly stated or implied by unambiguous currency symbols, return null.
-5. Category MUST be selected from the standard Engoryx categories: Fuel, Transportation, Meals, Materials, Equipment Rental, Equipment, Utilities, Communication, Office / Site Supplies, Permits, Professional Fees, Subcontractor, Miscellaneous.
+5. Category MUST be selected from the standard Hydroqualisense categories: Fuel, Transportation, Meals, Materials, Equipment Rental, Equipment, Utilities, Communication, Office / Site Supplies, Permits, Professional Fees, Subcontractor, Miscellaneous.
 6. Look for merchant / store name, official receipt (OR) number, transaction reference, date, payment method (Cash, GCash, Maya, Credit Card, etc.), and total paid amount.
 7. Return only JSON matching the schema.`;
 

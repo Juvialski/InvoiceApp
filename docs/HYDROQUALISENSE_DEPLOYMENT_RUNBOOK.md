@@ -207,7 +207,7 @@ Google Sign-In uses the normal Supabase identity-provider flow with only `openid
 `email`, and `profile`; no Gmail API scopes or provider refresh token are used.
 Outbound transactional email uses the server-only `BREVO_API_KEY`,
 `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, and optional reply-to/base URL/timeout
-values described in `GOOGLE_SIGNIN_BREVO_SETUP.md`; keep them separate from AI and
+values described in `docs/GOOGLE_SIGNIN_BREVO_SETUP.md`; keep them separate from AI and
 Storage keys and out of all `VITE_` variables. A 401 is
 refreshed once before reconnect is requested. Missing scopes, invalid/revoked
 authorization, provider policy errors, quota/rate limits, transient failures, and

@@ -7,7 +7,7 @@ const publicRoot = readFileSync(new URL("../src/public/PublicFunnelRoot.tsx", im
 const authScreen = readFileSync(new URL("../src/components/auth/AuthScreen.tsx", import.meta.url), "utf8");
 const appShell = readFileSync(new URL("../src/app/AppShell.tsx", import.meta.url), "utf8");
 const mainSource = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
-const setup = readFileSync(new URL("../GOOGLE_SIGNIN_BREVO_SETUP.md", import.meta.url), "utf8");
+const setup = readFileSync(new URL("../docs/GOOGLE_SIGNIN_BREVO_SETUP.md", import.meta.url), "utf8");
 
 test("privacy and terms are public routes while recovery links remain authenticated", () => {
   assert.equal(isPublicFunnelApplicationPath("/privacy"), true);

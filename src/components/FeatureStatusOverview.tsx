@@ -1,16 +1,16 @@
 import React from "react";
 import { CheckCircle2, Clock3, Map } from "lucide-react";
-import { ENGORYX_FEATURE_REGISTRY } from "../features/registry.ts";
+import { PRODUCT_FEATURE_REGISTRY } from "../features/registry.ts";
 import {
   featureAvailability,
   featureAvailabilityLabel,
   featurePhaseLabel,
   type FeatureAvailability,
 } from "../features/availability.ts";
-import type { EngoryxFeatureDefinition } from "../features/types.ts";
+import type { ProductFeatureDefinition } from "../features/types.ts";
 import { SectionHeader, StatusBadge } from "./ui/OperationsUI";
 
-function sortByPhaseAndName(features: readonly EngoryxFeatureDefinition[]) {
+function sortByPhaseAndName(features: readonly ProductFeatureDefinition[]) {
   return [...features].sort((left, right) => left.phase - right.phase || left.name.localeCompare(right.name));
 }
 
@@ -20,8 +20,8 @@ function toneForAvailability(availability: FeatureAvailability): "success" | "wa
   return "neutral";
 }
 
-const availableFeatures = sortByPhaseAndName(ENGORYX_FEATURE_REGISTRY.filter((feature) => feature.status === "ACTIVE"));
-const upcomingFeatures = sortByPhaseAndName(ENGORYX_FEATURE_REGISTRY.filter((feature) => feature.status !== "ACTIVE"));
+const availableFeatures = sortByPhaseAndName(PRODUCT_FEATURE_REGISTRY.filter((feature) => feature.status === "ACTIVE"));
+const upcomingFeatures = sortByPhaseAndName(PRODUCT_FEATURE_REGISTRY.filter((feature) => feature.status !== "ACTIVE"));
 
 /** Internal operator/development view. It is intentionally not mounted in client Settings. */
 export const FeatureStatusOverview: React.FC = () => (

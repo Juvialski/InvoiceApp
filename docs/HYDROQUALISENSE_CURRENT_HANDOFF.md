@@ -432,7 +432,7 @@ Do not skip directly to Worker Registration.
 For the current Email/SMS implementation run, Codex should:
 
 - first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
-- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts;
+- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `docs/GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts;
 - read the completed UI/UX Round 2 design record only as needed to preserve the new interaction baseline;
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
 - use at most one bounded context packet when useful;
