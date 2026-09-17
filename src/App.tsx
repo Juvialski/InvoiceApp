@@ -13,7 +13,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForPurchaseOrder, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
+import { Department, Equipment, EquipmentAssignment, Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, Subcontract, SubcontractProgressClaim, SubcontractVariation, SupplierQuotation, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -36,12 +36,6 @@ import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./lib
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import {
   applyInvoiceCorrectionInSupabase,
-  confirmPurchaseOrderMatch,
-  convertQuotationToDraftPO,
-  deleteDraftPurchaseOrder,
-  deleteDraftRFQ,
-  deleteDraftSubcontract,
-  deactivateVendor,
   ensureWorkspaceProfile,
   fetchPurchaseOrderMatches,
   fetchPurchaseOrderReceipts,
@@ -58,37 +52,9 @@ import {
   persistNewInvoice,
   persistExtractionAttempt,
   previewInvoiceCorrectionInSupabase,
-  readPurchaseOrderMatchesFromLocal,
-  readPurchaseOrderReceiptsFromLocal,
-  readPurchaseOrdersFromLocal,
-  readRFQsFromLocal,
-  readSubcontractsFromLocal,
-  readSupplierQuotationsFromLocal,
-  readVendorsFromLocal,
-  recordPurchaseOrderReceipt,
-  revertSupplierQuotationSelection,
   saveManualSourceDocument,
-  savePurchaseOrder,
-  saveRFQ,
-  saveSubcontract,
-  saveSupplierQuotation,
-  saveVendor,
-  reactivateVendor,
-  selectSupplierQuotation,
-  transitionPurchaseOrderStatus,
-  transitionRFQStatus,
-  transitionSubcontract,
-  unmatchPurchaseOrderMatch,
   updateInvoiceInSupabase,
   verifySupplierInvoiceAndCreateExpense,
-  voidPurchaseOrderReceipt,
-  writePurchaseOrderMatchesToLocal,
-  writePurchaseOrderReceiptsToLocal,
-  writePurchaseOrdersToLocal,
-  writeRFQsToLocal,
-  writeSubcontractsToLocal,
-  writeSupplierQuotationsToLocal,
-  writeVendorsToLocal,
 } from "./lib/persistence";
 import {
   loadInvoiceProjectAllocationsFromSupabase,
@@ -160,62 +126,25 @@ import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, s
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
 import { supplierExpenseProjectProjection } from "./utils/supplierInvoiceCostOwnership.ts";
-import { buildLocalProjectEquipment, buildLocalProjectMaterial, loadProjectMaterialsEquipmentFromSupabase, readProjectEquipmentFromLocal, readProjectMaterialsFromLocal, saveProjectEquipmentToSupabase, saveProjectMaterialToSupabase, writeProjectEquipmentToLocal, writeProjectMaterialsToLocal, type ProjectEquipmentSaveInput, type ProjectMaterialSaveInput } from "./lib/materialsEquipment.ts";
-import { buildLocalInventoryItem, loadInventoryWorkspaceFromSupabase, readInventoryItemsFromLocal, readInventoryMovementsFromLocal, recordInventoryMovementLocally, recordInventoryMovementToSupabase, reverseInventoryMovementToSupabase, saveInventoryItemToSupabase, writeInventoryItemsToLocal, writeInventoryMovementsToLocal, type InventoryBalance, type InventoryItem, type InventoryItemSaveInput, type InventoryMovement, type InventoryMovementInput } from "./lib/inventory.ts";
-import { applyLocalEquipmentAssignment, applyLocalEquipmentReturn, applyLocalEquipmentTransfer, buildLocalEquipment, loadEquipmentWorkspaceFromSupabase, readEquipmentAssignmentsFromLocal, readEquipmentRegistryFromLocal, saveEquipmentToSupabase, assignEquipmentToSupabase, transferEquipmentToSupabase, returnEquipmentToSupabase, setEquipmentLifecycleToSupabase, writeEquipmentAssignmentsToLocal, writeEquipmentRegistryToLocal, type EquipmentSaveInput } from "./lib/equipment.ts";
+import { loadProjectMaterialsEquipmentFromSupabase } from "./lib/materialsEquipment.ts";
+import { loadInventoryWorkspaceFromSupabase, writeInventoryItemsToLocal, writeInventoryMovementsToLocal, type InventoryBalance, type InventoryItem, type InventoryMovement } from "./lib/inventory.ts";
+import { loadEquipmentWorkspaceFromSupabase } from "./lib/equipment.ts";
 import {
-  deleteDraftSubcontractClaim,
   fetchSubcontractClaims,
-  readSubcontractClaimsFromLocal,
-  saveSubcontractClaim,
-  transitionSubcontractClaim,
-  writeSubcontractClaimsToLocal,
 } from "./lib/subcontractClaims.ts";
 import {
-  deleteDraftSubcontractVariation,
   fetchSubcontractVariations,
-  readSubcontractVariationsFromLocal,
-  saveSubcontractVariation,
-  transitionSubcontractVariation,
-  writeSubcontractVariationsToLocal,
 } from "./lib/subcontractVariations.ts";
 import { AssistantProvider } from "./assistant/AssistantProvider";
 import { safeErrorMessage } from "./utils/errorNormalization.ts";
 import {
-  commitStatementPreviewToWorkspace,
-  createFinancialMatch,
-  financialId,
-  isManualTransactionCorrectionEligible,
-  reconciliationStatusForTransaction,
   type CashBankingWorkspaceData,
-  type FinancialAccount,
-  type FinancialBalanceSnapshot,
   type FinancialReconciliationCandidate,
-  type FinancialTransaction,
-  type FinancialTransactionMatch,
-  type StatementPreview,
 } from "./lib/cashBanking.ts";
 import {
-  confirmFinancialTransferToSupabase,
-  confirmFinancialSettlementBatchToSupabase,
-  commitFinancialImportToSupabase,
-  correctFinancialTransactionInSupabase,
-  deactivateFinancialAccountInSupabase,
-  emptyCashBankingWorkspaceData,
   loadCashBankingWorkspaceFromSupabase,
-  readCashBankingWorkspaceFromLocal,
-  saveFinancialAccountToSupabase,
-  saveFinancialBalanceSnapshotToSupabase,
-  saveFinancialTransactionMatchToSupabase,
-  saveFinancialTransactionToSupabase,
-  ignoreFinancialTransactionInSupabase,
-  reactivateFinancialAccountInSupabase,
-  restoreFinancialTransactionToReviewInSupabase,
-  reverseFinancialTransactionInSupabase,
-  reverseFinancialTransferInSupabase,
   writeCashBankingWorkspaceToLocal,
 } from "./lib/cashBankingPersistence.ts";
-import { reverseFinancialSettlement } from "./lib/financialSettlementPersistence.ts";
 import { buildSupplierInvoiceSettlementProjections } from "./lib/supplierInvoiceSettlement.ts";
 import { businessDateForTimeZone } from "./utils/businessDate.ts";
 import {
@@ -224,7 +153,10 @@ import {
   resolveVendorCandidate,
 } from "./lib/entityResolution.ts";
 import { useProjectController } from "./features/projects/useProjectController.ts";
-import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "./lib/documentSnapshots.ts";
+import { useProcurementController } from "./features/procurement/useProcurementController.ts";
+import { useInventoryEquipmentController } from "./features/inventory/useInventoryEquipmentController.ts";
+import { useCashBankingController } from "./features/finance/useCashBankingController.ts";
+import { ensureClientInvoiceDocumentSnapshot } from "./lib/documentSnapshots.ts";
 import { createLocalFinancialFxSnapshot, loadFinancialFxSnapshotsFromSupabase, readFinancialFxSnapshotsFromLocal, saveFinancialFxSnapshotToSupabase, writeFinancialFxSnapshotsToLocal, type FinancialFxSnapshotInput } from "./lib/financialFx.ts";
 
 function revisePayrollSourcePeriods(
@@ -403,32 +335,14 @@ function InvoiceWorkspace() {
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
   const [financialFxSnapshots, setFinancialFxSnapshots] = useState<FinancialFxSnapshot[]>(() => isSupabaseConfigured ? [] : readFinancialFxSnapshotsFromLocal());
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
-  const [projectMaterials, setProjectMaterials] = useState<ProjectMaterial[]>(() => isSupabaseConfigured ? [] : readProjectMaterialsFromLocal());
-  const [projectEquipment, setProjectEquipment] = useState<ProjectEquipment[]>(() => isSupabaseConfigured ? [] : readProjectEquipmentFromLocal());
-  const [equipmentRegistry, setEquipmentRegistry] = useState<Equipment[]>(() => isSupabaseConfigured ? [] : readEquipmentRegistryFromLocal());
-  const [equipmentAssignments, setEquipmentAssignments] = useState<EquipmentAssignment[]>(() => isSupabaseConfigured ? [] : readEquipmentAssignmentsFromLocal());
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(() => isSupabaseConfigured ? [] : readInventoryItemsFromLocal());
-  const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>(() => isSupabaseConfigured ? [] : readInventoryMovementsFromLocal());
-  const [inventoryBalances, setInventoryBalances] = useState<InventoryBalance[] | undefined>(() => undefined);
   const [dailySiteLogsData, setDailySiteLogsData] = useState<EngineeringDailySiteLogsWorkspaceData | undefined>(() => isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
   const [engineeringDocumentsData, setEngineeringDocumentsData] = useState<EngineeringDocumentsWorkspaceData | undefined>(() => isSupabaseConfigured ? undefined : readEngineeringDocumentsWorkspaceFromLocal());
   const [payrollProjectReferences, setPayrollProjectReferences] = useState<PayrollProjectReference[]>([]);
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
-  const [subcontracts, setSubcontracts] = useState<Subcontract[]>(() => isSupabaseConfigured ? [] : readSubcontractsFromLocal());
-  const [subcontractClaims, setSubcontractClaims] = useState<SubcontractProgressClaim[]>(() => isSupabaseConfigured ? [] : readSubcontractClaimsFromLocal());
-  const [subcontractVariations, setSubcontractVariations] = useState<SubcontractVariation[]>(() => isSupabaseConfigured ? [] : readSubcontractVariationsFromLocal());
-  const [purchaseOrderReceipts, setPurchaseOrderReceipts] = useState<PurchaseOrderReceipt[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderReceiptsFromLocal());
-  const [purchaseOrderMatches, setPurchaseOrderMatches] = useState<PurchaseOrderInvoiceMatch[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderMatchesFromLocal());
-  const [rfqs, setRfqs] = useState<RFQ[]>(() => isSupabaseConfigured ? [] : readRFQsFromLocal());
-  const [supplierQuotations, setSupplierQuotations] = useState<SupplierQuotation[]>(() => isSupabaseConfigured ? [] : readSupplierQuotationsFromLocal());
-  const [vendors, setVendors] = useState<Vendor[]>(() => isSupabaseConfigured ? [] : readVendorsFromLocal());
   const [projectLaborAggregates, setProjectLaborAggregates] = useState<ProjectLaborCostAggregate[]>([]);
   const [projectCostDomainLoadState, setProjectCostDomainLoadState] = useState<ProjectCostDomainLoadState>(isSupabaseConfigured ? "not-loaded" : "loaded");
   const [projectLaborAggregateLoadState, setProjectLaborAggregateLoadState] = useState<ProjectLaborAggregateLoadState>(isSupabaseConfigured ? "not-loaded" : "unavailable");
   const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(() => isSupabaseConfigured ? emptyPayrollWorkspaceData() : readPayrollWorkspaceFromLocal());
   const payrollDataRef = useRef<PayrollWorkspaceData>(payrollData);
-  const [cashData, setCashData] = useState<CashBankingWorkspaceData>(() => isSupabaseConfigured ? emptyCashBankingWorkspaceData() : readCashBankingWorkspaceFromLocal());
-  const cashDataRef = useRef<CashBankingWorkspaceData>(cashData);
   const payrollAutomationKeyRef = useRef("");
   const payrollScheduleSignature = payrollData.schedules.map((schedule) => `${schedule.id}:${schedule.frequency}:${schedule.updatedAt || ""}`).join("|");
   const [payrollWorkspaceLoadState, setPayrollWorkspaceLoadState] = useState<PayrollWorkspaceLoadState>(isSupabaseConfigured ? "loading" : "loaded");
@@ -568,6 +482,108 @@ function InvoiceWorkspace() {
     selectedProject,
     projectFormSeed,
   } = projectController;
+  const procurementController = useProcurementController({
+    authenticated: Boolean(session && supabase && !guestModeState),
+    remoteWorkspaceConfigured: isSupabaseConfigured,
+    can,
+    selectedInvoice,
+    onSuccess: (message) => showNotification("success", message),
+    onError: (error, fallback) => showNotification("error", userFacingError(error, fallback)),
+  });
+  const {
+    purchaseOrders,
+    subcontracts,
+    subcontractClaims,
+    subcontractVariations,
+    receipts: purchaseOrderReceipts,
+    purchaseOrderMatches,
+    rfqs,
+    supplierQuotations,
+    vendors,
+    savePurchaseOrder: handleSavePO,
+    transitionPurchaseOrder: handleTransitionPO,
+    deletePurchaseOrder: handleDeletePO,
+    saveSubcontract: handleSaveSubcontract,
+    transitionSubcontract: handleTransitionSubcontract,
+    deleteSubcontract: handleDeleteSubcontract,
+    saveSubcontractClaim: handleSaveSubcontractClaim,
+    transitionSubcontractClaim: handleTransitionSubcontractClaim,
+    deleteSubcontractClaim: handleDeleteSubcontractClaim,
+    saveSubcontractVariation: handleSaveSubcontractVariation,
+    transitionSubcontractVariation: handleTransitionSubcontractVariation,
+    deleteSubcontractVariation: handleDeleteSubcontractVariation,
+    addVendor: handleAddVendor,
+    deactivateVendor: handleDeactivateVendor,
+    reactivateVendor: handleReactivateVendor,
+    recordReceipt: handleRecordReceipt,
+    voidReceipt: handleVoidReceipt,
+    confirmPurchaseOrderMatch: handleConfirmPurchaseOrderMatch,
+    unmatchPurchaseOrderMatch: handleUnmatchPurchaseOrderMatch,
+    saveRFQ: handleSaveRFQ,
+    transitionRFQ: handleTransitionRFQ,
+    deleteRFQ: handleDeleteRFQ,
+    saveSupplierQuotation: handleSaveSupplierQuotation,
+    selectSupplierQuotation: handleSelectSupplierQuotation,
+    revertSupplierQuotationSelection: handleRevertSupplierQuotationSelection,
+    convertQuotationToPO: handleConvertQuotationToPO,
+  } = procurementController;
+  const inventoryEquipmentController = useInventoryEquipmentController({
+    authenticated: Boolean(session && supabase && !guestModeState),
+    sessionPresent: Boolean(session),
+    actorUserId: session?.user?.id,
+    remoteWorkspaceConfigured: isSupabaseConfigured,
+    can,
+    projects,
+    purchaseOrders,
+    purchaseOrderReceipts,
+    onSuccess: (message) => showNotification("success", message),
+    onError: (error, fallback) => showNotification("error", userFacingError(error, fallback)),
+  });
+  const {
+    materials: projectMaterials,
+    equipment: projectEquipment,
+    equipmentRegistry,
+    equipmentAssignments,
+    inventoryItems,
+    inventoryMovements,
+    inventoryBalances,
+    saveMaterial: handleSaveMaterial,
+    saveEquipment: handleSaveEquipment,
+    saveInventoryItem: handleSaveInventoryItem,
+    recordInventoryMovement: handleRecordInventoryMovement,
+    reverseInventoryMovement: handleReverseInventoryMovement,
+    saveCanonicalEquipment: handleSaveCanonicalEquipment,
+    assignCanonicalEquipment: handleAssignCanonicalEquipment,
+    transferCanonicalEquipment: handleTransferCanonicalEquipment,
+    returnCanonicalEquipment: handleReturnCanonicalEquipment,
+    setCanonicalEquipmentLifecycle: handleSetCanonicalEquipmentLifecycle,
+  } = inventoryEquipmentController;
+  const cashBankingController = useCashBankingController({
+    authenticated: Boolean(session && supabase && !guestModeState),
+    remoteWorkspaceConfigured: isSupabaseConfigured,
+    onRemoteRefresh: async (reason) => {
+      const token = currentWorkspaceLoadToken();
+      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason });
+    },
+  });
+  const {
+    data: cashData,
+    saveFinancialAccount: handleSaveFinancialAccount,
+    deactivateFinancialAccount: handleDeactivateFinancialAccount,
+    reactivateFinancialAccount: handleReactivateFinancialAccount,
+    saveFinancialSnapshot: handleSaveFinancialSnapshot,
+    saveFinancialTransaction: handleSaveFinancialTransaction,
+    commitFinancialImport: handleCommitFinancialImport,
+    saveFinancialMatch: handleSaveFinancialMatch,
+    saveFinancialMatchBatch: handleSaveFinancialMatchBatch,
+    reverseFinancialMatch: handleReverseFinancialMatch,
+    correctFinancialTransaction: handleCorrectFinancialTransaction,
+    reverseFinancialTransaction: handleReverseFinancialTransaction,
+    ignoreFinancialTransaction: handleIgnoreFinancialTransaction,
+    restoreFinancialTransactionToReview: handleRestoreFinancialTransactionToReview,
+    confirmFinancialTransfer: handleConfirmFinancialTransfer,
+    reverseFinancialTransfer: handleReverseFinancialTransfer,
+  } = cashBankingController;
   const payrollProjectContext: readonly PayrollProjectReference[] = projects.length ? projects : payrollProjectReferences;
 
   const clearWorkspaceState = () => {
@@ -587,31 +603,15 @@ function InvoiceWorkspace() {
     setExpenses([]);
     setFinancialFxSnapshots([]);
     setCostCodes([]);
-    setProjectMaterials([]);
-    setProjectEquipment([]);
-    setEquipmentRegistry([]);
-    setEquipmentAssignments([]);
-    setInventoryItems([]);
-    setInventoryMovements([]);
-    setInventoryBalances(undefined);
+    inventoryEquipmentController.reset();
     setDailySiteLogsData(isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
     setPayrollProjectReferences([]);
-    setPurchaseOrders([]);
-    setSubcontracts([]);
-    setSubcontractClaims([]);
-    setSubcontractVariations([]);
-    setPurchaseOrderReceipts([]);
-    setPurchaseOrderMatches([]);
-    setRfqs([]);
-    setSupplierQuotations([]);
-    setVendors([]);
+    procurementController.reset();
     setExpenseCorrectionContext(null);
     setProjectLaborAggregates([]);
     setProjectCostDomainLoadState(isSupabaseConfigured ? "not-loaded" : "loaded");
     setProjectLaborAggregateLoadState(isSupabaseConfigured ? "not-loaded" : "unavailable");
-    const emptyCashData = emptyCashBankingWorkspaceData();
-    setCashData(emptyCashData);
-    cashDataRef.current = emptyCashData;
+    cashBankingController.reset();
     setPayrollImportData({ costCenters: [], batches: [], rows: [], templates: [] });
     const emptyPayrollData = emptyPayrollWorkspaceData();
     setPayrollData(emptyPayrollData);
@@ -744,24 +744,28 @@ function InvoiceWorkspace() {
     setExpenses(data.expenses);
     setFinancialFxSnapshots(data.financialFxSnapshots);
     setCostCodes(data.costCodes);
-    setProjectMaterials(data.materials);
-    setProjectEquipment(data.equipment);
-    setEquipmentRegistry(data.equipmentRegistry);
-    setEquipmentAssignments(data.equipmentAssignments);
-    setInventoryItems(data.inventoryItems);
-    setInventoryMovements(data.inventoryMovements);
-    setInventoryBalances(data.inventoryBalances);
+    inventoryEquipmentController.applyWorkspaceData({
+      materials: data.materials,
+      equipment: data.equipment,
+      equipmentRegistry: data.equipmentRegistry,
+      equipmentAssignments: data.equipmentAssignments,
+      inventoryItems: data.inventoryItems,
+      inventoryMovements: data.inventoryMovements,
+      inventoryBalances: data.inventoryBalances,
+    });
     setDailySiteLogsData(data.dailySiteLogsData);
     setEngineeringDocumentsData(data.engineeringDocumentsData);
-    setPurchaseOrders(data.purchaseOrders);
-    setSubcontracts(data.subcontracts);
-    setSubcontractClaims(data.subcontractClaims);
-    setSubcontractVariations(data.subcontractVariations);
-    setPurchaseOrderReceipts(data.receipts);
-    setPurchaseOrderMatches(data.purchaseOrderMatches);
-    setRfqs(data.rfqs || []);
-    setSupplierQuotations(data.supplierQuotations || []);
-    setVendors(data.vendors);
+    procurementController.applyWorkspaceData({
+      purchaseOrders: data.purchaseOrders,
+      subcontracts: data.subcontracts,
+      subcontractClaims: data.subcontractClaims,
+      subcontractVariations: data.subcontractVariations,
+      receipts: data.receipts,
+      purchaseOrderMatches: data.purchaseOrderMatches,
+      rfqs: data.rfqs || [],
+      supplierQuotations: data.supplierQuotations || [],
+      vendors: data.vendors,
+    });
     setProjectLaborAggregates(data.laborAggregates);
     setProjectLaborAggregateLoadState(data.laborAggregateLoadState);
     setProjectCostDomainLoadState("loaded");
@@ -882,8 +886,7 @@ function InvoiceWorkspace() {
   const loadCashGroup = async () => loadCashBankingWorkspaceFromSupabase();
   const applyCashForWorkspace = (data: CashBankingWorkspaceData, token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
-    cashDataRef.current = data;
-    setCashData(data);
+    cashBankingController.applyWorkspaceData(data);
   };
 
   const loadWorkspaceGroup = async (group: WorkspaceRefreshGroup, options: { preserveExisting?: boolean } = {}): Promise<WorkspaceGroupData> => {
@@ -1004,15 +1007,9 @@ function InvoiceWorkspace() {
       setExpenses(readExpensesFromLocal());
       setFinancialFxSnapshots(readFinancialFxSnapshotsFromLocal());
       setCostCodes(readProjectCostCodesFromLocal());
-      setProjectMaterials(readProjectMaterialsFromLocal());
-      setProjectEquipment(readProjectEquipmentFromLocal());
-      setInventoryItems(readInventoryItemsFromLocal());
-      setInventoryMovements(readInventoryMovementsFromLocal());
-      setInventoryBalances(undefined);
+      inventoryEquipmentController.loadGuestWorkspace();
       setDailySiteLogsData(readDailySiteLogsFromLocal());
-      const localCash = readCashBankingWorkspaceFromLocal();
-      cashDataRef.current = localCash;
-      setCashData(localCash);
+      cashBankingController.loadGuestWorkspace();
       const localPayroll = readPayrollWorkspaceFromLocal();
       payrollDataRef.current = localPayroll;
       setPayrollData(localPayroll);
@@ -1089,221 +1086,6 @@ function InvoiceWorkspace() {
   useEffect(() => {
     payrollDataRef.current = payrollData;
   }, [payrollData]);
-
-  useEffect(() => {
-    cashDataRef.current = cashData;
-  }, [cashData]);
-
-  const applyCashWorkspace = (next: CashBankingWorkspaceData) => {
-    cashDataRef.current = next;
-    setCashData(next);
-  };
-
-  const handleSaveFinancialAccount = async (account: FinancialAccount) => {
-    if (session && supabase) {
-      const saved = await saveFinancialAccountToSupabase(account);
-      applyCashWorkspace({ ...cashDataRef.current, accounts: [...cashDataRef.current.accounts.filter((item) => item.id !== account.id && item.id !== saved.id), saved] });
-      return saved;
-    }
-    applyCashWorkspace({ ...cashDataRef.current, accounts: [...cashDataRef.current.accounts.filter((item) => item.id !== account.id), account] });
-    return account;
-  };
-
-  const handleDeactivateFinancialAccount = async (account: FinancialAccount, reason: string) => {
-    if (session && supabase) {
-      const saved = await deactivateFinancialAccountInSupabase(account.id, reason);
-      applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === saved.id ? saved : item) });
-      return;
-    }
-    applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === account.id ? { ...item, active: false, updatedAt: new Date().toISOString() } : item) });
-  };
-
-  const handleReactivateFinancialAccount = async (account: FinancialAccount, reason: string) => {
-    if (session && supabase) {
-      const saved = await reactivateFinancialAccountInSupabase(account.id, reason);
-      applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === saved.id ? saved : item) });
-      return;
-    }
-    applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === account.id ? { ...item, active: true, updatedAt: new Date().toISOString() } : item) });
-  };
-
-  const handleSaveFinancialSnapshot = async (snapshot: FinancialBalanceSnapshot) => {
-    if (session && supabase) {
-      const saved = await saveFinancialBalanceSnapshotToSupabase(snapshot);
-      applyCashWorkspace({ ...cashDataRef.current, snapshots: [saved, ...cashDataRef.current.snapshots.filter((item) => item.id !== saved.id)] });
-      return;
-    }
-    applyCashWorkspace({ ...cashDataRef.current, snapshots: [snapshot, ...cashDataRef.current.snapshots.filter((item) => item.id !== snapshot.id)] });
-  };
-
-  const handleSaveFinancialTransaction = async (transaction: FinancialTransaction) => {
-    if (session && supabase) {
-      const saved = await saveFinancialTransactionToSupabase(transaction);
-      applyCashWorkspace({ ...cashDataRef.current, transactions: [saved, ...cashDataRef.current.transactions.filter((item) => item.id !== transaction.id && item.id !== saved.id)] });
-      return;
-    }
-    applyCashWorkspace({ ...cashDataRef.current, transactions: [transaction, ...cashDataRef.current.transactions.filter((item) => item.id !== transaction.id)] });
-  };
-
-  const handleCommitFinancialImport = async (preview: StatementPreview, account: FinancialAccount) => {
-    if (session && supabase) {
-      await commitFinancialImportToSupabase(preview, account);
-      const token = currentWorkspaceLoadToken();
-      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-import" });
-      return;
-    }
-    applyCashWorkspace(commitStatementPreviewToWorkspace(cashDataRef.current, preview, account));
-  };
-
-  const handleSaveFinancialMatch = async (match: FinancialTransactionMatch, transaction: FinancialTransaction) => {
-    if (session && supabase) {
-      await saveFinancialTransactionMatchToSupabase(match);
-      const token = currentWorkspaceLoadToken();
-      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-settlement-confirmed" });
-      return;
-    }
-    const nextMatches = [...cashDataRef.current.matches.filter((item) => item.id !== match.id), match];
-    applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? transaction : item) });
-  };
-
-  const handleSaveFinancialMatchBatch = async (matches: FinancialTransactionMatch[], transaction: FinancialTransaction) => {
-    if (session && supabase) {
-      await confirmFinancialSettlementBatchToSupabase(transaction.id, matches.map((match) => ({
-        targetType: match.targetType,
-        targetId: match.targetId || "",
-        amount: match.matchedAmount,
-        matchId: match.id,
-        confidence: match.confidence,
-        notes: match.notes,
-      })));
-      const token = currentWorkspaceLoadToken();
-      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-settlement-batch-confirmed" });
-      return;
-    }
-    const nextMatches = [...cashDataRef.current.matches.filter((item) => !matches.some((match) => match.id === item.id)), ...matches];
-    applyCashWorkspace({
-      ...cashDataRef.current,
-      matches: nextMatches,
-      transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? transaction : item),
-    });
-  };
-
-  const handleReverseFinancialMatch = async (matchId: string, reason: string) => {
-    if (session && supabase) {
-      await reverseFinancialSettlement(matchId, reason);
-      const token = currentWorkspaceLoadToken();
-      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-match-reversed" });
-      return;
-    }
-    const targetMatch = cashDataRef.current.matches.find((m) => m.id === matchId);
-    if (!targetMatch) return;
-    const updatedAt = new Date().toISOString();
-    const updatedMatch: FinancialTransactionMatch = {
-      ...targetMatch,
-      status: "REVERSED",
-      reversedAt: updatedAt,
-      reversalReason: reason,
-      updatedAt,
-    };
-    const nextMatches = cashDataRef.current.matches.map((m) => m.id === matchId ? updatedMatch : m);
-    const affectedTx = cashDataRef.current.transactions.find((t) => t.id === targetMatch.transactionId);
-    const nextTransactions = affectedTx
-      ? cashDataRef.current.transactions.map((t) => t.id === affectedTx.id ? { ...t, reconciliationStatus: reconciliationStatusForTransaction(t, nextMatches), updatedAt } : t)
-      : cashDataRef.current.transactions;
-    applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: nextTransactions });
-  };
-
-  const handleCorrectFinancialTransaction = async (
-    transaction: FinancialTransaction,
-    input: { transactionDate: string; referenceNumber?: string; description: string; direction: FinancialTransaction["direction"]; amount: number },
-    reason: string,
-  ) => {
-    if (!isManualTransactionCorrectionEligible(transaction, cashDataRef.current.matches)) throw new Error("Only an unreconciled manual transaction without financial history can be edited.");
-    if (session && supabase) {
-      const saved = await correctFinancialTransactionInSupabase(transaction.id, input, reason);
-      applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === saved.id ? saved : item) });
-      return;
-    }
-    const updatedAt = new Date().toISOString();
-    applyCashWorkspace({
-      ...cashDataRef.current,
-      transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? {
-        ...item,
-        ...input,
-        referenceNumber: input.referenceNumber || undefined,
-        postedAt: item.postedAt ? `${input.transactionDate}T00:00:00.000Z` : undefined,
-        updatedAt,
-      } : item),
-    });
-  };
-
-  const handleReverseFinancialTransaction = async (transaction: FinancialTransaction, reason: string) => {
-    if (session && supabase) {
-      const saved = await reverseFinancialTransactionInSupabase(transaction.id, reason);
-      applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === saved.id ? saved : item) });
-      return;
-    }
-    const updatedAt = new Date().toISOString();
-    applyCashWorkspace({
-      ...cashDataRef.current,
-      transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? { ...item, status: "REVERSED", reconciliationStatus: "UNMATCHED", reversedAt: updatedAt, reversalReason: reason, updatedAt } : item),
-    });
-  };
-
-  const handleIgnoreFinancialTransaction = async (transaction: FinancialTransaction, reason: string) => {
-    if (session && supabase) {
-      const saved = await ignoreFinancialTransactionInSupabase(transaction.id, reason);
-      applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === saved.id ? saved : item) });
-      return;
-    }
-    applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? { ...item, reconciliationStatus: "IGNORED", updatedAt: new Date().toISOString() } : item) });
-  };
-
-  const handleRestoreFinancialTransactionToReview = async (transaction: FinancialTransaction, reason: string) => {
-    if (session && supabase) {
-      const saved = await restoreFinancialTransactionToReviewInSupabase(transaction.id, reason);
-      applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === saved.id ? saved : item) });
-      return;
-    }
-    applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? { ...item, reconciliationStatus: "UNMATCHED", updatedAt: new Date().toISOString() } : item) });
-  };
-
-  const handleConfirmFinancialTransfer = async (left: FinancialTransaction, right: FinancialTransaction) => {
-    if (session && supabase) {
-      await confirmFinancialTransferToSupabase(left.id, right.id, Math.min(left.amount, right.amount));
-      const token = currentWorkspaceLoadToken();
-      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-transfer-confirmed" });
-      return;
-    }
-    const transferGroupId = financialId("transfer");
-    const leftNext = { ...left, transferGroupId, reconciliationStatus: "MATCHED" as const, updatedAt: new Date().toISOString() };
-    const rightNext = { ...right, transferGroupId, reconciliationStatus: "MATCHED" as const, updatedAt: new Date().toISOString() };
-    const amount = Math.min(left.amount, right.amount);
-    const leftMatch = createFinancialMatch({ companyId: left.companyId, transactionId: left.id, targetType: "TRANSFER", targetId: right.id, matchedAmount: amount, status: "CONFIRMED", confirmedAt: new Date().toISOString(), notes: "Confirmed internal transfer", transferGroupId });
-    const rightMatch = createFinancialMatch({ companyId: right.companyId, transactionId: right.id, targetType: "TRANSFER", targetId: left.id, matchedAmount: amount, status: "CONFIRMED", confirmedAt: new Date().toISOString(), notes: "Confirmed internal transfer", transferGroupId });
-    applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === left.id ? leftNext : item.id === right.id ? rightNext : item), matches: [...cashDataRef.current.matches, leftMatch, rightMatch] });
-  };
-
-  const handleReverseFinancialTransfer = async (left: FinancialTransaction, right: FinancialTransaction, reason: string) => {
-    if (!left.transferGroupId || left.transferGroupId !== right.transferGroupId) throw new Error("The exact confirmed transfer pair is no longer available.");
-    if (session && supabase) {
-      await reverseFinancialTransferInSupabase(left.id, right.id, left.transferGroupId, reason);
-      const token = currentWorkspaceLoadToken();
-      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-transfer-reversed" });
-      return;
-    }
-    const updatedAt = new Date().toISOString();
-    const nextMatches = cashDataRef.current.matches.map((match) => match.status === "CONFIRMED"
-      && match.targetType === "TRANSFER"
-      && ((match.transactionId === left.id && match.targetId === right.id) || (match.transactionId === right.id && match.targetId === left.id))
-      ? { ...match, status: "REVERSED" as const, reversedAt: updatedAt, reversalReason: reason, updatedAt }
-      : match);
-    const nextTransactions = cashDataRef.current.transactions.map((transaction) => {
-      if (transaction.id !== left.id && transaction.id !== right.id) return transaction;
-      return { ...transaction, transferGroupId: undefined, reconciliationStatus: reconciliationStatusForTransaction({ ...transaction, transferGroupId: undefined, reconciliationStatus: "UNMATCHED" }, nextMatches), updatedAt };
-    });
-    applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: nextTransactions });
-  };
 
   useEffect(() => {
     if (!authResolved || activeTab !== "payroll" || workspaceLoading || payrollRefreshing) return;
@@ -1883,7 +1665,7 @@ function InvoiceWorkspace() {
       const current = clientCollectionData.collections.find((c) => c.id === id);
       const project = current ? projects.find((candidate) => candidate.id === current.projectId) : undefined;
       if (!current || !project) throw new Error("Client collection or its project is not available in this workspace.");
-      if (cashDataRef.current.matches.some((match) => match.targetType === "CLIENT_COLLECTION" && match.targetId === id && match.status === "CONFIRMED")) {
+      if (cashData.matches.some((match) => match.targetType === "CLIENT_COLLECTION" && match.targetId === id && match.status === "CONFIRMED")) {
         throw new Error("Reverse active cash settlement links before reversing this client collection.");
       }
       if (session && supabase && !guestModeState) {
@@ -1952,234 +1734,6 @@ function InvoiceWorkspace() {
     }
   };
 
-  const handleSaveMaterial = async (input: ProjectMaterialSaveInput) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to manage project materials.");
-      const saved = session && supabase
-        ? await saveProjectMaterialToSupabase(input)
-        : buildLocalProjectMaterial(input, input.id ? projectMaterials.find((item) => item.id === input.id) : undefined, "guest-company");
-      setProjectMaterials((previous) => {
-        const next = previous.some((item) => item.id === saved.id) ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
-        if (!isSupabaseConfigured) writeProjectMaterialsToLocal(next);
-        return next;
-      });
-      showNotification("success", `${saved.materialName} saved to the Materials Register.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save project material."));
-      throw error;
-    }
-  };
-
-  const handleSaveInventoryItem = async (input: InventoryItemSaveInput): Promise<InventoryItem> => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.inventoryManage)) throw new Error("You do not have permission to manage warehouse inventory.");
-      const normalizedName = input.itemName.trim().toLowerCase();
-      const normalizedUnit = input.stockUnit.trim().toLowerCase();
-      const normalizedCode = input.itemCode?.trim().toUpperCase();
-      if (!normalizedName || !normalizedUnit) throw new Error("Inventory item name and stock unit are required.");
-      if (inventoryItems.some((item) => item.id !== input.id && item.itemName.trim().toLowerCase() === normalizedName && item.stockUnit.trim().toLowerCase() === normalizedUnit)) throw new Error("An inventory item with the same canonical name and stock unit already exists.");
-      if (normalizedCode && inventoryItems.some((item) => item.id !== input.id && item.itemCode?.trim().toUpperCase() === normalizedCode)) throw new Error("That inventory item code is already in use.");
-      const existing = input.id ? inventoryItems.find((item) => item.id === input.id) : undefined;
-      if (existing && existing.stockUnit.trim().toLowerCase() !== normalizedUnit && (inventoryMovements.some((movement) => movement.inventoryItemId === existing.id) || projectMaterials.some((material) => material.inventoryItemId === existing.id))) throw new Error("An item stock unit cannot change after movement history or project requirement links exist.");
-      const saved = session && supabase
-        ? await saveInventoryItemToSupabase(input)
-        : buildLocalInventoryItem({ ...input, itemName: input.itemName.trim(), stockUnit: normalizedUnit }, existing, "guest-company", "guest-user");
-      setInventoryItems((previous) => {
-        const next = previous.some((item) => item.id === saved.id) ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
-        if (!isSupabaseConfigured) writeInventoryItemsToLocal(next);
-        return next;
-      });
-      setInventoryBalances(undefined);
-      showNotification("success", `${saved.itemName} saved to Warehouse Inventory.`);
-      return saved;
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save inventory item."));
-      throw error;
-    }
-  };
-
-  const handleRecordInventoryMovement = async (input: InventoryMovementInput): Promise<InventoryMovement> => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.inventoryManage)) throw new Error("You do not have permission to record warehouse movements.");
-      if (input.sourceType === "PURCHASE_ORDER_RECEIPT") {
-        const receipt = purchaseOrderReceipts.find((candidate) => candidate.id === input.purchaseOrderReceiptId && candidate.status === "RECEIVED");
-        const receiptLine = receipt?.lines?.find((line) => line.purchaseOrderLineId === input.purchaseOrderLineId);
-        const purchaseOrder = purchaseOrders.find((candidate) => candidate.id === receipt?.purchaseOrderId);
-        const purchaseOrderLine = purchaseOrder?.lines?.find((line) => line.id === input.purchaseOrderLineId);
-        const item = inventoryItems.find((candidate) => candidate.id === input.inventoryItemId);
-        if (!receiptLine || !purchaseOrderLine || !item || (receiptLine.inventoryItemId && receiptLine.inventoryItemId !== item.id) || item.stockUnit.trim().toLowerCase() !== purchaseOrderLine.unit.trim().toLowerCase() || Number(input.quantity) !== receiptLine.receivedQuantity) throw new Error("The selected procurement receipt line must match its reviewed canonical item and exact quantity.");
-      }
-      const saved = session && supabase
-        ? await recordInventoryMovementToSupabase(input)
-        : recordInventoryMovementLocally(input, inventoryItems, inventoryMovements, { companyId: "guest-company", actorUserId: "guest-user" });
-      setInventoryMovements((previous) => {
-        const next = [saved, ...previous.filter((movement) => movement.id !== saved.id)];
-        if (!isSupabaseConfigured) writeInventoryMovementsToLocal(next);
-        return next;
-      });
-      setInventoryBalances(undefined);
-      showNotification("success", `${saved.movementType.replaceAll("_", " ")} recorded for ${saved.quantity} ${saved.stockUnitSnapshot}.`);
-      return saved;
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not record the warehouse movement."));
-      throw error;
-    }
-  };
-
-  const handleReverseInventoryMovement = async (movementId: string, reason: string, idempotencyKey: string): Promise<InventoryMovement> => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.inventoryManage)) throw new Error("You do not have permission to correct warehouse movements.");
-      const saved = session && supabase
-        ? await reverseInventoryMovementToSupabase(movementId, reason, idempotencyKey)
-        : recordInventoryMovementLocally({ movementType: "REVERSAL", reversalOfMovementId: movementId, reason, idempotencyKey }, inventoryItems, inventoryMovements, { companyId: "guest-company", actorUserId: "guest-user" });
-      setInventoryMovements((previous) => [saved, ...previous.filter((movement) => movement.id !== saved.id)]);
-      setInventoryBalances(undefined);
-      if (!isSupabaseConfigured) writeInventoryMovementsToLocal([saved, ...inventoryMovements.filter((movement) => movement.id !== saved.id)]);
-      showNotification("success", "Inventory movement reversed. Original history remains preserved.");
-      return saved;
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not reverse the warehouse movement."));
-      throw error;
-    }
-  };
-
-  const handleSaveEquipment = async (input: ProjectEquipmentSaveInput) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to manage project equipment.");
-      const saved = session && supabase
-        ? await saveProjectEquipmentToSupabase(input)
-        : buildLocalProjectEquipment(input, input.id ? projectEquipment.find((item) => item.id === input.id) : undefined, "guest-company");
-      setProjectEquipment((previous) => {
-        const next = previous.some((item) => item.id === saved.id) ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
-        if (!isSupabaseConfigured) writeProjectEquipmentToLocal(next);
-        return next;
-      });
-      showNotification("success", `${saved.equipmentName} saved to the Equipment Register.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save project equipment."));
-      throw error;
-    }
-  };
-
-  const handleSaveCanonicalEquipment = async (input: EquipmentSaveInput): Promise<Equipment> => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to manage the Equipment Registry.");
-      const normalizedReference = input.assetReference?.trim().toLowerCase();
-      if (!session && normalizedReference && equipmentRegistry.some((item) => item.id !== input.id && item.assetReference?.trim().toLowerCase() === normalizedReference)) throw new Error("That Equipment asset/reference code is already in use.");
-      const existing = input.id ? equipmentRegistry.find((item) => item.id === input.id) : undefined;
-      const saved = session && supabase
-        ? await saveEquipmentToSupabase(input)
-        : buildLocalEquipment(input, existing, "guest-company", "guest-user");
-      setEquipmentRegistry((current) => {
-        const next = current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? { ...saved, currentState: item.currentState, currentAssignmentId: item.currentAssignmentId, currentProjectId: item.currentProjectId, currentAssignmentStart: item.currentAssignmentStart } : item) : [saved, ...current];
-        if (!session) writeEquipmentRegistryToLocal(next);
-        return next;
-      });
-      showNotification("success", `${saved.equipmentName} saved to the canonical Equipment Registry.`);
-      return saved;
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save canonical Equipment."));
-      throw error;
-    }
-  };
-
-  const applyCanonicalEquipmentMutation = (result: { equipment: Equipment; assignment?: EquipmentAssignment | null }, previousActive?: EquipmentAssignment, closedDate?: string) => {
-    const active = result.assignment && !result.assignment.assignmentEnd ? result.assignment : undefined;
-    const nextEquipment = {
-      ...result.equipment,
-      currentState: active ? "ASSIGNED" as const : result.equipment.lifecycleStatus,
-      currentAssignmentId: active?.id || null,
-      currentProjectId: active?.projectId || null,
-      currentAssignmentStart: active?.assignmentStart || null,
-    };
-    setEquipmentRegistry((current) => current.some((item) => item.id === nextEquipment.id) ? current.map((item) => item.id === nextEquipment.id ? nextEquipment : item) : [nextEquipment, ...current]);
-    if (previousActive && closedDate) {
-      setEquipmentAssignments((current) => current.map((assignment) => assignment.id === previousActive.id ? { ...assignment, assignmentEnd: closedDate, returnedByUserId: session?.user?.id || "guest-user", updatedAt: new Date().toISOString() } : assignment));
-    }
-    if (active) setEquipmentAssignments((current) => current.some((assignment) => assignment.id === active.id) ? current.map((assignment) => assignment.id === active.id ? active : assignment) : [active, ...current]);
-    return nextEquipment;
-  };
-
-  const handleAssignCanonicalEquipment = async (equipmentId: string, projectId: string, assignmentStart: string, notes?: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to assign Equipment.");
-      const result = session && supabase
-        ? await assignEquipmentToSupabase(equipmentId, projectId, assignmentStart, notes)
-        : applyLocalEquipmentAssignment(equipmentRegistry, equipmentAssignments, { equipmentId, projectId, assignmentStart, notes }, projectController.projects);
-      applyCanonicalEquipmentMutation(result);
-      if (!session) {
-        if (result.assignment) writeEquipmentAssignmentsToLocal([result.assignment, ...equipmentAssignments.filter((assignment) => assignment.id !== result.assignment?.id)]);
-        writeEquipmentRegistryToLocal(equipmentRegistry.map((item) => item.id === result.equipment.id ? { ...result.equipment, currentState: "ASSIGNED", currentAssignmentId: result.assignment?.id, currentProjectId: result.assignment?.projectId, currentAssignmentStart: result.assignment?.assignmentStart } : item));
-      }
-      showNotification("success", "Equipment assigned. The active assignment is now authoritative.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not assign Equipment."));
-      throw error;
-    }
-  };
-
-  const handleTransferCanonicalEquipment = async (equipmentId: string, projectId: string, assignmentStart: string, notes?: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to transfer Equipment.");
-      const previousActive = equipmentAssignments.find((assignment) => assignment.equipmentId === equipmentId && !assignment.assignmentEnd);
-      const result = session && supabase
-        ? await transferEquipmentToSupabase(equipmentId, projectId, assignmentStart, notes)
-        : applyLocalEquipmentTransfer(equipmentRegistry, equipmentAssignments, { equipmentId, projectId, assignmentStart, notes }, projectController.projects);
-      applyCanonicalEquipmentMutation(result, previousActive, assignmentStart);
-      if (!session && result.assignment) {
-        const closed = equipmentAssignments.map((assignment) => assignment.id === previousActive?.id ? { ...assignment, assignmentEnd: assignmentStart, returnedByUserId: "guest-user" } : assignment);
-        writeEquipmentAssignmentsToLocal([result.assignment, ...closed.filter((assignment) => assignment.id !== result.assignment?.id)]);
-        writeEquipmentRegistryToLocal(equipmentRegistry.map((item) => item.id === result.equipment.id ? { ...result.equipment, currentState: "ASSIGNED", currentAssignmentId: result.assignment?.id, currentProjectId: result.assignment?.projectId, currentAssignmentStart: result.assignment?.assignmentStart } : item));
-      }
-      showNotification("success", "Equipment transferred in one authoritative operation.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not transfer Equipment."));
-      throw error;
-    }
-  };
-
-  const handleReturnCanonicalEquipment = async (equipmentId: string, assignmentEnd: string, notes?: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to return Equipment.");
-      const previousActive = equipmentAssignments.find((assignment) => assignment.equipmentId === equipmentId && !assignment.assignmentEnd);
-      const result = session && supabase
-        ? await returnEquipmentToSupabase(equipmentId, assignmentEnd, notes)
-        : applyLocalEquipmentReturn(equipmentRegistry, equipmentAssignments, equipmentId, assignmentEnd, notes);
-      applyCanonicalEquipmentMutation(result, previousActive, assignmentEnd);
-      if (!session) {
-        const returned = result.assignment || previousActive;
-        if (returned) writeEquipmentAssignmentsToLocal(equipmentAssignments.map((assignment) => assignment.id === returned.id ? returned : assignment));
-        writeEquipmentRegistryToLocal(equipmentRegistry.map((item) => item.id === result.equipment.id ? { ...result.equipment, currentState: result.equipment.lifecycleStatus, currentAssignmentId: null, currentProjectId: null, currentAssignmentStart: null } : item));
-      }
-      showNotification("success", "Equipment returned to the company pool. Assignment history remains preserved.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not return Equipment."));
-      throw error;
-    }
-  };
-
-  const handleSetCanonicalEquipmentLifecycle = async (equipmentId: string, status: EquipmentLifecycleStatus, reason: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to change Equipment lifecycle state.");
-      const previous = equipmentRegistry.find((item) => item.id === equipmentId);
-      if (!previous) throw new Error("Equipment is unavailable.");
-      const active = equipmentAssignments.find((assignment) => assignment.equipmentId === equipmentId && !assignment.assignmentEnd);
-      if (status === "AVAILABLE" && active) throw new Error("Return or transfer the active assignment before making Equipment available.");
-      const result = session && supabase
-        ? await setEquipmentLifecycleToSupabase(equipmentId, status, reason)
-        : { equipment: { ...previous, lifecycleStatus: status, currentState: status, currentAssignmentId: null, currentProjectId: null, currentAssignmentStart: null, notes: [previous.notes, reason].filter(Boolean).join("\n") }, assignment: null };
-      applyCanonicalEquipmentMutation(result, active, active ? new Date().toISOString().slice(0, 10) : undefined);
-      if (!session) {
-        if (active) writeEquipmentAssignmentsToLocal(equipmentAssignments.map((assignment) => assignment.id === active.id ? { ...assignment, assignmentEnd: new Date().toISOString().slice(0, 10) } : assignment));
-        writeEquipmentRegistryToLocal(equipmentRegistry.map((item) => item.id === equipmentId ? result.equipment : item));
-      }
-      showNotification("success", `Equipment lifecycle changed to ${status.replaceAll("_", " ")}.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not change Equipment lifecycle state."));
-      throw error;
-    }
-  };
-
   const handleArchiveCostCode = async (costCodeId: string) => {
     try {
       if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) {
@@ -2225,579 +1779,6 @@ function InvoiceWorkspace() {
       throw error;
     }
   };
-
-  const handleSavePO = useCallback(async (
-    po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
-    lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
-  ) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to create or edit purchase orders.");
-      }
-      const saved = await savePurchaseOrder(po, lines);
-      setPurchaseOrders((prev) => {
-        const index = prev.findIndex((p) => p.id === saved.id);
-        const next = index >= 0 ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev];
-        if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
-        return next;
-      });
-      showNotification("success", `Purchase order ${saved.poNumber} saved.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save purchase order."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleTransitionPO = useCallback(async (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => {
-    try {
-      if (isSupabaseConfigured) {
-        if (targetStatus === "APPROVED" && !can(PERMISSION_KEYS.procurementApprove)) {
-          throw new Error("You do not have permission to approve purchase orders.");
-        }
-        if (targetStatus !== "APPROVED" && !can(PERMISSION_KEYS.procurementWrite)) {
-          throw new Error("You do not have permission to manage purchase orders.");
-        }
-      }
-      const updated = await transitionPurchaseOrderStatus(id, targetStatus, reason);
-      if (targetStatus === "ISSUED" && session && supabase) await ensurePurchaseOrderDocumentSnapshot(updated.id);
-      setPurchaseOrders((prev) => {
-        const next = prev.map((p) => (p.id === updated.id ? updated : p));
-        if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
-        return next;
-      });
-      showNotification("success", `Purchase order ${updated.poNumber} transitioned to ${targetStatus}.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not transition purchase order."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleDeletePO = useCallback(async (id: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to delete draft purchase orders.");
-      }
-      await deleteDraftPurchaseOrder(id);
-      setPurchaseOrders((prev) => {
-        const next = prev.filter((p) => p.id !== id);
-        if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
-        return next;
-      });
-      showNotification("success", "Draft purchase order deleted.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not delete draft purchase order."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleSaveSubcontract = useCallback(async (
-    subcontract: Partial<Subcontract> & { subcontractNumber: string; vendorId: string; projectId: string; title: string },
-    lines: Array<Partial<SubcontractLine> & { description: string; amount: number }>,
-  ) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to create or edit subcontracts.");
-      }
-      const saved = await saveSubcontract(subcontract, lines);
-      setSubcontracts((prev) => {
-        const index = prev.findIndex((item) => item.id === saved.id);
-        const next = index >= 0 ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev];
-        if (!isSupabaseConfigured) writeSubcontractsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Subcontract ${saved.subcontractNumber} saved.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save subcontract."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleTransitionSubcontract = useCallback(async (id: string, targetStatus: SubcontractStatus, reason?: string) => {
-    try {
-      // The database lifecycle RPC intentionally treats every transition as a
-      // consequential approval boundary, including activation, close, and
-      // cancellation. Keep the client gate identical to that authority.
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementApprove)) {
-        throw new Error("You do not have permission to transition subcontract lifecycle status.");
-      }
-      const updated = await transitionSubcontract(id, targetStatus, reason);
-      setSubcontracts((prev) => {
-        const next = prev.map((item) => (item.id === updated.id ? updated : item));
-        if (!isSupabaseConfigured) writeSubcontractsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Subcontract ${updated.subcontractNumber} transitioned to ${targetStatus}.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not transition subcontract."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleDeleteSubcontract = useCallback(async (id: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to delete draft subcontracts.");
-      }
-      await deleteDraftSubcontract(id);
-      setSubcontracts((prev) => {
-        const next = prev.filter((item) => item.id !== id);
-        if (!isSupabaseConfigured) writeSubcontractsToLocal(next);
-        return next;
-      });
-      showNotification("success", "Draft subcontract deleted.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not delete draft subcontract."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleSaveSubcontractClaim = useCallback(async (
-    claim: Partial<SubcontractProgressClaim> & {
-      subcontractId: string;
-      projectId: string;
-      claimNumber: string;
-      valuationDate: string;
-    },
-    lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number; notes?: string }>,
-  ) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to create or edit subcontract progress claims.");
-      }
-      const saved = await saveSubcontractClaim(claim, lines);
-      setSubcontractClaims((prev) => {
-        const index = prev.findIndex((item) => item.id === saved.id);
-        const next = index >= 0 ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev];
-        if (!isSupabaseConfigured) writeSubcontractClaimsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Progress claim ${saved.claimNumber} saved.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save subcontract progress claim."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleTransitionSubcontractClaim = useCallback(async (
-    id: string,
-    targetStatus: SubcontractProgressClaimStatus,
-    reason?: string,
-    lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>,
-  ) => {
-    try {
-      if (isSupabaseConfigured) {
-        if (targetStatus === "APPROVED" && !can(PERMISSION_KEYS.procurementApprove)) {
-          throw new Error("You do not have permission to approve subcontract progress claims.");
-        }
-        if (targetStatus !== "APPROVED" && !can(PERMISSION_KEYS.procurementWrite)) {
-          throw new Error("You do not have permission to manage subcontract progress claims.");
-        }
-      }
-      const current = subcontractClaims.find((item) => item.id === id);
-      const parent = current ? subcontracts.find((item) => item.id === current.subcontractId) : undefined;
-      const approvedVariations = current ? subcontractVariations.filter((item) => item.subcontractId === current.subcontractId && item.status === "APPROVED") : [];
-      const updated = await transitionSubcontractClaim(id, targetStatus, reason, lineApprovals, parent, approvedVariations);
-      setSubcontractClaims((prev) => {
-        const next = prev.map((item) => (item.id === updated.id ? updated : item));
-        if (!isSupabaseConfigured) writeSubcontractClaimsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Progress claim ${updated.claimNumber} transitioned to ${targetStatus}.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not transition subcontract progress claim."));
-      throw error;
-    }
-  }, [permissions, session, subcontractClaims, subcontractVariations, subcontracts]);
-
-  const handleDeleteSubcontractClaim = useCallback(async (id: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to delete draft subcontract progress claims.");
-      }
-      await deleteDraftSubcontractClaim(id);
-      setSubcontractClaims((prev) => {
-        const next = prev.filter((item) => item.id !== id);
-        if (!isSupabaseConfigured) writeSubcontractClaimsToLocal(next);
-        return next;
-      });
-      showNotification("success", "Draft progress claim deleted.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not delete draft subcontract progress claim."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleSaveSubcontractVariation = useCallback(async (
-    variation: Partial<SubcontractVariation> & {
-      subcontractId: string;
-      projectId: string;
-      variationNumber: string;
-      title: string;
-      currency?: string;
-    },
-    lines: Array<Partial<SubcontractVariationLine> & { description: string; amount: number }>,
-  ) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to create or edit subcontract variations.");
-      }
-      const saved = await saveSubcontractVariation(variation, lines);
-      setSubcontractVariations((prev) => {
-        const index = prev.findIndex((item) => item.id === saved.id);
-        const next = index >= 0 ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev];
-        if (!isSupabaseConfigured) writeSubcontractVariationsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Variation ${saved.variationNumber} saved.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save subcontract variation."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleTransitionSubcontractVariation = useCallback(async (
-    id: string,
-    targetStatus: SubcontractVariationStatus,
-    reason?: string,
-  ) => {
-    try {
-      if (isSupabaseConfigured) {
-        if (targetStatus === "APPROVED" && !can(PERMISSION_KEYS.procurementApprove)) {
-          throw new Error("You do not have permission to approve subcontract variations.");
-        }
-        if (targetStatus !== "APPROVED" && !can(PERMISSION_KEYS.procurementWrite)) {
-          throw new Error("You do not have permission to manage subcontract variations.");
-        }
-      }
-      const current = subcontractVariations.find((item) => item.id === id);
-      const parent = current ? subcontracts.find((item) => item.id === current.subcontractId) : undefined;
-      const otherApproved = current ? subcontractVariations.filter((item) => item.subcontractId === current.subcontractId && item.id !== id && item.status === "APPROVED") : [];
-      const approvedClaims = current ? subcontractClaims.filter((item) => item.subcontractId === current.subcontractId && item.status === "APPROVED") : [];
-      const updated = await transitionSubcontractVariation(id, targetStatus, reason, parent, otherApproved, approvedClaims);
-      setSubcontractVariations((prev) => {
-        const next = prev.map((item) => (item.id === updated.id ? updated : item));
-        if (!isSupabaseConfigured) writeSubcontractVariationsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Variation ${updated.variationNumber} transitioned to ${targetStatus}.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not transition subcontract variation."));
-      throw error;
-    }
-  }, [permissions, session, subcontractClaims, subcontractVariations, subcontracts]);
-
-  const handleDeleteSubcontractVariation = useCallback(async (id: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to delete draft subcontract variations.");
-      }
-      await deleteDraftSubcontractVariation(id);
-      setSubcontractVariations((prev) => {
-        const next = prev.filter((item) => item.id !== id);
-        if (!isSupabaseConfigured) writeSubcontractVariationsToLocal(next);
-        return next;
-      });
-      showNotification("success", "Draft subcontract variation deleted.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not delete draft subcontract variation."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleAddVendor = useCallback(async (vendor: Partial<Vendor> & { name: string }) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.vendorsManage)) {
-        throw new Error("You do not have permission to add vendors.");
-      }
-      const saved = await saveVendor(vendor);
-      setVendors((prev) => {
-        const index = prev.findIndex((v) => v.id === saved.id);
-        const next = index >= 0 ? prev.map((v) => (v.id === saved.id ? saved : v)) : [...prev, saved];
-        if (!isSupabaseConfigured) writeVendorsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Vendor "${saved.name}" created.`);
-      return saved;
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not create vendor."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleDeactivateVendor = useCallback(async (vendorId: string, reason: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.vendorsManage)) throw new Error("You do not have permission to deactivate Vendors.");
-      const current = vendors.find((vendor) => vendor.id === vendorId);
-      if (!current) throw new Error("Vendor is no longer available in this company.");
-      const saved = session && supabase
-        ? await deactivateVendor(vendorId, reason)
-        : { ...current, active: false, archivedAt: new Date().toISOString(), deactivatedAt: new Date().toISOString(), deactivationReason: reason, updatedAt: new Date().toISOString() };
-      setVendors((previous) => previous.map((vendor) => vendor.id === saved.id ? saved : vendor));
-      showNotification("success", `Vendor "${saved.name}" was deactivated; history remains retained.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not deactivate Vendor."));
-      throw error;
-    }
-  }, [permissions, session, vendors]);
-
-  const handleReactivateVendor = useCallback(async (vendorId: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.vendorsManage)) throw new Error("You do not have permission to reactivate Vendors.");
-      const current = vendors.find((vendor) => vendor.id === vendorId);
-      if (!current) throw new Error("Vendor is no longer available in this company.");
-      const saved = session && supabase
-        ? await reactivateVendor(vendorId)
-        : { ...current, active: true, archivedAt: null, deactivatedAt: null, deactivatedByUserId: null, deactivationReason: null, updatedAt: new Date().toISOString() };
-      setVendors((previous) => previous.map((vendor) => vendor.id === saved.id ? saved : vendor));
-      showNotification("success", `Vendor "${saved.name}" was reactivated.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not reactivate Vendor."));
-      throw error;
-    }
-  }, [permissions, session, vendors]);
-
-  const handleRecordReceipt = useCallback(async (
-    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
-    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
-  ) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to record purchase order delivery receipts.");
-      }
-      const saved = await recordPurchaseOrderReceipt(receipt, lines);
-      setPurchaseOrderReceipts((prev) => {
-        const next = [saved, ...prev.filter((r) => r.id !== saved.id)];
-        if (!isSupabaseConfigured) writePurchaseOrderReceiptsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Goods receipt ${saved.receiptNumber} recorded successfully.`);
-      return saved;
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not record delivery receipt."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleVoidReceipt = useCallback(async (receiptId: string, reason: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to void purchase order receipts.");
-      }
-      const voided = await voidPurchaseOrderReceipt(receiptId, reason);
-      setPurchaseOrderReceipts((prev) => {
-        const next = prev.map((r) => (r.id === voided.id ? voided : r));
-        if (!isSupabaseConfigured) writePurchaseOrderReceiptsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Goods receipt ${voided.receiptNumber} has been voided.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not void delivery receipt."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleConfirmPurchaseOrderMatch = useCallback(async (
-    poId: string,
-    lines: Array<{
-      invoiceLineId: string;
-      purchaseOrderLineId: string;
-      matchedQuantity?: number;
-      matchedAmount?: number;
-    }>,
-    notes?: string,
-  ) => {
-    try {
-      if (isSupabaseConfigured && (!can(PERMISSION_KEYS.procurementWrite) || !can(PERMISSION_KEYS.invoicesWrite))) {
-        throw new Error("You do not have permission to match supplier invoices to purchase orders.");
-      }
-      if (!selectedInvoice) {
-        throw new Error("No invoice selected to match.");
-      }
-      const match = await confirmPurchaseOrderMatch({
-        invoiceId: selectedInvoice.id,
-        purchaseOrderId: poId,
-        matchSource: "MANUAL",
-        notes,
-        lines,
-      });
-      setPurchaseOrderMatches((prev) => {
-        const next = [match, ...prev.filter((m) => m.id !== match.id && !(m.invoiceId === selectedInvoice.id && m.status === "CONFIRMED"))];
-        if (!isSupabaseConfigured) writePurchaseOrderMatchesToLocal(next);
-        return next;
-      });
-      showNotification("success", "Supplier invoice matched to purchase order.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not match purchase order."));
-      throw error;
-    }
-  }, [permissions, session, selectedInvoice]);
-
-  const handleUnmatchPurchaseOrderMatch = useCallback(async (matchId: string, reason: string) => {
-    try {
-      if (isSupabaseConfigured && (!can(PERMISSION_KEYS.procurementWrite) || !can(PERMISSION_KEYS.invoicesWrite))) {
-        throw new Error("You do not have permission to unmatch supplier invoices.");
-      }
-      const unmatchResult = await unmatchPurchaseOrderMatch(matchId, reason);
-      setPurchaseOrderMatches((prev) => {
-        const next = prev.map((m) => (m.id === matchId ? unmatchResult : m));
-        if (!isSupabaseConfigured) writePurchaseOrderMatchesToLocal(next);
-        return next;
-      });
-      showNotification("success", "Purchase order match removed.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not unmatch purchase order."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleSaveRFQ = useCallback(async (
-    rfq: Partial<RFQ> & { rfqNumber: string; title: string },
-    lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
-    invitedVendorIds?: string[],
-  ) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to create or edit RFQs.");
-      }
-      const saved = await saveRFQ(rfq, lines, invitedVendorIds);
-      setRfqs((prev) => {
-        const index = prev.findIndex((r) => r.id === saved.id);
-        const next = index >= 0 ? prev.map((r) => (r.id === saved.id ? saved : r)) : [saved, ...prev];
-        if (!isSupabaseConfigured) writeRFQsToLocal(next);
-        return next;
-      });
-      showNotification("success", `RFQ ${saved.rfqNumber} saved.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save RFQ."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleTransitionRFQ = useCallback(async (id: string, targetStatus: RFQStatus, reason?: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to transition RFQ status.");
-      }
-      const updated = await transitionRFQStatus(id, targetStatus, reason);
-      setRfqs((prev) => {
-        const next = prev.map((r) => (r.id === updated.id ? updated : r));
-        if (!isSupabaseConfigured) writeRFQsToLocal(next);
-        return next;
-      });
-      showNotification("success", `RFQ ${updated.rfqNumber} transitioned to ${targetStatus}.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not transition RFQ."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleDeleteRFQ = useCallback(async (id: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to delete draft RFQs.");
-      }
-      await deleteDraftRFQ(id);
-      setRfqs((prev) => {
-        const next = prev.filter((r) => r.id !== id);
-        if (!isSupabaseConfigured) writeRFQsToLocal(next);
-        return next;
-      });
-      showNotification("success", "Draft RFQ deleted.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not delete draft RFQ."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleSaveSupplierQuotation = useCallback(async (
-    quotation: Partial<SupplierQuotation> & { rfqId: string; vendorId: string; quotationNumber: string },
-    lines: Array<Partial<SupplierQuotationLine> & { description: string; quantity: number; unitPrice: number }>,
-  ) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to record supplier quotations.");
-      }
-      const saved = await saveSupplierQuotation(quotation, lines);
-      setSupplierQuotations((prev) => {
-        const index = prev.findIndex((q) => q.id === saved.id);
-        const next = index >= 0 ? prev.map((q) => (q.id === saved.id ? saved : q)) : [saved, ...prev];
-        if (!isSupabaseConfigured) writeSupplierQuotationsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Supplier quotation ${saved.quotationNumber} saved.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save supplier quotation."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleSelectSupplierQuotation = useCallback(async (quotationId: string, reason: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to select preferred suppliers.");
-      }
-      const selected = await selectSupplierQuotation(quotationId, reason);
-      setSupplierQuotations((prev) => {
-        const next = prev.map((q) => {
-          if (q.id === quotationId) return selected;
-          if (q.rfqId === selected.rfqId && q.status === "SELECTED") return { ...q, status: "SUBMITTED" as const };
-          return q;
-        });
-        if (!isSupabaseConfigured) writeSupplierQuotationsToLocal(next);
-        return next;
-      });
-      setRfqs((prev) => {
-        const next = prev.map((r) => (r.id === selected.rfqId ? { ...r, selectedQuotationId: selected.id } : r));
-        if (!isSupabaseConfigured) writeRFQsToLocal(next);
-        return next;
-      });
-      showNotification("success", `Supplier quotation ${selected.quotationNumber} selected.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not select supplier quotation."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleRevertSupplierQuotationSelection = useCallback(async (rfqId: string, reason: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to revert supplier selections.");
-      }
-      const updatedRfq = await revertSupplierQuotationSelection(rfqId, reason);
-      setSupplierQuotations((prev) => {
-        const next = prev.map((q) => (q.rfqId === rfqId && q.status === "SELECTED" ? { ...q, status: "SUBMITTED" as const } : q));
-        if (!isSupabaseConfigured) writeSupplierQuotationsToLocal(next);
-        return next;
-      });
-      setRfqs((prev) => {
-        const next = prev.map((r) => (r.id === rfqId ? updatedRfq : r));
-        if (!isSupabaseConfigured) writeRFQsToLocal(next);
-        return next;
-      });
-      showNotification("success", "Supplier selection reverted.");
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not revert supplier selection."));
-      throw error;
-    }
-  }, [permissions, session]);
-
-  const handleConvertQuotationToPO = useCallback(async (quotationId: string, poNumber: string, notes?: string) => {
-    try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
-        throw new Error("You do not have permission to convert quotations to purchase orders.");
-      }
-      const draftPo = await convertQuotationToDraftPO(quotationId, poNumber, notes);
-      setPurchaseOrders((prev) => {
-        const next = [draftPo, ...prev.filter((p) => p.id !== draftPo.id)];
-        if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
-        return next;
-      });
-      showNotification("success", `Draft purchase order ${draftPo.poNumber} created from quotation.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not convert quotation to purchase order."));
-      throw error;
-    }
-  }, [permissions, session]);
 
   const previewInvoiceCorrection = async (invoice: InvoiceData): Promise<FinancialCorrectionPreview> => {
     if (session && supabase) return previewInvoiceCorrectionInSupabase(invoice.id);
