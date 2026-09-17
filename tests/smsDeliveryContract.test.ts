@@ -6,6 +6,7 @@ import { appPathForEmailWorkspace, emailWorkspaceContextFromSearch } from "../sr
 const migration = readFileSync(new URL("../supabase/migrations/20260912061500_wave4d_sms_providers.sql", import.meta.url), "utf8");
 const androidReconciliationMigration = readFileSync(new URL("../supabase/migrations/20260912073000_android_sms_reconciliation_reference.sql", import.meta.url), "utf8");
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const messagingRouter = readFileSync(new URL("../src/server/messaging/messagingRouter.ts", import.meta.url), "utf8");
 const workspace = readFileSync(new URL("../src/app/routes/EmailSmsRoute.tsx", import.meta.url), "utf8");
 const compose = readFileSync(new URL("../src/components/SmsComposePanel.tsx", import.meta.url), "utf8");
 const status = readFileSync(new URL("../src/components/SmsProviderStatusPanel.tsx", import.meta.url), "utf8");
@@ -26,12 +27,13 @@ test("the two approved SMS paths stay behind one server-only provider boundary",
   assert.match(workspace, /<SmsComposePanel/);
   assert.match(compose, /Prepare a transactional SMS draft/);
   assert.match(compose, /Confirm & Send SMS/);
-  assert.match(server, /app\.post\("\/api\/messaging\/sms\/send"/);
-  assert.match(server, /confirmed !== true/);
-  assert.match(server, /normalizePhilippineMobileNumber/);
-  assert.match(server, /claim_sms_send_intent/);
-  assert.match(server, /complete_sms_delivery_intent/);
-  assert.match(server, /SMS_SEND_RECONCILE_REQUIRED/);
+  assert.match(server, /createMessagingRouter/);
+  assert.match(messagingRouter, /router\.post\("\/messaging\/sms\/send"/);
+  assert.match(messagingRouter, /confirmed !== true/);
+  assert.match(messagingRouter, /normalizePhilippineMobileNumber/);
+  assert.match(messagingRouter, /claim_sms_send_intent/);
+  assert.match(messagingRouter, /complete_sms_delivery_intent/);
+  assert.match(messagingRouter, /SMS_SEND_RECONCILE_REQUIRED/);
   assert.match(clientMessaging, /payload\.data\?\.reconciliationRequired === true/);
   assert.match(clientMessaging, /!code && response\.status >= 500/);
   assert.match(clientMessaging, /response\.ok && payload\.success !== true/);

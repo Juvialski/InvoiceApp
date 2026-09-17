@@ -5,6 +5,9 @@ import { decodeBase64Payload, validateInvoiceDocumentBytes } from "../src/lib/fi
 
 const migration = readFileSync(new URL("../supabase/migrations/20260906070730_r5_integration_data_contract_hardening.sql", import.meta.url), "utf8");
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const messaging = readFileSync(new URL("../src/server/messaging/messagingRouter.ts", import.meta.url), "utf8");
+const invoiceRouter = readFileSync(new URL("../src/server/invoiceExtraction/invoiceExtractionRouter.ts", import.meta.url), "utf8");
+const deliveryHttp = readFileSync(new URL("../src/server/documentDelivery/documentDeliveryHttp.ts", import.meta.url), "utf8");
 const invoiceLogic = readFileSync(new URL("../src/utils/invoiceLogic.ts", import.meta.url), "utf8");
 const extractionQuality = readFileSync(new URL("../src/utils/extractionQuality.ts", import.meta.url), "utf8");
 const vendors = readFileSync(new URL("../src/components/Vendors.tsx", import.meta.url), "utf8");
@@ -27,10 +30,10 @@ test("R5 no longer embeds an implicit VAT rate", () => {
 });
 
 test("R5 issued-document send uses server-rendered snapshot bytes and durable intent state", () => {
-  assert.match(server, /renderTrustedIssuedPdf/);
-  assert.match(server, /claim_document_send_intent/);
-  assert.match(server, /complete_email_delivery_intent/);
-  assert.doesNotMatch(server, /pdfBase64/);
+  assert.match(deliveryHttp, /renderTrustedIssuedPdf/);
+  assert.match(messaging, /claim_document_send_intent/);
+  assert.match(messaging, /complete_email_delivery_intent/);
+  assert.doesNotMatch(`${server}\n${messaging}`, /pdfBase64/);
   assert.match(migration, /status in \('PENDING', 'SENT', 'FAILED', 'UNKNOWN'\)/i);
   assert.match(migration, /trusted_sha256/);
   assert.match(migration, /record_document_send_audit/i);
@@ -51,9 +54,9 @@ test("R5 direct extraction rejects malformed/base64 active content before AI", (
   assert.deepEqual(Array.from(decodeBase64Payload(Buffer.from(pdf).toString("base64"), 1024)), Array.from(pdf));
   assert.throws(() => decodeBase64Payload("not base64 %%", 1024), /valid base64/i);
   assert.throws(() => validateInvoiceDocumentBytes(new TextEncoder().encode("<svg>active</svg>"), "image/svg+xml", "invoice.svg"), /active|valid/i);
-  assert.match(server, /decodeBase64Payload/);
-  assert.match(server, /validateInvoiceDocumentBytes/);
-  assert.match(server, /attachmentName/);
+  assert.match(invoiceRouter, /decodeBase64Payload/);
+  assert.match(invoiceRouter, /validateInvoiceDocumentBytes/);
+  assert.match(messaging, /attachmentName/);
   assert.match(readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8"), /payload\.fileData && payload\.mimeType/);
 });
 

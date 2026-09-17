@@ -10,6 +10,9 @@ import { mapDocumentDeliveryHistory } from "../src/server/documentDelivery/docum
 const migration = readFileSync(new URL("../supabase/migrations/20260910110000_document_delivery_history.sql", import.meta.url), "utf8");
 const terminalAuditMigration = readFileSync(new URL("../supabase/migrations/20260910113000_document_delivery_terminal_audit_atomicity.sql", import.meta.url), "utf8");
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const deliveryRouter = readFileSync(new URL("../src/server/documentDelivery/documentDeliveryRouter.ts", import.meta.url), "utf8");
+const deliveryHttp = readFileSync(new URL("../src/server/documentDelivery/documentDeliveryHttp.ts", import.meta.url), "utf8");
+const messagingRouter = readFileSync(new URL("../src/server/messaging/messagingRouter.ts", import.meta.url), "utf8");
 const preview = readFileSync(new URL("../src/components/DocumentPreviewModal.tsx", import.meta.url), "utf8");
 const documentEmail = readFileSync(new URL("../src/lib/documentEmail.ts", import.meta.url), "utf8");
 
@@ -200,10 +203,13 @@ test("terminal delivery outcomes commit their audit atomically while ambiguous o
 });
 
 test("Email sending binds exact PDF provenance and exposes read-only history", () => {
-  assert.match(server, /finalizeIssuedDocumentTemplatePdfForDelivery/);
-  assert.match(server, /app\.get\("\/api\/document-delivery-history"/);
-  assert.match(server, /attachmentSource/);
-  assert.match(server, /trustedSha256/);
+  assert.match(server, /createDocumentDeliveryRouter/);
+  assert.match(server, /createMessagingRouter/);
+  assert.match(messagingRouter, /finalizeIssuedDocumentTemplatePdfForDelivery/);
+  assert.match(deliveryRouter, /router\.get\("\/document-delivery-history"/);
+  assert.match(messagingRouter, /attachmentSource/);
+  assert.match(messagingRouter, /trustedSha256/);
+  assert.match(deliveryHttp, /renderTrustedIssuedPdf/);
   assert.match(documentEmail, /DOCUMENT_SEND_RECONCILE_REQUIRED/);
   assert.match(preview, /data-document-delivery-history/);
   assert.match(preview, /Resend/);
