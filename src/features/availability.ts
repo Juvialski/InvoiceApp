@@ -1,4 +1,4 @@
-import type { HydroqualisenseFeatureDefinition, FeatureStatus } from "./types.ts";
+import type { ProductFeatureDefinition, FeatureStatus } from "./types.ts";
 
 export type FeatureAvailability = "AVAILABLE_NOW" | "PLANNED_NOT_AVAILABLE" | "FUTURE_ROADMAP";
 
@@ -8,7 +8,7 @@ export function featureAvailabilityForStatus(status: FeatureStatus): FeatureAvai
   return "FUTURE_ROADMAP";
 }
 
-export function featureAvailability(feature: Pick<HydroqualisenseFeatureDefinition, "status">): FeatureAvailability {
+export function featureAvailability(feature: Pick<ProductFeatureDefinition, "status">): FeatureAvailability {
   return featureAvailabilityForStatus(feature.status);
 }
 
@@ -18,6 +18,6 @@ export function featureAvailabilityLabel(availability: FeatureAvailability): str
   return "Future roadmap";
 }
 
-export function featurePhaseLabel(feature: Pick<HydroqualisenseFeatureDefinition, "phase">): string {
+export function featurePhaseLabel(feature: Pick<ProductFeatureDefinition, "phase">): string {
   return feature.phase === 0 ? "Core" : `Phase ${feature.phase}`;
 }
