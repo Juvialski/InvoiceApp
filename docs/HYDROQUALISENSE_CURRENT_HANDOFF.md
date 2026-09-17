@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — CLIENT SECURITY IMPLEMENTATION EVIDENCE COMPLETE WITH QUALIFIED LOCAL DB/RUNTIME AND PDF PASS / HOSTED DEPLOYMENT CERTIFICATION PENDING / REPOSITORY FRONT DOOR SLICE 1 COMPLETE / EMAIL-SMS RELIABILITY FOLLOWS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / WORKER REGISTRATION PAUSED**
-Date: **2026-09-17**
+Status: **CURRENT — CLIENT SECURITY IMPLEMENTATION EVIDENCE COMPLETE WITH QUALIFIED LOCAL DB/RUNTIME AND PDF PASS / HOSTED DEPLOYMENT CERTIFICATION PENDING / EMAIL-SMS RELIABILITY FOLLOWS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / WORKER REGISTRATION PAUSED**
+Date: **2026-09-15**
 Repository: `Juvialski/InvoiceApp`
 
 ## Authoritative current baseline
@@ -250,22 +250,6 @@ provider certification only when the exact QA SHA/migration, client-owned Brevo
 credentials, verified sender, and safe recipient are available. Wide Documents
 remaining managed slices stay deferred and Worker Registration stays paused.
 
-## 2026-09-17 Repository Front Door Professionalization — Slice 1 complete
-
-PR #178 completes the repository-facing Slice 1 work: current Hydroqualisense
-package/theme and feature-registry consumers, npm/package-lock hygiene, generated
-Astryx artifacts, the canonical architecture overview, current setup-document
-links, and the repository front door are synchronized. The API-facing stale
-session/deployment branding was corrected without changing authorization logic.
-
-No database migration, provider adapter, financial meaning, route/deep-link,
-permission/RLS, document-history, or production behavior changed in this slice.
-The later App.tsx and server.ts decomposition slices remain intentionally
-unstarted. This cleanup does not change the active sequence: Client Security
-Assurance & Handoff remains first, Email/SMS reliability remains a separate
-follow-on track, Wide Documents managed slices remain deferred, and Worker
-Registration remains paused.
-
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
 Wave 4D remains **partially implemented but not complete**. The current approved
@@ -431,14 +415,13 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Client Security Assurance & Handoff — active implementation phase / deployment certification pending**
-2. **Email/SMS Reliability & UX Completion — follows the active security phase as a separate product track**
-3. **Remaining Wave 4D provider/readiness evidence after this reliability slice**
-4. **Wide Documents remaining managed slices — DEFERRED by explicit reprioritization**
-5. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
-6. Site Attendance
-7. Face Recognition only after design/privacy/security work
-8. Final pre-production security/data-integrity certification
+1. **Email/SMS Reliability & UX Completion — ACTIVE by explicit user approval**
+2. **Remaining Wave 4D provider/readiness evidence after this reliability slice**
+3. **Wide Documents remaining managed slices — DEFERRED by explicit reprioritization**
+4. **Worker Registration — PAUSED until Wave 4D complete and user explicitly resumes it**
+5. Site Attendance
+6. Face Recognition only after design/privacy/security work
+7. Final pre-production security/data-integrity certification
 
 Do not skip directly to Worker Registration.
 
@@ -449,7 +432,7 @@ Do not skip directly to Worker Registration.
 For the current Email/SMS implementation run, Codex should:
 
 - first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
-- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `docs/GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts;
+- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts;
 - read the completed UI/UX Round 2 design record only as needed to preserve the new interaction baseline;
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
 - use at most one bounded context packet when useful;
