@@ -4,6 +4,10 @@ Date: 2026-09-17
 Repository: `Juvialski/InvoiceApp`
 Baseline `main`: `382d997760f30ce5605553ce7605db20df837b4e`
 
+Continuation design after Slice 1 / PR #178: `docs/superpowers/specs/2026-09-17-repository-professionalization-continuation-design.md`
+
+The continuation design is the authoritative source for the expanded post-Slice-1 program, including agent context/token-efficiency goals, staged static-analysis hardening, secondary large-module triage, repository evidence policy, and human onboarding. This original design remains the source of truth for the initial three-slice architecture and Slice 1 history.
+
 ## Objective
 
 Make the repository itself communicate the maturity that already exists in the application, while reducing two genuine architectural liabilities: oversized application/server composition files and stale repository-facing metadata.
