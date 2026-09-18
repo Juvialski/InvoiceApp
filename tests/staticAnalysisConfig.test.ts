@@ -23,6 +23,7 @@ const boundedTypeScriptSurface = [
   "src/features/finance/useCashBankingController.ts",
   "src/components/procurement/PurchaseOrderRegisterSection.tsx",
   "src/components/procurement/RfqRegisterSection.tsx",
+  "src/components/procurement/SubcontractRegisterSection.tsx",
 ];
 
 test("package scripts expose separate ESLint and TypeScript quality gates", () => {

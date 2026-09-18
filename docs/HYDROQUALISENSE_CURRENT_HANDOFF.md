@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — CLIENT SECURITY IMPLEMENTATION EVIDENCE COMPLETE WITH QUALIFIED LOCAL DB/RUNTIME AND PDF PASS / HOSTED DEPLOYMENT CERTIFICATION PENDING / EMAIL-SMS RELIABILITY FOLLOWS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / WORKER REGISTRATION PAUSED**
-Date: **2026-09-15**
+Status: **CURRENT — CLIENT SECURITY IMPLEMENTATION EVIDENCE COMPLETE WITH QUALIFIED LOCAL DB/RUNTIME AND PDF PASS / HOSTED DEPLOYMENT CERTIFICATION PENDING / REPOSITORY PROFESSIONALIZATION SLICE 5 WAVE B IMPLEMENTED / EMAIL-SMS RELIABILITY FOLLOWS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / WORKER REGISTRATION PAUSED**
+Date: **2026-09-18**
 Repository: `Juvialski/InvoiceApp`
 
 ## Authoritative current baseline
@@ -34,6 +34,8 @@ Read this handoff with:
 - `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — completed corrective foundation;
 - `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
 - `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the next product phase after this correction;
+- `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — active repository decomposition design;
+- `docs/HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` — approved future direction; implementation deferred;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
 - `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and deployment runbook when release/migration operations matter.
 
@@ -249,6 +251,14 @@ The next release step is deployment-specific QA promotion and controlled Brevo
 provider certification only when the exact QA SHA/migration, client-owned Brevo
 credentials, verified sender, and safe recipient are available. Wide Documents
 remaining managed slices stay deferred and Worker Registration stays paused.
+
+## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
+
+The repository professionalization track remains in progress. Slice 5 Wave B extracts the Subcontract register presentation into `src/components/procurement/SubcontractRegisterSection.tsx`; the reviewed `ProcurementPage.tsx` is 1,494 lines. The new section owns only KPI/filter/register/card/table/action presentation. Subcontract, claim, and variation state, filtering, parent-derived financial values, persistence, permissions, lifecycle mutations, routing context, and all editor/drawer/detail/cancellation orchestration remain parent-owned. Existing Claim and Variation workflow components remain authoritative and were not duplicated.
+
+This is behavior-preserving architecture work. No database, migration, RLS/RPC, provider, production, route, or persistence contract changed. The broader professionalization program and later slices remain incomplete.
+
+The approved future Excel-Native Operations UX direction is documented at `docs/HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md`. It is documentation only in this handoff: implementation has not started, current registers are not claimed to satisfy it, and no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review UI, dependency, migration, or route change is included. Revisit it from live repository state after the shared architecture boundary is safe.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
