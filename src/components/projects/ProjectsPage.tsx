@@ -44,10 +44,7 @@ import {
   type ProjectSortField,
 } from "../../utils/projectManagementViewModel.ts";
 import { createProjectDraft } from "../../utils/projectDraft.ts";
-import {
-  ProjectPortfolioRegisterSection,
-  PROJECT_STATUSES,
-} from "./ProjectPortfolioRegisterSection.tsx";
+import { ProjectPortfolioRegisterSection } from "./ProjectPortfolioRegisterSection.tsx";
 
 interface ProjectsPageProps {
   projects: Project[];
@@ -72,6 +69,15 @@ interface ProjectsPageProps {
     reason?: string,
   ) => Promise<void>;
 }
+
+const PROJECT_STATUSES: readonly ProjectStatus[] = [
+  "PLANNING",
+  "ACTIVE",
+  "ON_HOLD",
+  "COMPLETED",
+  "CANCELLED",
+  "ARCHIVED",
+];
 
 function blankProject(): Project {
   return createProjectDraft();
@@ -316,6 +322,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         portfolio={portfolio}
         managerOptions={managerOptions}
         currencyOptions={currencyOptions}
+        projectStatuses={PROJECT_STATUSES}
         query={query}
         statusFilter={status}
         managerFilter={managerFilter}
