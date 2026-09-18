@@ -6,11 +6,11 @@ Repository: `Juvialski/InvoiceApp`
 
 ## Current repository state
 
-The latest application-bearing merged `main` before this documentation-only reorganization is:
+The pre-Wave-C merged `main` baseline was:
 
-`df5de411443eb0cfaf9a9cacb3c790eb686b1489`
+`4f840b291f4efa28eedceceae5ed95843d7c3f58`
 
-That merge completed Repository & Architecture Professionalization Slice 5 Wave B. Slices 1-4 and Procurement register decomposition Waves A-B are merged; the broader professionalization program remains incomplete. Draft PR #176 remains an independent Email/SMS reliability workstream.
+This handoff includes Slice 5 Wave C (Projects portfolio/register presentation decomposition) on top of that baseline. Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains incomplete. Draft PR #176 remains an independent Email/SMS reliability workstream.
 
 The approved future Excel-Native Operations UX is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is not implemented and must not be treated as current product capability.
 
@@ -270,6 +270,18 @@ The repository professionalization track remains in progress. Slice 5 Wave B ext
 This is behavior-preserving architecture work. No database, migration, RLS/RPC, provider, production, route, or persistence contract changed. The broader professionalization program and later slices remain incomplete.
 
 The approved future Excel-Native Operations UX direction is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is documentation only in this handoff: implementation has not started, current registers are not claimed to satisfy it, and no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review UI, dependency, migration, or route change is included. Revisit it from live repository state after the shared architecture boundary is safe.
+
+## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave C
+
+The repository professionalization track continues with Slice 5 Wave C.
+
+- Extracted presentation component: `src/components/projects/ProjectPortfolioRegisterSection.tsx`
+- What moved: portfolio snapshot disclosure, project counts, attention-signal counts, multi-currency portfolio financial totals, search/status/manager/currency/health/attention filters, sort selector and direction toggles, filter reset bar, responsive desktop table, mobile/tablet cards (`ProjectRegisterCard`), status/health/attention badges, tax-treatment display, financial metric cells, work-package summaries, and Open/Edit/Lifecycle action presentation.
+- Pure presentation helpers moved: `money`, `statusTone`, `healthBadgeTone`, `attentionTone`, `financialValue`, `FinancialValue`, `PortfolioFinancialValue`, `portfolioMetricInline`.
+- What stayed parent-owned: project source data, cost summaries, client billing/collection data, permissions, completeness checks, `buildProjectManagementView(...)`, `buildPortfolioManagementSummary(...)`, `filterAndSortProjectViews(...)`, filter and sort state, manager and currency option derivation, editing draft creation and validation, project save orchestration, lifecycle preview loading, lifecycle actions, lifecycle reason/error/loading state, lifecycle and editing dialogs, and route/open behavior.
+- Line counts: `ProjectsPage.tsx` was reduced from 1,413 lines to 713 lines in the reviewed working tree.
+- Invariant confirmation: project financial, lifecycle, currency, tax treatment, permission, audit, route, and history semantics remain completely unchanged. Unknown monetary values are not converted to zero, and mixed currencies are not combined.
+- Excel-native confirmation: no Excel-native implementation, `OperationsGrid`, `.xlsx` parser, or spreadsheet dependency was added. Future Excel-native UX remains deferred.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 

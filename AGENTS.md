@@ -42,7 +42,7 @@ Prompt creators should put the pull-first instruction at the top of every normal
 
 This section supersedes older `active` / `current implementation` labels below when they conflict. Product dependency history remains useful, but current engineering work must follow this track summary and the live roadmap/handoff.
 
-1. **Repository & Architecture Professionalization — ACTIVE structural track.** Slices 1-4 and Slice 5 Waves A-B are merged. Continue only from the live professionalization design and current repository state; do not infer that the broader program is complete.
+1. **Repository & Architecture Professionalization — ACTIVE structural track.** Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state. Continue only from the live professionalization design and current repository state; do not infer that the broader program is complete.
 2. **Email/SMS Reliability — independent active workstream.** Draft PR #176 remains isolated and owns its documented files. Professionalization work must not absorb or rewrite that branch.
 3. **Excel-Native Operations UX — APPROVED FUTURE MAJOR UX DIRECTION, IMPLEMENTATION DEFERRED.** The canonical design is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It requires genuine bidirectional `.xlsx` round trips for editable Excel-native workspaces while preserving domain validation, permissions, history, financial authority, stale-workbook conflict review, and human confirmation before apply. Do not start this implementation until the repository/architecture boundary is ready and the user explicitly moves to that phase.
 4. **Wide Documents remaining managed slices — DEFERRED.**
