@@ -54,7 +54,7 @@ QA/release/provider certification remains a parallel readiness track. A structur
 
 The broad `Email/SMS + Documents` phase remains incomplete. This 2026-09-14 sequence is retained as product-dependency history; where it describes an item as the active implementation run, the 2026-09-18 Current implementation tracks section above now governs.
 
-Current sequence:
+Historical product dependency sequence:
 
 1. Wave 1A — Supplier Payable Lifecycle UX — complete on merged `main`.
 2. Wave 1B — Client Receivable Lifecycle UX — complete on merged `main`.
