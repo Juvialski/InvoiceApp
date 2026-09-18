@@ -38,11 +38,23 @@ For a new Codex implementation task:
 
 Prompt creators should put the pull-first instruction at the top of every normal Codex implementation prompt. Avoid wording that tells Codex to spend time independently establishing the latest green remote baseline before pulling; **pull latest `main`, record the SHA once, then work**.
 
-## Current product sequence — explicit 2026-09-14 reprioritization
+## Current implementation tracks — explicit 2026-09-18 override
 
-The broad `Email/SMS + Documents` phase remains incomplete. The explicitly inserted second app-wide UI/UX simplification round and the Document Template AI corrective phase are complete on the current merged baseline. The user has now explicitly reprioritized the current implementation run to Client Security Assurance & Handoff, including flexible company-defined roles and the client security PDF. The remaining Email/SMS provider/runtime readiness and Wide Documents managed slices remain deferred until this security phase is handled.
+This section supersedes older `active` / `current implementation` labels below when they conflict. Product dependency history remains useful, but current engineering work must follow this track summary and the live roadmap/handoff.
 
-Current sequence:
+1. **Repository & Architecture Professionalization — ACTIVE structural track.** Slices 1-4 and Slice 5 Waves A-B are merged. Continue only from the live professionalization design and current repository state; do not infer that the broader program is complete.
+2. **Email/SMS Reliability — independent active workstream.** Draft PR #176 remains isolated and owns its documented files. Professionalization work must not absorb or rewrite that branch.
+3. **Excel-Native Operations UX — APPROVED FUTURE MAJOR UX DIRECTION, IMPLEMENTATION DEFERRED.** The canonical design is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It requires genuine bidirectional `.xlsx` round trips for editable Excel-native workspaces while preserving domain validation, permissions, history, financial authority, stale-workbook conflict review, and human confirmation before apply. Do not start this implementation until the repository/architecture boundary is ready and the user explicitly moves to that phase.
+4. **Wide Documents remaining managed slices — DEFERRED.**
+5. **Worker Registration — PAUSED** until the broader Wave 4D gate is genuinely complete and the user explicitly resumes it.
+
+QA/release/provider certification remains a parallel readiness track. A structural merge does not imply hosted certification or production authorization.
+
+## Earlier product sequence context — explicit 2026-09-14 reprioritization
+
+The broad `Email/SMS + Documents` phase remains incomplete. This 2026-09-14 sequence is retained as product-dependency history; where it describes an item as the active implementation run, the 2026-09-18 Current implementation tracks section above now governs.
+
+Historical product dependency sequence:
 
 1. Wave 1A — Supplier Payable Lifecycle UX — complete on merged `main`.
 2. Wave 1B — Client Receivable Lifecycle UX — complete on merged `main`.

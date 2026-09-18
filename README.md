@@ -33,7 +33,7 @@ Current implemented domains include project workspaces and cost controls, suppli
 - `server.ts` — Express composition and authenticated server API routes.
 - `supabase/` — forward-only PostgreSQL migrations and database tests for RLS, grants, lifecycle, and integrity contracts.
 - `scripts/` — focused test selection, Workflow Map tooling, QA harnesses, and deployment/release checks.
-- `docs/` — current product direction, architecture, deployment, provider setup, and domain contracts.
+- `docs/` — current product direction, architecture, deployment, provider setup, domain contracts, and the [Documentation Map](docs/README.md).
 - `.github/workflows/` — protected application, database, browser-QA, and source-contract validation.
 
 ## Local development
@@ -73,10 +73,13 @@ Never commit provider secrets or expose server-only credentials through `VITE_` 
 
 ## Current project status
 
-This repository front door covers the completed Repository Front Door / Hygiene slice only. Email/SMS reliability remains a separate product track, and the later `src/App.tsx` and `server.ts` decomposition slices are not included here. For the live direction and handoff state, use:
+Repository & Architecture Professionalization is the active structural track. The repository front door, App/domain-controller decomposition, server/router decomposition, staged static-analysis hardening, and Procurement register presentation decomposition through Slice 5 Wave B are merged. Email/SMS reliability remains an independent workstream, and the approved Excel-Native Operations UX is a future major UX direction whose implementation is deliberately deferred until the shared architecture boundaries are ready.
 
+For the current source-of-truth hierarchy and document locations, start with:
+
+- [Documentation Map](docs/README.md)
 - [Active Roadmap](docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md)
 - [Current Handoff](docs/HYDROQUALISENSE_CURRENT_HANDOFF.md)
 - [Product Direction](docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md)
 
-Historical files with legacy names remain valid implementation/history references where still applicable, but they do not override the current HydroQualiSense roadmap, handoff, or live repository instructions.
+Historical files with legacy names remain implementation/history references only where still applicable. They do not override `AGENTS.md`, the active roadmap, the current handoff, or live repository state.
