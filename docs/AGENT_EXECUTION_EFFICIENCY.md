@@ -41,7 +41,9 @@ Do not use spare agent capacity for duplicate audits or speculative scope expans
 
 ## 3. Implementation validation ladder
 
-After changes, use the smallest applicable ladder:
+Validation is **final-diff-first**. While editing, run only the new/edited test or smallest focused domain check needed to prove the current change. Do not rerun the full applicable ladder after every small edit.
+
+On the integrated final diff, run the smallest applicable ladder once:
 
 1. new/edited tests;
 2. focused domain tests;
@@ -51,6 +53,16 @@ After changes, use the smallest applicable ladder:
 6. push and open PR; Codex must not merge its own PR.
 
 Do not run `test:full` unless impact selection falls back to it, a broad shared contract genuinely requires it, failures justify it, release/deep-regression work requires it, or the user explicitly requests it.
+
+Do not duplicate expensive evidence without a reason:
+
+- never rerun an unchanged failing suite merely to see it fail again;
+- after a justified fix, rerun the narrow failing check first rather than restarting every broad gate;
+- if protected GitHub CI will perform the same expensive build/browser/database/workflow check on the exact pushed head, local Codex should normally run only the minimum useful pre-push subset;
+- duplicate a protected CI job locally only when the changed risk domain requires pre-push runtime evidence, repository policy explicitly requires it, or a CI failure needs local diagnosis;
+- database, browser, provider, hosted-QA, and production checks are never ritual follow-ups to unrelated application changes.
+
+This policy is intended to preserve more model budget for implementation and higher-capability reasoning while keeping exact-head CI and risk-appropriate safeguards authoritative.
 
 ## 4. Database validation
 

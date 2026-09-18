@@ -15,7 +15,7 @@ const migration = readFileSync(new URL("../supabase/migrations/20260829234056_co
 const persistence = readFileSync(new URL("../src/lib/cashBankingPersistence.ts", import.meta.url), "utf8");
 const cashPage = readFileSync(new URL("../src/components/CashBankingPage.tsx", import.meta.url), "utf8");
 const settlementWorkspace = readFileSync(new URL("../src/components/CashSettlementAllocationWorkspace.tsx", import.meta.url), "utf8");
-const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const cashController = readFileSync(new URL("../src/features/finance/useCashBankingController.ts", import.meta.url), "utf8");
 const assistant = readFileSync(new URL("../src/server/assistant/financialSettlementAssistant.ts", import.meta.url), "utf8");
 
 test("Wave 2B3 Cash migration exposes additive, authenticated lifecycle RPCs", () => {
@@ -104,8 +104,8 @@ test("Cash correction UI exposes permission-gated edit, reversal, review, transf
   assert.match(settlementWorkspace, /onReverseMatch/);
   assert.match(settlementWorkspace, /canReverseMatch/);
   assert.match(settlementWorkspace, /onSaveMatchBatch/);
-  assert.match(app, /reverseFinancialTransferInSupabase/);
-  assert.match(app, /confirmFinancialSettlementBatchToSupabase/);
+  assert.match(cashController, /reverseFinancialTransferInSupabase/);
+  assert.match(cashController, /confirmFinancialSettlementBatchToSupabase/);
 });
 
 test("Existing Assistant settlement confirmation and reversal remain on guarded RPC paths", () => {
