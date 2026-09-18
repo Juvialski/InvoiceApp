@@ -75,6 +75,9 @@ test("ProcurementPage renders sub-tabs for Purchase Orders and Requests for Quot
 
   assert.match(markup, /Purchase Orders/);
   assert.match(markup, /Requests for Quotation \(RFQs\)/);
+  assert.match(markup, /Active Committed/);
+  assert.match(markup, /All Delivery States/);
+  assert.match(markup, /No purchase orders yet/);
 });
 
 test("RFQEditorModal renders with accessible dialog attributes, line items table, and invited vendors", () => {

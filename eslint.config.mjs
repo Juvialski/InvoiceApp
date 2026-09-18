@@ -9,6 +9,8 @@ const architecturalTypeScriptFiles = [
   "src/features/procurement/useProcurementController.ts",
   "src/features/inventory/useInventoryEquipmentController.ts",
   "src/features/finance/useCashBankingController.ts",
+  "src/components/procurement/PurchaseOrderRegisterSection.tsx",
+  "src/components/procurement/RfqRegisterSection.tsx",
 ];
 
 export default [
