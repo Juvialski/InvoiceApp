@@ -13,7 +13,7 @@ import {
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type { Project, ProjectStatus } from "../../types.ts";
-import { isClassifiedProjectTaxTreatment, projectTaxTreatmentLabel } from "../../utils/projectTaxTreatment.ts";
+import { projectTaxTreatmentLabel } from "../../utils/projectTaxTreatment.ts";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import {
   topProjectAttentionSignal,
@@ -28,14 +28,6 @@ import {
 } from "../../utils/projectManagementViewModel.ts";
 import type { ProjectFinancialMetric } from "../../utils/projectFinancialSummary.ts";
 
-export const PROJECT_STATUSES: readonly ProjectStatus[] = [
-  "PLANNING",
-  "ACTIVE",
-  "ON_HOLD",
-  "COMPLETED",
-  "CANCELLED",
-  "ARCHIVED",
-];
 
 function money(value: number | null | undefined, currency: string): string {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
@@ -147,6 +139,7 @@ export interface ProjectPortfolioRegisterSectionProps {
   portfolio: PortfolioManagementSummary;
   managerOptions: readonly string[];
   currencyOptions: readonly string[];
+  projectStatuses: readonly ProjectStatus[];
 
   query: string;
   statusFilter: "ALL" | ProjectStatus;
@@ -324,6 +317,7 @@ export function ProjectPortfolioRegisterSection({
   portfolio,
   managerOptions,
   currencyOptions,
+  projectStatuses,
   query,
   statusFilter,
   managerFilter,
@@ -452,7 +446,7 @@ export function ProjectPortfolioRegisterSection({
               aria-label="Filter by project status"
             >
               <option value="ALL">All Statuses</option>
-              {PROJECT_STATUSES.map((st) => (
+              {projectStatuses.map((st) => (
                 <option key={st} value={st}>
                   {st.replaceAll("_", " ")}
                 </option>
