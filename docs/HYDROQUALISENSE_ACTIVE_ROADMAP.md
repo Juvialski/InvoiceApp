@@ -2,7 +2,7 @@
 
 Status: **ACTIVE — CLIENT SECURITY ASSURANCE & HANDOFF IN PROGRESS / FLEXIBLE CUSTOM-RBAC IMPLEMENTATION ADDED BUT LOCAL DB RUNTIME CERTIFICATION BLOCKED BY UNAVAILABLE DOCKER / CLIENT SECURITY PDF HANDOFF DRAFT PENDING QA EVIDENCE / EMAIL-SMS RELIABILITY FOLLOWS / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-15**
+Last updated: **2026-09-18**
 
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
@@ -14,6 +14,8 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Active Email/SMS phase contract:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
 **Active security phase contract:** `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
 **Active security implementation plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
+**Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
+**Approved future Excel-Native Operations UX design:** `docs/HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` — implementation deferred
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
@@ -215,6 +217,12 @@ Brevo sending remains not tested/unverified. The aggregate affected selector
 selected all 321 tests but reached existing unrelated visual-harness lifecycle
 failures; it is not represented as a green full-suite result. No production
 mutation occurred.
+
+## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
+
+The repository professionalization track remains in progress as an independent structural implementation track. Slice 5 Wave B extracts the Subcontract register presentation into `src/components/procurement/SubcontractRegisterSection.tsx` while retaining subcontract, claim, variation, filtering, financial derivation, persistence, permission, lifecycle, and modal/drawer orchestration in `ProcurementPage.tsx`. The existing Claim and Variation workflow components remain authoritative. This is behavior-preserving architecture work, not completion of the broader professionalization program.
+
+The project-manager Excel-native direction is approved and its future design contract is now documented at `docs/HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md`. Implementation has not started: no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review workflow, dependency, migration, or route change is authorized by this roadmap entry. Revisit it only after the repository/architecture boundaries are sufficiently decomposed for a safe shared grid/workbook phase. This future direction does not reorder the active product sequence below.
 
 ## Immediate implementation sequence
 

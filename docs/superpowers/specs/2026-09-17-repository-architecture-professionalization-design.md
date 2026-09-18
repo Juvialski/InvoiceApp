@@ -99,9 +99,15 @@ Slice 4 is implemented as the staged static-analysis and TypeScript-hardening sl
 
 The stronger TypeScript boundary is explicit for `server.ts`, the server authorization/assistant/public-prospect/storage routers, and the three extracted procurement, inventory, and cash-banking controllers. That surface enforces `@typescript-eslint/no-explicit-any` and `@typescript-eslint/ban-ts-comment` as errors. Package scripts now expose `lint:eslint` (`eslint .`) and `typecheck` (`tsc --noEmit`), with `lint` retaining both as the combined quality gate. TypeScript enables `forceConsistentCasingInFileNames`, `noFallthroughCasesInSwitch`, and `noImplicitOverride`; full repository-wide `strict: true` remains intentionally deferred. No Prettier, product behavior, database, provider, or production surface was added or changed.
 
-#### Slice 5 implementation status — 2026-09-18
+#### Slice 5 implementation status — Wave A — 2026-09-18
 
 Procurement secondary-module decomposition has started in Wave A. Purchase Order register presentation now lives in `src/components/procurement/PurchaseOrderRegisterSection.tsx`, and RFQ/Supplier Quotation register presentation now lives in `src/components/procurement/RfqRegisterSection.tsx`. `ProcurementPage.tsx` remains the owner of business state, filtering and derived metrics, lifecycle/mutation callbacks, routing context, and Purchase Order/RFQ/quotation modal orchestration. Subcontract, claim, and variation decomposition remains intentionally deferred. No database, financial-semantic, provider, or production contract changed; this does not complete the broader secondary-large-module program.
+
+#### Slice 5 implementation status — Wave B — 2026-09-18
+
+Wave B completes the next presentation boundary: the Subcontract register workspace now lives in `src/components/procurement/SubcontractRegisterSection.tsx`. The extracted section owns the Subcontract tab's KPI cards, filters, responsive card/table presentation, empty state, row display, Claims/Variations entry points, View/Edit entry, and lifecycle action presentation. `ProcurementPage.tsx` remains the owner of subcontract, claim, and variation state; filtering; parent-derived financial/register row models; committed-cost, claim, retention, and certified-value derivation; permissions; demo/live persistence; lifecycle/mutation callbacks; routing context; and all editor/drawer/detail/cancellation orchestration. The existing Claim and Variation components remain authoritative and were not duplicated.
+
+After the extraction, `ProcurementPage.tsx` is 1,494 lines in the reviewed working tree. No database, financial-semantic, provider, production, route, or persistence contract changed. Slice 5 Wave B is complete as this focused presentation extraction, but the broader secondary-module and repository professionalization program remains incomplete; this status must not be read as completion of all of Slice 5 or later slices.
 
 ## Non-goals
 
