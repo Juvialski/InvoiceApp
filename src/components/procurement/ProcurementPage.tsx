@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
-  Award,
   Building2,
   CheckCircle2,
   Clock,
@@ -10,15 +9,12 @@ import {
   FileEdit,
   FileText,
   Filter,
-  Layers,
   PackageCheck,
   Percent,
   Plus,
   RotateCcw,
   Search,
   ShoppingCart,
-  Truck,
-  Users,
   X,
 } from "lucide-react";
 import type {
@@ -78,6 +74,8 @@ import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { isCommittedPurchaseOrder, isCommittedSubcontract, purchaseOrderTotal, subcontractTotal } from "../../utils/projectCosting.ts";
 import { calculatePOReceiptProgress, type PODeliveryStatus } from "../../utils/purchaseOrderReceipts.ts";
 import { EmptyState, PageHeader } from "../ui/OperationsUI.tsx";
+import { PurchaseOrderRegisterSection } from "./PurchaseOrderRegisterSection.tsx";
+import { RfqRegisterSection } from "./RfqRegisterSection.tsx";
 import { PurchaseOrderEditorModal } from "./PurchaseOrderEditorModal.tsx";
 import { RFQEditorModal } from "./RFQEditorModal.tsx";
 import { SupplierQuotationModal } from "./SupplierQuotationModal.tsx";
@@ -186,81 +184,6 @@ export interface ProcurementPageProps {
     reason?: string,
   ) => Promise<void>;
   onDeleteSubcontractVariation?: (id: string) => Promise<void>;
-}
-
-interface PurchaseOrderRegisterCardProps {
-  po: PurchaseOrder;
-  vendor?: Vendor;
-  project?: Project;
-  progress?: ReturnType<typeof calculatePOReceiptProgress>;
-  onPreview: () => void;
-  onOpen: () => void;
-}
-
-function PurchaseOrderRegisterCard({ po, vendor, project, progress, onPreview, onOpen }: PurchaseOrderRegisterCardProps) {
-  const deliveryLabel = po.status === "ISSUED" || po.status === "CLOSED"
-    ? progress?.deliveryStatus === "FULLY_RECEIVED"
-      ? "Fully delivered"
-      : progress?.deliveryStatus === "PARTIALLY_RECEIVED"
-        ? `${progress.overallProgressPercent}% received`
-        : "0% delivered"
-    : po.status === "DRAFT" ? "Draft" : po.status === "APPROVED" ? "Not issued" : "—";
-
-  return <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm" data-purchase-order-register-card={po.id}>
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <h3 className="break-words font-mono text-sm font-black text-slate-950">{po.poNumber}</h3>
-        {po.description && <p className="mt-1 break-words text-xs text-slate-600">{po.description}</p>}
-      </div>
-      <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${po.status === "ISSUED" ? "bg-purple-100 text-purple-800" : po.status === "CLOSED" ? "bg-emerald-100 text-emerald-800" : po.status === "CANCELLED" ? "bg-rose-100 text-rose-800" : po.status === "APPROVED" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>{po.status}</span>
-    </div>
-
-    <dl className="mt-3 grid gap-2 text-xs">
-      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Supplier</dt><dd className="mt-0.5 break-words font-semibold text-slate-800">{vendor?.name || "Unknown vendor"}</dd></div>
-      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Project</dt><dd className="mt-0.5 break-words font-semibold text-indigo-700">{project?.projectCode || "—"}<span className="block text-[10px] font-normal text-slate-500">{project?.projectName || "Unscoped"}</span></dd></div>
-      <div className="grid grid-cols-2 gap-3"><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Delivery</dt><dd className="mt-0.5 font-semibold text-slate-800">{deliveryLabel}{progress && progress.totalOrderedQuantity > 0 && <span className="block text-[10px] font-normal text-slate-500">{progress.totalReceivedQuantity} / {progress.totalOrderedQuantity} units</span>}</dd></div><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Committed amount</dt><dd className="mt-0.5 font-mono font-black tabular-nums text-slate-950">{formatMoney(po.totalAmount || 0, po.currency || "PHP")}</dd></div></div>
-      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Issue date · items</dt><dd className="mt-0.5 text-slate-700">{po.issueDate ? formatDate(po.issueDate, "short") : "Not issued"} · {po.lines?.length || 0} item{po.lines?.length === 1 ? "" : "s"}</dd></div>
-    </dl>
-
-    <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" onClick={onPreview} className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 py-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"><FileText className="h-3.5 w-3.5" />Preview</button><button type="button" onClick={onOpen} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-50">View / Edit</button></div>
-  </article>;
-}
-
-interface RfqRegisterCardProps {
-  rfq: RFQ;
-  project?: Project;
-  quotes: readonly SupplierQuotation[];
-  selectedQuote?: SupplierQuotation;
-  selectedVendor?: Vendor;
-  invitedCount: number;
-  canManage: boolean;
-  onCompare: () => void;
-  onAddQuote: () => void;
-  onEdit: () => void;
-  onIssue: () => void;
-  onCancel: () => void;
-}
-
-function RfqRegisterCard({ rfq, project, quotes, selectedQuote, selectedVendor, invitedCount, canManage, onCompare, onAddQuote, onEdit, onIssue, onCancel }: RfqRegisterCardProps) {
-  return <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm" data-rfq-register-card={rfq.id}>
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <h3 className="break-words font-mono text-sm font-black text-slate-950">{rfq.rfqNumber}</h3>
-        <p className="mt-1 break-words text-xs font-semibold text-slate-800">{rfq.title}</p>
-        {rfq.description && <p className="mt-1 break-words text-[10px] leading-4 text-slate-500">{rfq.description}</p>}
-      </div>
-      <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${rfq.status === "ISSUED" ? "bg-purple-100 text-purple-800" : rfq.status === "CLOSED" ? "bg-emerald-100 text-emerald-800" : rfq.status === "CANCELLED" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>{rfq.status === "ISSUED" ? "OUT FOR QUOTE" : rfq.status}</span>
-    </div>
-
-    <dl className="mt-3 grid gap-2 text-xs">
-      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Project</dt><dd className="mt-0.5 break-words font-semibold text-indigo-700">{project?.projectCode || "General"}<span className="block text-[10px] font-normal text-slate-500">{project?.projectName || "Unscoped"}</span></dd></div>
-      <div className="grid grid-cols-3 gap-2"><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Lines</dt><dd className="mt-0.5 font-semibold text-slate-800">{rfq.lines?.length || 0}</dd></div><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Invited</dt><dd className="mt-0.5 font-semibold text-slate-800">{invitedCount}</dd></div><div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Quotes</dt><dd className="mt-0.5 font-semibold text-indigo-700">{quotes.length}</dd></div></div>
-      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Dates</dt><dd className="mt-0.5 text-slate-700">{rfq.issueDate ? `Issued ${formatDate(rfq.issueDate, "short")}` : "Not issued"}{rfq.dueDate ? ` · Due ${formatDate(rfq.dueDate, "short")}` : ""}</dd></div>
-      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Decision</dt><dd className="mt-0.5 break-words text-slate-700">{selectedQuote ? `Selected: ${selectedVendor?.name || "Supplier"} · ${formatMoney(selectedQuote.totalAmount, selectedQuote.currency)}` : "Pending decision"}</dd></div>
-    </dl>
-
-    <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" onClick={onCompare} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-50">{quotes.length > 0 ? "View & Compare" : "Compare"}</button>{canManage && rfq.status !== "CANCELLED" && <button type="button" onClick={onAddQuote} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-black text-purple-700 hover:bg-purple-50">+ Quote</button>}{canManage && rfq.status === "DRAFT" && <><button type="button" onClick={onEdit} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Edit</button><button type="button" onClick={onIssue} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50">Issue</button></>}{canManage && rfq.status !== "CLOSED" && rfq.status !== "CANCELLED" && <button type="button" onClick={onCancel} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-semibold text-rose-700 hover:bg-rose-50">Cancel</button>}</div>
-  </article>;
 }
 
 export const ProcurementPage: React.FC<ProcurementPageProps> = ({
@@ -1283,589 +1206,58 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
         </button>
       </div>
 
-      {/* ========================================================================= */}
-      {/* VIEW 1: PURCHASE ORDERS TAB */}
-      {/* ========================================================================= */}
       {activeTab === "purchase_orders" && (
-        <>
-          {/* PO KPI Cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-5">
-            <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-white p-4 shadow-sm">
-              <div className="flex items-center justify-between text-indigo-700 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Active Committed</span>
-                <ShoppingCart className="h-4 w-4" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">
-                {activeCommittedPurchaseOrderTotals.length > 0 ? (
-                  <div className="space-y-0.5">
-                    {activeCommittedPurchaseOrderTotals.map(([currency, amount]) => (
-                      <div key={currency}>{formatMoney(amount, currency)}</div>
-                    ))}
-                  </div>
-                ) : (
-                  "—"
-                )}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Approved &amp; Issued orders; currencies shown separately</div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between text-slate-600 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Total Orders</span>
-                <FileText className="h-4 w-4 text-slate-400" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">{poCounts.total}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Across active filters</div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between text-blue-700 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Approved / Issued</span>
-                <FileCheck className="h-4 w-4 text-blue-500" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">
-                {poCounts.approved + poCounts.issued}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">
-                {poCounts.approved} approved, {poCounts.issued} issued
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between text-amber-700 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">In Draft</span>
-                <Clock className="h-4 w-4 text-amber-500" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">{poCounts.draft}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Not yet committed</div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm col-span-2 sm:col-span-1">
-              <div className="flex items-center justify-between text-emerald-700 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Closed</span>
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">{poCounts.closed}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Completed obligations</div>
-            </div>
-          </div>
-
-          {/* PO Filters Bar */}
-          <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:grid-cols-[minmax(18rem,1fr)_minmax(0,auto)] xl:items-center">
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-1.5 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-1 focus-within:ring-indigo-500">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search PO #, supplier, project, description..."
-                className="w-full bg-transparent text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 xl:w-auto">
-              {!selectedProjectId && (
-                <select
-                  value={projectFilter}
-                  onChange={(e) => setProjectFilter(e.target.value)}
-                  className="min-w-0 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none sm:w-auto"
-                >
-                  <option value="ALL">All Projects</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.projectCode} — {p.projectName}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="min-w-0 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none sm:w-auto"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="DRAFT">Draft</option>
-                <option value="APPROVED">Approved</option>
-                <option value="ISSUED">Issued</option>
-                <option value="CLOSED">Closed</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-
-              <select
-                value={deliveryFilter}
-                onChange={(e) => setDeliveryFilter(e.target.value)}
-                className="min-w-0 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none sm:w-auto"
-              >
-                <option value="ALL">All Delivery States</option>
-                <option value="NOT_RECEIVED">Pending Delivery (0%)</option>
-                <option value="PARTIALLY_RECEIVED">Partially Delivered</option>
-                <option value="FULLY_RECEIVED">Fully Delivered (100%)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* PO Register Table */}
-          {filteredOrders.length > 0 ? (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="space-y-2 p-3 lg:hidden" aria-label="Purchase order register cards">
-                {filteredOrders.map((po) => <PurchaseOrderRegisterCard key={po.id} po={po} vendor={vendorMap.get(po.vendorId)} project={projectMap.get(po.projectId)} progress={poProgressMap.get(po.id)} onPreview={() => setPreviewPo(po)} onOpen={() => setActivePo(po)} />)}
-              </div>
-              <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3">PO Number</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Delivery Progress</th>
-                      <th className="px-4 py-3">Supplier / Vendor</th>
-                      <th className="px-4 py-3">Project</th>
-                      <th className="px-4 py-3">Issue Date</th>
-                      <th className="px-4 py-3 text-center">Items</th>
-                      <th className="px-4 py-3 text-right">Committed Amount</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredOrders.map((po) => {
-                      const vendor = vendorMap.get(po.vendorId);
-                      const proj = projectMap.get(po.projectId);
-                      const prog = poProgressMap.get(po.id);
-                      return (
-                        <tr
-                          key={po.id}
-                          onClick={() => setActivePo(po)}
-                          className="cursor-pointer hover:bg-slate-50/80 transition-colors"
-                        >
-                          <td className="px-4 py-3 font-mono font-bold text-slate-900">
-                            {po.poNumber}
-                            {po.description && (
-                              <div className="font-sans font-normal text-[11px] text-slate-500 truncate max-w-xs">
-                                {po.description}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                                po.status === "APPROVED"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : po.status === "ISSUED"
-                                  ? "bg-purple-100 text-purple-800"
-                                  : po.status === "CLOSED"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : po.status === "CANCELLED"
-                                  ? "bg-rose-100 text-rose-800"
-                                  : "bg-slate-100 text-slate-800"
-                              }`}
-                            >
-                              {po.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            {po.status === "ISSUED" || po.status === "CLOSED" ? (
-                              <div className="space-y-0.5">
-                                <span
-                                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                                    prog?.deliveryStatus === "FULLY_RECEIVED"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : prog?.deliveryStatus === "PARTIALLY_RECEIVED"
-                                      ? "bg-amber-100 text-amber-800"
-                                      : "bg-slate-100 text-slate-600"
-                                  }`}
-                                >
-                                  <Truck className="h-3 w-3" />
-                                  {prog?.deliveryStatus === "FULLY_RECEIVED"
-                                    ? "Fully Delivered"
-                                    : prog?.deliveryStatus === "PARTIALLY_RECEIVED"
-                                    ? `${prog.overallProgressPercent}% Received`
-                                    : "0% Delivered"}
-                                </span>
-                                {prog && prog.totalOrderedQuantity > 0 && (
-                                  <div className="text-[10px] text-slate-400 font-mono">
-                                    {prog.totalReceivedQuantity} / {prog.totalOrderedQuantity} units
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-slate-400 italic">
-                                {po.status === "DRAFT" ? "Draft" : po.status === "APPROVED" ? "Not issued" : "—"}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="font-semibold text-slate-800">{vendor?.name || "Unknown Vendor"}</div>
-                            {vendor?.taxId && <div className="text-[10px] text-slate-400">TIN: {vendor.taxId}</div>}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="font-semibold text-slate-800">{proj?.projectCode || "—"}</div>
-                            <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
-                              {proj?.projectName || "—"}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600 font-mono">
-                            {po.issueDate ? formatDate(po.issueDate, "short") : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-center tabular-nums text-slate-600">
-                            {po.lines?.length || 0}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                            {formatMoney(po.totalAmount || 0, po.currency || "PHP")}
-                          </td>
-                          <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-end gap-1"><button type="button" onClick={() => setPreviewPo(po)} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"><FileText className="h-3.5 w-3.5" />Preview</button><button type="button" onClick={() => setActivePo(po)} className="px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-900 rounded-lg hover:bg-indigo-50 transition">View / Edit</button></div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <EmptyState
-              icon={ShoppingCart}
-              title={
-                query || statusFilter !== "ALL" || projectFilter !== "ALL" || deliveryFilter !== "ALL"
-                  ? "No purchase orders match your filter"
-                  : "No purchase orders yet"
-              }
-              description="Create purchase orders to establish authoritative commitments for materials, equipment, and subcontracts."
-            />
-          )}
-        </>
+        <PurchaseOrderRegisterSection
+          filteredOrders={filteredOrders}
+          activeCommittedPurchaseOrderTotals={activeCommittedPurchaseOrderTotals}
+          poCounts={poCounts}
+          poProgressMap={poProgressMap}
+          vendorMap={vendorMap}
+          projectMap={projectMap}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          query={query}
+          projectFilter={projectFilter}
+          statusFilter={statusFilter}
+          deliveryFilter={deliveryFilter}
+          onQueryChange={setQuery}
+          onProjectFilterChange={setProjectFilter}
+          onStatusFilterChange={setStatusFilter}
+          onDeliveryFilterChange={setDeliveryFilter}
+          onPreviewPo={(po) => setPreviewPo(po)}
+          onOpenPo={(po) => setActivePo(po)}
+        />
       )}
 
-      {/* ========================================================================= */}
-      {/* VIEW 2: REQUESTS FOR QUOTATION (RFQS) TAB */}
-      {/* ========================================================================= */}
       {activeTab === "rfqs" && (
-        <>
-          {/* RFQ KPI Cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between text-slate-600 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Total RFQs</span>
-                <FileText className="h-4 w-4 text-slate-400" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">{rfqCounts.total}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Across active filters</div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between text-amber-700 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">In Draft</span>
-                <Clock className="h-4 w-4 text-amber-500" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">{rfqCounts.draft}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Specifications in preparation</div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between text-purple-700 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Issued (Out for Quote)</span>
-                <FileCheck className="h-4 w-4 text-purple-500" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">{rfqCounts.issued}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Awaiting supplier quotes</div>
-            </div>
-
-            <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white p-4 shadow-sm">
-              <div className="flex items-center justify-between text-emerald-700 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Decided / Selected</span>
-                <Award className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">{rfqCounts.decided}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Preferred supplier chosen</div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm col-span-2 sm:col-span-1">
-              <div className="flex items-center justify-between text-indigo-700 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Total Quotations</span>
-                <Layers className="h-4 w-4 text-indigo-500" />
-              </div>
-              <div className="text-lg font-black text-slate-900 tabular-nums">{rfqCounts.totalQuotes}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Supplier bids received</div>
-            </div>
-          </div>
-
-          {/* RFQ Filters Bar */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-1.5 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-1 focus-within:ring-indigo-500">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search RFQ #, title, description, project..."
-                className="w-full bg-transparent text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {!selectedProjectId && (
-                <select
-                  value={projectFilter}
-                  onChange={(e) => setProjectFilter(e.target.value)}
-                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
-                >
-                  <option value="ALL">All Projects</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.projectCode} — {p.projectName}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="DRAFT">Draft</option>
-                <option value="ISSUED">Issued (Out for Quote)</option>
-                <option value="CLOSED">Closed</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </div>
-          </div>
-
-          {/* RFQ Register Table */}
-          {filteredRfqs.length > 0 ? (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="space-y-2 p-3 lg:hidden" aria-label="RFQ register cards">
-                {filteredRfqs.map((rfq) => {
-                  const proj = rfq.projectId ? projectMap.get(rfq.projectId) : undefined;
-                  const quotes = quotationsByRfqId.get(rfq.id) || [];
-                  const selectedQuoteItem = quotes.find((q) => q.id === rfq.selectedQuotationId || q.status === "SELECTED");
-                  const selectedVendor = selectedQuoteItem ? vendorMap.get(selectedQuoteItem.vendorId) : undefined;
-                  const invitedCount = rfq.invitedVendorIds?.length || rfq.invitedVendors?.length || 0;
-                  return <RfqRegisterCard key={rfq.id} rfq={rfq} project={proj} quotes={quotes} selectedQuote={selectedQuoteItem} selectedVendor={selectedVendor} invitedCount={invitedCount} canManage={canManage} onCompare={() => setActiveComparisonRfq(rfq)} onAddQuote={() => { setActiveQuotationRfq(rfq); setEditingQuotation(null); }} onEdit={() => setActiveRfqModal(rfq)} onIssue={() => void handleTransitionRFQInternal(rfq.id, "ISSUED")} onCancel={() => { setCancellationRfq(rfq); setCancellationReason(""); }} />;
-                })}
-              </div>
-              <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3">RFQ Number</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Project</th>
-                      <th className="px-4 py-3">Dates</th>
-                      <th className="px-4 py-3 text-center">Lines</th>
-                      <th className="px-4 py-3">Invited Vendors</th>
-                      <th className="px-4 py-3 text-center">Quotes</th>
-                      <th className="px-4 py-3">Decision Status</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredRfqs.map((rfq) => {
-                      const proj = rfq.projectId ? projectMap.get(rfq.projectId) : undefined;
-                      const quotes = quotationsByRfqId.get(rfq.id) || [];
-                      const selectedQuoteItem = quotes.find(
-                        (q) => q.id === rfq.selectedQuotationId || q.status === "SELECTED",
-                      );
-                      const selectedVendor = selectedQuoteItem ? vendorMap.get(selectedQuoteItem.vendorId) : undefined;
-                      const invitedCount = rfq.invitedVendorIds?.length || rfq.invitedVendors?.length || 0;
-
-                      return (
-                        <tr
-                          key={rfq.id}
-                          className="hover:bg-slate-50/80 transition-colors"
-                        >
-                          {/* RFQ Number & Title */}
-                          <td className="px-4 py-3 font-mono font-bold text-slate-900">
-                            {rfq.rfqNumber}
-                            <div className="font-sans font-medium text-[11px] text-slate-700 truncate max-w-xs mt-0.5">
-                              {rfq.title}
-                            </div>
-                            {rfq.description && (
-                              <div className="font-sans font-normal text-[10px] text-slate-400 truncate max-w-xs">
-                                {rfq.description}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Status */}
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                                rfq.status === "ISSUED"
-                                  ? "bg-purple-100 text-purple-800"
-                                  : rfq.status === "CLOSED"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : rfq.status === "CANCELLED"
-                                  ? "bg-rose-100 text-rose-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {rfq.status === "ISSUED" ? "ISSUED (OUT FOR QUOTE)" : rfq.status}
-                            </span>
-                          </td>
-
-                          {/* Project */}
-                          <td className="px-4 py-3">
-                            <div className="font-semibold text-slate-800">{proj?.projectCode || "General"}</div>
-                            <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
-                              {proj?.projectName || "Unscoped"}
-                            </div>
-                          </td>
-
-                          {/* Dates */}
-                          <td className="px-4 py-3 text-slate-600 font-mono text-[11px]">
-                            {rfq.issueDate && (
-                              <div>
-                                <span className="text-[10px] text-slate-400">Issued: </span>
-                                {formatDate(rfq.issueDate, "short")}
-                              </div>
-                            )}
-                            {rfq.dueDate && (
-                              <div className="text-slate-500">
-                                <span className="text-[10px] text-slate-400">Due: </span>
-                                {formatDate(rfq.dueDate, "short")}
-                              </div>
-                            )}
-                            {!rfq.issueDate && !rfq.dueDate && <span className="text-slate-400 italic">—</span>}
-                          </td>
-
-                          {/* Line items count */}
-                          <td className="px-4 py-3 text-center tabular-nums text-slate-700 font-semibold">
-                            {rfq.lines?.length || 0}
-                          </td>
-
-                          {/* Invited vendors count */}
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-1.5 text-slate-700">
-                              <Users className="h-3.5 w-3.5 text-slate-400" />
-                              <span className="font-semibold">{invitedCount}</span>
-                              <span className="text-[10px] text-slate-400">invited</span>
-                            </div>
-                          </td>
-
-                          {/* Quotes count */}
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                                quotes.length > 0
-                                  ? "bg-indigo-100 text-indigo-800"
-                                  : "bg-slate-100 text-slate-500"
-                              }`}
-                            >
-                              {quotes.length} {quotes.length === 1 ? "quote" : "quotes"}
-                            </span>
-                          </td>
-
-                          {/* Decision Status */}
-                          <td className="px-4 py-3">
-                            {selectedQuoteItem ? (
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
-                                  <Award className="h-3 w-3 text-emerald-600" />
-                                  Selected: {selectedVendor?.name || "Supplier"}
-                                </span>
-                                <div className="text-[10px] font-mono text-slate-500">
-                                  {formatMoney(selectedQuoteItem.totalAmount, selectedQuoteItem.currency)}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-slate-400 italic">Pending Decision</span>
-                            )}
-                          </td>
-
-                          {/* Actions */}
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {/* Compare / View Quotes button */}
-                              <button
-                                type="button"
-                                onClick={() => setActiveComparisonRfq(rfq)}
-                                className="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-900 rounded-lg hover:bg-indigo-50 transition"
-                              >
-                                {quotes.length > 0 ? "View & Compare" : "Compare"}
-                              </button>
-
-                              {/* Add Quote button */}
-                              {canManage && rfq.status !== "CANCELLED" && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveQuotationRfq(rfq);
-                                    setEditingQuotation(null);
-                                  }}
-                                  className="px-2.5 py-1 text-xs font-semibold text-purple-600 hover:text-purple-900 rounded-lg hover:bg-purple-50 transition"
-                                >
-                                  + Quote
-                                </button>
-                              )}
-
-                              {/* Edit RFQ (if draft) */}
-                              {canManage && rfq.status === "DRAFT" && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => setActiveRfqModal(rfq)}
-                                    className="px-2 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleTransitionRFQInternal(rfq.id, "ISSUED")}
-                                    className="px-2 py-1 text-xs font-semibold text-emerald-600 hover:text-emerald-900 rounded-lg hover:bg-emerald-50 transition"
-                                  >
-                                    Issue
-                                  </button>
-                                </>
-                              )}
-
-                              {/* Cancel RFQ */}
-                              {canManage && rfq.status !== "CLOSED" && rfq.status !== "CANCELLED" && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setCancellationRfq(rfq);
-                                    setCancellationReason("");
-                                  }}
-                                  className="px-2 py-1 text-xs font-semibold text-rose-600 hover:text-rose-900 rounded-lg hover:bg-rose-50 transition"
-                                >
-                                  Cancel
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <EmptyState
-              icon={FileText}
-              title={
-                query || statusFilter !== "ALL" || projectFilter !== "ALL"
-                  ? "No RFQs match your filter"
-                  : "No Requests for Quotation yet"
-              }
-              description="Create an RFQ to specify required materials, invite vendors, and compare competitive bids side-by-side."
-              action={
-                canManage ? (
-                  <button
-                    type="button"
-                    onClick={() => setActiveRfqModal(null)}
-                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition"
-                  >
-                    <Plus className="h-4 w-4" />
-                    New RFQ
-                  </button>
-                ) : undefined
-              }
-            />
-          )}
-        </>
+        <RfqRegisterSection
+          filteredRfqs={filteredRfqs}
+          rfqCounts={rfqCounts}
+          quotationsByRfqId={quotationsByRfqId}
+          vendorMap={vendorMap}
+          projectMap={projectMap}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          query={query}
+          projectFilter={projectFilter}
+          statusFilter={statusFilter}
+          canManage={canManage}
+          onQueryChange={setQuery}
+          onProjectFilterChange={setProjectFilter}
+          onStatusFilterChange={setStatusFilter}
+          onCreateRfq={() => setActiveRfqModal(null)}
+          onCompareRfq={(rfq) => setActiveComparisonRfq(rfq)}
+          onAddQuotation={(rfq) => {
+            setActiveQuotationRfq(rfq);
+            setEditingQuotation(null);
+          }}
+          onEditRfq={(rfq) => setActiveRfqModal(rfq)}
+          onIssueRfq={(rfq) => void handleTransitionRFQInternal(rfq.id, "ISSUED")}
+          onCancelRfq={(rfq) => {
+            setCancellationRfq(rfq);
+            setCancellationReason("");
+          }}
+        />
       )}
 
       {/* ========================================================================= */}

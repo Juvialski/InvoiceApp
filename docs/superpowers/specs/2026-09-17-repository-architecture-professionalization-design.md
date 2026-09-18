@@ -99,6 +99,10 @@ Slice 4 is implemented as the staged static-analysis and TypeScript-hardening sl
 
 The stronger TypeScript boundary is explicit for `server.ts`, the server authorization/assistant/public-prospect/storage routers, and the three extracted procurement, inventory, and cash-banking controllers. That surface enforces `@typescript-eslint/no-explicit-any` and `@typescript-eslint/ban-ts-comment` as errors. Package scripts now expose `lint:eslint` (`eslint .`) and `typecheck` (`tsc --noEmit`), with `lint` retaining both as the combined quality gate. TypeScript enables `forceConsistentCasingInFileNames`, `noFallthroughCasesInSwitch`, and `noImplicitOverride`; full repository-wide `strict: true` remains intentionally deferred. No Prettier, product behavior, database, provider, or production surface was added or changed.
 
+#### Slice 5 implementation status — 2026-09-18
+
+Procurement secondary-module decomposition has started in Wave A. Purchase Order register presentation now lives in `src/components/procurement/PurchaseOrderRegisterSection.tsx`, and RFQ/Supplier Quotation register presentation now lives in `src/components/procurement/RfqRegisterSection.tsx`. `ProcurementPage.tsx` remains the owner of business state, filtering and derived metrics, lifecycle/mutation callbacks, routing context, and Purchase Order/RFQ/quotation modal orchestration. Subcontract, claim, and variation decomposition remains intentionally deferred. No database, financial-semantic, provider, or production contract changed; this does not complete the broader secondary-large-module program.
+
 ## Non-goals
 
 - No database schema redesign.
