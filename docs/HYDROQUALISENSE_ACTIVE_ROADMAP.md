@@ -25,7 +25,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 ## Current execution tracks
 
-1. **Repository & Architecture Professionalization — active structural implementation.** Slices 1-4 and Slice 5 Waves A-B are merged. The latest application-bearing main before this documentation-only reorganization is `df5de411443eb0cfaf9a9cacb3c790eb686b1489` from PR #186. The broader professionalization program remains incomplete.
+1. **Repository & Architecture Professionalization — active structural implementation.** Slices 1-4 and Slice 5 Waves A-B are merged on `main`. The latest merged baseline is `4f840b291f4efa28eedceceae5ed95843d7c3f58` from PR #187. Slice 5 Wave C (Projects Portfolio/Register presentation extraction) is implemented on branch. The broader professionalization program remains incomplete.
 2. **Email/SMS Reliability — independent workstream.** Draft PR #176 remains isolated; do not absorb its owned files into structural cleanup.
 3. **Excel-Native Operations UX — approved future major UX direction.** The canonical design is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started and does not reorder the active structural work.
 4. **Release/readiness certification — parallel track.** Hosted/provider/QA evidence remains separate from structural merges and production authorization.
@@ -232,6 +232,12 @@ mutation occurred.
 The repository professionalization track remains in progress as an independent structural implementation track. Slice 5 Wave B extracts the Subcontract register presentation into `src/components/procurement/SubcontractRegisterSection.tsx` while retaining subcontract, claim, variation, filtering, financial derivation, persistence, permission, lifecycle, and modal/drawer orchestration in `ProcurementPage.tsx`. The existing Claim and Variation workflow components remain authoritative. This is behavior-preserving architecture work, not completion of the broader professionalization program.
 
 The project-manager Excel-native direction is approved and its future design contract is now documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started: no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review workflow, dependency, migration, or route change is authorized by this roadmap entry. Revisit it only after the repository/architecture boundaries are sufficiently decomposed for a safe shared grid/workbook phase. This future direction does not reorder the retained product dependency sequence below.
+ 
+## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave C
+ 
+The repository professionalization track continues with Slice 5 Wave C, which extracts the Projects portfolio summary, search/filter controls, and responsive register presentation into `src/components/projects/ProjectPortfolioRegisterSection.tsx`. `ProjectsPage.tsx` line count is reduced from 1,414 lines to 713 lines. Authoritative project management view building (`buildProjectManagementView`), multi-currency portfolio summaries (`buildPortfolioManagementSummary`), deterministic filter/sort derivation (`filterAndSortProjectViews`), project editing, tax-treatment classification validation, and lifecycle action orchestration remain parent-owned.
+ 
+This is behavior-preserving architecture work. No database, migration, RLS/RPC, financial-semantic, provider, production, or persistence contract changed. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was introduced. Slice 5 Wave C is complete as this focused presentation extraction; the broader professionalization program remains in progress.
 
 ## Product dependency sequence
 

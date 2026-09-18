@@ -13,6 +13,12 @@ const projectsPageSource = readFileSync(
   "utf8",
 );
 
+const projectRegisterSectionSource = readFileSync(
+  new URL("../src/components/projects/ProjectPortfolioRegisterSection.tsx", import.meta.url),
+  "utf8",
+);
+const projectsSurfaceSource = `${projectsPageSource}\n${projectRegisterSectionSource}`;
+
 const projectOverviewSource = readFileSync(
   new URL("../src/components/projects/ProjectOverview.tsx", import.meta.url),
   "utf8",
@@ -84,10 +90,10 @@ test("ProjectsPage passes financial data completeness to project management view
 
 test("ProjectsPage enforces portfolio summary, responsive desktop table and mobile cards", () => {
   // Check Portfolio Summary structure
-  assert.match(projectsPageSource, /(?:<details|<section) aria-label="Portfolio Management Summary"/);
+  assert.match(projectsSurfaceSource, /(?:<details|<section) aria-label="Portfolio Management Summary"/);
   assert.match(projectsPageSource, /buildPortfolioManagementSummary\(projectViews\)/);
-  assert.match(projectsPageSource, /portfolio\.currencies\.map/);
-  assert.match(projectsPageSource, /Attention Signals/);
+  assert.match(projectsSurfaceSource, /portfolio\.currencies\.map/);
+  assert.match(projectsSurfaceSource, /Attention Signals/);
 
   // Check Filtering and Sorting controls
   assert.match(projectsPageSource, /filterAndSortProjectViews/);
@@ -96,23 +102,23 @@ test("ProjectsPage enforces portfolio summary, responsive desktop table and mobi
   assert.match(projectsPageSource, /sortDirection/);
 
   // Check Desktop Table and Mobile Cards Hybrid
-  assert.match(projectsPageSource, /hidden overflow-hidden p-0 lg:block/);
-  assert.match(projectsPageSource, /grid gap-3\.5 lg:hidden/);
-  assert.match(projectsPageSource, /aria-label="Projects table"/);
-  assert.match(projectsPageSource, /aria-label="Projects list cards"/);
+  assert.match(projectsSurfaceSource, /hidden overflow-hidden p-0 lg:block/);
+  assert.match(projectsSurfaceSource, /grid gap-3\.5 lg:hidden/);
+  assert.match(projectsSurfaceSource, /aria-label="Projects table"/);
+  assert.match(projectsSurfaceSource, /aria-label="Projects list cards"/);
 });
 
 test("ProjectsPage exposes the required portfolio financial columns and deterministic controls", () => {
   for (const label of ["Project Manager", "Currency", "Contract Value", "Budget", "Actual", "Committed", "Billed", "Collected", "Outstanding", "Remaining to Bill"]) {
-    assert.match(projectsPageSource, new RegExp(label));
+    assert.match(projectsSurfaceSource, new RegExp(label));
   }
   assert.match(projectsPageSource, /managerFilter/);
   assert.match(projectsPageSource, /currencyFilter/);
   assert.match(projectsPageSource, /clientBillings/);
   assert.match(projectsPageSource, /clientCollections/);
-  assert.match(projectsPageSource, /Partial · \$\{metric\.includedProjectCount\}/);
-  assert.match(projectsPageSource, /Unavailable/);
-  assert.doesNotMatch(projectsPageSource, /project_dashboard_totals/);
+  assert.match(projectsSurfaceSource, /Partial · \$\{metric\.includedProjectCount\}/);
+  assert.match(projectsSurfaceSource, /Unavailable/);
+  assert.doesNotMatch(projectsSurfaceSource, /project_dashboard_totals/);
 });
 
 test("ProjectOverview enforces single-source management snapshot and truthful commercial controls notice", () => {
