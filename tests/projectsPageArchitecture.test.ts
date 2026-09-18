@@ -25,6 +25,9 @@ test("projects portfolio and register presentation has explicit architectural bo
     /import\s+\{\s*ProjectPortfolioRegisterSection[\s\S]*?\}\s+from\s+"\.\/ProjectPortfolioRegisterSection\.tsx"/,
   );
   assert.match(projectsPage, /<ProjectPortfolioRegisterSection\b/);
+  assert.match(projectsPage, /const\s+PROJECT_STATUSES:\s*readonly\s+ProjectStatus\[\]/);
+  assert.match(projectsPage, /projectStatuses=\{PROJECT_STATUSES\}/);
+  assert.doesNotMatch(projectRegisterSection, /export\s+const\s+PROJECT_STATUSES/);
 
   // 2. Authoritative project management derivation remains in ProjectsPage.tsx
   assert.match(projectsPage, /buildProjectManagementView\(/);
