@@ -34,6 +34,7 @@ For a new Codex implementation task:
 5. Read `AGENTS.md`, then only the roadmap/handoff/phase/runbook documents materially needed for the assigned task. Do not re-read unrelated repository documentation by ritual.
 6. Generate at most one bounded `agent:context` packet when useful, inspect only the task-relevant implementation, and begin implementation immediately.
 7. Do not run a baseline full suite or broad repository audit merely to reconfirm a just-pulled `main`. Follow focused -> affected validation after changes are made.
+8. Treat validation as **final-diff-first**: use narrow tests while editing, then run the applicable expensive validation ladder once on the integrated final diff. Do not repeatedly rerun unchanged broad suites after each small edit, and do not duplicate an equivalent protected CI job locally unless the changed risk domain requires earlier runtime evidence or a failure needs local diagnosis.
 
 Prompt creators should put the pull-first instruction at the top of every normal Codex implementation prompt. Avoid wording that tells Codex to spend time independently establishing the latest green remote baseline before pulling; **pull latest `main`, record the SHA once, then work**.
 
