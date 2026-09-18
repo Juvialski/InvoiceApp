@@ -12,7 +12,7 @@ This phase is not a feature rewrite. It must preserve current financial semantic
 
 ## Scope
 
-The work is split into three slices so each can be reviewed and validated independently.
+The work is split into reviewable slices so each can be reviewed and validated independently.
 
 Slice 1 is complete in PR #178. Slice 2 (`src/App.tsx` decomposition) is complete in PR #180 and merged on `main` as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) is complete in PR #182 and merged on `main` as `7b13b1723f400da4207c6112b314065cc2a4d7fd`; it remains separate from the active Email/SMS work.
 
@@ -92,6 +92,12 @@ The behavior-preserving decomposition was merged in PR #182. `server.ts` is redu
 The moved API boundaries are `publicProspects/publicProspectRouter.ts`, `ai/companyAiRouter.ts`, `invoiceExtraction/invoiceExtractionRouter.ts` plus its schema/service modules, `documentDelivery/documentDeliveryRouter.ts`, `documentDelivery/issuedDocumentRouter.ts` plus shared delivery helpers, `messaging/messagingRouter.ts`, and `storage/storageHealthRouter.ts`. The existing assistant, storage, document-template, AI, document-delivery, and messaging implementations remain the underlying authorities.
 
 At the final reviewed PR head, focused authorization/router coverage, 191/191 affected application tests, TypeScript lint/typecheck, production build, Workflow Map consistency, Database Migration & Invariant Tests, and Demo Visual QA passed. No database, migration, provider-runtime, production, or PR #176-owned files changed in this slice.
+
+#### Slice 4 implementation status — 2026-09-18
+
+Slice 4 is implemented as the staged static-analysis and TypeScript-hardening slice. `eslint.config.mjs` now runs ESLint over JavaScript and TypeScript source while ignoring generated/transient outputs (`node_modules`, `dist`, `artifacts`, `coverage`, and `.worktrees`). Its repository-wide baseline is limited to six correctness rules: `no-debugger`, `no-duplicate-case`, `no-dupe-else-if`, `no-unreachable`, `no-unsafe-finally`, and `no-self-assign`.
+
+The stronger TypeScript boundary is explicit for `server.ts`, the server authorization/assistant/public-prospect/storage routers, and the three extracted procurement, inventory, and cash-banking controllers. That surface enforces `@typescript-eslint/no-explicit-any` and `@typescript-eslint/ban-ts-comment` as errors. Package scripts now expose `lint:eslint` (`eslint .`) and `typecheck` (`tsc --noEmit`), with `lint` retaining both as the combined quality gate. TypeScript enables `forceConsistentCasingInFileNames`, `noFallthroughCasesInSwitch`, and `noImplicitOverride`; full repository-wide `strict: true` remains intentionally deferred. No Prettier, product behavior, database, provider, or production surface was added or changed.
 
 ## Non-goals
 

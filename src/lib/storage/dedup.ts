@@ -23,7 +23,6 @@ export async function calculateSha256Hex(bytes: Uint8Array): Promise<string> {
   // Fallback for Node.js environments without global webcrypto if applicable
   try {
     // Dynamic import to avoid bundling issues in pure browser builds
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const nodeCrypto = await import("node:crypto");
     return nodeCrypto.createHash("sha256").update(bytes).digest("hex");
   } catch {

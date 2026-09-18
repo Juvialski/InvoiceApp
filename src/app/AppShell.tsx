@@ -41,7 +41,7 @@ export interface ErrorBoundaryState {
 }
 
 export class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = {
+  override state: ErrorBoundaryState = {
     hasError: false,
     error: null,
   };
@@ -58,7 +58,7 @@ export class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorB
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: unknown): void {
+  override componentDidCatch(error: Error, errorInfo: unknown): void {
     if (import.meta.env.DEV) {
       console.error("[AppErrorBoundary] Uncaught component error:", error, errorInfo);
     }
@@ -69,7 +69,7 @@ export class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorB
     this.setState({ hasError: false, error: null });
   };
 
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.hasError) {
       if (typeof this.props.fallback === "function") {
         return this.props.fallback(this.state.error || new Error("Unknown error"), this.reset);
