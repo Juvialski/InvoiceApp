@@ -14,7 +14,7 @@ This phase is not a feature rewrite. It must preserve current financial semantic
 
 The work is split into reviewable slices so each can be reviewed and validated independently.
 
-Current status: Slices 1-4 and Slice 5 Waves A-B are merged on `main`; Slice 5 Wave C is implemented on task branch; the broader professionalization program remains in progress. The approved future Excel-native UX is a separate deferred product-design track documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`; it must not be pulled into structural slices prematurely.
+Current status: Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains in progress. The approved future Excel-native UX is a separate deferred product-design track documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`; it must not be pulled into structural slices prematurely.
 
 Slice 1 is complete in PR #178. Slice 2 (`src/App.tsx` decomposition) is complete in PR #180 and merged on `main` as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) is complete in PR #182 and merged on `main` as `7b13b1723f400da4207c6112b314065cc2a4d7fd`; it remains separate from the active Email/SMS work.
 
@@ -117,7 +117,7 @@ Wave C extracts the Projects portfolio and register presentation into `src/compo
  
 `ProjectsPage.tsx` remains the authoritative owner of project source data, cost summaries, client billing/collection data, permissions, completeness checks, `buildProjectManagementView(...)`, `buildPortfolioManagementSummary(...)`, `filterAndSortProjectViews(...)`, filter and sort state, manager and currency option derivation, editing draft creation and validation, project save orchestration, lifecycle preview loading, lifecycle actions, lifecycle reason/error/loading state, lifecycle and editing dialogs, and route/open behavior.
  
-After the extraction, `ProjectsPage.tsx` is reduced from 1,414 lines to 713 lines. No database, financial-semantic, provider, production, route, or persistence contract changed. Slice 5 Wave C is complete as this focused presentation extraction. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was added. The broader secondary-module and repository professionalization program remains in progress.
+After the extraction, `ProjectsPage.tsx` is reduced from 1,413 lines to 713 lines. No database, financial-semantic, provider, production, route, or persistence contract changed. Slice 5 Wave C is complete as this focused presentation extraction. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was added. The broader secondary-module and repository professionalization program remains in progress.
 
 ## Non-goals
 
