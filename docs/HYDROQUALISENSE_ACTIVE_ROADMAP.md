@@ -12,9 +12,9 @@ Local-QA/UI/PDF staged plan: `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md`
 Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md`  
 **Completed corrective design:** `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md`
 
-**Active Email/SMS phase contract:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
-**Active security phase contract:** `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
-**Active security implementation plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
+**Email/SMS phase contract:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
+**Security assurance contract:** `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
+**Security assurance implementation/evidence plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 **Approved future Excel-Native Operations UX design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — implementation deferred
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
@@ -231,18 +231,18 @@ mutation occurred.
 
 The repository professionalization track remains in progress as an independent structural implementation track. Slice 5 Wave B extracts the Subcontract register presentation into `src/components/procurement/SubcontractRegisterSection.tsx` while retaining subcontract, claim, variation, filtering, financial derivation, persistence, permission, lifecycle, and modal/drawer orchestration in `ProcurementPage.tsx`. The existing Claim and Variation workflow components remain authoritative. This is behavior-preserving architecture work, not completion of the broader professionalization program.
 
-The project-manager Excel-native direction is approved and its future design contract is now documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started: no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review workflow, dependency, migration, or route change is authorized by this roadmap entry. Revisit it only after the repository/architecture boundaries are sufficiently decomposed for a safe shared grid/workbook phase. This future direction does not reorder the active product sequence below.
+The project-manager Excel-native direction is approved and its future design contract is now documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started: no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review workflow, dependency, migration, or route change is authorized by this roadmap entry. Revisit it only after the repository/architecture boundaries are sufficiently decomposed for a safe shared grid/workbook phase. This future direction does not reorder the retained product dependency sequence below.
 
-## Immediate implementation sequence
+## Product dependency sequence
 
-The user explicitly reprioritized the current implementation run on 2026-09-15. The reconciled sequence is:
+This sequence preserves the product/release dependency order established through the September reprioritizations. It is not the current structural implementation priority; the Current execution tracks section above governs that.
 
 1. **Client Security Assurance & Handoff — IMPLEMENTATION EVIDENCE COMPLETE / DEPLOYMENT CERTIFICATION PENDING**
    - preserve the committed permission-based custom-role and Payroll reference boundaries;
    - carry the qualified evidence matrix, exact local synthetic-QA manifest, and seven-page client PDF into the deployment-specific release process;
    - promote and verify the exact branch release/migration in isolated hosted QA only when the guarded QA operator path is available; do not infer production authorization.
 
-2. **Google Sign-In + Brevo Transactional Email Migration — CURRENT IMPLEMENTATION PHASE**
+2. **Google Sign-In + Brevo Transactional Email Migration — PROVIDER DIRECTION IMPLEMENTED / RELIABILITY WORKSTREAM CONTINUES**
    - remove Gmail API read/send/intake and mailbox credential flows;
    - keep Google identity-only sign-in, Brevo server-side outbound email, human confirmation, historical Gmail provenance, and truthful provider states.
 
