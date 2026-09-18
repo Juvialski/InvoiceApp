@@ -6,11 +6,11 @@ Repository: `Juvialski/InvoiceApp`
 
 ## Current repository state
 
-The latest merged `main` is:
+The pre-Wave-C merged `main` baseline was:
 
 `4f840b291f4efa28eedceceae5ed95843d7c3f58`
 
-That merge completed PR #187 (documentation reorganization) on top of PR #186 (Slice 5 Wave B). Slices 1-4 and Slice 5 Waves A-B are merged; Slice 5 Wave C (Projects portfolio/register presentation decomposition) is implemented on branch. The broader professionalization program remains incomplete. Draft PR #176 remains an independent Email/SMS reliability workstream.
+This handoff includes Slice 5 Wave C (Projects portfolio/register presentation decomposition) on top of that baseline. Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains incomplete. Draft PR #176 remains an independent Email/SMS reliability workstream.
 
 The approved future Excel-Native Operations UX is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is not implemented and must not be treated as current product capability.
 
@@ -279,7 +279,7 @@ The repository professionalization track continues with Slice 5 Wave C.
 - What moved: portfolio snapshot disclosure, project counts, attention-signal counts, multi-currency portfolio financial totals, search/status/manager/currency/health/attention filters, sort selector and direction toggles, filter reset bar, responsive desktop table, mobile/tablet cards (`ProjectRegisterCard`), status/health/attention badges, tax-treatment display, financial metric cells, work-package summaries, and Open/Edit/Lifecycle action presentation.
 - Pure presentation helpers moved: `money`, `statusTone`, `healthBadgeTone`, `attentionTone`, `financialValue`, `FinancialValue`, `PortfolioFinancialValue`, `portfolioMetricInline`.
 - What stayed parent-owned: project source data, cost summaries, client billing/collection data, permissions, completeness checks, `buildProjectManagementView(...)`, `buildPortfolioManagementSummary(...)`, `filterAndSortProjectViews(...)`, filter and sort state, manager and currency option derivation, editing draft creation and validation, project save orchestration, lifecycle preview loading, lifecycle actions, lifecycle reason/error/loading state, lifecycle and editing dialogs, and route/open behavior.
-- Line counts: `ProjectsPage.tsx` was reduced from 1,414 lines to 713 lines in the reviewed working tree.
+- Line counts: `ProjectsPage.tsx` was reduced from 1,413 lines to 713 lines in the reviewed working tree.
 - Invariant confirmation: project financial, lifecycle, currency, tax treatment, permission, audit, route, and history semantics remain completely unchanged. Unknown monetary values are not converted to zero, and mixed currencies are not combined.
 - Excel-native confirmation: no Excel-native implementation, `OperationsGrid`, `.xlsx` parser, or spreadsheet dependency was added. Future Excel-native UX remains deferred.
 
