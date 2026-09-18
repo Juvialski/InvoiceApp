@@ -1,9 +1,10 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — CLIENT SECURITY ASSURANCE & HANDOFF IN PROGRESS / FLEXIBLE CUSTOM-RBAC IMPLEMENTATION ADDED BUT LOCAL DB RUNTIME CERTIFICATION BLOCKED BY UNAVAILABLE DOCKER / CLIENT SECURITY PDF HANDOFF DRAFT PENDING QA EVIDENCE / EMAIL-SMS RELIABILITY FOLLOWS / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY & ARCHITECTURE PROFESSIONALIZATION IN PROGRESS / EMAIL-SMS RELIABILITY REMAINS ISOLATED / EXCEL-NATIVE OPERATIONS UX APPROVED FOR FUTURE IMPLEMENTATION / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-18**
 
+Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
 Completed UI/UX Round 2 design/acceptance record: `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`  
@@ -15,14 +16,22 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Active security phase contract:** `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
 **Active security implementation plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
-**Approved future Excel-Native Operations UX design:** `docs/HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` — implementation deferred
+**Approved future Excel-Native Operations UX design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — implementation deferred
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
 
-## Current repository / application baseline
+## Current execution tracks
+
+1. **Repository & Architecture Professionalization — active structural implementation.** Slices 1-4 and Slice 5 Waves A-B are merged. The latest application-bearing main before this documentation-only reorganization is `df5de411443eb0cfaf9a9cacb3c790eb686b1489` from PR #186. The broader professionalization program remains incomplete.
+2. **Email/SMS Reliability — independent workstream.** Draft PR #176 remains isolated; do not absorb its owned files into structural cleanup.
+3. **Excel-Native Operations UX — approved future major UX direction.** The canonical design is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started and does not reorder the active structural work.
+4. **Release/readiness certification — parallel track.** Hosted/provider/QA evidence remains separate from structural merges and production authorization.
+5. **Wide Documents managed slices — deferred. Worker Registration — paused.**
+
+## Historical application / certification baselines
 
 UI/UX Round 2 was implemented from `main` at:
 
@@ -222,7 +231,7 @@ mutation occurred.
 
 The repository professionalization track remains in progress as an independent structural implementation track. Slice 5 Wave B extracts the Subcontract register presentation into `src/components/procurement/SubcontractRegisterSection.tsx` while retaining subcontract, claim, variation, filtering, financial derivation, persistence, permission, lifecycle, and modal/drawer orchestration in `ProcurementPage.tsx`. The existing Claim and Variation workflow components remain authoritative. This is behavior-preserving architecture work, not completion of the broader professionalization program.
 
-The project-manager Excel-native direction is approved and its future design contract is now documented at `docs/HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md`. Implementation has not started: no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review workflow, dependency, migration, or route change is authorized by this roadmap entry. Revisit it only after the repository/architecture boundaries are sufficiently decomposed for a safe shared grid/workbook phase. This future direction does not reorder the active product sequence below.
+The project-manager Excel-native direction is approved and its future design contract is now documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started: no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review workflow, dependency, migration, or route change is authorized by this roadmap entry. Revisit it only after the repository/architecture boundaries are sufficiently decomposed for a safe shared grid/workbook phase. This future direction does not reorder the active product sequence below.
 
 ## Immediate implementation sequence
 

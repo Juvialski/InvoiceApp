@@ -1,10 +1,20 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — CLIENT SECURITY IMPLEMENTATION EVIDENCE COMPLETE WITH QUALIFIED LOCAL DB/RUNTIME AND PDF PASS / HOSTED DEPLOYMENT CERTIFICATION PENDING / REPOSITORY PROFESSIONALIZATION SLICE 5 WAVE B IMPLEMENTED / EMAIL-SMS RELIABILITY FOLLOWS / PUBLIC OAUTH BRANDING REMEDIATION IMPLEMENTED / GOOGLE RE-VERIFICATION PENDING / SMS NOT CONFIGURED UNTIL QA RUNTIME PROOF / WIDE DOCUMENTS REMAINING SLICES DEFERRED / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — REPOSITORY & ARCHITECTURE PROFESSIONALIZATION ACTIVE THROUGH SLICE 5 WAVE B / EMAIL-SMS RELIABILITY PR #176 REMAINS ISOLATED / EXCEL-NATIVE OPERATIONS UX APPROVED FOR FUTURE IMPLEMENTATION / HOSTED-PROVIDER READINESS REMAINS SEPARATE / WIDE DOCUMENTS DEFERRED / WORKER REGISTRATION PAUSED**
 Date: **2026-09-18**
 Repository: `Juvialski/InvoiceApp`
 
-## Authoritative current baseline
+## Current repository state
+
+The latest application-bearing merged `main` before this documentation-only reorganization is:
+
+`df5de411443eb0cfaf9a9cacb3c790eb686b1489`
+
+That merge completed Repository & Architecture Professionalization Slice 5 Wave B. Slices 1-4 and Procurement register decomposition Waves A-B are merged; the broader professionalization program remains incomplete. Draft PR #176 remains an independent Email/SMS reliability workstream.
+
+The approved future Excel-Native Operations UX is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is not implemented and must not be treated as current product capability.
+
+### Earlier UI/UX and hosted-certification reference
 
 UI/UX Round 2 was implemented from `main` at:
 
@@ -24,6 +34,7 @@ That hosted evidence belongs to the earlier certified application state and must
 
 Read this handoff with:
 
+- `docs/README.md` — documentation map and precedence;
 - `AGENTS.md`;
 - `docs/AGENTS_BASELINE_20260909.md`;
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
@@ -35,7 +46,7 @@ Read this handoff with:
 - `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
 - `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the next product phase after this correction;
 - `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — active repository decomposition design;
-- `docs/HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` — approved future direction; implementation deferred;
+- `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future direction; implementation deferred;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
 - `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and deployment runbook when release/migration operations matter.
 
@@ -258,7 +269,7 @@ The repository professionalization track remains in progress. Slice 5 Wave B ext
 
 This is behavior-preserving architecture work. No database, migration, RLS/RPC, provider, production, route, or persistence contract changed. The broader professionalization program and later slices remain incomplete.
 
-The approved future Excel-Native Operations UX direction is documented at `docs/HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md`. It is documentation only in this handoff: implementation has not started, current registers are not claimed to satisfy it, and no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review UI, dependency, migration, or route change is included. Revisit it from live repository state after the shared architecture boundary is safe.
+The approved future Excel-Native Operations UX direction is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is documentation only in this handoff: implementation has not started, current registers are not claimed to satisfy it, and no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review UI, dependency, migration, or route change is included. Revisit it from live repository state after the shared architecture boundary is safe.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
