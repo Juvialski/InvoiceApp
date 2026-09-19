@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — PR #176 MERGED / REMAINING EMAIL-SMS-SMS IMPROVEMENT NEXT / PR #179 RECONCILIATION AFTER MESSAGING / RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — EMAIL-SMS IMPLEMENTATION COMPLETE / PROVIDER CERTIFICATION PENDING / PR #179 RECONCILED / RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
 
@@ -12,7 +12,7 @@ The pre-Wave-C merged `main` baseline was:
 
 `4f840b291f4efa28eedceceae5ed95843d7c3f58`
 
-This handoff includes Slice 5 Wave C (Projects portfolio/register presentation decomposition) on top of that baseline. Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains incomplete. PR #176 authenticated request recovery is merged; the remaining Email/SMS Reliability & SMS Improvement implementation is the next active product slice.
+This handoff includes Slice 5 Wave C (Projects portfolio/register presentation decomposition) on top of that baseline. Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains incomplete. The implementable Email/SMS Reliability & SMS Improvement slice is complete on merged `main`; live Brevo/SMS provider certification remains pending external credentials/device/runtime.
 
 The approved future Excel-Native Operations UX is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is not implemented and must not be treated as current product capability.
 
@@ -473,45 +473,36 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Finish remaining Email/SMS Reliability & SMS Improvement implementation.** PR #176 authenticated request recovery is merged. Complete the code/UX/provider-adapter work that does not require live credentials/device runtime; keep provider availability truthful and preserve human confirmation/history/idempotency boundaries.
-2. **Reconcile draft PR #179** against current documentation; preserve any unique still-valid guidance and close the superseded draft rather than running its old plan wholesale.
-3. **Repository Intelligence RI-1 — Incremental Repository Source Index.**
-4. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.**
-5. **Repository Intelligence RI-3 — AI Context Engine integration.** Preserve the current `workflow-map:context` and `agent:context` interfaces while improving their internals.
-6. **Finish remaining Repository & Architecture Professionalization work** using the RI core as a bounded-context aid.
-7. **Implement Excel-Native Operations UX** when the architecture boundary is ready.
-8. **Complete remaining Wave 4D provider/readiness evidence** when safe provider credentials/devices/QA prerequisites exist; this external-readiness work may run opportunistically when prerequisites become available.
-9. **Resume Wide Documents remaining managed slices.**
-10. **Worker Registration — still paused until Wave 4D is complete and the user explicitly resumes it.** Site Attendance follows; Face Recognition remains gated by separate privacy/security design.
-11. **RI-4 through RI-6** are later developer-tooling work, not prerequisites for the product queue above.
-12. **RI-7 optional 3D explorer — LAST.** Do not start WebGL/3D work merely because RI-3 is complete.
+1. **Repository Intelligence RI-1 — Incremental Repository Source Index.**
+2. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.**
+3. **Repository Intelligence RI-3 — AI Context Engine integration.** Preserve the current `workflow-map:context` and `agent:context` interfaces while improving their internals.
+4. **Finish remaining Repository & Architecture Professionalization work** using the RI core as a bounded-context aid. PR #179 has been reconciled/closed; retain its still-valid repository-hygiene and human-onboarding goals without reviving superseded App/server/static-analysis plans.
+5. **Implement Excel-Native Operations UX** when the architecture boundary is ready.
+6. **Complete remaining Wave 4D provider/readiness evidence** when safe provider credentials/devices/QA prerequisites exist; this external-readiness work may run opportunistically when prerequisites become available.
+7. **Resume Wide Documents remaining managed slices.**
+8. **Worker Registration — still paused until Wave 4D is complete and the user explicitly resumes it.** Site Attendance follows; Face Recognition remains gated by separate privacy/security design.
+9. **RI-4 through RI-6** are later developer-tooling work, not prerequisites for the product queue above.
+10. **RI-7 optional 3D explorer — LAST.** Do not start WebGL/3D work merely because RI-3 is complete.
 
 Do not skip directly to Worker Registration, and do not let visualization work displace the index/context, reliability, professionalization, Excel-native, provider-readiness, or approved product work above.
 ---
 
 ## Fresh implementation handoff instructions
 
-For the current Email/SMS implementation run, Codex should:
+For the next RI-1 implementation run, Codex should:
 
 - first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
-- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`, `GOOGLE_SIGNIN_BREVO_SETUP.md`, and the existing Wave 4A-4C delivery/template contracts;
-- read the completed UI/UX Round 2 design record only as needed to preserve the new interaction baseline;
+- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, and `docs/repository-intelligence/README.md` plus `docs/repository-intelligence/IMPLEMENTATION_ROADMAP.md`;
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
-- use at most one bounded context packet when useful;
-- inspect the existing Email/SMS workspace, Google Auth wiring, Brevo route/adapter, provider-neutral SMS adapter, delivery history/idempotency model, public entry flow, and permission surfaces before designing changes;
-- preserve source-backed document ownership and the existing Wave 4A-4C delivery/history contracts;
-- keep Brevo credentials server-only, retain historical Gmail fields/rows, and keep SMS limited to the two approved providers;
-- keep the canonical `hydroqualisense.com` homepage public while noncanonical operational
-  roots remain authenticated unless their deployment explicitly enables the public funnel;
-  keep Privacy and Terms session-free;
-- run focused -> affected -> relevant build/browser/communications and migration validation;
-- use Docker/Supabase only if the change genuinely crosses DB/security/integrity contracts;
-- review the complete final diff;
-- synchronize roadmap/handoff/client-facing feature truth to actual final capability;
-- push/open PR and stop; Codex must not merge its own PR.
+- use at most one bounded `agent:context` packet when useful;
+- inspect only the existing Workflow Map/context/test-impact machinery needed for additive integration;
+- implement RI-1 as a local/developer-only incremental source index without changing customer runtime or replacing current Workflow Map behavior;
+- run new/edited tests, focused RI tests, then `npm.cmd run test:affected:agent`; run lint/build/Workflow Map only when the final diff requires them;
+- do not start Docker/Supabase unless the final diff unexpectedly crosses a DB/security contract;
+- review the complete final diff, synchronize roadmap/handoff if actual scope changes, push/open PR, and stop; Codex must not merge its own PR.
+
+Provider/runtime certification for Brevo/SMS may proceed separately when safe external prerequisites exist; do not block RI-1 waiting for them.
 
 ## Stop boundary
 
-Do not let resumed Wave 4D expand into Worker Registration, Site Attendance, Face Recognition, broad CRM, new accounting policy, or unrelated DB redesign.
-
-Complete the current reliability slice and the remaining Wave 4D provider/readiness criteria before returning to deferred Wide Documents work or Worker Registration. Worker Registration remains paused until Wave 4D is genuinely complete and the user explicitly resumes it.
+RI-1 is the incremental repository source index only. Do not expand it into RI-2 graph merging, RI-3 context-engine replacement, explorer UI/3D, Excel-native UX, provider certification, Worker Registration, or unrelated product work.
