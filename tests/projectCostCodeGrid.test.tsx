@@ -12,6 +12,8 @@ test("project budget control uses the shared OperationsGrid with protected finan
     assert.match(panelSource, new RegExp(label));
   }
   assert.match(panelSource, /protected:\s*true/);
+  assert.match(panelSource, /certifiedSubcontractCost/);
+  assert.match(panelSource, /certified/);
   assert.match(panelSource, /onArchiveCostCode|handleArchive/);
   assert.match(panelSource, /onReactivateCostCode|handleReactivate/);
   assert.match(panelSource, /md:hidden/);
