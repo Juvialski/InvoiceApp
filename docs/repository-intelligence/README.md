@@ -35,6 +35,13 @@ Repository Intelligence adds source indexing and a unified query layer under tho
 - [`EXPLORER_UX.md`](./EXPLORER_UX.md) — structured/2D/3D developer explorer behavior and accessibility/performance rules.
 - [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md) — staged RI-1 through RI-7 implementation, validation, migration, and rollback.
 
+## Priority order
+
+Repository Intelligence implementation should proceed **RI-1 → RI-2 → RI-3 first**, because those phases directly reduce repository rediscovery and improve bounded agent context.
+
+After RI-3, pause Repository Intelligence presentation/tooling work unless explicitly reprioritized and return to the higher-priority HydroQualiSense structural/product queue. RI-4 through RI-6 are later developer-tooling improvements.
+
+**RI-7 is the optional 3D explorer and is intentionally last.** The 3D/WebGL view is never a prerequisite for indexing, AI context, application development, QA certification, or release.
 ## Source-of-truth rule
 
 Repository Intelligence must never flatten all graph facts into one level of authority. Every fact and relationship must retain provenance:

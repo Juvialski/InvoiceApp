@@ -212,7 +212,7 @@ Agents should not need a new ritual command merely because the implementation un
 
 ## Success measurements
 
-RI-7 should measure whether Repository Intelligence actually improves development:
+RI-6 should measure whether Repository Intelligence actually improves development:
 
 - fewer unrelated files opened before the first correct edit;
 - lower context packet size for equivalent tasks;

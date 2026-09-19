@@ -122,6 +122,13 @@ Evidence:
 
 Rollback: switch context provider back to current Workflow Map implementation.
 
+## Priority pause after RI-3
+
+RI-1, RI-2, and RI-3 are the near-term Repository Intelligence priority because they improve indexing and bounded agent context for the rest of HydroQualiSense development.
+
+After RI-3 is stable, **pause Repository Intelligence explorer work by default** and return to the higher-priority repository/product sequence documented in `AGENTS.md` and `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`. RI-4 through RI-6 can resume later when they materially help active engineering or the user explicitly reprioritizes them.
+
+The optional 3D explorer is not part of this near-term efficiency milestone and must remain the final RI phase.
 ## RI-4 — Developer explorer MVP: structured + 2D
 
 Goal: make the graph useful to humans before adding 3D complexity.
@@ -169,33 +176,7 @@ Evidence:
 
 Rollback: disable change overlay; base graph/context remains usable.
 
-## RI-6 — Optional 3D explorer
-
-Goal: add a richer spatial architecture view without making it the only interface.
-
-Scope:
-
-- districts/domains;
-- buildings/files;
-- configurable objective height/footprint metrics;
-- strong-edge filtering;
-- APIs/DB/providers/tests/guards as special objects;
-- risk/change overlays;
-- level-of-detail rendering;
-- automatic structured/2D fallback.
-
-Do not add a 3D dependency before this phase.
-
-Evidence:
-
-- bounded graph remains responsive on the target development laptop;
-- 3D can be disabled without loss of functionality;
-- reduced-motion/mobile/low-power/accessibility fallbacks work;
-- visual metrics are clearly labeled and not treated as quality scores.
-
-Rollback: remove 3D presentation layer only.
-
-## RI-7 — Agent integration and effectiveness measurement
+## RI-6 — Agent integration and effectiveness measurement
 
 Goal: make Repository Intelligence the normal bounded bootstrap when appropriate and prove it saves work.
 
@@ -215,10 +196,38 @@ Evidence:
 
 Rollback: continue using `agent:context` with its prior Workflow Map provider.
 
+## RI-7 — Optional 3D explorer — FINAL
+
+Goal: add a richer spatial architecture view without making it the only interface.
+
+Scope:
+
+- districts/domains;
+- buildings/files;
+- configurable objective height/footprint metrics;
+- strong-edge filtering;
+- APIs/DB/providers/tests/guards as special objects;
+- risk/change overlays;
+- level-of-detail rendering;
+- automatic structured/2D fallback.
+
+Do not add a 3D dependency before this phase. **RI-7 is intentionally the last Repository Intelligence phase and should remain behind all higher-priority structural, product, provider-readiness, and release-critical work unless the user explicitly changes the priority.**
+
+Evidence:
+
+- bounded graph remains responsive on the target development laptop;
+- 3D can be disabled without loss of functionality;
+- reduced-motion/mobile/low-power/accessibility fallbacks work;
+- visual metrics are clearly labeled and not treated as quality scores.
+
+Rollback: remove 3D presentation layer only.
+
 ## Recommended next implementation phase
 
 **RI-1 — Incremental repository source index.**
 
 It is the smallest implementation slice that creates new capability without touching customer runtime or replacing the proven Workflow Map/context system.
+
+Near-term RI order: **RI-1 → RI-2 → RI-3**, then pause by default for the higher-priority HydroQualiSense queue. RI-4 through RI-6 are later developer-tooling phases. **RI-7 optional 3D explorer is last.**
 
 Start from the latest green `main`, create one bounded context packet, inspect only the existing Workflow Map/context and test-impact machinery needed for integration, and implement the indexer as a separate additive library.

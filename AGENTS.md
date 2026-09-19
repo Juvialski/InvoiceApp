@@ -38,6 +38,24 @@ For a new Codex implementation task:
 
 Prompt creators should put the pull-first instruction at the top of every normal Codex implementation prompt. Avoid wording that tells Codex to spend time independently establishing the latest green remote baseline before pulling; **pull latest `main`, record the SHA once, then work**.
 
+## Current priority sequence — explicit 2026-09-19 override
+
+This sequence supersedes older `active`, `next`, and implementation-order wording when they conflict. Live repository state still governs exact scope and merge safety.
+
+1. **Finalize PR #176 — authenticated request recovery.** Rebase/update it against current `main`, review the complete diff and exact-head evidence, fix concrete issues, and merge only if safe. This reliability work is narrower and should be closed before starting a new large implementation phase.
+2. **Reconcile draft PR #179 — repository-professionalization continuation documentation.** Preserve only guidance that is still useful and not already superseded by current `main`/Repository Intelligence docs; close the obsolete draft instead of implementing it wholesale.
+3. **Repository Intelligence RI-1 — Incremental Repository Source Index.** Build the additive local file/hash/symbol/import index without changing current Workflow Map behavior.
+4. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.** Merge source-derived structure with the curated Workflow Map while preserving authority/provenance.
+5. **Repository Intelligence RI-3 — AI Context Engine integration.** Upgrade bounded task context behind the existing `workflow-map:context` / `agent:context` interfaces. This is the main Repository Intelligence efficiency milestone for later development.
+6. **Resume and finish remaining Repository & Architecture Professionalization work** using the improved bounded-context foundation.
+7. **Excel-Native Operations UX** after the relevant architecture boundaries are ready. Preserve real bidirectional `.xlsx` round trips, validation, permissions, history, financial authority, conflict review, and human confirmation.
+8. **Complete remaining Wave 4D provider/readiness work** when required Brevo/SMS credentials, devices, or safe QA prerequisites are actually available. Provider certification may proceed earlier when external prerequisites become available, but it must not displace the reliability/RI-core sequence merely to wait on credentials.
+9. **Resume Wide Documents remaining managed slices.**
+10. **Worker Registration** only after the Wave 4D gate is genuinely complete and the user explicitly resumes it; Site Attendance follows, and Face Recognition requires its own privacy/security design first.
+11. **Repository Intelligence RI-4 through RI-6** (structured/2D explorer, change intelligence, and agent-effectiveness hardening) are later developer-tooling work and are not prerequisites for the product phases above unless explicitly reprioritized.
+12. **Repository Intelligence RI-7 — optional 3D explorer — LAST.** Do not prioritize or start the 3D/WebGL explorer while any earlier Repository Intelligence core, professionalization, approved product, provider-readiness, or release-critical work remains ahead of it unless the user explicitly changes this order.
+
+The 3D explorer is presentation only. It is never a prerequisite for Repository Intelligence indexing/context value, customer product work, QA certification, or production release.
 ## Current implementation tracks — explicit 2026-09-18 override
 
 This section supersedes older `active` / `current implementation` labels below when they conflict. Product dependency history remains useful, but current engineering work must follow this track summary and the live roadmap/handoff.
