@@ -3,6 +3,7 @@ import { Award, Clock, FileCheck, FileText, Layers, Plus, Search, Users } from "
 import type { Project, RFQ, SupplierQuotation, Vendor } from "../../types.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { EmptyState } from "../ui/OperationsUI.tsx";
+import { OperationsGrid, type OperationsGridColumn } from "../ui/OperationsGrid.tsx";
 
 export interface RfqRegisterCounts {
   draft: number;
@@ -96,6 +97,53 @@ export function RfqRegisterSection({
   onIssueRfq,
   onCancelRfq,
 }: RfqRegisterSectionProps) {
+  const columns: OperationsGridColumn<RFQ>[] = [
+    {
+      key: "rfqNumber",
+      header: "RFQ Number",
+      value: (rfq) => <div className="max-w-xs"><div className="font-mono font-black text-slate-900">{rfq.rfqNumber}</div><div className="mt-0.5 truncate text-[11px] font-medium text-slate-700">{rfq.title}</div>{rfq.description && <div className="truncate text-[10px] text-slate-400">{rfq.description}</div>}</div>,
+      sortValue: (rfq) => rfq.rfqNumber,
+    },
+    {
+      key: "status",
+      header: "Status",
+      value: (rfq) => <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ${rfq.status === "ISSUED" ? "bg-purple-100 text-purple-800" : rfq.status === "CLOSED" ? "bg-emerald-100 text-emerald-800" : rfq.status === "CANCELLED" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>{rfq.status === "ISSUED" ? "OUT FOR QUOTE" : rfq.status}</span>,
+      sortValue: (rfq) => rfq.status,
+      protected: true,
+    },
+    {
+      key: "project",
+      header: "Project",
+      value: (rfq) => { const project = rfq.projectId ? projectMap.get(rfq.projectId) : undefined; return <div><div className="font-semibold text-slate-800">{project?.projectCode || "General"}</div><div className="max-w-[140px] truncate text-[10px] text-slate-500">{project?.projectName || "Unscoped"}</div></div>; },
+      sortValue: (rfq) => rfq.projectId ? projectMap.get(rfq.projectId)?.projectCode || "" : "",
+      protected: false,
+    },
+    {
+      key: "dates",
+      header: "Dates",
+      value: (rfq) => <div className="font-mono text-[11px] text-slate-600">{rfq.issueDate && <div><span className="text-[10px] text-slate-400">Issued: </span>{formatDate(rfq.issueDate, "short")}</div>}{rfq.dueDate && <div className="text-slate-500"><span className="text-[10px] text-slate-400">Due: </span>{formatDate(rfq.dueDate, "short")}</div>}{!rfq.issueDate && !rfq.dueDate && <span className="italic text-slate-400">—</span>}</div>,
+      sortValue: (rfq) => rfq.dueDate || rfq.issueDate || "",
+      protected: true,
+    },
+    { key: "lines", header: "Lines", value: (rfq) => rfq.lines?.length || 0, sortValue: (rfq) => rfq.lines?.length || 0, align: "center", protected: true },
+    { key: "invited", header: "Invited", value: (rfq) => <span className="font-semibold text-slate-700">{rfq.invitedVendorIds?.length || rfq.invitedVendors?.length || 0}</span>, sortValue: (rfq) => rfq.invitedVendorIds?.length || rfq.invitedVendors?.length || 0, align: "center", protected: true },
+    {
+      key: "quotes",
+      header: "Quotes",
+      value: (rfq) => { const count = quotationsByRfqId.get(rfq.id)?.length || 0; return <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${count > 0 ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>{count}</span>; },
+      sortValue: (rfq) => quotationsByRfqId.get(rfq.id)?.length || 0,
+      align: "center",
+      protected: true,
+    },
+    {
+      key: "decision",
+      header: "Decision",
+      value: (rfq) => { const quotes = quotationsByRfqId.get(rfq.id) || []; const selectedQuote = quotes.find((quote) => quote.id === rfq.selectedQuotationId || quote.status === "SELECTED"); const selectedVendor = selectedQuote ? vendorMap.get(selectedQuote.vendorId) : undefined; return selectedQuote ? <div><span className="inline-flex rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900">Selected: {selectedVendor?.name || "Supplier"}</span><div className="font-mono text-[10px] text-slate-500">{formatMoney(selectedQuote.totalAmount, selectedQuote.currency)}</div></div> : <span className="text-[11px] italic text-slate-400">Pending decision</span>; },
+      sortValue: (rfq) => rfq.selectedQuotationId || "",
+      protected: true,
+    },
+  ];
+
   return <>
     {/* RFQ KPI Cards */}
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -201,195 +249,14 @@ export function RfqRegisterSection({
             return <RfqRegisterCard key={rfq.id} rfq={rfq} project={project} quotes={quotes} selectedQuote={selectedQuote} selectedVendor={selectedVendor} invitedCount={invitedCount} canManage={canManage} onCompare={() => onCompareRfq(rfq)} onAddQuote={() => onAddQuotation(rfq)} onEdit={() => onEditRfq(rfq)} onIssue={() => onIssueRfq(rfq)} onCancel={() => onCancelRfq(rfq)} />;
           })}
         </div>
-        <div className="hidden overflow-x-auto lg:block">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">RFQ Number</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Project</th>
-                <th className="px-4 py-3">Dates</th>
-                <th className="px-4 py-3 text-center">Lines</th>
-                <th className="px-4 py-3">Invited Vendors</th>
-                <th className="px-4 py-3 text-center">Quotes</th>
-                <th className="px-4 py-3">Decision Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredRfqs.map((rfq) => {
-                const project = rfq.projectId ? projectMap.get(rfq.projectId) : undefined;
-                const quotes = quotationsByRfqId.get(rfq.id) || [];
-                const selectedQuote = quotes.find(
-                  (quote) => quote.id === rfq.selectedQuotationId || quote.status === "SELECTED",
-                );
-                const selectedVendor = selectedQuote ? vendorMap.get(selectedQuote.vendorId) : undefined;
-                const invitedCount = rfq.invitedVendorIds?.length || rfq.invitedVendors?.length || 0;
-
-                return (
-                  <tr
-                    key={rfq.id}
-                    className="hover:bg-slate-50/80 transition-colors"
-                  >
-                    {/* RFQ Number & Title */}
-                    <td className="px-4 py-3 font-mono font-bold text-slate-900">
-                      {rfq.rfqNumber}
-                      <div className="font-sans font-medium text-[11px] text-slate-700 truncate max-w-xs mt-0.5">
-                        {rfq.title}
-                      </div>
-                      {rfq.description && (
-                        <div className="font-sans font-normal text-[10px] text-slate-400 truncate max-w-xs">
-                          {rfq.description}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                          rfq.status === "ISSUED"
-                            ? "bg-purple-100 text-purple-800"
-                            : rfq.status === "CLOSED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : rfq.status === "CANCELLED"
-                            ? "bg-rose-100 text-rose-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {rfq.status === "ISSUED" ? "ISSUED (OUT FOR QUOTE)" : rfq.status}
-                      </span>
-                    </td>
-
-                    {/* Project */}
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-800">{project?.projectCode || "General"}</div>
-                      <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
-                        {project?.projectName || "Unscoped"}
-                      </div>
-                    </td>
-
-                    {/* Dates */}
-                    <td className="px-4 py-3 text-slate-600 font-mono text-[11px]">
-                      {rfq.issueDate && (
-                        <div>
-                          <span className="text-[10px] text-slate-400">Issued: </span>
-                          {formatDate(rfq.issueDate, "short")}
-                        </div>
-                      )}
-                      {rfq.dueDate && (
-                        <div className="text-slate-500">
-                          <span className="text-[10px] text-slate-400">Due: </span>
-                          {formatDate(rfq.dueDate, "short")}
-                        </div>
-                      )}
-                      {!rfq.issueDate && !rfq.dueDate && <span className="text-slate-400 italic">—</span>}
-                    </td>
-
-                    {/* Line items count */}
-                    <td className="px-4 py-3 text-center tabular-nums text-slate-700 font-semibold">
-                      {rfq.lines?.length || 0}
-                    </td>
-
-                    {/* Invited vendors count */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-slate-700">
-                        <Users className="h-3.5 w-3.5 text-slate-400" />
-                        <span className="font-semibold">{invitedCount}</span>
-                        <span className="text-[10px] text-slate-400">invited</span>
-                      </div>
-                    </td>
-
-                    {/* Quotes count */}
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                          quotes.length > 0
-                            ? "bg-indigo-100 text-indigo-800"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {quotes.length} {quotes.length === 1 ? "quote" : "quotes"}
-                      </span>
-                    </td>
-
-                    {/* Decision Status */}
-                    <td className="px-4 py-3">
-                      {selectedQuote ? (
-                        <div className="space-y-0.5">
-                          <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
-                            <Award className="h-3 w-3 text-emerald-600" />
-                            Selected: {selectedVendor?.name || "Supplier"}
-                          </span>
-                          <div className="text-[10px] font-mono text-slate-500">
-                            {formatMoney(selectedQuote.totalAmount, selectedQuote.currency)}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 italic">Pending Decision</span>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* Compare / View Quotes button */}
-                        <button
-                          type="button"
-                          onClick={() => onCompareRfq(rfq)}
-                          className="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-900 rounded-lg hover:bg-indigo-50 transition"
-                        >
-                          {quotes.length > 0 ? "View & Compare" : "Compare"}
-                        </button>
-
-                        {/* Add Quote button */}
-                        {canManage && rfq.status !== "CANCELLED" && (
-                          <button
-                            type="button"
-                            onClick={() => onAddQuotation(rfq)}
-                            className="px-2.5 py-1 text-xs font-semibold text-purple-600 hover:text-purple-900 rounded-lg hover:bg-purple-50 transition"
-                          >
-                            + Quote
-                          </button>
-                        )}
-
-                        {/* Edit RFQ (if draft) */}
-                        {canManage && rfq.status === "DRAFT" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => onEditRfq(rfq)}
-                              className="px-2 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onIssueRfq(rfq)}
-                              className="px-2 py-1 text-xs font-semibold text-emerald-600 hover:text-emerald-900 rounded-lg hover:bg-emerald-50 transition"
-                            >
-                              Issue
-                            </button>
-                          </>
-                        )}
-
-                        {/* Cancel RFQ */}
-                        {canManage && rfq.status !== "CLOSED" && rfq.status !== "CANCELLED" && (
-                          <button
-                            type="button"
-                            onClick={() => onCancelRfq(rfq)}
-                            className="px-2 py-1 text-xs font-semibold text-rose-600 hover:text-rose-900 rounded-lg hover:bg-rose-50 transition"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="hidden lg:block">
+          <OperationsGrid
+            ariaLabel="RFQ register"
+            rows={filteredRfqs}
+            columns={columns}
+            rowKey={(rfq) => rfq.id}
+            renderActions={(rfq) => { const quotes = quotationsByRfqId.get(rfq.id) || []; return <div className="flex items-center justify-end gap-1.5"><button type="button" onClick={() => onCompareRfq(rfq)} className="rounded-lg px-2.5 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 hover:text-indigo-900">{quotes.length > 0 ? "View & Compare" : "Compare"}</button>{canManage && rfq.status !== "CANCELLED" && <button type="button" onClick={() => onAddQuotation(rfq)} className="rounded-lg px-2.5 py-1 text-xs font-semibold text-purple-600 transition hover:bg-purple-50 hover:text-purple-900">+ Quote</button>}{canManage && rfq.status === "DRAFT" && <><button type="button" onClick={() => onEditRfq(rfq)} className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">Edit</button><button type="button" onClick={() => onIssueRfq(rfq)} className="rounded-lg px-2 py-1 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-900">Issue</button></>}{canManage && rfq.status !== "CLOSED" && rfq.status !== "CANCELLED" && <button type="button" onClick={() => onCancelRfq(rfq)} className="rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 hover:text-rose-900">Cancel</button>}</div>; }}
+          />
         </div>
       </div>
     ) : (

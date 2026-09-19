@@ -80,6 +80,84 @@ test("ProcurementPage renders sub-tabs for Purchase Orders and Requests for Quot
   assert.match(markup, /No purchase orders yet/);
 });
 
+test("Procurement registers use the shared OperationsGrid on desktop and retain responsive cards", () => {
+  const purchaseOrderMarkup = renderToStaticMarkup(
+    <ProcurementPage
+      purchaseOrders={demoWorkspace.purchaseOrders}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canRead={true}
+      canManage={true}
+      rfqs={demoRfqs}
+      supplierQuotations={demoQuotes}
+      onSavePO={async () => {}}
+      onTransitionPO={async () => {}}
+      onDeletePO={async () => {}}
+    />,
+  );
+  assert.match(purchaseOrderMarkup, /aria-label="Purchase order register"/);
+  assert.match(purchaseOrderMarkup, /aria-label="Purchase order register cards"/);
+
+  const rfqMarkup = renderToStaticMarkup(
+    <ProcurementPage
+      purchaseOrders={demoWorkspace.purchaseOrders}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      initialTab="rfqs"
+      canRead={true}
+      canManage={true}
+      rfqs={demoRfqs}
+      supplierQuotations={demoQuotes}
+      onSavePO={async () => {}}
+      onTransitionPO={async () => {}}
+      onDeletePO={async () => {}}
+    />,
+  );
+  assert.match(rfqMarkup, /aria-label="RFQ register"/);
+  assert.match(rfqMarkup, /aria-label="RFQ register cards"/);
+});
+
+test("Procurement exposes an explicit workbook review/apply surface and truthful read-only state", () => {
+  const markup = renderToStaticMarkup(
+    <ProcurementPage
+      purchaseOrders={demoWorkspace.purchaseOrders}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canRead={true}
+      canManage={true}
+      rfqs={demoRfqs}
+      supplierQuotations={demoQuotes}
+      onSavePO={async () => {}}
+      onTransitionPO={async () => {}}
+      onDeletePO={async () => {}}
+    />,
+  );
+  assert.match(markup, /Export editable workbook/);
+  assert.match(markup, /Import workbook/);
+  assert.match(markup, /Upload creates a review proposal/);
+  assert.match(markup, /Apply selected changes/);
+
+  const readOnlyMarkup = renderToStaticMarkup(
+    <ProcurementPage
+      purchaseOrders={[]}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canRead={true}
+      canManage={false}
+      rfqs={[]}
+      supplierQuotations={[]}
+      onSavePO={async () => {}}
+      onTransitionPO={async () => {}}
+      onDeletePO={async () => {}}
+    />,
+  );
+  assert.match(readOnlyMarkup, /Upload is available for review only/);
+});
+
 test("RFQEditorModal renders with accessible dialog attributes, line items table, and invited vendors", () => {
   const rfq = demoRfqs[0];
   const markup = renderToStaticMarkup(
