@@ -1,4 +1,4 @@
-import type { Expense, ExpenseStatus, InvoiceData, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../types.ts";
+import type { Expense, InvoiceData, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../types.ts";
 import {
   deriveExpenseSettlementSummary,
   type FinancialSettlementHistoryItem,
@@ -211,7 +211,18 @@ export function settlementForExpenseWorkbook(
   const invoice = expense.supplierInvoiceId ? input.invoices.find((candidate) => candidate.id === expense.supplierInvoiceId) : undefined;
   const supplierProjection = invoice ? input.settlementProjections?.get(invoice.id) : undefined;
   if (supplierProjection && supplierProjection.targetId === expense.id) return supplierProjection.settlement;
-  return deriveExpenseSettlementSummary(expense, settlementHistoryForExpense(expense, invoice?.id, input.settlementMatches));
+  const direct = deriveExpenseSettlementSummary(expense, settlementHistoryForExpense(expense, invoice?.id, input.settlementMatches));
+  if (supplierProjection?.authorityConflict) {
+    return {
+      ...direct,
+      reconciledCashPaid: 0,
+      effectiveSettled: 0,
+      outstanding: direct.settlementBasis,
+      settlementState: "UNPAID",
+      authorityConflict: true,
+    };
+  }
+  return direct;
 }
 
 function expenseLabel(expense: Expense) {

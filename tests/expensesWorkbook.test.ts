@@ -7,6 +7,7 @@ import {
   applyExpensesImport,
   buildExpensesImportReview,
   exportExpensesWorkbook,
+  settlementForExpenseWorkbook,
   type ExpensesImportContext,
   type ExpensesWorkbookRecords,
 } from "../src/lib/expensesWorkbook.ts";
@@ -282,6 +283,19 @@ test("keeps mixed currencies explicit and treats missing/new rows as non-destruc
   assert.equal(review.omittedExpenseIds.includes(DIRECT_EXPENSE_ID), true);
   assert.equal(review.proposals.some((proposal) => proposal.status === "UNSUPPORTED_NEW_RECORD"), true);
   assert.equal(review.proposals.some((proposal) => proposal.expense?.currency === "USD" && proposal.expense.amount === 25), true);
+});
+
+test("supplier authority conflicts remain fail-closed in Expense settlement projections", () => {
+  const source = records();
+  const conflicting = expense({ id: "bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1", supplierInvoiceId: SUPPLIER_INVOICE_ID, amount: 1900, status: "DRAFT" });
+  const settlement = settlementForExpenseWorkbook(conflicting, {
+    invoices: source.invoices,
+    settlementProjections: new Map([[SUPPLIER_INVOICE_ID, { ...supplierProjection(), authorityConflict: true }]]),
+    settlementMatches: source.settlementMatches,
+  });
+  assert.equal(settlement.authorityConflict, true);
+  assert.equal(settlement.settlementState, "UNPAID");
+  assert.equal(settlement.reconciledCashPaid, 0);
 });
 
 test("read-only context cannot apply and Apply revalidates before calling the authoritative callback", async () => {

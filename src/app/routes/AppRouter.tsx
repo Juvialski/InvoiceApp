@@ -75,7 +75,6 @@ import type { ProjectsWorkbookRecords } from "../../components/projects/Projects
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
 import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
-import type { SupplierInvoiceSettlementMatch } from "../../lib/supplierInvoiceSettlement.ts";
 import type { ExpensesWorkbookRecords } from "../../lib/expensesWorkbook.ts";
 import type {
   CashBankingWorkspaceData,
