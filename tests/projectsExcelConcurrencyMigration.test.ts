@@ -27,6 +27,8 @@ test("grouped project cost-control RPC validates final budget and stable parent 
   assert.match(sql, /approved_budget_amount/i);
   assert.match(sql, /project(?:_id|Id).*is distinct from|parent identity cannot be changed/i);
   assert.match(sql, /active cost-code budgets|project approved budget/is);
+  assert.match(sql, /currency is protected/i);
+  assert.match(sql, /unclassified tax treatment/i);
   assert.match(sql, /for update/i);
 });
 
