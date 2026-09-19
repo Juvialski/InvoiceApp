@@ -47,6 +47,8 @@ import type { ProjectEquipmentSaveInput, ProjectMaterialSaveInput } from "../../
 import type { InventoryItem, InventoryMovement } from "../../lib/inventory.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
+import type { ProjectsApplyGroup } from "../../lib/projectsWorkbook.ts";
+import type { ProjectsWorkbookRecords } from "../../components/projects/ProjectsWorkbookPanel.tsx";
 
 export interface ProjectsRouteProps {
   projects: Project[];
@@ -129,6 +131,8 @@ export interface ProjectsRouteProps {
   onTabChange?: (tab: WorkspaceTab) => void;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
+  onRefreshProjects?: () => Promise<ProjectsWorkbookRecords>;
+  onApplyProjectWorkbookGroup?: (group: ProjectsApplyGroup) => Promise<void>;
   onPreviewProjectLifecycle: (project: Project) => Promise<ProjectLifecyclePreview>;
   onApplyProjectLifecycle: (project: Project, action: ProjectLifecycleAction, reason?: string) => Promise<void>;
   onArchiveProject: (project: Project) => Promise<void> | void;
@@ -283,6 +287,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onTabChange,
   onOpenProject,
   onSaveProject,
+  onRefreshProjects,
+  onApplyProjectWorkbookGroup,
   onPreviewProjectLifecycle,
   onApplyProjectLifecycle,
   onArchiveProject,
@@ -474,12 +480,15 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
       subcontractClaims={subcontractClaims}
       subcontractVariations={subcontractVariations}
       engineeringCoordinationData={engineeringCoordinationData}
+      companyId={companyId}
       attentionToday={attentionToday}
       initialEditingProject={projectFormSeed}
       onOpenProject={onOpenProject}
       onSaveProject={onSaveProject}
       onPreviewProjectLifecycle={onPreviewProjectLifecycle}
       onApplyProjectLifecycle={onApplyProjectLifecycle}
+      onRefreshProjects={onRefreshProjects}
+      onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup}
     />
   );
 };

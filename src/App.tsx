@@ -106,6 +106,7 @@ import {
   writeClientCollectionWorkspaceToLocal,
 } from "./lib/clientCollections.ts";
 import {
+  applyProjectCostControlGroupToSupabase,
   archiveProjectCostCodeInSupabase,
   loadProjectCostCodesFromSupabase,
   reactivateProjectCostCodeInSupabase,
@@ -113,6 +114,8 @@ import {
   saveProjectCostCodeToSupabase,
   writeProjectCostCodesToLocal,
 } from "./lib/projectCostCodes";
+import type { ProjectsApplyGroup } from "./lib/projectsWorkbook.ts";
+import type { ProjectsWorkbookRecords } from "./components/projects/ProjectsWorkbookPanel.tsx";
 import { applyExpenseCorrectionInSupabase, createLocalExpense, loadExpensesFromSupabase, previewExpenseCorrectionInSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
 import { buildLocalExpenseCorrectionPreview, buildLocalInvoiceCorrectionPreview, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./lib/financialLifecycle.ts";
 import { applyPayrollLifecycleToSupabase, canTransitionPayrollRun, deletePayrollPeriodToSupabase, deletePayrollRunToSupabase, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, previewWorkerLifecycleToSupabase, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
@@ -1731,6 +1734,55 @@ function InvoiceWorkspace() {
       }
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save cost code."));
+      throw error;
+    }
+  };
+
+  const handleRefreshProjectsWorkbook = async (): Promise<ProjectsWorkbookRecords> => {
+    if (session && supabase && !guestModeState) {
+      const [freshProjects, freshCostCodes] = await Promise.all([
+        loadProjectsFromSupabase(),
+        loadProjectCostCodesFromSupabase(),
+      ]);
+      projectController.applyProjects(freshProjects);
+      setCostCodes(freshCostCodes);
+      return { projects: freshProjects, costCodes: freshCostCodes };
+    }
+    return { projects, costCodes };
+  };
+
+  const handleApplyProjectWorkbookGroup = async (group: ProjectsApplyGroup): Promise<void> => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) {
+        throw new Error("You do not have permission to apply project workbook changes.");
+      }
+      if (session && supabase && !guestModeState) {
+        const result = await applyProjectCostControlGroupToSupabase(
+          group.project,
+          group.expectedProjectUpdatedAt,
+          group.costCodes,
+        );
+        const nextProjects = projects.some((candidate) => candidate.id === result.project.id)
+          ? projects.map((candidate) => candidate.id === result.project.id ? result.project : candidate)
+          : [result.project, ...projects];
+        projectController.applyProjects(nextProjects);
+        const returnedCodes = new Map(result.costCodes.map((costCode) => [costCode.id, costCode]));
+        setCostCodes((current) => current.map((costCode) => returnedCodes.get(costCode.id) || costCode));
+      } else {
+        const nextProjects = projects.some((candidate) => candidate.id === group.project.id)
+          ? projects.map((candidate) => candidate.id === group.project.id ? group.project : candidate)
+          : [group.project, ...projects];
+        projectController.applyProjects(nextProjects);
+        const changedCodes = new Map(group.costCodes.map((costCode) => [costCode.id, costCode]));
+        setCostCodes((current) => {
+          const next = current.map((costCode) => changedCodes.get(costCode.id) ? { ...costCode, ...changedCodes.get(costCode.id) } : costCode);
+          writeProjectCostCodesToLocal(next);
+          return next;
+        });
+      }
+      showNotification("success", `Applied reviewed project controls for ${group.project.projectCode}.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not apply the reviewed project workbook group."));
       throw error;
     }
   };
@@ -3478,6 +3530,8 @@ function InvoiceWorkspace() {
           projectFormSeed={projectFormSeed}
           onOpenProject={projectController.openProject}
           onSaveProject={(project) => void projectController.saveProject(project)}
+          onRefreshProjects={handleRefreshProjectsWorkbook}
+          onApplyProjectWorkbookGroup={handleApplyProjectWorkbookGroup}
           onPreviewProjectLifecycle={projectController.previewProjectLifecycle}
           onApplyProjectLifecycle={projectController.applyProjectLifecycle}
           onArchiveProject={(project) => void projectController.archiveProject(project)}
