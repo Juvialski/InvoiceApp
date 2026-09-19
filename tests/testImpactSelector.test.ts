@@ -21,10 +21,18 @@ import {
   buildDependencyGraph,
   extractChangedSymbolsFromDiff,
   detectGitRange,
+  parseWorkingTreeStatusPaths,
   extractTopLevelDeclarations,
   type DependencyGraph
 } from '../scripts/test-impact.ts';
 import ts from 'typescript';
+
+test('working-tree status parsing preserves the first path when git output starts with a staged status space', () => {
+  assert.deepEqual(
+    parseWorkingTreeStatusPaths(' M scripts/agent-context.ts\n?? tests/new-context.test.ts\n'),
+    ['scripts/agent-context.ts', 'tests/new-context.test.ts'],
+  );
+});
 
 function createMockGraph(overrides: Partial<DependencyGraph> = {}): DependencyGraph {
   const dummyTests = Array.from({ length: 40 }, (_, i) => `tests/dummy${i + 1}.test.ts`);

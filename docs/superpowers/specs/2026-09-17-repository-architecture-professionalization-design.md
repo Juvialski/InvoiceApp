@@ -14,7 +14,11 @@ This phase is not a feature rewrite. It must preserve current financial semantic
 
 The work is split into reviewable slices so each can be reviewed and validated independently.
 
-Current status: Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains in progress. The approved future Excel-native UX is a separate deferred product-design track documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`; it must not be pulled into structural slices prematurely.
+Current status: **Repository & Architecture Professionalization — COMPLETE for the current repository boundary.** Slices 1-4, Slice 5 Waves A-C, RI-2, RI-3, responsibility triage, evidence policy, front-door synchronization, safe current branding cleanup, and repository-identity evaluation are complete. The approved future Excel-native UX remains a separate product-design track documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` and is not included in this structural work.
+
+The closed responsibility and evidence decisions are recorded in
+`docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and
+`docs/REPOSITORY_EVIDENCE_POLICY.md`.
 
 Slice 1 is complete in PR #178. Slice 2 (`src/App.tsx` decomposition) is complete in PR #180 and merged on `main` as `822da0d6bde69bb9c25fc77fa1e55641ae67ff61`. Slice 3 (`server.ts` decomposition) is complete in PR #182 and merged on `main` as `7b13b1723f400da4207c6112b314065cc2a4d7fd`; it remains separate from the active Email/SMS work.
 
@@ -109,7 +113,11 @@ Procurement secondary-module decomposition has started in Wave A. Purchase Order
 
 Wave B completes the next presentation boundary: the Subcontract register workspace now lives in `src/components/procurement/SubcontractRegisterSection.tsx`. The extracted section owns the Subcontract tab's KPI cards, filters, responsive card/table presentation, empty state, row display, Claims/Variations entry points, View/Edit entry, and lifecycle action presentation. `ProcurementPage.tsx` remains the owner of subcontract, claim, and variation state; filtering; parent-derived financial/register row models; committed-cost, claim, retention, and certified-value derivation; permissions; demo/live persistence; lifecycle/mutation callbacks; routing context; and all editor/drawer/detail/cancellation orchestration. The existing Claim and Variation components remain authoritative and were not duplicated.
 
-After the extraction, `ProcurementPage.tsx` is 1,494 lines in the reviewed working tree. No database, financial-semantic, provider, production, route, or persistence contract changed. Slice 5 Wave B is complete as this focused presentation extraction, but the broader secondary-module and repository professionalization program remains incomplete; this status must not be read as completion of all of Slice 5 or later slices.
+At the Wave B review point, `ProcurementPage.tsx` was 1,494 lines in the
+reviewed working tree. No database, financial-semantic, provider, production,
+route, or persistence contract changed. Slice 5 Wave B was complete as that
+focused presentation extraction; the later completion record reconciles the
+remaining program boundary.
  
 #### Slice 5 implementation status — Wave C — 2026-09-18
  
@@ -117,9 +125,9 @@ Wave C extracts the Projects portfolio and register presentation into `src/compo
  
 `ProjectsPage.tsx` remains the authoritative owner of project source data, cost summaries, client billing/collection data, permissions, completeness checks, `buildProjectManagementView(...)`, `buildPortfolioManagementSummary(...)`, `filterAndSortProjectViews(...)`, filter and sort state, manager and currency option derivation, editing draft creation and validation, project save orchestration, lifecycle preview loading, lifecycle actions, lifecycle reason/error/loading state, lifecycle and editing dialogs, and route/open behavior.
  
-After the extraction, `ProjectsPage.tsx` is reduced from 1,413 lines to 713 lines. No database, financial-semantic, provider, production, route, or persistence contract changed. Slice 5 Wave C is complete as this focused presentation extraction. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was added. The broader secondary-module and repository professionalization program remains in progress.
+After the extraction, `ProjectsPage.tsx` is reduced from 1,413 lines to 713 lines. No database, financial-semantic, provider, production, route, or persistence contract changed. Slice 5 Wave C is complete as this focused presentation extraction. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was added. The later completion record closes the broader secondary-module and repository professionalization program for the current repository boundary.
 
-### Remaining program after Slice 5 Wave C
+### Completion record after Slice 5 Wave C
 
 PR #179 proposed a broader continuation plan, but much of it was superseded by work already merged on `main`: App decomposition, server decomposition, and staged ESLint/TypeScript hardening are complete. The still-valid continuation goals are retained here without creating a second competing design document:
 
@@ -131,7 +139,13 @@ PR #179 proposed a broader continuation plan, but much of it was superseded by w
 - keep README/architecture documentation as the human front door while retaining `AGENTS.md` for the real ChatGPT/Codex workflow;
 - add concise architecture/onboarding material only where it improves human understanding rather than creating generic repository boilerplate.
 
-These goals remain valid and, by the latest explicit 2026-09-19 reprioritization, must be completed after RI-3 and before Excel-native implementation. The professionalization program must reach an explicit COMPLETE state rather than leaving open-ended repository cleanup behind a new feature phase.
+These goals were reconciled after RI-3. Remaining large/shared modules are
+either decomposed or intentionally retained with reasons; repository hygiene,
+evidence policy, current branding/front-door quality, and integration-aware
+repository identity are explicitly closed in the triage/evidence records. The
+professionalization program is COMPLETE for this repository boundary. External
+GitHub/Render administration remains a manual option and does not block the
+next Excel Phase 0/readiness direction.
 ## Non-goals
 
 - No database schema redesign.
@@ -163,7 +177,11 @@ The following are invariants for all slices:
 
 The Email/SMS reliability implementation is merged and remains an independent product boundary. Later structural work must preserve authenticated request recovery, Company SIM Gateway/PhilSMS provider boundaries, human-confirmed sends, delivery-history/idempotency/reconciliation, and truthful provider readiness rather than reimplementing them.
 
-Repository Intelligence RI-1 through RI-3 precede the remaining structural work. After RI-3, resume and finish the full remaining professionalization program before Excel Phase 0/readiness. Use the RI context layer to reduce rediscovery and context cost while completing the repository organization.
+Repository Intelligence RI-1 through RI-3 and the remaining structural
+professionalization decisions are complete for the current repository
+boundary. The next implementation direction is Excel Phase 0/readiness. Use
+the RI context layer for future bounded work without treating it as a customer
+runtime dependency.
 
 ## Validation strategy
 

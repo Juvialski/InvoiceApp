@@ -7,6 +7,7 @@ import {
 } from '../scripts/ci-failure-context.ts';
 import {
   DEFAULT_AGENT_CONTEXT_BUDGET,
+  formatAgentFallbackContextPacket,
   formatAgentContextPacket,
   parseAgentContextCliArguments,
 } from '../scripts/agent-context.ts';
@@ -18,6 +19,7 @@ import {
 import type { ImpactSelectionResult } from '../scripts/test-impact.ts';
 import type { WorkflowContextPacket } from '../scripts/workflow-map/context.ts';
 import type { RepositoryMetadata } from '../scripts/workflow-map/repositoryContext.ts';
+import type { RepositoryIntelligenceContextPacket } from '../scripts/repository-intelligence/contextEngine.ts';
 
 function mockImpact(overrides: Partial<ImpactSelectionResult> = {}): ImpactSelectionResult {
   return {
@@ -150,6 +152,41 @@ function mockWorkflow(): WorkflowContextPacket {
       },
     },
   } as WorkflowContextPacket;
+}
+
+function mockRepositoryIntelligence(overrides: Partial<RepositoryIntelligenceContextPacket> = {}): RepositoryIntelligenceContextPacket {
+  return {
+    packetType: 'hydroqualisense-repository-intelligence-context',
+    schemaVersion: 1,
+    status: 'fresh',
+    task: 'Update project controls',
+    repository: {
+      headSha: 'b'.repeat(40),
+      branch: 'feature/project-controls',
+      dirty: true,
+      changedFilePaths: ['src/lib/project.ts'],
+      indexHeadSha: 'b'.repeat(40),
+      graphSchemaVersion: 1,
+      graphVersion: 'ri-2.0.0',
+    },
+    resolvedDomains: ['projects'],
+    resolvedWorkflows: ['projects.project-detail'],
+    primarySource: [{ path: 'src/lib/project.ts', symbolIds: ['symbol:src/lib/project.ts#buildProjectManagementView:function'], score: 1100, reasons: ['curated Workflow Map source'] }],
+    supportingSource: ['src/components/projects/ProjectDetail.tsx'],
+    symbols: ['symbol:src/lib/project.ts#buildProjectManagementView:function'],
+    executionPath: ['src/lib/project.ts -> Project Detail'],
+    boundaries: ['Project permission gate'],
+    tests: ['tests/projectLifecycle.test.ts'],
+    invariants: ['project-financial-truth'],
+    permissions: ['projects.view'],
+    confirmations: [],
+    databaseImpact: 'none/unlikely',
+    providerImpact: 'none/unlikely',
+    explicitlyExcludedDomains: ['procurement', 'inventory'],
+    conflicts: [],
+    provenanceNotes: ['curated Workflow Map facts outrank inferred relationships.'],
+    ...overrides,
+  };
 }
 
 test('node:test summary parser extracts compact pass/fail counts', () => {
@@ -295,9 +332,38 @@ test('agent context packet is bounded and contains working-set, safety, and vali
     workflow: mockWorkflow(),
   }, DEFAULT_AGENT_CONTEXT_BUDGET);
   assert.ok(output.length <= DEFAULT_AGENT_CONTEXT_BUDGET);
+  assert.match(output, /# HydroQualiSense Agent Context/);
   assert.match(output, /## Working set/);
   assert.match(output, /project-financial-truth/);
   assert.match(output, /projects\.view/);
   assert.match(output, /test:affected:agent/);
   assert.match(output, /Database: unaffected/);
+});
+
+test('agent context compatibility output includes bounded Repository Intelligence evidence when available', () => {
+  const output = formatAgentContextPacket({
+    task: 'Update project controls',
+    repository: mockRepository(),
+    impact: mockImpact(),
+    workflow: mockWorkflow(),
+    repositoryIntelligence: mockRepositoryIntelligence(),
+  }, DEFAULT_AGENT_CONTEXT_BUDGET);
+  assert.ok(output.length <= DEFAULT_AGENT_CONTEXT_BUDGET);
+  assert.match(output, /## Repository Intelligence/);
+  assert.match(output, /Primary source/);
+  assert.match(output, /ri-2\.0\.0/);
+  assert.match(output, /curated Workflow Map facts/);
+});
+
+test('agent fallback compatibility output preserves its warning while exposing RI stale status', () => {
+  const output = formatAgentFallbackContextPacket({
+    task: 'Update project controls',
+    repository: mockRepository(),
+    impact: mockImpact(),
+    selection: { query: 'new workflow' },
+    repositoryIntelligence: mockRepositoryIntelligence({ status: 'stale-fallback', primarySource: [], fallbackReason: 'revision mismatch' }),
+  }, 8_000);
+  assert.match(output, /Workflow-map match: unavailable/);
+  assert.match(output, /status: \*\*stale-fallback\*\*/);
+  assert.match(output, /revision mismatch/);
 });

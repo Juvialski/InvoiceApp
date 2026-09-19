@@ -1,8 +1,8 @@
 # HydroQualiSense Excel-Native Operations UX
 
-> **APPROVED MAJOR UX DIRECTION — IMPLEMENTATION STARTS ONLY AFTER REPOSITORY & ARCHITECTURE PROFESSIONALIZATION IS COMPLETE**
+> **APPROVED MAJOR UX DIRECTION — PROFESSIONALIZATION COMPLETE; IMPLEMENTATION STARTS AFTER EXCEL PHASE 0/READINESS**
 
-Status: **Approved; implementation not started; Phase 0/readiness follows full professionalization completion**
+Status: **Approved; Repository & Architecture Professionalization is complete for the current repository boundary; implementation not started; Phase 0/readiness is next**
 Repository: `Juvialski/InvoiceApp`
 Product: HydroQualiSense
 Approved direction: Make applicable operational work substantially more familiar to experienced Excel users without weakening HydroQualiSense business rules or turning the product into a generic spreadsheet.
@@ -765,9 +765,19 @@ The product goal is reduced training burden and faster routine work, not visual 
 
 ## 29. Documentation status and sequencing
 
-The Excel-Native Operations UX direction is approved. Implementation has **not** started. RI-1 is complete; the next implementation run combines RI-2 and RI-3. After RI-3, the entire remaining Repository & Architecture Professionalization program must be completed before Excel Phase 0/readiness begins.
+The Excel-Native Operations UX direction is approved. Implementation has
+**not** started. RI-1, RI-2, and RI-3 are complete, and the Repository &
+Architecture Professionalization program is explicitly complete for the
+current repository boundary. The next implementation run is Excel Phase
+0/readiness, followed by a bounded shared foundation only after the live
+architecture and readiness evidence support it.
 
-By the latest explicit 2026-09-19 reprioritization, Excel must not be used as a reason to leave repository organization unfinished. Current branding/repository-facing metadata, repository hygiene, evidence policy, human onboarding, remaining responsibility/context-driven decomposition, and repository identity/rename decisions that belong to the professionalization program must be resolved first. Future implementation must start from the resulting completed professionalized repository state. Future implementation must start from live repository state, not from assumptions in this document.
+By the latest explicit 2026-09-19 reprioritization, Excel must start from the
+completed professionalized repository boundary recorded in
+`docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and
+`docs/REPOSITORY_EVIDENCE_POLICY.md`. Future implementation must still start
+from live repository state and must not infer Excel capability from this design
+document.
 
 This document is linked for discoverability from the active roadmap and current handoff. It is not a competing roadmap and does not mark any current capability as available or certified.
 

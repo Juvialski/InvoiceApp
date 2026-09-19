@@ -32,7 +32,7 @@ function ratio(result: ImpactSelectionResult): string {
 
 export function formatAgentSelectionSummary(result: ImpactSelectionResult): string {
   return [
-    'Engoryx affected-test selection',
+    'HydroQualiSense affected-test selection',
     `base=${result.baseSha.slice(0, 10) || 'unknown'} head=${result.headSha.slice(0, 10) || 'unknown'}`,
     `changed_files=${result.changedFiles.length} selected_files=${result.selectedTests.length}/${result.totalAvailableTests} (${ratio(result)})`,
     `database=${result.isDatabaseAffected ? 'affected' : 'unaffected'} fallback=${result.isFallback ? 'yes' : 'no'}`,

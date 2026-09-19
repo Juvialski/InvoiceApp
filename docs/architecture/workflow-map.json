@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "graphId": "engoryx-product-workflow",
   "version": "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration+client-productization",
-  "product": "Engoryx Engineering Operations Platform",
+  "product": "HydroQualiSense Engineering Operations Platform",
   "purpose": "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   "canonicalSource": "scripts/workflow-map/graph.ts",
   "sourceClassification": "mixed",
@@ -888,7 +888,7 @@
       "domain": "platform-tenancy",
       "type": "workflow",
       "scope": "company",
-      "description": "Mounts the production application for the one company configured to this Engoryx deployment; users do not choose or switch unrelated companies.",
+      "description": "Mounts the production application for the one company configured to this HydroQualiSense deployment; users do not choose or switch unrelated companies.",
       "fileRefs": [
         "src/main.tsx",
         "src/App.tsx",
@@ -5769,7 +5769,7 @@
     {
       "sourceClassification": "mixed",
       "id": "assistant-screen",
-      "label": "Engoryx Assistant panel",
+      "label": "HydroQualiSense Assistant panel",
       "domain": "assistant",
       "type": "screen",
       "scope": "company",

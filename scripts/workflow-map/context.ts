@@ -1289,7 +1289,7 @@ function renderChangedFileMapping(mapping: WorkflowContextChangedFileMapping): s
 
 export function renderWorkflowContextMarkdown(packet: WorkflowContextPacket): string {
   const lines: string[] = [
-    "# ENGORYX AGENT CONTEXT",
+    "# HYDROQUALISENSE AGENT CONTEXT",
     "",
     "## Repository",
     "",

@@ -16,7 +16,10 @@ The repository already has useful behavior:
 - `agent:context` combines Git provenance, changed-file detection, affected-test selection, Workflow Map selection, invariants, permissions, and validation guidance;
 - a missing bounded task/query match falls back to changed-file/impact context rather than triggering speculative repository-wide search.
 
-RI-3 should preserve these interfaces while improving the graph behind them.
+RI-3 preserves these interfaces while improving the graph behind them. The
+implemented provider is additive: it augments compatible packets with ranked
+source/symbol/test/boundary evidence and leaves the current Workflow Map
+fallback available when the source index is stale or unavailable.
 
 ## Resolution pipeline
 
@@ -198,15 +201,15 @@ Never fall back to an unbounded repository dump.
 - Runtime-observed evidence is scoped to its revision/environment.
 - Heuristic confidence never grants authority.
 
-## CLI compatibility
+## CLI compatibility — implemented
 
-Preferred RI-3 transition:
+Implemented transition:
 
-1. add Repository Intelligence query/context libraries;
-2. make `workflow-map:context` able to consume the unified graph while preserving current selectors/output compatibility;
-3. make `agent:context` use the unified context provider while retaining its current entry point and affected-test integration;
-4. keep a feature flag or internal fallback to the current Workflow Map context during rollout;
-5. add `repo-intel:query` only for developer diagnostics if useful.
+1. Repository Intelligence query/context libraries are additive;
+2. `workflow-map:context` consumes the unified graph while preserving current selectors/output compatibility;
+3. `agent:context` uses the bounded provider while retaining its current entry point and affected-test integration;
+4. stale/unavailable RI data falls back to the current Workflow Map and Git diff/test-impact context;
+5. a dedicated `repo-intel:query` CLI remains unnecessary until it provides value beyond the library and existing context interfaces.
 
 Agents should not need a new ritual command merely because the implementation underneath became richer.
 

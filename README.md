@@ -73,7 +73,7 @@ Never commit provider secrets or expose server-only credentials through `VITE_` 
 
 ## Current project status
 
-Repository & Architecture Professionalization is the active structural track. The repository front door, App/domain-controller decomposition, server/router decomposition, staged static-analysis hardening, and Procurement register presentation decomposition through Slice 5 Wave B are merged. Email/SMS reliability remains an independent workstream, and the approved Excel-Native Operations UX is a future major UX direction whose implementation is deliberately deferred until the shared architecture boundaries are ready.
+Repository & Architecture Professionalization is complete for the current repository boundary. The repository front door, App/domain-controller decomposition, server/router decomposition, staged static-analysis hardening, Procurement and Projects register presentation decomposition, Repository Intelligence RI-2/RI-3, evidence policy, and responsibility triage are recorded in the current architecture documents. Email/SMS provider certification remains an independent readiness track, and the approved Excel-Native Operations UX is the next implementation direction; its Phase 0/readiness work starts only after this completed boundary.
 
 For the current source-of-truth hierarchy and document locations, start with:
 
@@ -81,5 +81,7 @@ For the current source-of-truth hierarchy and document locations, start with:
 - [Active Roadmap](docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md)
 - [Current Handoff](docs/HYDROQUALISENSE_CURRENT_HANDOFF.md)
 - [Product Direction](docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md)
+- [Architecture triage](docs/REPOSITORY_ARCHITECTURE_TRIAGE.md)
+- [Evidence policy](docs/REPOSITORY_EVIDENCE_POLICY.md)
 
 Historical files with legacy names remain implementation/history references only where still applicable. They do not override `AGENTS.md`, the active roadmap, the current handoff, or live repository state.

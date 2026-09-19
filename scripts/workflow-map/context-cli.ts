@@ -5,12 +5,73 @@ import { WORKFLOW_MAP_REPOSITORY_ROOT } from "./generate.ts";
 import { generateWorkflowContext, type WorkflowContextSelectionInput } from "./context.ts";
 import { readRepositoryMetadata } from "./repositoryContext.ts";
 import type { WorkflowDomain } from "./types.ts";
+import {
+  buildRepositoryIntelligenceContext,
+  compactRepositoryIntelligenceContextPacket,
+  formatRepositoryIntelligenceContextMarkdown,
+  type RepositoryIntelligenceContextPacket,
+} from "../repository-intelligence/contextEngine.ts";
 
 export interface ParsedContextCliArguments {
   readonly format: "markdown" | "json";
   readonly outPath?: string;
   readonly includeRepositoryChanges: boolean;
   readonly selection: WorkflowContextSelectionInput;
+}
+
+function fitText(value: string, budget: number): string {
+  if (value.length <= budget) return value;
+  const marker = "\n... [workflow context truncated to budget]\n";
+  const available = Math.max(0, budget - marker.length);
+  const candidate = value.slice(0, available);
+  const boundary = candidate.lastIndexOf("\n");
+  const body = boundary > Math.floor(available * 0.75) ? candidate.slice(0, boundary) : candidate;
+  return `${body}${marker}`.slice(0, budget);
+}
+
+export function mergeRepositoryIntelligenceContextJson(
+  workflowJson: string,
+  packet: RepositoryIntelligenceContextPacket,
+  characterBudget: number,
+): string {
+  const workflow = JSON.parse(workflowJson) as Record<string, unknown>;
+  let riBudget = Math.max(256, characterBudget - workflowJson.length - 256);
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const repositoryIntelligence = compactRepositoryIntelligenceContextPacket(packet, riBudget);
+    const output = `${JSON.stringify({ ...workflow, repositoryIntelligence })}\n`;
+    if (output.length <= characterBudget) return output;
+    riBudget = Math.max(256, Math.floor(riBudget * 0.7));
+  }
+  const minimal = compactRepositoryIntelligenceContextPacket(packet, 256);
+  const fallback = `${JSON.stringify({
+    ...workflow,
+    repositoryIntelligence: {
+      packetType: minimal.packetType,
+      schemaVersion: minimal.schemaVersion,
+      status: minimal.status,
+      truncated: true,
+      repository: minimal.repository,
+    },
+  })}\n`;
+  return fallback.length <= characterBudget ? fallback : fitText(workflowJson, characterBudget);
+}
+
+export function mergeRepositoryIntelligenceContextMarkdown(
+  workflowMarkdown: string,
+  packet: RepositoryIntelligenceContextPacket,
+  characterBudget: number,
+): string {
+  let riBudget = Math.max(256, characterBudget - workflowMarkdown.length - 2);
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const compact = compactRepositoryIntelligenceContextPacket(packet, riBudget);
+    const intelligence = formatRepositoryIntelligenceContextMarkdown(compact, riBudget);
+    const output = `${workflowMarkdown}\n${intelligence}`;
+    if (output.length <= characterBudget) return output;
+    riBudget = Math.max(256, Math.floor(riBudget * 0.7));
+  }
+  const compact = compactRepositoryIntelligenceContextPacket(packet, 256);
+  const intelligence = formatRepositoryIntelligenceContextMarkdown(compact, 256);
+  return fitText(`${workflowMarkdown}\n${intelligence}`, characterBudget);
 }
 
 const VALUE_FLAGS = new Set(["--node", "--domain", "--route", "--file", "--query", "--changed-file", "--hops", "--budget", "--format", "--out"]);
@@ -145,7 +206,19 @@ export function runContextCli(args: readonly string[] = process.argv.slice(2)): 
     },
     repository,
   );
-  const output = parsed.format === "json" ? result.json : result.markdown;
+  const repositoryIntelligence = buildRepositoryIntelligenceContext({
+    rootDir: WORKFLOW_MAP_REPOSITORY_ROOT,
+    workflowGraph: WORKFLOW_GRAPH,
+    repository,
+    selection: {
+      ...parsed.selection,
+      ...(changedFilePaths.length ? { changedFilePaths, useChangedFiles: true } : {}),
+      ...(parsed.includeRepositoryChanges ? { useChangedFiles: true } : {}),
+    },
+  }).packet;
+  const output = parsed.format === "json"
+    ? mergeRepositoryIntelligenceContextJson(result.json, repositoryIntelligence, result.packet.requestedScope.characterBudget)
+    : mergeRepositoryIntelligenceContextMarkdown(result.markdown, repositoryIntelligence, result.packet.requestedScope.characterBudget);
   if (!parsed.outPath || parsed.outPath === "-") {
     process.stdout.write(output);
     return;

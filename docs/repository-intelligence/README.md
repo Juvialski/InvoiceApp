@@ -1,6 +1,6 @@
 # Repository Intelligence
 
-Status: **RI-1 incremental source index implemented; RI-2/RI-3 not implemented**
+Status: **RI-1 source index, RI-2 unified graph/query API, and RI-3 bounded context integration implemented**
 
 Repository Intelligence is the developer-facing index, graph, and bounded context layer for HydroQualiSense. Its primary purpose is to reduce repeated repository rediscovery by resolving a task to the smallest useful set of code, relationships, tests, invariants, permissions, and validation guidance.
 
@@ -25,7 +25,7 @@ Repository Intelligence extends rather than replaces the current Workflow Map sy
 - `workflow-map:context` remains a supported bounded graph-context interface.
 - `agent:context` remains the normal lead-agent packet and already combines Git provenance, affected-test selection, bounded Workflow Map traversal, permissions, invariants, and hard character budgets.
 
-Repository Intelligence adds source indexing and a unified query layer under those capabilities without weakening current safeguards.
+Repository Intelligence adds source indexing, a provenance-aware unified graph/query layer, and a bounded context provider under those capabilities without weakening current safeguards.
 
 ## RI-1 implementation
 
@@ -55,7 +55,10 @@ dependency and does not replace any `workflow-map:*` or `agent:context` command.
 
 Repository Intelligence implementation should proceed **RI-2 → RI-3 next**, because RI-1 is now the source-index foundation and those phases provide the provenance-aware graph and bounded agent context layers.
 
-After RI-3, pause Repository Intelligence presentation/tooling work unless explicitly reprioritized and return to the higher-priority HydroQualiSense structural/product queue. RI-4 through RI-6 are later developer-tooling improvements.
+After RI-3, pause Repository Intelligence presentation/tooling work unless
+explicitly reprioritized and continue the approved HydroQualiSense product
+queue, beginning with Excel Phase 0/readiness. RI-4 through RI-6 are later
+developer-tooling improvements.
 
 **RI-7 is the optional 3D explorer and is intentionally last.** The 3D/WebGL view is never a prerequisite for indexing, AI context, application development, QA certification, or release.
 ## Source-of-truth rule
@@ -77,9 +80,33 @@ The core index, graph, and context APIs are model-provider-neutral. Current deve
 
 Repository Intelligence is a developer tool. It must not be added to normal customer application navigation and must not expose source code, secrets, environment values, credentials, database connection details, provider tokens, private runtime metadata, or developer-only diagnostics to HydroQualiSense customers.
 
+## RI-2 and RI-3 implementation
+
+RI-2 is implemented in `scripts/repository-intelligence/graph.ts`. It merges
+the RI-1 source index with the curated Workflow Map while retaining separate
+source-derived, curated, inferred, and future runtime-observed provenance.
+Authority is explicit and independent from confidence. Deterministic graph
+queries cover exact IDs, paths, symbols, domains, neighbors, bounded paths,
+source/test relationships, source-to-curated mappings, domain isolation, and
+conflicts. Graph freshness carries repository revision, dirty paths, index and
+graph versions, Workflow Map version, and indexed file hashes.
+
+RI-3 is implemented in `scripts/repository-intelligence/contextEngine.ts` and
+is consumed by the existing `workflow-map:context` and `agent:context` entry
+points. It ranks exact and curated evidence ahead of inferred matches, keeps
+packets bounded, includes source/symbol/test/boundary/validation information,
+and refuses stale exact-revision claims. When the RI index is unavailable or
+stale, the current Workflow Map plus Git diff/test-impact fallback remains the
+bounded compatibility path.
+
+RI-2/RI-3 are developer-only. They do not alter customer routing, database
+contracts, provider behavior, or production runtime dependencies.
+
 ## Implementation status
 
-RI-0 established the architecture and documentation. RI-1 now provides the incremental local
-source index and fixture-driven tests. No unified graph, explorer route, customer-facing
-navigation, new runtime dependency, migration, database/provider behavior, or production
-surface is introduced. RI-2 remains the next approved phase.
+RI-0 established the architecture and documentation. RI-1 provides the
+incremental local source index, RI-2 provides the provenance-preserving graph
+and query API, and RI-3 provides bounded context integration. No explorer
+route, customer-facing navigation, new runtime dependency, migration,
+database/provider behavior, or production surface is introduced. RI-4 through
+RI-7 remain later developer-tooling phases, with the optional 3D explorer last.

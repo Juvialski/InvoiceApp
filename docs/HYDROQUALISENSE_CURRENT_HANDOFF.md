@@ -1,10 +1,13 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — RI-1 COMPLETE / COMBINED RI-2+RI-3 NEXT / FULL PROFESSIONALIZATION COMPLETION BEFORE EXCEL / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 NEXT / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
 
-RI-0 Repository Intelligence planning was prepared from current `main` at `f2ff96c22e1c58e18d52ebbcd88dcddbdf1e7416`. RI-1 is now implemented on the fresh branch from `main` SHA `117a61b8a6046b8c5938baf9130ffdb8a5c12f00`; RI-2 and RI-3 remain unimplemented.
+RI-0 Repository Intelligence planning was prepared from the earlier current
+main snapshot. RI-1 is merged on `main`; this implementation run starts from
+main SHA `0826d458a7b75693abead8e2ea12160649aa07ec` and implements RI-2 and
+RI-3 sequentially behind the existing context interfaces.
 
 ## Current repository state
 
@@ -12,7 +15,14 @@ The pre-Wave-C merged `main` baseline was:
 
 `4f840b291f4efa28eedceceae5ed95843d7c3f58`
 
-This handoff includes Slice 5 Wave C (Projects portfolio/register presentation decomposition) on top of that baseline. Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains incomplete. The implementable Email/SMS Reliability & SMS Improvement slice is complete on merged `main`; live Brevo/SMS provider certification remains pending external credentials/device/runtime.
+This handoff includes Slice 5 Wave C (Projects portfolio/register presentation
+decomposition), RI-2/RI-3, and the closed professionalization triage on top of
+that baseline. Slices 1-4 and Slice 5 Waves A-C are implemented; the current
+repository responsibility, hygiene, evidence, onboarding, branding, and
+repository-identity decisions are now explicitly closed. The implementable
+Email/SMS Reliability & SMS Improvement slice is complete on merged `main`;
+live Brevo/SMS provider certification remains pending external
+credentials/device/runtime.
 
 The approved future Excel-Native Operations UX is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is not implemented and must not be treated as current product capability.
 
@@ -47,8 +57,9 @@ Read this handoff with:
 - `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — completed corrective foundation;
 - `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
 - `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the next product phase after this correction;
-- `docs/repository-intelligence/README.md` — canonical Repository Intelligence architecture; RI-1 implemented, RI-2/RI-3 not implemented;
+- `docs/repository-intelligence/README.md` — canonical Repository Intelligence architecture; RI-1, RI-2, and RI-3 implemented;
 - `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — active repository decomposition design;
+- `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and `docs/REPOSITORY_EVIDENCE_POLICY.md` — closed responsibility and evidence decisions;
 - `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future direction; implementation deferred;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
 - `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and deployment runbook when release/migration operations matter.
@@ -268,9 +279,9 @@ remaining managed slices stay deferred and Worker Registration stays paused.
 
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
 
-The repository professionalization track remains in progress. Slice 5 Wave B extracts the Subcontract register presentation into `src/components/procurement/SubcontractRegisterSection.tsx`; the reviewed `ProcurementPage.tsx` is 1,494 lines. The new section owns only KPI/filter/register/card/table/action presentation. Subcontract, claim, and variation state, filtering, parent-derived financial values, persistence, permissions, lifecycle mutations, routing context, and all editor/drawer/detail/cancellation orchestration remain parent-owned. Existing Claim and Variation workflow components remain authoritative and were not duplicated.
+Slice 5 Wave B extracted the Subcontract register presentation into `src/components/procurement/SubcontractRegisterSection.tsx`; the reviewed `ProcurementPage.tsx` is 1,494 lines. The new section owns only KPI/filter/register/card/table/action presentation. Subcontract, claim, and variation state, filtering, parent-derived financial values, persistence, permissions, lifecycle mutations, routing context, and all editor/drawer/detail/cancellation orchestration remain parent-owned. Existing Claim and Variation workflow components remain authoritative and were not duplicated.
 
-This is behavior-preserving architecture work. No database, migration, RLS/RPC, provider, production, route, or persistence contract changed. The broader professionalization program and later slices remain incomplete.
+This is behavior-preserving architecture work. No database, migration, RLS/RPC, provider, production, route, or persistence contract changed. The later 2026-09-19 completion record closes the broader professionalization program for the current repository boundary.
 
 The approved future Excel-Native Operations UX direction is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is documentation only in this handoff: implementation has not started, current registers are not claimed to satisfy it, and no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review UI, dependency, migration, or route change is included. Revisit it from live repository state after the shared architecture boundary is safe.
 
@@ -285,6 +296,42 @@ The repository professionalization track continues with Slice 5 Wave C.
 - Line counts: `ProjectsPage.tsx` was reduced from 1,413 lines to 713 lines in the reviewed working tree.
 - Invariant confirmation: project financial, lifecycle, currency, tax treatment, permission, audit, route, and history semantics remain completely unchanged. Unknown monetary values are not converted to zero, and mixed currencies are not combined.
 - Excel-native confirmation: no Excel-native implementation, `OperationsGrid`, `.xlsx` parser, or spreadsheet dependency was added. Future Excel-native UX remains deferred.
+
+## 2026-09-19 Repository & Architecture Professionalization — COMPLETE
+
+The combined RI-2 -> RI-3 -> professionalization run is complete for the
+current repository boundary. RI-2 provides the provenance-preserving graph and
+deterministic query API over RI-1 plus the curated Workflow Map. RI-3 consumes
+that graph behind `workflow-map:context` and `agent:context`, adds bounded
+source/symbol/test/boundary/validation context, and refuses stale exact-
+revision claims while preserving the current Workflow Map/Git impact fallback.
+
+The remaining large/shared modules were triaged with RI evidence. App and
+AppRouter remain composition boundaries; ProcurementPage remains the
+financial/lifecycle orchestration owner after presentation extraction;
+payrollWorkforce, documentTemplateRouter, shared types, Workflow Map context,
+and the RI graph/context libraries are intentionally cohesive boundaries.
+The exact decisions and reasons are recorded in
+`docs/REPOSITORY_ARCHITECTURE_TRIAGE.md`.
+
+Repository hygiene and front-door synchronization are complete for this
+boundary. npm/package-lock is authoritative; transient RI/build/coverage/local
+environment/log/CI output is not durable repository evidence; existing
+sanitized evidence remains tracked only where cited by current contracts. The
+current product-facing identity is HydroQualiSense; historical Engoryx files
+and compatibility identifiers remain preserved where changing them would break
+history or interfaces. The evidence rules are recorded in
+`docs/REPOSITORY_EVIDENCE_POLICY.md`.
+
+The GitHub repository remains `Juvialski/InvoiceApp`. A rename to the
+recommended `HydroQualiSense` name was evaluated but not performed because
+connected GitHub administration and linked Render/webhook verification are not
+available in this run. The exact external follow-up is documented as a manual
+administrative option, not unfinished repository architecture.
+
+The next implementation direction is **Excel Phase 0/readiness**, followed by
+the approved shared Excel foundation. No Excel grid, workbook engine, reverse
+import, or spreadsheet dependency is included in this run.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
@@ -314,7 +361,7 @@ Worker Registration remains paused and must not be suggested as the immediate ne
 
 ---
 
-## 2026-09-19 Repository Intelligence — RI-0 and RI-1
+## 2026-09-19 Repository Intelligence — RI-0 through RI-3
 
 A new developer-only Repository Intelligence initiative is documented at `docs/repository-intelligence/`.
 
@@ -338,6 +385,19 @@ tokens, connection strings, or private customer-document contents. RI-1 delibera
 `package.json` and the global affected-test selector unchanged so this developer-only tooling
 does not force the historical repository-wide regression fallback merely for convenience aliases.
 
+RI-2 is implemented in `scripts/repository-intelligence/graph.ts`. It merges
+source-derived RI-1 records with curated Workflow Map nodes and edges while
+preserving provenance, authority, conflicts, stable IDs, deterministic
+neighbors/paths, source/test mappings, domain isolation, and freshness fields.
+RI-3 is implemented in `scripts/repository-intelligence/contextEngine.ts` and
+is consumed by the existing `workflow-map:context` and `agent:context` entry
+points. It ranks exact/curated evidence, emits bounded source/symbol/test and
+boundary context, and refuses stale exact-revision claims with an explicit
+Workflow Map/Git impact fallback. Focused RI-2/RI-3 compatibility tests pass;
+the final affected selector is intentionally full-fallback because this branch
+touches `scripts/test-impact.ts`, whose policy marks that file as fallback-
+sensitive.
+
 Focused RI-1 evidence is 14/14 tests passing. The real CLI full rebuild indexed 1,129 eligible
 files from 1,169 Git-tracked files, and the immediate incremental update reparsed 0 and reused
 all 1,129 records with schema `1` and generator `ri-1.0.0`. Lint/typecheck passed on the
@@ -346,12 +406,14 @@ PR head and must be used instead of the superseded earlier fallback run. No brow
 Docker/Supabase, migration, provider, hosted-QA, or production checks are required by this
 developer-only slice unless the final diff expands into those domains.
 
-RI-1 does not change `workflow-map:generate`, `workflow-map:check`,
-`workflow-map:consistency`, `workflow-map:context`, or `agent:context`, and it introduces no
-customer/runtime dependency. The exact next phase is **RI-2 — Unified Graph + Provenance
-Query API**; RI-3, explorer work, and RI-7 remain out of scope.
+RI-2 and RI-3 preserve `workflow-map:generate`, `workflow-map:check`,
+`workflow-map:consistency`, `workflow-map:context`, and `agent:context` while
+adding the provenance-aware graph/query layer and bounded source context. No
+customer/runtime dependency is introduced. The exact next Repository
+Intelligence work is later explorer/change-intelligence tooling; the next
+product implementation direction is Excel Phase 0/readiness.
 
-The design preserves the current curated Workflow Map as the semantic foundation. RI-1 now provides the fast incremental source index; later phases add the provenance-preserving unified graph/query API, bounded AI Context Engine, structured/2D developer explorer, change intelligence, and optional 3D visualization.
+The design preserves the current curated Workflow Map as the semantic foundation. RI-1 provides the fast incremental source index; RI-2 provides the provenance-preserving unified graph/query API; RI-3 provides the bounded AI Context Engine; later phases may add structured/2D explorer, change intelligence, and optional 3D visualization.
 
 Key decisions:
 
@@ -359,7 +421,7 @@ Key decisions:
 - source-derived, curated, inferred, and future runtime-observed relationships remain distinguishable;
 - curated financial/security/history/permission/source-of-truth facts are never overwritten by inference;
 - `agent:context` remains the normal compatibility entry point and already provides Git provenance, affected-test selection, bounded Workflow Map traversal, invariants, permissions, and hard budgets;
-- RI-3 should upgrade the graph/context internals while preserving `workflow-map:context` and `agent:context` interfaces;
+- RI-3 upgrades the graph/context internals while preserving `workflow-map:context` and `agent:context` interfaces;
 - local disposable incremental cache is preferred over committing a large generated repository index;
 - the explorer is local/developer-only by default and must never enter normal client navigation or expose secrets/source internals to customers;
 - Markdown/Mermaid remain supported for GitHub, diffs, accessibility, and no-WebGL environments;
@@ -367,7 +429,9 @@ Key decisions:
 
 Model/provider direction is neutral. Current ChatGPT/Codex/Luna-compatible workflows can consume the context interface where enabled; no model-specific API is part of the architecture. The active/current main documents inspected for this phase contained no DeepSeek reference, so no historical records were rewritten.
 
-Repository Intelligence core priority is now **RI-2 → RI-3**. After RI-3, pause explorer-focused work and return to the higher-priority structural/product queue unless the user explicitly reprioritizes it. **The optional 3D explorer is the final RI phase and should be last.**
+Repository Intelligence core priority **RI-2 → RI-3** is complete. Pause
+explorer-focused work while the approved product queue proceeds; **the
+optional 3D explorer is the final RI phase and should be last.**
 
 ## Completed quality/application context that remains valid
 
@@ -506,10 +570,9 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Combined RI-2 + RI-3 implementation run.** RI-2 must land conceptually first inside the branch; RI-3 then consumes it. Preserve `workflow-map:context` / `agent:context` entry points, current safety-net test selection, curated authority, stale-index fail-closed behavior, and explicit fallback.
-2. **Finish the entire remaining Repository & Architecture Professionalization program after RI-3.** Use the new bounded context to complete all still-valid structural and repository-facing work from the canonical professionalization design, not merely the pieces required for Excel.
-3. **Professionalization must reach an explicit COMPLETE state before Excel.** No vague "broader program remains in progress" status may remain. Any item that cannot be performed automatically must be resolved into a deliberate documented decision/manual external action rather than left as open implementation scope.
-4. **Only after that completion gate, perform Excel Phase 0/readiness, then Excel-Native Phase 1 and the Procurement RFQ/PO pilot.**
+1. **RI-2 + RI-3 implementation run — complete.** RI-2 lands conceptually first and RI-3 consumes it behind `workflow-map:context` / `agent:context`, preserving curated authority, current safety-net test selection, stale-index fail-closed behavior, and explicit fallback.
+2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
+3. **Next implementation direction: Excel Phase 0/readiness, then Excel-Native Phase 1 and the Procurement RFQ/PO pilot.**
 5. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 6. **Resume Wide Documents remaining managed slices.**
 7. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
@@ -520,11 +583,11 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-For maximum efficiency, the next Luna Max/Codex run may combine **RI-2 -> RI-3 -> Repository & Architecture Professionalization Completion** in one sequential PR. Do not mix Excel Phase 0 or Excel feature implementation into it. RI-2 must be proven before RI-3 begins, and RI-3 must be proven before the professionalization completion pass begins.
+The next Luna Max/Codex run should begin the approved **Excel Phase 0/readiness** work from live repository state. It must not assume that this structural completion provides Excel capability, hosted/provider certification, or production authorization.
 
-Professionalization completion includes the still-valid goals in `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`: secondary large-module triage based on responsibilities/context budget, repository hygiene, current branding/repository-facing metadata cleanup where safe, tracked-vs-transient evidence policy, human onboarding/front-door clarity, and integration-aware repository identity/rename evaluation. It must not revive superseded App/server/static-analysis work that is already complete.
+The completed professionalization decisions are recorded in `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and `docs/REPOSITORY_EVIDENCE_POLICY.md`; they do not revive superseded App/server/static-analysis work.
 
 Efficiency rules remain strict: pull current main first, one bounded context packet, zero subagents by default, focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.
 
-The combined run should stop only when the professionalization program is explicitly marked COMPLETE, or when a genuine external/manual constraint is documented precisely enough that no repository implementation work remains. Excel Phase 0/readiness starts only after that completion state.
+The combined run reached the explicit COMPLETE state. Excel Phase 0/readiness may now start, subject to its own design, live architecture, and focused validation gates.
 
