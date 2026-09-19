@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — EMAIL-SMS-SMS IMPROVEMENT NEXT / PR #176 MERGED / PR #179 RECONCILIATION AFTER MESSAGING / REPOSITORY INTELLIGENCE RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — EMAIL-SMS IMPLEMENTATION COMPLETE / PROVIDER CERTIFICATION PENDING / PR #179 RECONCILED / REPOSITORY INTELLIGENCE RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-19**
 
@@ -26,15 +26,13 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 ## Current priority sequence
 
-1. **Finish remaining Email/SMS Reliability & SMS Improvement implementation.** PR #176 authenticated request recovery is merged. Complete the remaining code/UX/provider-adapter work that does not require live credentials/device runtime; keep runtime Brevo/SMS certification separate until safe external prerequisites exist.
-2. **Reconcile and close stale draft PR #179.** Carry forward only still-valid repository-professionalization guidance that is not superseded by current `main` or Repository Intelligence documentation; do not treat the old draft as a fresh implementation plan.
-3. **Repository Intelligence RI-1 → RI-2 → RI-3.** Implement the incremental source index, unified provenance-aware graph/query layer, then bounded AI Context Engine integration. Stop after RI-3 before explorer-focused work unless explicitly reprioritized.
-4. **Finish Repository & Architecture Professionalization.** Slices 1-4 and Slice 5 Waves A-C are already implemented; continue the remaining bounded structural work using the Repository Intelligence core to reduce rediscovery/context cost.
-5. **Implement Excel-Native Operations UX.** Begin only after the relevant architecture boundaries are ready; preserve bidirectional `.xlsx` round trips and all validation/security/financial/history rules.
-6. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** The implementation path should not wait idly for credentials/devices; controlled Brevo/SMS certification can proceed when safe prerequisites exist.
-7. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
-8. **Later Repository Intelligence tooling: RI-4 through RI-6.** Structured/2D explorer, change intelligence, and agent-effectiveness hardening are useful but not prerequisites for the higher-priority product queue.
-9. **RI-7 optional 3D explorer — LAST.** It is a developer presentation layer, not an indexing/context dependency or release requirement.
+1. **Repository Intelligence RI-1 → RI-2 → RI-3.** The implementable Email/SMS Reliability & SMS Improvement slice is complete; provider/runtime certification remains separate. Implement the incremental source index, unified provenance-aware graph/query layer, then bounded AI Context Engine integration. Stop after RI-3 before explorer-focused work unless explicitly reprioritized.
+2. **Finish Repository & Architecture Professionalization.** PR #179 has been reconciled and closed as stale rather than adopted wholesale. Slices 1-4 and Slice 5 Waves A-C are already implemented; continue the remaining bounded structural/repository-hygiene/human-onboarding work using the Repository Intelligence core to reduce rediscovery/context cost.
+3. **Implement Excel-Native Operations UX.** Begin only after the relevant architecture boundaries are ready; preserve bidirectional `.xlsx` round trips and all validation/security/financial/history rules.
+4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist; do not block RI work merely waiting for those prerequisites.
+5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
+6. **Later Repository Intelligence tooling: RI-4 through RI-6.** Structured/2D explorer, change intelligence, and agent-effectiveness hardening are useful but not prerequisites for the higher-priority product queue.
+7. **RI-7 optional 3D explorer — LAST.** It is a developer presentation layer, not an indexing/context dependency or release requirement.
 
 Release/readiness certification remains a parallel track and should run when its exact prerequisites exist. A structural merge never implies hosted certification or production authorization.
 
