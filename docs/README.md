@@ -24,9 +24,11 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 - `HYDROQUALISENSE_PRODUCT_DIRECTION.md` — durable product direction.
 - `architecture/OVERVIEW.md` — concise architecture map.
 - `architecture/APP_WORKFLOW_MAP.md` — generated detailed workflow map.
+- `repository-intelligence/README.md` — canonical Repository Intelligence index, AI-context, and developer-explorer architecture.
 
 ## Current structural work
 
+- `repository-intelligence/README.md` — Repository Intelligence RI-0 architecture and phased implementation plan. RI-1 implementation has not started.
 - `superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — active Repository & Architecture Professionalization design.
 - `superpowers/plans/2026-09-18-subcontract-register-wave-b.md` — completed Slice 5 Wave B implementation plan; retained as execution history.
 - `superpowers/plans/2026-09-18-projects-register-wave-c.md` — completed Slice 5 Wave C implementation plan; retained as execution history.
