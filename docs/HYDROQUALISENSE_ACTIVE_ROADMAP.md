@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + SHARED FOUNDATION + PROCUREMENT + PROJECTS/PROJECT CONTROLS IMPLEMENTED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + SHARED FOUNDATION + PROCUREMENT + PROJECTS/PROJECT CONTROLS + BOUNDED EXPENSES/SUPPLIER PAYABLES IMPLEMENTED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-19**
+Last updated: **2026-09-20**
 
 Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -29,7 +29,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the shared foundation, the bounded Procurement pilot, and the Projects/project-controls rollout are implemented.** RFQ/Purchase Order and Projects/Cost Codes now prove controlled `.xlsx` export-review-apply patterns with authoritative version checks. The next bounded domain in the approved sequence is **Phase 4 — Expenses and Finance**; app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the shared foundation, Procurement, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables are implemented.** RFQ/Purchase Order, Projects/Cost Codes, and the Expenses/Supplier Payables workbook now prove controlled `.xlsx` export-review-apply patterns with authoritative version checks. The remaining Finance work is bounded client receivables followed by Cash & Banking/reconciliation; app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -318,6 +318,25 @@ historical-data upgrade path before merge. Demo Visual QA is likewise an
 exact-head merge gate for the changed Projects surfaces. Provider certification
 and production promotion remain separate and unclaimed. The next bounded
 Excel-native domain is Phase 4 — Expenses and Finance.
+
+## 2026-09-20 Excel Phase 4A — Expenses + Supplier Payables — implemented
+
+Phase 4A extends the shared workbook engine and `OperationsGrid` to the Expenses
+register and the supplier-payable context directly related to Expense records.
+The workbook contains `Expenses`, read-only `Supplier Payables`, and hidden
+`_HydroQualiSense` synchronization metadata. Only direct, existing, unlinked `DRAFT`
+Expenses expose ordinary editable fields already supported by the normal Expense
+workflow; status, lifecycle, source/vendor/PO identity, linked supplier
+Expenses, settlement values, and derived fields remain protected.
+
+Upload is proposal-only. Review validates company scope, hidden identity and
+fingerprints, references, currencies, protected fields, stale state, missing
+rows, and unsupported new rows before explicit Apply. Apply revalidates fresh
+state and calls the existing Expense save path with its `updated_at` precondition;
+the supplier invoice remains evidence and confirmed Cash & Banking matches
+remain the settlement authority. No migration or production operation is part
+of this bounded rollout. The next remaining Finance slices are client
+receivables, then Cash & Banking/reconciliation.
 
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
 
