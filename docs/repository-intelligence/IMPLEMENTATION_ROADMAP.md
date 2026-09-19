@@ -144,9 +144,9 @@ Rollback: switch context provider back to current Workflow Map implementation.
 
 ## Priority pause after RI-3
 
-RI-2 and RI-3 are the next near-term Repository Intelligence priority because RI-1 now supplies the incremental source data needed to improve bounded agent context for the rest of HydroQualiSense development.
+RI-2 and RI-3 are the next near-term Repository Intelligence priority because RI-1 now supplies the incremental source data needed to improve bounded agent context for the rest of HydroQualiSense development. By explicit 2026-09-19 user reprioritization, they may be implemented in one sequential PR when RI-2 is built/tested first and RI-3 is layered only after that boundary is stable.
 
-After RI-3 is stable, **pause Repository Intelligence explorer work by default** and return to the higher-priority repository/product sequence documented in `AGENTS.md` and `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`. RI-4 through RI-6 can resume later when they materially help active engineering or the user explicitly reprioritizes them.
+After RI-3 is stable, **pause Repository Intelligence explorer work** and immediately perform the documented Excel-readiness/Phase-0 gate. Do not require unrelated repository polish before Excel; only a concrete blocker found by that gate remains ahead of Excel Phase 1. RI-4 through RI-6 can resume later when they materially help active engineering or the user explicitly reprioritizes them.
 
 The optional 3D explorer is not part of this near-term efficiency milestone and must remain the final RI phase.
 ## RI-4 — Developer explorer MVP: structured + 2D
@@ -244,10 +244,10 @@ Rollback: remove 3D presentation layer only.
 
 ## Recommended next implementation phase
 
-**RI-2 — Unified Graph + Provenance Query API.**
+**Accelerated RI-2 + RI-3 core run.**
 
-It is the next additive graph slice built on RI-1 without touching customer runtime or replacing the proven Workflow Map/context system.
+RI-2 remains the first internal gate and builds the additive provenance-aware graph on RI-1. RI-3 then consumes that graph behind the existing context interfaces with fallback. The two phases may share one PR to reduce handoff/merge overhead, but tests and rollback boundaries must remain distinct.
 
-Near-term RI order: **RI-2 → RI-3**, then pause by default for the higher-priority HydroQualiSense queue. RI-4 through RI-6 are later developer-tooling phases. **RI-7 optional 3D explorer is last.**
+After RI-3, perform the Excel-readiness/Phase-0 gate immediately. Near-term RI order is therefore **RI-2 → RI-3 → pause RI explorer work → Excel readiness**. RI-4 through RI-6 are later developer-tooling phases. **RI-7 optional 3D explorer is last.**
 
 Start from the latest green `main`, create one bounded context packet, inspect only the existing Workflow Map/context and test-impact machinery needed for integration, and implement the indexer as a separate additive library.
