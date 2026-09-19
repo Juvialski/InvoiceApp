@@ -442,9 +442,9 @@ select is(
 
 select set_config('request.jwt.claim.sub', (select outsider_user::text from excel_concurrency_ids), true);
 select throws_ok(
-  $$select public.apply_project_cost_control_group(
+  $select public.apply_project_cost_control_group(
     (select project_id from excel_concurrency_ids),
-    (select updated_at from public.projects where id = (select project_id from excel_concurrency_ids)),
+    '2000-01-01 00:00:00+00'::timestamptz,
     jsonb_build_object(
       'id', (select project_id from excel_concurrency_ids),
       'companyId', (select company_id from excel_concurrency_ids),
