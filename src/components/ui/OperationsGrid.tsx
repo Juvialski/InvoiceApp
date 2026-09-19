@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 export type OperationsGridAlign = "left" | "center" | "right";
 export type OperationsGridSortDirection = "asc" | "desc";
@@ -74,6 +74,7 @@ export function OperationsGrid<T>({
   const [sortDirection, setSortDirection] = useState<OperationsGridSortDirection>("asc");
   const [activeCell, setActiveCell] = useState({ row: 0, column: 0 });
   const [internalSelectedRowId, setInternalSelectedRowId] = useState<string | undefined>(undefined);
+  const cellRefs = useRef(new Map<string, HTMLTableCellElement>());
   const effectiveSelectedRowId = selectedRowId ?? internalSelectedRowId;
   const sortedRows = useMemo(() => {
     if (!sortKey) return [...rows];
@@ -93,6 +94,7 @@ export function OperationsGrid<T>({
     const nextRow = Math.max(0, Math.min(sortedRows.length - 1, rowIndex));
     const nextColumn = Math.max(0, Math.min(columns.length - 1, columnIndex));
     setActiveCell({ row: nextRow, column: nextColumn });
+    cellRefs.current.get(`${nextRow}:${nextColumn}`)?.focus();
   };
 
   const selectRow = (row: T) => {
@@ -156,6 +158,11 @@ export function OperationsGrid<T>({
                     return (
                       <td
                         key={column.key}
+                        ref={(node) => {
+                          const refKey = `${rowIndex}:${columnIndex}`;
+                          if (node) cellRefs.current.set(refKey, node);
+                          else cellRefs.current.delete(refKey);
+                        }}
                         role="gridcell"
                         tabIndex={active ? 0 : -1}
                         aria-colindex={columnIndex + 1}
