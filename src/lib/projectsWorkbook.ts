@@ -450,12 +450,15 @@ function projectProposal(
     (proposed as unknown as Record<string, unknown>)[field] = workbookValue;
   }
   const taxTreatment = nullableText(row["Tax Treatment"])?.toUpperCase() || null;
-  const allowedTaxTreatments = new Set(["VAT", "NON_VAT", "UNCLASSIFIED"]);
-  if (!taxTreatment || !allowedTaxTreatments.has(taxTreatment)) {
+  const currentTaxTreatment = project.taxTreatment || "UNCLASSIFIED";
+  if (!taxTreatment || !["VAT", "NON_VAT", "UNCLASSIFIED"].includes(taxTreatment)) {
     proposal.status = "INVALID";
-    proposal.messages.push("Tax Treatment must be VAT, NON_VAT, or UNCLASSIFIED.");
+    proposal.messages.push("Tax Treatment must be VAT or NON_VAT; existing UNCLASSIFIED values may round-trip unchanged.");
+  } else if (taxTreatment === "UNCLASSIFIED" && currentTaxTreatment !== "UNCLASSIFIED") {
+    proposal.status = "INVALID";
+    proposal.messages.push("A classified project cannot be changed back to UNCLASSIFIED through workbook Apply.");
   } else {
-    const taxChange = change("taxTreatment", project.taxTreatment || null, taxTreatment, exported.taxTreatment ?? null, true);
+    const taxChange = change("taxTreatment", currentTaxTreatment, taxTreatment, exported.taxTreatment ?? null, true);
     if (taxChange) editableChanges.push(taxChange);
     proposed.taxTreatment = taxTreatment as Project["taxTreatment"];
   }
