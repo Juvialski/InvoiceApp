@@ -102,7 +102,7 @@ export function useProjectController(options: ProjectControllerOptions): Project
         previous && (previous.status !== project.status || Boolean(previous.archivedAt) !== Boolean(project.archivedAt)),
       );
       const saved = authenticated
-        ? await saveProjectToSupabase(project)
+        ? await saveProjectToSupabase(project, previous?.updatedAt)
         : { ...project, updatedAt: new Date().toISOString() };
       setProjects((current) => current.some((item) => item.id === saved.id)
         ? current.map((item) => item.id === saved.id ? saved : item)

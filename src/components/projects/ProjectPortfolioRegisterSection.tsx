@@ -15,6 +15,7 @@ import { Card } from "@astryxdesign/core/Card";
 import type { Project, ProjectStatus } from "../../types.ts";
 import { projectTaxTreatmentLabel } from "../../utils/projectTaxTreatment.ts";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
+import { OperationsGrid } from "../ui/OperationsGrid.tsx";
 import {
   topProjectAttentionSignal,
   type PortfolioManagementSummary,
@@ -312,6 +313,102 @@ export function ProjectRegisterCard({
   );
 }
 
+function ProjectPortfolioOperationsGrid({
+  displayedViews,
+  canManage,
+  onOpenProject,
+  onEditProject,
+  onOpenLifecycle,
+}: Pick<ProjectPortfolioRegisterSectionProps, "displayedViews" | "canManage" | "onOpenProject" | "onEditProject" | "onOpenLifecycle">) {
+  return (
+    <div className="hidden lg:block" aria-label="Projects table">
+      <OperationsGrid
+        ariaLabel="Projects table"
+        rows={displayedViews}
+        rowKey={(view) => view.project.id}
+        onRowActivate={(view) => onOpenProject(view.project)}
+        columns={[
+          {
+            key: "project",
+            header: "Project Code / Name",
+            sortValue: (view) => view.project.projectCode,
+            protected: true,
+            cellClassName: "min-w-[18rem]",
+            value: (view) => {
+              const project = view.project;
+              return (
+                <button
+                  type="button"
+                  onClick={() => onOpenProject(project)}
+                  className="text-left hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                >
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-indigo-600">{project.projectCode}</span>
+                  <strong className="mt-0.5 block text-xs font-bold text-slate-900">{project.projectName}</strong>
+                  <span className="mt-0.5 block max-w-[22rem] truncate text-[10px] text-slate-500">
+                    {project.clientName || "No client set"} {project.location ? "· " + project.location : ""}
+                  </span>
+                </button>
+              );
+            },
+          },
+          { key: "manager", header: "Project Manager", sortValue: (view) => view.project.projectManager || "", value: (view) => view.project.projectManager || "Not assigned" },
+          {
+            key: "status",
+            header: "Status & Data Quality",
+            sortValue: (view) => view.project.status,
+            protected: true,
+            cellClassName: "min-w-[13rem]",
+            value: (view) => {
+              const topAttention = topProjectAttentionSignal(view);
+              return (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-1">
+                    <StatusBadge tone={statusTone(view.project.status)}>{view.project.status.replaceAll("_", " ")}</StatusBadge>
+                    {view.health !== "ON BUDGET" && <StatusBadge tone={healthBadgeTone(view.health)}>{view.health}</StatusBadge>}
+                  </div>
+                  {view.attentionFlags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-black text-slate-700">
+                        {view.attentionFlags.length} attention signal{view.attentionFlags.length === 1 ? "" : "s"}
+                      </span>
+                      {view.attentionFlags.slice(0, 2).map((item) => <span key={item.id} className={"rounded border px-1.5 py-0.5 text-[9px] font-bold " + attentionTone(item.tone)} title={item.detail}>{item.label}</span>)}
+                      {view.attentionFlags.length > 2 && <span className="text-[9px] font-semibold text-slate-400">+{view.attentionFlags.length - 2} more</span>}
+                    </div>
+                  )}
+                  {topAttention && <span className="block max-w-[18rem] truncate text-[9px] font-semibold text-slate-600" title={topAttention.explanation}>Top reason: {topAttention.title}</span>}
+                  {view.isPartial && <span className="block text-[9px] font-bold text-amber-700">Partial project data</span>}
+                </div>
+              );
+            },
+          },
+          { key: "currency", header: "Currency", sortValue: (view) => view.currency, protected: true, value: (view) => <span className="font-black uppercase tracking-wide">{view.currency}</span> },
+          { key: "taxTreatment", header: "Tax treatment", protected: true, value: (view) => <StatusBadge tone={view.project.taxTreatment === "UNCLASSIFIED" || !view.project.taxTreatment ? "warning" : "info"}>{projectTaxTreatmentLabel(view.project.taxTreatment)}</StatusBadge> },
+          { key: "contractValue", header: "Contract Value", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.contractValue.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.contractValue} currency={view.currency} /> },
+          { key: "projectBudget", header: "Budget", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.approvedCostBudget.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.approvedCostBudget} currency={view.currency} /> },
+          { key: "actualCost", header: "Actual", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.actualCost.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums text-indigo-700", value: (view) => <FinancialValue metric={view.financialTruth.actualCost} currency={view.currency} /> },
+          { key: "committedCost", header: "Committed", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.committedCost.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.committedCost} currency={view.currency} /> },
+          { key: "billed", header: "Billed", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.billed.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.billed} currency={view.currency} /> },
+          { key: "collected", header: "Collected", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.collected.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.collected} currency={view.currency} /> },
+          { key: "outstandingReceivables", header: "Outstanding", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.outstandingReceivables.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums text-amber-800", value: (view) => <FinancialValue metric={view.financialTruth.outstandingReceivables} currency={view.currency} /> },
+          { key: "remainingToBill", header: "Remaining to Bill", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.remainingToBill.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums text-emerald-700", value: (view) => <FinancialValue metric={view.financialTruth.remainingToBill} currency={view.currency} /> },
+        ]}
+        renderActions={(view) => {
+          const project = view.project;
+          return (
+            <div className="flex justify-end gap-1">
+              <button type="button" onClick={() => onOpenProject(project)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Open</button>
+              {canManage && <button type="button" onClick={() => onEditProject(project)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Edit project" aria-label={"Edit project " + project.projectCode}><Pencil className="h-3.5 w-3.5" /></button>}
+              {canManage && <button type="button" onClick={() => onOpenLifecycle(project)} className={"rounded-lg p-1.5 " + (project.status === "ARCHIVED" ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-400 hover:bg-rose-50 hover:text-rose-700")} title={project.status === "ARCHIVED" ? "Reactivate project" : "Project lifecycle"} aria-label={(project.status === "ARCHIVED" ? "Reactivate " : "Project lifecycle for ") + project.projectCode}>{project.status === "ARCHIVED" ? <RotateCcw className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}</button>}
+            </div>
+          );
+        }}
+        density="compact"
+        className="rounded-none border-0"
+      />
+    </div>
+  );
+}
+
 export function ProjectPortfolioRegisterSection({
   displayedViews,
   portfolio,
@@ -592,229 +689,13 @@ export function ProjectPortfolioRegisterSection({
       {/* Main Content Area: Responsive Hybrid (Desktop Table + Mobile Cards) */}
       {displayedViews.length ? (
         <div id="projects-results" className="space-y-4">
-          {/* Desktop Table View */}
-          <Card className="hidden overflow-hidden p-0 lg:block" elevation="low" aria-label="Projects table">
-            <div className="ops-scrollbar overflow-auto">
-              <table className="ops-table min-w-[1600px] w-full text-left text-xs">
-                <caption className="sr-only">Project register results: {projectResultLabel}</caption>
-                <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("code")}>
-                      Project Code / Name
-                    </th>
-                    <th scope="col" className="px-3 py-3">
-                      Project Manager
-                    </th>
-                    <th scope="col" className="px-3 py-3 cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("status")}>
-                      Status & Data Quality
-                    </th>
-                    <th scope="col" className="px-3 py-3">
-                      Currency
-                    </th>
-                    <th scope="col" className="px-3 py-3">
-                      Tax treatment
-                    </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("contractValue")}>
-                      Contract Value
-                    </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("projectBudget")}>
-                      Budget
-                    </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("actualCost")}>
-                      Actual
-                    </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("committedCost")}>
-                      Committed
-                    </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("billed")}>
-                      Billed
-                    </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("collected")}>
-                      Collected
-                    </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("outstandingReceivables")}>
-                      Outstanding
-                    </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => onToggleSort("remainingToBill")}>
-                      Remaining to Bill
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {displayedViews.map((view) => {
-                    const project = view.project;
-                    const hasAttention = view.attentionFlags.length > 0;
-                    const topAttention = topProjectAttentionSignal(view);
-
-                    return (
-                      <tr key={project.id} data-project-id={project.id} className="align-top transition hover:bg-slate-50/80">
-                        {/* 1. Project */}
-                        <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => onOpenProject(project)}
-                            className="text-left hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                          >
-                            <span className="block text-[10px] font-black uppercase tracking-wide text-indigo-600">
-                              {project.projectCode}
-                            </span>
-                            <strong className="mt-0.5 block text-xs font-bold text-slate-900">
-                              {project.projectName}
-                            </strong>
-                          </button>
-                          <span className="mt-0.5 block truncate text-[10px] text-slate-500">
-                            {project.clientName || "No client set"} {project.location ? `· ${project.location}` : ""}
-                          </span>
-                        </td>
-
-                        {/* 2. Project Manager */}
-                        <td className="px-3 py-3 text-xs font-semibold text-slate-700">
-                          {project.projectManager || "Not assigned"}
-                        </td>
-
-                        {/* 3. Status & Data Quality */}
-                        <td className="px-3 py-3 space-y-1">
-                          <div className="flex flex-wrap items-center gap-1">
-                            <StatusBadge tone={statusTone(project.status)}>
-                              {project.status.replaceAll("_", " ")}
-                            </StatusBadge>
-                            {view.health !== "ON BUDGET" && (
-                              <StatusBadge tone={healthBadgeTone(view.health)}>
-                                {view.health}
-                              </StatusBadge>
-                            )}
-                          </div>
-                          {hasAttention && (
-                            <div className="flex flex-wrap gap-1 pt-1">
-                              <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-black text-slate-700" aria-label={`${view.attentionFlags.length} management attention signal${view.attentionFlags.length === 1 ? "" : "s"}`}>
-                                {view.attentionFlags.length} attention signal{view.attentionFlags.length === 1 ? "" : "s"}
-                              </span>
-                              {view.attentionFlags.slice(0, 2).map((item) => (
-                                <span
-                                  key={item.id}
-                                  className={`rounded border px-1.5 py-0.5 text-[9px] font-bold ${attentionTone(item.tone)}`}
-                                  title={item.detail}
-                                >
-                                  {item.label}
-                                </span>
-                              ))}
-                              {view.attentionFlags.length > 2 && (
-                                <span className="text-[9px] font-semibold text-slate-400">
-                                  +{view.attentionFlags.length - 2} more
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {topAttention && <span className="block max-w-[18rem] truncate text-[9px] font-semibold text-slate-600" title={topAttention.explanation}>Top reason: {topAttention.title}</span>}
-                          {view.isPartial && <span className="block text-[9px] font-bold text-amber-700">Partial project data</span>}
-                        </td>
-
-                        {/* 4. Currency */}
-                        <td className="px-3 py-3 text-xs font-black uppercase tracking-wide text-slate-700">
-                          {view.currency}
-                        </td>
-
-                        <td className="px-3 py-3">
-                          <StatusBadge tone={project.taxTreatment === "UNCLASSIFIED" || !project.taxTreatment ? "warning" : "info"}>
-                            {projectTaxTreatmentLabel(project.taxTreatment)}
-                          </StatusBadge>
-                        </td>
-
-                        {/* 5. Contract Value */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-800">
-                          <FinancialValue metric={view.financialTruth.contractValue} currency={view.currency} />
-                        </td>
-
-                        {/* 6. Approved Cost Budget */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-900">
-                          <FinancialValue metric={view.financialTruth.approvedCostBudget} currency={view.currency} />
-                        </td>
-
-                        {/* 7. Actual Cost */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-indigo-700">
-                          <FinancialValue metric={view.financialTruth.actualCost} currency={view.currency} />
-                        </td>
-
-                        {/* 8. Committed Cost */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-800">
-                          <FinancialValue metric={view.financialTruth.committedCost} currency={view.currency} />
-                        </td>
-
-                        {/* 9. Billed */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-800">
-                          <FinancialValue metric={view.financialTruth.billed} currency={view.currency} />
-                        </td>
-
-                        {/* 10. Collected */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-800">
-                          <FinancialValue metric={view.financialTruth.collected} currency={view.currency} />
-                        </td>
-
-                        {/* 11. Outstanding */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-amber-800">
-                          <FinancialValue metric={view.financialTruth.outstandingReceivables} currency={view.currency} />
-                        </td>
-
-                        {/* 12. Remaining to Bill */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-emerald-700">
-                          <FinancialValue metric={view.financialTruth.remainingToBill} currency={view.currency} />
-                        </td>
-
-                        {/* 13. Actions */}
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => onOpenProject(project)}
-                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                            >
-                              Open
-                            </button>
-                            {canManage && (
-                              <button
-                                type="button"
-                                onClick={() => onEditProject(project)}
-                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                                title="Edit project"
-                                aria-label={`Edit project ${project.projectCode}`}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            {canManage && project.status !== "ARCHIVED" && (
-                              <button
-                                type="button"
-                                onClick={() => onOpenLifecycle(project)}
-                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700"
-                                title="Project lifecycle"
-                                aria-label={`Project lifecycle for ${project.projectCode}`}
-                              >
-                                <Archive className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            {canManage && project.status === "ARCHIVED" && (
-                              <button
-                                type="button"
-                                onClick={() => onOpenLifecycle(project)}
-                                className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700"
-                                title="Reactivate project"
-                                aria-label={`Reactivate project ${project.projectCode}`}
-                              >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <ProjectPortfolioOperationsGrid
+            displayedViews={displayedViews}
+            canManage={canManage}
+            onOpenProject={onOpenProject}
+            onEditProject={onEditProject}
+            onOpenLifecycle={onOpenLifecycle}
+          />
 
           {/* Mobile / Tablet Responsive Cards View */}
           <div className="grid gap-3.5 lg:hidden" aria-label="Projects list cards">

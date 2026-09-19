@@ -45,6 +45,8 @@ import {
 } from "../../utils/projectManagementViewModel.ts";
 import { createProjectDraft } from "../../utils/projectDraft.ts";
 import { ProjectPortfolioRegisterSection } from "./ProjectPortfolioRegisterSection.tsx";
+import { ProjectsWorkbookPanel, type ProjectsWorkbookRecords } from "./ProjectsWorkbookPanel.tsx";
+import type { ProjectsApplyGroup } from "../../lib/projectsWorkbook.ts";
 
 interface ProjectsPageProps {
   projects: Project[];
@@ -58,16 +60,19 @@ interface ProjectsPageProps {
   subcontractClaims?: SubcontractProgressClaim[];
   subcontractVariations?: SubcontractVariation[];
   engineeringCoordinationData?: EngineeringCoordinationWorkspaceData;
+  companyId?: string;
   attentionToday?: string;
   initialEditingProject?: Project | null;
   onOpenProject: (project: Project) => void;
-  onSaveProject: (project: Project) => void;
+  onSaveProject: (project: Project) => Promise<void> | void;
   onPreviewProjectLifecycle: (project: Project) => Promise<ProjectLifecyclePreview>;
   onApplyProjectLifecycle: (
     project: Project,
     action: ProjectLifecycleAction,
     reason?: string,
   ) => Promise<void>;
+  onRefreshProjects?: () => Promise<ProjectsWorkbookRecords>;
+  onApplyProjectWorkbookGroup?: (group: ProjectsApplyGroup) => Promise<void>;
 }
 
 const PROJECT_STATUSES: readonly ProjectStatus[] = [
@@ -95,12 +100,15 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   subcontractClaims = [],
   subcontractVariations = [],
   engineeringCoordinationData,
+  companyId,
   attentionToday,
   initialEditingProject,
   onOpenProject,
   onSaveProject,
   onPreviewProjectLifecycle,
   onApplyProjectLifecycle,
+  onRefreshProjects,
+  onApplyProjectWorkbookGroup,
 }) => {
   const permissions = useAppPermissions();
   const canManage = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
@@ -287,6 +295,15 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         title="Portfolio Management"
         description="Scan project health and commercial position, then open the register for evidence and action."
         actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => { setFormError(""); setEditing(blankProject()); }} /> : undefined}
+      />
+
+      <ProjectsWorkbookPanel
+        projects={projects}
+        costCodes={costCodes}
+        companyId={companyId}
+        canManage={canManage}
+        onRefreshProjects={onRefreshProjects}
+        onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup || (async () => { throw new Error("Project workbook Apply is not configured."); })}
       />
 
       {isHydrating && (

@@ -70,6 +70,8 @@ import type { ProjectEquipmentSaveInput, ProjectMaterialSaveInput } from "../../
 import type { InventoryBalance, InventoryItem, InventoryMovement } from "../../lib/inventory.ts";
 import type { EquipmentSaveInput } from "../../lib/equipment.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
+import type { ProjectsApplyGroup } from "../../lib/projectsWorkbook.ts";
+import type { ProjectsWorkbookRecords } from "../../components/projects/ProjectsWorkbookPanel.tsx";
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
 import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
@@ -198,6 +200,8 @@ export interface AppRouterProps {
   pathForSiteLog?: (siteLogId?: string) => string;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
+  onRefreshProjects?: () => Promise<ProjectsWorkbookRecords>;
+  onApplyProjectWorkbookGroup?: (group: ProjectsApplyGroup) => Promise<void>;
   onPreviewProjectLifecycle: (project: Project) => Promise<ProjectLifecyclePreview>;
   onApplyProjectLifecycle: (project: Project, action: ProjectLifecycleAction, reason?: string) => Promise<void>;
   onArchiveProject: (project: Project) => Promise<void> | void;
@@ -547,6 +551,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   pathForSiteLog,
   onOpenProject,
   onSaveProject,
+  onRefreshProjects,
+  onApplyProjectWorkbookGroup,
   onPreviewProjectLifecycle,
   onApplyProjectLifecycle,
   onArchiveProject,
@@ -822,6 +828,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onTabChange={onProjectTabChange}
         onOpenProject={onOpenProject}
         onSaveProject={onSaveProject}
+        onRefreshProjects={onRefreshProjects}
+        onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup}
         onPreviewProjectLifecycle={onPreviewProjectLifecycle}
         onApplyProjectLifecycle={onApplyProjectLifecycle}
         onArchiveProject={onArchiveProject}

@@ -17,6 +17,10 @@ const projectRegisterSectionSource = readFileSync(
   new URL("../src/components/projects/ProjectPortfolioRegisterSection.tsx", import.meta.url),
   "utf8",
 );
+const operationsGridSource = readFileSync(
+  new URL("../src/components/ui/OperationsGrid.tsx", import.meta.url),
+  "utf8",
+);
 const projectsSurfaceSource = `${projectsPageSource}\n${projectRegisterSectionSource}`;
 
 const projectOverviewSource = readFileSync(
@@ -102,10 +106,14 @@ test("ProjectsPage enforces portfolio summary, responsive desktop table and mobi
   assert.match(projectsPageSource, /sortDirection/);
 
   // Check Desktop Table and Mobile Cards Hybrid
-  assert.match(projectsSurfaceSource, /hidden overflow-hidden p-0 lg:block/);
+  assert.match(projectsSurfaceSource, /hidden lg:block/);
   assert.match(projectsSurfaceSource, /grid gap-3\.5 lg:hidden/);
   assert.match(projectsSurfaceSource, /aria-label="Projects table"/);
   assert.match(projectsSurfaceSource, /aria-label="Projects list cards"/);
+  assert.match(projectRegisterSectionSource, /OperationsGrid/);
+  assert.match(projectRegisterSectionSource, /protected:\s*true/);
+  assert.match(operationsGridSource, /data-field-protected/);
+  assert.match(operationsGridSource, /sticky/);
 });
 
 test("ProjectsPage exposes the required portfolio financial columns and deterministic controls", () => {
