@@ -410,6 +410,33 @@ select is(
   'protected project currency remains unchanged after rejected workbook Apply'
 );
 
+select throws_ok(
+  $select public.apply_project_cost_control_group(
+    (select project_id from excel_concurrency_ids),
+    (select updated_at from public.projects where id = (select project_id from excel_concurrency_ids)),
+    jsonb_build_object(
+      'id', (select project_id from excel_concurrency_ids),
+      'companyId', (select company_id from excel_concurrency_ids),
+      'projectCode', 'EXCEL-CONCURRENCY',
+      'projectName', 'Excel Runtime Updated',
+      'status', 'ACTIVE',
+      'contractValue', 1600,
+      'projectBudget', 1000,
+      'currency', 'PHP',
+      'taxTreatment', 'UNCLASSIFIED'
+    ),
+    '[]'::jsonb
+  )$,
+  '42501',
+  null,
+  'grouped workbook Apply rejects tax declassification for a classified project'
+);
+select is(
+  (select tax_treatment from public.projects where id = (select project_id from excel_concurrency_ids)),
+  'VAT',
+  'classified project tax treatment remains unchanged after rejected workbook Apply'
+);
+
 select set_config('request.jwt.claim.sub', (select outsider_user::text from excel_concurrency_ids), true);
 select throws_ok(
   $$select public.apply_project_cost_control_group(
