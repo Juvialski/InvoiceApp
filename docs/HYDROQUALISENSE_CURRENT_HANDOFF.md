@@ -328,7 +328,9 @@ content-derived disambiguator when duplicates require one; line numbers are neve
 identity.
 
 The cache is a disposable ignored `.cache/repository-intelligence/` manifest plus per-file
-records. Full rebuild, incremental update, rename/add/modify/delete/hash invalidation,
+records. Repository HEAD and dirty tracked paths are recorded so later RI phases can distinguish
+exact-revision indexes from modified worktrees. Full rebuild, incremental update,
+rename/add/modify/delete/hash invalidation,
 schema/generator invalidation, corrupt-cache recovery, a direct `tsx scripts/repository-intelligence/cli.ts`
 index/update/clean/status interface, and focused fixture coverage are included. The index stores
 metadata and extracted structure, not full source contents, environment values, credentials,
