@@ -96,6 +96,7 @@ test("review permits safe project master-data edits but protects lifecycle and d
   const artifact = exportProjectsWorkbook(context());
   let bytes = setCell(artifact.bytes, "Projects", "Project Name", "Water Treatment Upgrade - Revised");
   bytes = setCell(bytes, "Projects", "Status", "ARCHIVED");
+  bytes = setCell(bytes, "Projects", "Currency", "USD");
   bytes = setCell(bytes, "Projects", "Actual Cost", 99999);
   const review = buildProjectsImportReview(bytes, context());
   const proposal = review.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
@@ -104,6 +105,7 @@ test("review permits safe project master-data edits but protects lifecycle and d
   assert.equal(proposal?.canApply, false);
   assert.ok(proposal?.changes.some((change) => change.field === "projectName" && change.editable));
   assert.ok(proposal?.changes.some((change) => change.field === "status" && !change.editable));
+  assert.ok(proposal?.changes.some((change) => change.field === "currency" && !change.editable));
   assert.ok(proposal?.changes.some((change) => change.field === "actualCost" && !change.editable));
 });
 
@@ -119,6 +121,12 @@ test("review detects stale application edits and workbook identity tampering", (
   const tamperedProposal = tamperedReview.proposals.find((candidate) => candidate.label.includes("PRJ-001"));
   assert.ok(tamperedProposal?.status === "UNAUTHORIZED" || tamperedProposal?.status === "INVALID");
   assert.equal(tamperedProposal?.canApply, false);
+
+  const fingerprintTampered = setCell(artifact.bytes, "Projects", "__HQ Fingerprint", "tampered-fingerprint");
+  const fingerprintReview = buildProjectsImportReview(fingerprintTampered, context());
+  const fingerprintProposal = fingerprintReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(fingerprintProposal?.status, "INVALID");
+  assert.equal(fingerprintProposal?.canApply, false);
 });
 
 test("combined cost-code budgets are validated per project and new or missing rows never imply deletion", () => {
@@ -152,6 +160,11 @@ test("required workbook values fail closed instead of silently becoming zero or 
   assert.equal(proposal?.status, "INVALID");
   assert.equal(proposal?.canApply, false);
   assert.ok(proposal?.messages.some((message) => message.includes("Project Name") || message.includes("Approved Project Budget")));
+
+  const invalidTaxReview = buildProjectsImportReview(setCell(artifact.bytes, "Projects", "Tax Treatment", "INVALID"), context());
+  const invalidTaxProposal = invalidTaxReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(invalidTaxProposal?.status, "INVALID");
+  assert.equal(invalidTaxProposal?.canApply, false);
 });
 
 test("Apply sends one authoritative group with expected versions and keeps read-only review non-mutating", async () => {
@@ -169,6 +182,50 @@ test("Apply sends one authoritative group with expected versions and keeps read-
   assert.equal(applied.length, 1);
   assert.equal((applied[0] as { expectedProjectUpdatedAt: string }).expectedProjectUpdatedAt, "2026-01-02T00:00:00.000Z");
 
+  const appliedGroup = applied[0] as { project: Project };
+  assert.equal(appliedGroup.project.contractValue, 1700);
+  assert.equal(appliedGroup.project.projectBudget, 1000);
+
   const readOnlyReview = buildProjectsImportReview(bytes, context({ canWrite: false }));
   assert.equal(readOnlyReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID)?.canApply, false);
+});
+
+test("real XLSX round trip re-exports authoritative applied state without conflating contract value and budget", async () => {
+  let authoritativeProjects = context().projects.map((candidate) => ({ ...candidate }));
+  const authoritativeCostCodes = context().costCodes.map((candidate) => ({ ...candidate }));
+  const initial = exportProjectsWorkbook({ ...context(), projects: authoritativeProjects, costCodes: authoritativeCostCodes });
+  const edited = setCell(initial.bytes, "Projects", "Contract Value", 1750);
+  const review = buildProjectsImportReview(edited, context({ projects: authoritativeProjects, costCodes: authoritativeCostCodes }));
+  const proposal = review.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.ok(proposal?.canApply);
+
+  await applyProjectsImport(
+    review,
+    context({ projects: authoritativeProjects, costCodes: authoritativeCostCodes }),
+    {
+      applyGroup: async (group) => {
+        authoritativeProjects = authoritativeProjects.map((candidate) =>
+          candidate.id === group.project.id
+            ? { ...group.project, updatedAt: "2026-01-03T00:00:00.000Z" }
+            : candidate,
+        );
+      },
+    },
+    [proposal!.id],
+  );
+
+  const updatedProject = authoritativeProjects.find((candidate) => candidate.id === PROJECT_ID);
+  assert.equal(updatedProject?.contractValue, 1750);
+  assert.equal(updatedProject?.projectBudget, 1000);
+
+  const reexported = exportProjectsWorkbook({
+    ...context(),
+    projects: authoritativeProjects,
+    costCodes: authoritativeCostCodes,
+  });
+  const cleanReview = buildProjectsImportReview(
+    reexported.bytes,
+    context({ projects: authoritativeProjects, costCodes: authoritativeCostCodes }),
+  );
+  assert.equal(cleanReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID)?.status, "UNCHANGED");
 });
