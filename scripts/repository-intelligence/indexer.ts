@@ -193,6 +193,7 @@ export function buildRepositoryIndex(options: BuildRepositoryIndexOptions): Repo
     schemaVersion,
     generatorVersion,
     repositoryHeadSha: inventory.repositoryHeadSha,
+    dirtyTrackedPaths: inventory.dirtyTrackedPaths,
     files,
     excludedFiles,
   };
@@ -209,6 +210,7 @@ export function buildRepositoryIndex(options: BuildRepositoryIndexOptions): Repo
     schemaVersion,
     generatorVersion,
     repositoryHeadSha: inventory.repositoryHeadSha,
+    dirtyTrackedPaths: inventory.dirtyTrackedPaths,
     files: manifestFiles,
   }, files, staleRecordFiles);
 
@@ -242,7 +244,7 @@ export function formatRepositoryIndexSummary(result: RepositoryIndexResult): str
   return [
     "RI-1 repository index updated",
     `mode=${summary.mode} requested=${summary.requestedMode}`,
-    `head=${result.index.repositoryHeadSha}`,
+    `head=${result.index.repositoryHeadSha} dirty_tracked=${result.index.dirtyTrackedPaths.length}`,
     `tracked=${summary.trackedFiles} eligible=${summary.eligibleFiles} excluded=${summary.excludedFiles}`,
     `reparsed=${summary.reparsed} reused=${summary.reused} added=${summary.added} modified=${summary.modified} hash_changed=${summary.hashChanged}`,
     `renamed=${summary.renamed} deleted=${summary.deleted}`,
