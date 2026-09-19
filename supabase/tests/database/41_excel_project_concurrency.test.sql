@@ -414,7 +414,7 @@ select is(
 );
 
 select throws_ok(
-  $select public.apply_project_cost_control_group(
+  $tax$select public.apply_project_cost_control_group(
     (select project_id from excel_concurrency_ids),
     (select updated_at from public.projects where id = (select project_id from excel_concurrency_ids)),
     jsonb_build_object(
@@ -429,7 +429,7 @@ select throws_ok(
       'taxTreatment', 'UNCLASSIFIED'
     ),
     '[]'::jsonb
-  )$,
+  )$tax$,
   '42501',
   null,
   'grouped workbook Apply rejects tax declassification for a classified project'
