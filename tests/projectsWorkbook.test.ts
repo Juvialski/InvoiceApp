@@ -154,6 +154,31 @@ test("required workbook values fail closed instead of silently becoming zero or 
   assert.equal(blankNameProposal?.status, "INVALID");
   assert.equal(blankNameProposal?.canApply, false);
 
+  const blankBudgetReview = buildProjectsImportReview(setCell(artifact.bytes, "Projects", "Approved Project Budget", ""), context());
+  const blankBudgetProposal = blankBudgetReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(blankBudgetProposal?.status, "INVALID");
+  assert.equal(blankBudgetProposal?.canApply, false);
+
+  const negativeBudgetReview = buildProjectsImportReview(setCell(artifact.bytes, "Projects", "Approved Project Budget", -1), context());
+  const negativeBudgetProposal = negativeBudgetReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(negativeBudgetProposal?.status, "INVALID");
+  assert.equal(negativeBudgetProposal?.canApply, false);
+
+  const blankCostCodeBudgetReview = buildProjectsImportReview(setCell(artifact.bytes, "Cost Codes", "Approved Budget", ""), context());
+  const blankCostCodeBudgetProposal = blankCostCodeBudgetReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(blankCostCodeBudgetProposal?.status, "INVALID");
+  assert.equal(blankCostCodeBudgetProposal?.canApply, false);
+
+  const blankWorkPackageReview = buildProjectsImportReview(setCell(artifact.bytes, "Cost Codes", "Work Package", ""), context());
+  const blankWorkPackageProposal = blankWorkPackageReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(blankWorkPackageProposal?.status, "INVALID");
+  assert.equal(blankWorkPackageProposal?.canApply, false);
+
+  const invalidForecastReview = buildProjectsImportReview(setCell(artifact.bytes, "Cost Codes", "Forecast", -1), context());
+  const invalidForecastProposal = invalidForecastReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(invalidForecastProposal?.status, "INVALID");
+  assert.equal(invalidForecastProposal?.canApply, false);
+
   const bytes = setCell(artifact.bytes, "Projects", "Approved Project Budget", "not-a-number");
   const review = buildProjectsImportReview(bytes, context());
   const proposal = review.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
