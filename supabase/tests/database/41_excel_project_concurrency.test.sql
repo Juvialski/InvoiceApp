@@ -91,6 +91,9 @@ values (
   'ACTIVE'
 );
 
+insert into public.deployment_configuration (singleton, company_id)
+values (true, (select company_id from excel_concurrency_ids));
+
 insert into public.projects (
   id, user_id, company_id, project_code, project_name, status,
   contract_value, project_budget, currency, tax_treatment, updated_at
