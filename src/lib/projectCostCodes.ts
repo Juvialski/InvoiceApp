@@ -153,6 +153,11 @@ export interface ProjectCostControlGroupResult {
   costCodes: ProjectCostCode[];
 }
 
+export interface ProjectCostCodeSaveResult {
+  costCode: ProjectCostCode;
+  project?: Project;
+}
+
 export async function applyProjectCostControlGroupToSupabase(
   project: Project,
   expectedProjectUpdatedAt: string,
@@ -236,7 +241,7 @@ export async function saveProjectCostCodeToSupabase(
     archivedAt?: string;
     companyId?: string;
   },
-): Promise<ProjectCostCode> {
+): Promise<ProjectCostCodeSaveResult> {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving cost codes.");
   const companyId = requireActiveCompanyId();
@@ -263,13 +268,13 @@ export async function saveProjectCostCodeToSupabase(
     );
     const saved = result.costCodes.find((candidate) => candidate.id === costCode.id);
     if (!saved) throw new Error("Cost-code Apply did not return the updated cost code.");
-    return saved;
+    return { costCode: saved, project: result.project };
   }
 
   const row = costCodeToRow(fullCostCode, userId, companyId);
   const { data, error } = await supabase.from("project_cost_codes").upsert(row).select("*").single();
   if (error) throw error;
-  return costCodeFromRow(data as Row);
+  return { costCode: costCodeFromRow(data as Row) };
 }
 
 export async function archiveProjectCostCodeInSupabase(costCodeId: string): Promise<ProjectCostCode> {

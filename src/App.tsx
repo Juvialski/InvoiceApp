@@ -1702,7 +1702,11 @@ function InvoiceWorkspace() {
         throw new Error("You do not have permission to manage project cost codes.");
       }
       if (session && supabase) {
-        const saved = await saveProjectCostCodeToSupabase(costCode);
+        const savedResult = await saveProjectCostCodeToSupabase(costCode);
+        const saved = savedResult.costCode;
+        if (savedResult.project) {
+          projectController.applyProjects(projects.map((candidate) => candidate.id === savedResult.project?.id ? savedResult.project : candidate));
+        }
         setCostCodes((prev) => {
           const index = prev.findIndex((c) => c.id === saved.id);
           return index >= 0 ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev];
