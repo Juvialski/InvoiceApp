@@ -9,6 +9,7 @@ function source(path: string) {
 const dashboard = source("src/components/Dashboard.tsx");
 const reports = source("src/components/Reports.tsx");
 const projects = source("src/components/projects/ProjectsPage.tsx");
+const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
 const invoices = source("src/components/InvoiceDirectory.tsx");
 const reviewQueue = source("src/components/ReviewQueue.tsx");
 const expenses = source("src/components/expenses/ExpensesPage.tsx");
@@ -28,7 +29,7 @@ test("core operations pages expose intentional hierarchy and empty/loading state
 });
 
 test("core operations result tables remain keyboard- and screen-reader-scannable", () => {
-  for (const page of [projects, invoices, expenses]) {
+  for (const page of [projectRegister, invoices, expenses]) {
     assert.match(page, /<caption className="sr-only">/);
     assert.match(page, /scope="col"/);
     assert.match(page, /focus-visible:ring-2/);

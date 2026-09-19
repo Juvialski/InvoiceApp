@@ -418,10 +418,11 @@ export function buildRepositoryIntelligenceContext(
     ...(workflow?.protectedBoundaries.confirmations.map((item) => item.label) || []),
     ...workflowNodes.flatMap((node) => nodeAttributeStrings(node, "confirmationRequirement")),
   ]);
+  const requestedHops = Math.min(2, Math.max(0, options.selection.hops ?? 1));
   const executionPath: string[] = [];
   for (const filePath of primaryPaths) {
     for (const workflowId of workflowSeedIds) {
-      for (const candidate of query.boundedPaths(`file:${filePath}`, workflowId, { maxHops: Math.max(2, options.selection.hops || 1), maxPaths: 2 })) {
+      for (const candidate of query.boundedPaths(`file:${filePath}`, workflowId, { maxHops: requestedHops, maxPaths: 2 })) {
         const labels = candidate.nodes.map((nodeId) => byId.get(nodeId)?.label || nodeId);
         executionPath.push(labels.join(" -> "));
       }

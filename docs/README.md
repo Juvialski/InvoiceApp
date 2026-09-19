@@ -44,7 +44,7 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 
 ## Approved future designs
 
-- `superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future Excel-native Operations UX. Implementation is deferred while professionalization continues. For editable Excel-native workspaces, the design requires a real `.xlsx` round trip: export -> external edit -> upload -> validate/compare -> human review -> authoritative apply.
+- `superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future Excel-native Operations UX. Implementation has not started; Repository & Architecture Professionalization is complete for the current boundary, so Excel Phase 0/readiness is next before any shared grid/workbook implementation. For editable Excel-native workspaces, the design requires a real `.xlsx` round trip: export -> external edit -> upload -> validate/compare -> human review -> authoritative apply.
 
 The compatibility stub `HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` remains only so older links continue to resolve.
 

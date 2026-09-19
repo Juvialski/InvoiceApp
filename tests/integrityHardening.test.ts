@@ -16,6 +16,7 @@ const dashboardRoute = readFileSync(new URL("../src/app/routes/DashboardRoute.ts
 const reportsRoute = readFileSync(new URL("../src/app/routes/ReportsRoute.tsx", import.meta.url), "utf8");
 const invoicesRoute = readFileSync(new URL("../src/app/routes/InvoicesRoute.tsx", import.meta.url), "utf8");
 const projectsPage = readFileSync(new URL("../src/components/projects/ProjectsPage.tsx", import.meta.url), "utf8");
+const projectRegister = readFileSync(new URL("../src/components/projects/ProjectPortfolioRegisterSection.tsx", import.meta.url), "utf8");
 const projectWorkspace = readFileSync(new URL("../src/components/projects/ProjectWorkspace.tsx", import.meta.url), "utf8");
 const projectOverview = readFileSync(new URL("../src/components/projects/ProjectOverview.tsx", import.meta.url), "utf8");
 const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");
@@ -170,7 +171,7 @@ test("incomplete Dashboard, project Overview, and Reports suppress authoritative
 
 test("Viewer and read-only roles are not offered mutation workflows", () => {
   assert.match(projectsPage, /actions=\{canManage \?/);
-  assert.match(projectsPage, /canManage && project\.status !== "ARCHIVED"/);
+  assert.match(projectRegister, /canManage && project\.status !== "ARCHIVED"/);
   assert.match(expensesPage, /actions=\{canManage \?/);
   assert.match(expensesPage, /\{canManage && <th/);
   assert.match(invoicesRoute, /InvoiceDirectoryReadOnly/);

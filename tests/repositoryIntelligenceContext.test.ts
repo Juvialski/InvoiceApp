@@ -94,6 +94,19 @@ test("RI-3 resolves a bounded deterministic packet with ranked sources, symbols,
   assert.match(markdown, /po-authority/);
 });
 
+test("RI-3 respects explicit hop bounds instead of widening execution paths", () => {
+  const zeroHop = buildRepositoryIntelligenceContext({
+    index,
+    workflowGraph,
+    repository,
+    task: "purchase order approval",
+    selection: { domain: "procurement", query: "purchase order approval", hops: 0, characterBudget: 6_000 },
+  });
+
+  assert.equal(zeroHop.packet.status, "fresh");
+  assert.deepEqual(zeroHop.packet.executionPath, []);
+});
+
 test("RI-3 refuses stale index claims and exposes the current Workflow Map fallback", () => {
   const stale = buildRepositoryIntelligenceContext({
     index: { ...index, repositoryHeadSha: "b".repeat(40) },

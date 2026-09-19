@@ -51,7 +51,9 @@ test("the Express API keeps Supabase authentication and Brevo credentials server
 
 test("browser API helper sends the deployment company and Supabase session", () => {
   assert.match(browserClient, /supabase\.auth\.getSession\(\)/);
-  assert.match(browserClient, /headers\.set\("Authorization", `Bearer \$\{data\.session\.access_token\}`\)/);
+  assert.match(browserClient, /initialAccessToken: data\.session\.access_token/);
+  assert.match(browserClient, /headers\.set\("Authorization", `Bearer \$\{accessToken\}`\)/);
+  assert.match(browserClient, /refreshAccessToken: async \(\) =>/);
   assert.match(browserClient, /assertDeploymentCompanyId\(deploymentCompanyId, options\.companyId/);
   assert.match(browserClient, /headers\.set\("X-Company-Id", deploymentCompanyId\)/);
   assert.doesNotMatch(browserClient, /X-Gmail-Access-Token/);
