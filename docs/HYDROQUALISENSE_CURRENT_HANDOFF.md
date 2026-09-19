@@ -1,8 +1,10 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — REPOSITORY & ARCHITECTURE PROFESSIONALIZATION ACTIVE THROUGH SLICE 5 WAVE C / EMAIL-SMS RELIABILITY PR #176 REMAINS ISOLATED / EXCEL-NATIVE OPERATIONS UX APPROVED FOR FUTURE IMPLEMENTATION / HOSTED-PROVIDER READINESS REMAINS SEPARATE / WIDE DOCUMENTS DEFERRED / WORKER REGISTRATION PAUSED**
-Date: **2026-09-18**
+Status: **CURRENT — REPOSITORY INTELLIGENCE RI-0 DOCUMENTED / REPOSITORY & ARCHITECTURE PROFESSIONALIZATION ACTIVE THROUGH SLICE 5 WAVE C / EMAIL-SMS RELIABILITY PR #176 REMAINS ISOLATED / EXCEL-NATIVE OPERATIONS UX APPROVED FOR FUTURE IMPLEMENTATION / HOSTED-PROVIDER READINESS REMAINS SEPARATE / WIDE DOCUMENTS DEFERRED / WORKER REGISTRATION PAUSED**
+Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
+
+RI-0 Repository Intelligence planning was prepared from current `main` at `f2ff96c22e1c58e18d52ebbcd88dcddbdf1e7416`. This phase is documentation/architecture only; no RI-1 source indexer or explorer implementation is included.
 
 ## Current repository state
 
@@ -45,6 +47,7 @@ Read this handoff with:
 - `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — completed corrective foundation;
 - `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
 - `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the next product phase after this correction;
+- `docs/repository-intelligence/README.md` — canonical Repository Intelligence architecture; RI-0 documented, implementation not started;
 - `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — active repository decomposition design;
 - `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future direction; implementation deferred;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
@@ -311,6 +314,27 @@ Worker Registration remains paused and must not be suggested as the immediate ne
 
 ---
 
+## 2026-09-19 Repository Intelligence — RI-0 documentation
+
+A new developer-only Repository Intelligence initiative is documented at `docs/repository-intelligence/`.
+
+The design preserves the current curated Workflow Map as the semantic foundation and adds, in later phases, a fast incremental source index, provenance-preserving unified graph/query API, bounded AI Context Engine, structured/2D developer explorer, change intelligence, and optional 3D visualization.
+
+Key decisions:
+
+- the index/graph is the product; 2D/3D views are consumers;
+- source-derived, curated, inferred, and future runtime-observed relationships remain distinguishable;
+- curated financial/security/history/permission/source-of-truth facts are never overwritten by inference;
+- `agent:context` remains the normal compatibility entry point and already provides Git provenance, affected-test selection, bounded Workflow Map traversal, invariants, permissions, and hard budgets;
+- RI-3 should upgrade the graph/context internals while preserving `workflow-map:context` and `agent:context` interfaces;
+- local disposable incremental cache is preferred over committing a large generated repository index;
+- the explorer is local/developer-only by default and must never enter normal client navigation or expose secrets/source internals to customers;
+- Markdown/Mermaid remain supported for GitHub, diffs, accessibility, and no-WebGL environments;
+- change intelligence is scheduled before optional 3D because it has higher direct engineering value.
+
+Model/provider direction is neutral. Current ChatGPT/Codex/Luna-compatible workflows can consume the context interface where enabled; no model-specific API is part of the architecture. The active/current main documents inspected for this phase contained no DeepSeek reference, so no historical records were rewritten.
+
+Exact recommended next implementation phase, only when explicitly requested: **RI-1 — Incremental Repository Source Index**. Do not start RI-1 as part of this documentation phase.
 ## Completed quality/application context that remains valid
 
 ### First comprehensive Local-QA UI/UX pass — complete
