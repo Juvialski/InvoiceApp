@@ -329,21 +329,20 @@ identity.
 
 The cache is a disposable ignored `.cache/repository-intelligence/` manifest plus per-file
 records. Full rebuild, incremental update, rename/add/modify/delete/hash invalidation,
-schema/generator invalidation, corrupt-cache recovery, concise `repo-intel:*` commands,
-and focused fixture coverage are included. The index stores metadata and extracted structure,
-not full source contents, environment values, credentials, tokens, connection strings, or
-private customer-document contents. `scripts/test-impact-config.ts` maps future RI source
-changes to `tests/repositoryIntelligence.test.ts`.
+schema/generator invalidation, corrupt-cache recovery, a direct `tsx scripts/repository-intelligence/cli.ts`
+index/update/clean/status interface, and focused fixture coverage are included. The index stores
+metadata and extracted structure, not full source contents, environment values, credentials,
+tokens, connection strings, or private customer-document contents. RI-1 deliberately leaves
+`package.json` and the global affected-test selector unchanged so this developer-only tooling
+does not force the historical repository-wide regression fallback merely for convenience aliases.
 
 Focused RI-1 evidence is 14/14 tests passing. The real CLI full rebuild indexed 1,129 eligible
 files from 1,169 Git-tracked files, and the immediate incremental update reparsed 0 and reused
-all 1,129 records with schema `1` and generator `ri-1.0.0`. The final full lint gate passed
-(ESLint and TypeScript typecheck). `test:affected:agent` selected its full 330-file fallback
-because `scripts/test-impact-config.ts` is a protected fallback-pattern file; that run returned
-1,897 passed, 9 failed, and 8 skipped out of 1,914, so it is not represented as green. The
-RI-focused suite remains the authoritative focused pass for this slice. No browser,
-Docker/Supabase, migration, provider, hosted-QA, or production checks are part of this
-developer-only slice.
+all 1,129 records with schema `1` and generator `ri-1.0.0`. Lint/typecheck passed on the
+implementation head. The final exact-head affected-test and CI evidence belongs to the reviewed
+PR head and must be used instead of the superseded earlier fallback run. No browser,
+Docker/Supabase, migration, provider, hosted-QA, or production checks are required by this
+developer-only slice unless the final diff expands into those domains.
 
 RI-1 does not change `workflow-map:generate`, `workflow-map:check`,
 `workflow-map:consistency`, `workflow-map:context`, or `agent:context`, and it introduces no
