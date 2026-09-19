@@ -80,10 +80,11 @@ Implemented foundation:
 - `scripts/repository-intelligence/typescriptExtractor.ts` — syntax-level TypeScript/TSX compiler-API extraction with line-independent symbol IDs;
 - `scripts/repository-intelligence/cache.ts` — disposable manifest and per-file records with corrupt-cache recovery;
 - `scripts/repository-intelligence/indexer.ts` — full/incremental planning, rename/hash/schema invalidation, deterministic serialization, and concise summaries;
-- `scripts/repository-intelligence/cli.ts` — `repo-intel:index|update|clean|status` without changing existing context commands;
+- `scripts/repository-intelligence/cli.ts` — direct `index`/`update`/`clean`/`status` CLI without changing existing context commands or package scripts;
 - `tests/repositoryIntelligence.test.ts` — fixture coverage for reuse, add/modify/delete/rename, hash and version invalidation, convergence, secrets, untracked files, and performance;
-- `scripts/test-impact-config.ts` — focused affected-test mapping for later RI changes;
 - `.gitignore` — ignored local cache path.
+
+RI-1 deliberately leaves the global affected-test configuration unchanged. The focused RI test is part of the RI-1 change itself, so the final affected run can remain narrow instead of forcing the repository-wide fallback merely to register a new tooling directory.
 
 The index contains metadata and extracted structure only; it does not persist full source,
 environment values, credentials, tokens, connection strings, or private document contents.
