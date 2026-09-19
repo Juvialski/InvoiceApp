@@ -34,7 +34,8 @@ It uses Git-tracked paths as its inventory, hashes eligible files with SHA-256, 
 source/test/script/documentation/migration/generated/vendor/cache/excluded paths, and uses
 the repository's existing TypeScript compiler API for deterministic TypeScript/TSX symbols,
 imports, exports, and re-exports. Symbol identities are path/qualified-name based and do not
-use line numbers.
+use line numbers. The index records the repository HEAD plus any dirty tracked paths so later
+graph/context phases cannot mistake modified worktree content for exact-revision context.
 
 The disposable cache is `.cache/repository-intelligence/` and is ignored by Git. The CLI is
 available directly through `tsx scripts/repository-intelligence/cli.ts` with `index`/`update`,
