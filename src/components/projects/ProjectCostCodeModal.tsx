@@ -15,6 +15,7 @@ export interface ProjectCostCodeModalProps {
   loading?: boolean;
   onSave: (costCode: {
     id?: string;
+    updatedAt?: string;
     projectId: string;
     code: string;
     name: string;
@@ -112,6 +113,7 @@ export const ProjectCostCodeModal: React.FC<ProjectCostCodeModalProps> = ({
     try {
       await onSave({
         id: costCode?.id,
+        updatedAt: costCode?.updatedAt,
         projectId,
         code: code.trim().toUpperCase(),
         name: name.trim(),

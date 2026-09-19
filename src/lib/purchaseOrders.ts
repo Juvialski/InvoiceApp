@@ -150,12 +150,16 @@ export async function fetchPurchaseOrder(id: string): Promise<PurchaseOrder | nu
 export async function savePurchaseOrder(
   po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
   lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+  expectedUpdatedAt?: string,
 ): Promise<PurchaseOrder> {
   const companyId = requireActiveCompanyId();
 
   if (!supabase || !companyId) {
     const local = readPurchaseOrdersFromLocal();
     const existingIdx = po.id ? local.findIndex((p) => p.id === po.id) : -1;
+    if (existingIdx >= 0 && expectedUpdatedAt && local[existingIdx].updatedAt !== expectedUpdatedAt) {
+      throw new Error("Purchase order changed after export; refresh and review the current record before applying the workbook.");
+    }
     const poId = po.id || globalThis.crypto?.randomUUID?.() || `po-${Date.now()}`;
     const now = new Date().toISOString();
 
@@ -232,6 +236,7 @@ export async function savePurchaseOrder(
       unitPrice: Number(l.unitPrice) || 0,
       projectCostCodeId: l.projectCostCodeId || null,
     })),
+    p_expected_updated_at: expectedUpdatedAt || null,
   });
 
   if (error) throw error;

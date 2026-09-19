@@ -147,6 +147,7 @@ interface ProjectWorkspaceProps {
   onOpenPayroll?: () => void;
   onSaveCostCode?: (costCode: {
     id?: string;
+    updatedAt?: string;
     projectId: string;
     code: string;
     name: string;

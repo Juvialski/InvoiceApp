@@ -40,6 +40,7 @@ import {
   type ProjectBudgetControlSummary,
 } from "../../utils/projectCosting.ts";
 import { EmptyState, MetricCard, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
+import { OperationsGrid } from "../ui/OperationsGrid.tsx";
 import { ProjectCostCodeModal } from "./ProjectCostCodeModal.tsx";
 
 export interface ProjectBudgetControlPanelProps {
@@ -60,6 +61,7 @@ export interface ProjectBudgetControlPanelProps {
   canManageProject?: boolean;
   onSaveCostCode: (costCode: {
     id?: string;
+    updatedAt?: string;
     projectId: string;
     code: string;
     name: string;
@@ -82,6 +84,60 @@ function money(value: number, currency: string) {
 
 function statusTone(status: string): StatusTone {
   return status === "ACTIVE" ? "success" : "neutral";
+}
+
+function ProjectCostCodeOperationsGrid({
+  rows,
+  currency,
+  canManageProject,
+  onEdit,
+  onArchive,
+  onReactivate,
+  actionLoadingId,
+}: {
+  rows: readonly CostCodeFinancialSummary[];
+  currency: string;
+  canManageProject: boolean;
+  onEdit: (row: CostCodeFinancialSummary) => void;
+  onArchive: (id: string) => void;
+  onReactivate: (id: string) => void;
+  actionLoadingId: string | null;
+}) {
+  return (
+    <div className="hidden md:block" aria-label="Project cost codes table">
+      <OperationsGrid
+        ariaLabel="Project cost codes table"
+        rows={rows}
+        rowKey={(row) => row.costCodeId}
+        columns={[
+          { key: "code", header: "Code", sortValue: (row) => row.code, protected: true, cellClassName: "font-mono font-bold", value: (row) => <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-800">{row.code}</span> },
+          { key: "name", header: "Work Package", sortValue: (row) => row.name, protected: false, value: (row) => <div><p className="font-bold text-slate-900">{row.name}</p>{row.description && <p className="mt-0.5 max-w-[18rem] truncate text-[10px] text-slate-500">{row.description}</p>}{row.hasForeignAmounts && <p className="mt-0.5 text-[10px] text-amber-700">Foreign: {Object.entries(row.foreignCosts).map(([code, amount]) => code + " " + Number(amount).toFixed(2)).join(", ")}</p>}</div> },
+          { key: "status", header: "Status", sortValue: (row) => row.status, protected: true, value: (row) => <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge> },
+          { key: "budget", header: "Approved Budget", align: "right" as const, sortValue: (row) => row.budgetAmount, protected: true, cellClassName: "font-black tabular-nums", value: (row) => money(row.budgetAmount, currency) },
+          { key: "actual", header: "Actual Cost", align: "right" as const, sortValue: (row) => row.actualCost, protected: true, cellClassName: "font-black tabular-nums", value: (row) => <span>{money(row.actualCost, currency)}{row.budgetAmount > 0 && <span className="block text-[10px] font-semibold text-slate-400">{row.hasForeignAmounts ? "Base-currency actual · partial" : row.budgetUsedPercent.toFixed(1) + "% used"}</span>}</span> },
+          { key: "committed", header: "Committed Cost", align: "right" as const, sortValue: (row) => row.committedCost ?? -Infinity, protected: true, cellClassName: "font-black tabular-nums text-purple-700", value: (row) => <span>{row.hasForeignAmounts ? <span className="font-semibold italic text-slate-400">Partial</span> : money(row.committedCost || 0, currency)}{Boolean(row.certifiedSubcontractCost && row.certifiedSubcontractCost > 0) && <span className="block text-[10px] font-semibold text-emerald-700">{money(row.certifiedSubcontractCost || 0, currency)} certified</span>}</span> },
+          { key: "forecast", header: "Forecast Cost", align: "right" as const, sortValue: (row) => row.forecastAmount ?? -Infinity, protected: true, cellClassName: "font-bold tabular-nums", value: (row) => row.forecastAmount != null ? money(row.forecastAmount, currency) : <span className="italic text-slate-400">Not set</span> },
+          { key: "actualVariance", header: "Actual Variance", align: "right" as const, sortValue: (row) => row.actualVariance, protected: true, cellClassName: "font-black tabular-nums", value: (row) => row.hasForeignAmounts ? <span className="italic text-slate-400">Unavailable</span> : <span className={row.actualVariance >= 0 ? "text-emerald-700" : "text-rose-600"}>{row.actualVariance >= 0 ? "+" : ""}{money(row.actualVariance, currency)}</span> },
+          { key: "forecastVariance", header: "Forecast Variance", align: "right" as const, sortValue: (row) => row.forecastVariance ?? -Infinity, protected: true, cellClassName: "font-bold tabular-nums", value: (row) => row.forecastVariance != null ? <span className={row.forecastVariance >= 0 ? "text-emerald-700" : "text-rose-600"}>{row.forecastVariance >= 0 ? "+" : ""}{money(row.forecastVariance, currency)}</span> : <span className="italic text-slate-400">Not set</span> },
+        ]}
+        renderActions={canManageProject ? (row) => {
+          const isLoading = actionLoadingId === row.costCodeId;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <button type="button" onClick={() => onEdit(row)} disabled={isLoading} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500" aria-label={"Edit cost code " + row.code}><Edit2 className="h-3.5 w-3.5" /></button>
+              {row.status === "ARCHIVED" ? (
+                <button type="button" onClick={() => onReactivate(row.costCodeId)} disabled={isLoading} className="rounded-lg p-1.5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700" aria-label={"Reactivate cost code " + row.code}><RefreshCw className={"h-3.5 w-3.5 " + (isLoading ? "animate-spin" : "")} /></button>
+              ) : (
+                <button type="button" onClick={() => onArchive(row.costCodeId)} disabled={isLoading} className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600" aria-label={"Archive cost code " + row.code}><Archive className="h-3.5 w-3.5" /></button>
+              )}
+            </div>
+          );
+        } : undefined}
+        density="compact"
+        className="rounded-none border-0"
+      />
+    </div>
+  );
 }
 
 export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps> = ({
@@ -417,166 +473,17 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
           </div>
         ) : (
           <>
-            {/* Desktop / Tablet Table View */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <tr>
-                    <th scope="col" className="px-4 py-3">Cost Code</th>
-                    <th scope="col" className="px-4 py-3">Work Package</th>
-                    <th scope="col" className="px-4 py-3">Status</th>
-                    <th scope="col" className="px-4 py-3 text-right">Approved Budget</th>
-                    <th scope="col" className="px-4 py-3 text-right">Actual Cost</th>
-                    <th scope="col" className="px-4 py-3 text-right">Committed Cost</th>
-                    <th scope="col" className="px-4 py-3 text-right">Forecast Cost</th>
-                    <th scope="col" className="px-4 py-3 text-right">Actual Variance</th>
-                    <th scope="col" className="px-4 py-3 text-right">Forecast Variance</th>
-                    {canManageProject && <th scope="col" className="px-4 py-3 text-right">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {projectCodes.map((cc) => {
-                    const isArchived = cc.status === "ARCHIVED";
-                    const isActionLoading = actionLoadingId === cc.costCodeId;
-                    return (
-                      <tr key={cc.costCodeId} className={`hover:bg-slate-50/60 ${isArchived ? "opacity-60 bg-slate-50/40" : ""}`}>
-                        {/* Cost Code */}
-                        <td className="px-4 py-3.5 font-mono font-bold text-slate-900">
-                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-800">
-                            {cc.code}
-                          </span>
-                          {cc.hasForeignAmounts && (
-                            <span className="ml-1.5 inline-block rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800" title="Contains unconverted foreign currency costs">
-                              Partial
-                            </span>
-                          )}
-                        </td>
+            <ProjectCostCodeOperationsGrid
+              rows={projectCodes}
+              currency={currency}
+              canManageProject={canManageProject}
+              onEdit={handleOpenEditModal}
+              onArchive={(id) => void handleArchive(id)}
+              onReactivate={(id) => void handleReactivate(id)}
+              actionLoadingId={actionLoadingId}
+            />
 
-                        {/* Name & Description */}
-                        <td className="px-4 py-3.5">
-                          <p className="font-bold text-slate-900">{cc.name}</p>
-                          {cc.description && <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-1">{cc.description}</p>}
-                          {cc.hasForeignAmounts && (
-                            <p className="mt-0.5 text-[10px] text-amber-700">
-                              Foreign: {Object.entries(cc.foreignCosts).map(([c, v]) => `${c} ${Number(v).toFixed(2)}`).join(", ")}
-                            </p>
-                          )}
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-4 py-3.5">
-                          <StatusBadge tone={statusTone(cc.status)}>
-                            {cc.status}
-                          </StatusBadge>
-                        </td>
-
-                        {/* Approved Budget */}
-                        <td className="px-4 py-3.5 text-right font-black tabular-nums text-slate-900">
-                          {money(cc.budgetAmount, currency)}
-                        </td>
-
-                        {/* Actual Cost */}
-                        <td className="px-4 py-3.5 text-right font-black tabular-nums text-slate-900">
-                          {money(cc.actualCost, currency)}
-                          {cc.budgetAmount > 0 && (
-                            <span className="block text-[10px] font-semibold text-slate-400">
-                              {cc.hasForeignAmounts ? "Base-currency actual · partial" : `${cc.budgetUsedPercent.toFixed(1)}% used`}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Committed Cost */}
-                        <td className="px-4 py-3.5 text-right font-black tabular-nums text-purple-700">
-                          {cc.hasForeignAmounts ? (
-                            <span className="font-semibold text-slate-400 italic">Partial</span>
-                          ) : (
-                            money(cc.committedCost || 0, currency)
-                          )}
-                          {Boolean(cc.certifiedSubcontractCost && cc.certifiedSubcontractCost > 0) && (
-                            <span className="block text-[10px] font-semibold text-emerald-700">
-                              {money(cc.certifiedSubcontractCost || 0, currency)} certified
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Forecast Cost */}
-                        <td className="px-4 py-3.5 text-right tabular-nums">
-                          {cc.forecastAmount != null ? (
-                            <span className="font-bold text-slate-900">{money(cc.forecastAmount, currency)}</span>
-                          ) : (
-                            <span className="font-semibold text-slate-400 italic">Not set</span>
-                          )}
-                        </td>
-
-                        {/* Actual Variance */}
-                        <td className="px-4 py-3.5 text-right font-black tabular-nums">
-                          {cc.hasForeignAmounts ? (
-                            <span className="font-semibold text-slate-400 italic">Unavailable</span>
-                          ) : (
-                            <span className={cc.actualVariance >= 0 ? "text-emerald-700" : "text-rose-600"}>
-                              {cc.actualVariance >= 0 ? "+" : ""}{money(cc.actualVariance, currency)}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Forecast Variance */}
-                        <td className="px-4 py-3.5 text-right tabular-nums">
-                          {cc.forecastVariance != null ? (
-                            <span className={`font-bold ${cc.forecastVariance >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
-                              {cc.forecastVariance >= 0 ? "+" : ""}{money(cc.forecastVariance, currency)}
-                            </span>
-                          ) : (
-                            <span className="font-semibold text-slate-400 italic">Not set</span>
-                          )}
-                        </td>
-
-                        {/* Actions */}
-                        {canManageProject && (
-                          <td className="px-4 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditModal(cc)}
-                                disabled={isActionLoading}
-                                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
-                                aria-label={`Edit cost code ${cc.code}`}
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </button>
-                              {isArchived ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleReactivate(cc.costCodeId)}
-                                  disabled={isActionLoading}
-                                  className="rounded-lg p-1.5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
-                                  aria-label={`Reactivate cost code ${cc.code}`}
-                                  title="Reactivate cost code"
-                                >
-                                  <RefreshCw className={`h-3.5 w-3.5 ${isActionLoading ? "animate-spin" : ""}`} />
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleArchive(cc.costCodeId)}
-                                  disabled={isActionLoading}
-                                  className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500"
-                                  aria-label={`Archive cost code ${cc.code}`}
-                                  title="Archive cost code"
-                                >
-                                  <Archive className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Cards View */}
+           {/* Mobile Cards View */}
             <div className="divide-y divide-slate-100 md:hidden">
               {projectCodes.map((cc) => {
                 const isArchived = cc.status === "ARCHIVED";

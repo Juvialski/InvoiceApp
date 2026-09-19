@@ -114,6 +114,7 @@ export interface ProcurementPageProps {
   onSavePO: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+    expectedUpdatedAt?: string,
   ) => Promise<void>;
   onTransitionPO: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   onDeletePO: (id: string) => Promise<void>;
@@ -129,6 +130,7 @@ export interface ProcurementPageProps {
     rfq: Partial<RFQ> & { rfqNumber: string; title: string },
     lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
     invitedVendorIds?: string[],
+    expectedUpdatedAt?: string,
   ) => Promise<void>;
   onTransitionRFQ?: (id: string, targetStatus: RFQStatus, reason?: string) => Promise<void>;
   onDeleteRFQ?: (id: string) => Promise<void>;
@@ -834,9 +836,10 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     rfqData: Partial<RFQ> & { rfqNumber: string; title: string },
     lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
     invitedVendorIds?: string[],
+    expectedUpdatedAt?: string,
   ) => {
     if (onSaveRFQ) {
-      await onSaveRFQ(rfqData, lines, invitedVendorIds);
+      await onSaveRFQ(rfqData, lines, invitedVendorIds, expectedUpdatedAt);
     }
     // Optimistic / Local update
     setLocalRfqs((prev) => {
