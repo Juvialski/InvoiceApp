@@ -37,9 +37,10 @@ imports, exports, and re-exports. Symbol identities are path/qualified-name base
 use line numbers.
 
 The disposable cache is `.cache/repository-intelligence/` and is ignored by Git. The CLI is
-available through `repo-intel:index`, `repo-intel:update`, `repo-intel:clean`, and
-`repo-intel:status`; indexing never becomes a customer-runtime dependency and does not replace
-any `workflow-map:*` or `agent:context` command.
+available directly through `tsx scripts/repository-intelligence/cli.ts` with `index`/`update`,
+`clean`, and `status` commands. RI-1 intentionally does not modify `package.json` or the global
+test-impact selector merely to add convenience aliases. Indexing never becomes a customer-runtime
+dependency and does not replace any `workflow-map:*` or `agent:context` command.
 
 ## Canonical documents
 
