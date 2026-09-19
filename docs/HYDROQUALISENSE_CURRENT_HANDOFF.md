@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — PR #176 FINALIZATION FIRST / PR #179 RECONCILIATION SECOND / RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — PR #176 FINALIZATION FIRST / REMAINING EMAIL-SMS-SMS IMPROVEMENT SECOND / PR #179 RECONCILIATION THIRD / RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
 
@@ -474,17 +474,18 @@ Preserve throughout resumed Wave 4D and subsequent work:
 ## Required sequence from this handoff
 
 1. **Finalize PR #176 — authenticated request recovery** against current `main`; review/fix/validate and merge if safe.
-2. **Reconcile draft PR #179** against current documentation; preserve any unique still-valid guidance and close the superseded draft rather than running its old plan wholesale.
-3. **Repository Intelligence RI-1 — Incremental Repository Source Index.**
-4. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.**
-5. **Repository Intelligence RI-3 — AI Context Engine integration.** Preserve the current `workflow-map:context` and `agent:context` interfaces while improving their internals.
-6. **Finish remaining Repository & Architecture Professionalization work** using the RI core as a bounded-context aid.
-7. **Implement Excel-Native Operations UX** when the architecture boundary is ready.
-8. **Complete remaining Wave 4D provider/readiness evidence** when safe provider credentials/devices/QA prerequisites exist; this external-readiness work may run opportunistically when prerequisites become available.
-9. **Resume Wide Documents remaining managed slices.**
-10. **Worker Registration — still paused until Wave 4D is complete and the user explicitly resumes it.** Site Attendance follows; Face Recognition remains gated by separate privacy/security design.
-11. **RI-4 through RI-6** are later developer-tooling work, not prerequisites for the product queue above.
-12. **RI-7 optional 3D explorer — LAST.** Do not start WebGL/3D work merely because RI-3 is complete.
+2. **Finish remaining Email/SMS Reliability & SMS Improvement implementation** that does not depend on live credentials/device runtime; keep provider availability truthful and preserve human confirmation/history/idempotency boundaries.
+3. **Reconcile draft PR #179** against current documentation; preserve any unique still-valid guidance and close the superseded draft rather than running its old plan wholesale.
+4. **Repository Intelligence RI-1 — Incremental Repository Source Index.**
+5. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.**
+6. **Repository Intelligence RI-3 — AI Context Engine integration.** Preserve the current `workflow-map:context` and `agent:context` interfaces while improving their internals.
+7. **Finish remaining Repository & Architecture Professionalization work** using the RI core as a bounded-context aid.
+8. **Implement Excel-Native Operations UX** when the architecture boundary is ready.
+9. **Complete remaining Wave 4D provider/readiness evidence** when safe provider credentials/devices/QA prerequisites exist; this external-readiness work may run opportunistically when prerequisites become available.
+10. **Resume Wide Documents remaining managed slices.**
+11. **Worker Registration — still paused until Wave 4D is complete and the user explicitly resumes it.** Site Attendance follows; Face Recognition remains gated by separate privacy/security design.
+12. **RI-4 through RI-6** are later developer-tooling work, not prerequisites for the product queue above.
+13. **RI-7 optional 3D explorer — LAST.** Do not start WebGL/3D work merely because RI-3 is complete.
 
 Do not skip directly to Worker Registration, and do not let visualization work displace the index/context, reliability, professionalization, Excel-native, provider-readiness, or approved product work above.
 ---
