@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — RI-1 COMPLETE / COMBINED RI-2+RI-3 NEXT / EXCEL-READINESS GATE IMMEDIATELY AFTER / EXCEL FOUNDATION + PROCUREMENT PILOT ACCELERATED / NON-BLOCKING PROFESSIONALIZATION DEFERRED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — RI-1 COMPLETE / COMBINED RI-2+RI-3 NEXT / PROFESSIONALIZATION COMPLETION AFTER RI-3 / EXCEL ONLY AFTER PROFESSIONALIZATION / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-19**
 
@@ -17,7 +17,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Security assurance implementation/evidence plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
 **Repository Intelligence architecture:** `docs/repository-intelligence/README.md` — RI-1 implemented; RI-2/RI-3 remain planned
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
-**Approved accelerated Excel-Native Operations UX design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — readiness gate follows RI-3; Phase 1 follows immediately when green
+**Approved Excel-Native Operations UX design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — implementation follows full professionalization completion
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
@@ -26,11 +26,11 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 ## Current priority sequence
 
-1. **Combined RI-2 + RI-3 accelerated core run.** Build the provenance-aware unified graph/query API and then integrate the bounded AI Context Engine behind existing context entry points, with deterministic fallback and current affected-test safety preserved. One PR is acceptable because RI-3 directly consumes RI-2, but keep internal stages and tests distinct.
-2. **Excel-readiness gate / Excel Phase 0 immediately after RI-3.** Inventory current authenticated registers, XLSX utilities, shared schema needs, protected/derived fields, stale-version evidence, and authoritative mutation boundaries. Close only blockers that are genuinely required before the shared Excel layer.
-3. **Excel-Native Phase 1 + Procurement pilot become the immediate product path once the gate passes.** Build the shared OperationsGrid/workbook engine, then prove a real RFQ/Purchase Order web-grid + `.xlsx` round trip with review-before-apply and conflict protection.
-4. **Remaining professionalization is non-blocking unless specifically proven otherwise.** Repository hygiene, branding cleanup, human onboarding, evidence policy, repository rename evaluation, and arbitrary secondary decomposition must not delay Excel merely because the broader program is still open.
-5. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without blocking the accelerated Excel path.
+1. **Combined RI-2 + RI-3 + Professionalization Completion run is allowed for maximum efficiency.** Build/prove RI-2 first, integrate/prove RI-3 second, then use RI-3 to finish the remaining professionalization program. One PR is acceptable, but each internal stage needs a clear completion gate and focused evidence before the next begins.
+2. **Finish the full remaining Repository & Architecture Professionalization program within that run or, if an unavoidable external/manual constraint prevents it, resolve that item explicitly rather than silently moving to Excel.** Use RI-3 to complete all still-valid structural/repository-hygiene/human-onboarding/evidence-policy/current-branding/secondary-large-module work in the canonical professionalization design. The goal is a genuinely organized repository for subsequent feature growth, not merely enough decomposition to unblock one Excel pilot.
+3. **Professionalization completion gate.** Do not advance while roadmap/handoff still truthfully need to say the broader professionalization program is incomplete. Resolve or explicitly close every planned item, including integration-aware repository identity/rename evaluation where applicable.
+4. **Then perform Excel Phase 0/readiness and proceed to Excel-Native Phase 1 + Procurement pilot.** Build the shared OperationsGrid/workbook engine, then prove a real RFQ/Purchase Order web-grid + `.xlsx` round trip with review-before-apply and conflict protection.
+5. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active RI/professionalization work.
 6. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 7. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
 

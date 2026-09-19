@@ -131,7 +131,7 @@ PR #179 proposed a broader continuation plan, but much of it was superseded by w
 - keep README/architecture documentation as the human front door while retaining `AGENTS.md` for the real ChatGPT/Codex workflow;
 - add concise architecture/onboarding material only where it improves human understanding rather than creating generic repository boilerplate.
 
-These goals remain valid, but by explicit 2026-09-19 reprioritization they are non-blocking after RI-3 unless the Excel-readiness gate identifies a specific item as a prerequisite. Otherwise, continue them after the Excel shared foundation/procurement pilot.
+These goals remain valid and, by the latest explicit 2026-09-19 reprioritization, must be completed after RI-3 and before Excel-native implementation. The professionalization program must reach an explicit COMPLETE state rather than leaving open-ended repository cleanup behind a new feature phase.
 ## Non-goals
 
 - No database schema redesign.
@@ -163,7 +163,7 @@ The following are invariants for all slices:
 
 The Email/SMS reliability implementation is merged and remains an independent product boundary. Later structural work must preserve authenticated request recovery, Company SIM Gateway/PhilSMS provider boundaries, human-confirmed sends, delivery-history/idempotency/reconciliation, and truthful provider readiness rather than reimplementing them.
 
-Repository Intelligence RI-1 through RI-3 precede any further structural work. After RI-3, the Excel-readiness gate decides whether a specific structural blocker must be fixed before Excel; remaining non-blocking professionalization follows the Excel shared foundation/procurement pilot.
+Repository Intelligence RI-1 through RI-3 precede the remaining structural work. After RI-3, resume and finish the full remaining professionalization program before Excel Phase 0/readiness. Use the RI context layer to reduce rediscovery and context cost while completing the repository organization.
 
 ## Validation strategy
 
