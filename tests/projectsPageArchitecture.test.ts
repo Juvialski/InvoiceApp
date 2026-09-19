@@ -7,6 +7,7 @@ const projectRegisterSectionPath = new URL(
   "../src/components/projects/ProjectPortfolioRegisterSection.tsx",
   import.meta.url,
 );
+const operationsGridPath = new URL("../src/components/ui/OperationsGrid.tsx", import.meta.url);
 
 function readIfPresent(path: URL): string {
   return existsSync(path) ? readFileSync(path, "utf8") : "";
@@ -15,6 +16,7 @@ function readIfPresent(path: URL): string {
 test("projects portfolio and register presentation has explicit architectural boundaries", () => {
   const projectsPage = readIfPresent(projectsPagePath);
   const projectRegisterSection = readIfPresent(projectRegisterSectionPath);
+  const operationsGrid = readIfPresent(operationsGridPath);
 
   assert.ok(projectsPage, "ProjectsPage.tsx must exist");
   assert.ok(projectRegisterSection, "ProjectPortfolioRegisterSection.tsx must exist");
@@ -68,8 +70,12 @@ test("projects portfolio and register presentation has explicit architectural bo
   assert.match(projectRegisterSection, /aria-label="Projects table"/);
   assert.match(projectRegisterSection, /aria-label="Projects list cards"/);
   assert.match(projectRegisterSection, /aria-label="Search projects"/);
+  assert.match(projectRegisterSection, /OperationsGrid/);
+  assert.match(operationsGrid, /data-operations-grid/);
+  assert.match(operationsGrid, /data-field-protected/);
 
-  // 7. No Excel-native implementation was introduced
-  assert.doesNotMatch(projectsPage, /OperationsGrid|OperationsSheetSchema|xlsx/i);
-  assert.doesNotMatch(projectRegisterSection, /OperationsGrid|OperationsSheetSchema|xlsx/i);
+  // 7. The register uses the shared grid while keeping the domain parent-owned
+  assert.match(projectRegisterSection, /import\s+\{\s*OperationsGrid\s*\}/);
+  assert.match(projectRegisterSection, /onRowActivate/);
+  assert.match(projectRegisterSection, /protected:\s*true/);
 });
