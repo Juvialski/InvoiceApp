@@ -168,9 +168,6 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
     'tests/workflowMap.test.ts',
     'tests/p2WorkflowContextCoverage.test.ts',
   ],
-  'scripts/repository-intelligence/**': [
-    'tests/repositoryIntelligence.test.ts',
-  ],
   'docs/architecture/workflow-map.json': [
     'tests/workflowMap.test.ts',
     'tests/workflowMapConsistency.test.ts',
