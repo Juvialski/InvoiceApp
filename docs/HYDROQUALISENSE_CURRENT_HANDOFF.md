@@ -329,9 +329,10 @@ connected GitHub administration and linked Render/webhook verification are not
 available in this run. The exact external follow-up is documented as a manual
 administrative option, not unfinished repository architecture.
 
-Excel Phase 0/readiness and the shared foundation are now implemented together
-with the bounded RFQ/Purchase Order pilot described below. The next Excel-native
-implementation should reuse that foundation rather than repeat readiness work.
+Excel Phase 0/readiness and the shared foundation are implemented together
+with the bounded RFQ/Purchase Order pilot and the later Projects/project-controls
+rollout described below. The next Excel-native implementation should reuse that
+foundation rather than repeat readiness work.
 
 ## 2026-09-19 Excel Phase 0 + shared foundation + bounded Procurement pilot — implemented
 
@@ -392,10 +393,13 @@ weakened. Creation/deletion through workbook import remains deferred.
 
 Focused workbook/grid/domain tests and TypeScript typecheck passed. A real
 SheetJS export/review/apply/re-export round trip is covered by the adapter
-tests. Docker/Supabase replay and pgTAP were not tested because the local Docker
-daemon was unavailable; hosted QA, provider certification, and production
-promotion remain separate and unclaimed. The next Excel-native work requires a
-new bounded domain rollout; app-wide Excel capability is not claimed.
+tests. Local Docker/Supabase was unavailable during the Codex implementation
+run; the protected exact-head Database Migration & Invariant workflow is the
+authoritative clean-replay, pgTAP/runtime-concurrency, and historical upgrade
+gate before merge, and exact-head Demo Visual QA gates the changed Projects
+surface. Provider certification and production promotion remain separate and
+unclaimed. The next bounded Excel-native domain is Phase 4 — Expenses and
+Finance; app-wide Excel capability is not claimed.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
@@ -475,7 +479,8 @@ RI-2 and RI-3 preserve `workflow-map:generate`, `workflow-map:check`,
 adding the provenance-aware graph/query layer and bounded source context. No
 customer/runtime dependency is introduced. The exact next Repository
 Intelligence work is later explorer/change-intelligence tooling; the next
-product implementation direction is Excel Phase 0/readiness.
+product implementation direction is the bounded Excel **Phase 4 — Expenses and
+Finance** rollout.
 
 The design preserves the current curated Workflow Map as the semantic foundation. RI-1 provides the fast incremental source index; RI-2 provides the provenance-preserving unified graph/query API; RI-3 provides the bounded AI Context Engine; later phases may add structured/2D explorer, change intelligence, and optional 3D visualization.
 
@@ -636,7 +641,8 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 1. **RI-2 + RI-3 implementation run — complete.** RI-2 lands conceptually first and RI-3 consumes it behind `workflow-map:context` / `agent:context`, preserving curated authority, current safety-net test selection, stale-index fail-closed behavior, and explicit fallback.
 2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
-3. **Next implementation direction: Excel Phase 0/readiness, then Excel-Native Phase 1 and the Procurement RFQ/PO pilot.**
+3. **Excel Phase 0/readiness, shared foundation, Procurement RFQ/PO, and Projects/project controls — implemented.**
+4. **Next bounded Excel-native domain: Phase 4 — Expenses and Finance.** Reuse the shared grid/workbook/review/apply contracts and preserve Expense, payable, receivable, Cash & Banking, reconciliation, settlement, currency, and history authority behind their owning workflows.
 5. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 6. **Resume Wide Documents remaining managed slices.**
 7. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
@@ -647,11 +653,11 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-The next Luna Max/Codex run should begin the approved **Excel Phase 0/readiness** work from live repository state. It must not assume that this structural completion provides Excel capability, hosted/provider certification, or production authorization.
+The next Codex run should begin the approved bounded **Excel Phase 4 — Expenses and Finance** rollout from live repository state. It must reuse the implemented shared Excel foundation and must not assume that unfinished Finance surfaces, hosted/provider certification, or production authorization already exist.
 
 The completed professionalization decisions are recorded in `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and `docs/REPOSITORY_EVIDENCE_POLICY.md`; they do not revive superseded App/server/static-analysis work.
 
 Efficiency rules remain strict: pull current main first, one bounded context packet, zero subagents by default, focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.
 
-The combined run reached the explicit COMPLETE state. Excel Phase 0/readiness may now start, subject to its own design, live architecture, and focused validation gates.
+The combined professionalization run remains complete. Excel Phase 0/readiness, Procurement, and Projects/project controls are implemented; Phase 4 Expenses and Finance is next, subject to live architecture and focused validation gates.
 
