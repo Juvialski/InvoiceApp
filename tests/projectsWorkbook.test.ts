@@ -165,6 +165,19 @@ test("required workbook values fail closed instead of silently becoming zero or 
   const invalidTaxProposal = invalidTaxReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
   assert.equal(invalidTaxProposal?.status, "INVALID");
   assert.equal(invalidTaxProposal?.canApply, false);
+
+  const declassifiedReview = buildProjectsImportReview(setCell(artifact.bytes, "Projects", "Tax Treatment", "UNCLASSIFIED"), context());
+  const declassifiedProposal = declassifiedReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(declassifiedProposal?.status, "INVALID");
+  assert.equal(declassifiedProposal?.canApply, false);
+
+  const alreadyUnclassified = { ...project(), taxTreatment: "UNCLASSIFIED" as const };
+  const unclassifiedArtifact = exportProjectsWorkbook(context({ projects: [alreadyUnclassified, project(SECOND_PROJECT_ID, "PRJ-002")] }));
+  const unchangedUnclassified = buildProjectsImportReview(
+    unclassifiedArtifact.bytes,
+    context({ projects: [alreadyUnclassified, project(SECOND_PROJECT_ID, "PRJ-002")] }),
+  );
+  assert.equal(unchangedUnclassified.proposals.find((candidate) => candidate.projectId === PROJECT_ID)?.status, "UNCHANGED");
 });
 
 test("Apply sends one authoritative group with expected versions and keeps read-only review non-mutating", async () => {
