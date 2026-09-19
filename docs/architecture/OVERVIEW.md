@@ -64,6 +64,13 @@ AI-assisted features are constrained by verified application context and existin
 
 Outbound providers are integrated server-side. Provider acceptance is not automatically equivalent to final delivery, payment, or other downstream business completion. Provider credentials are deployment-owned secrets and must never be exposed to client code.
 
+## Repository intelligence developer tooling
+
+HydroQualiSense is adding a developer-only Repository Intelligence layer that extends the existing curated Workflow Map with an incremental source index, provenance-preserving unified graph, bounded AI context engine, and optional interactive explorer.
+
+The existing `scripts/workflow-map/graph.ts`, generated `APP_WORKFLOW_MAP.md`, machine-readable `workflow-map.json`, consistency checks, and bounded `agent:context` workflow remain foundations. Repository Intelligence is additive: source-derived and inferred relationships do not override curated financial, security, permission, history, or source-of-truth rules.
+
+Repository Intelligence is not part of the customer application runtime or navigation. Its canonical architecture is `docs/repository-intelligence/README.md`.
 ## Testing and change discipline
 
 Repository changes follow a focused -> affected validation ladder. New/edited tests run first, then relevant domain tests, `test:affected:agent`, and lint/build/browser/database checks when the diff makes them applicable. Exact-head CI evidence is required before merge.
@@ -77,4 +84,5 @@ Database-affecting changes require local Supabase/PostgreSQL execution when appl
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md` — active product/engineering sequence.
 - `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md` — latest completed state and next work.
 - `docs/architecture/APP_WORKFLOW_MAP.md` — generated route/workflow structure.
+- `docs/repository-intelligence/README.md` — Repository Intelligence architecture, context-engine design, explorer UX, and implementation roadmap.
 - Domain-specific design/history documents — deeper contracts for the relevant subsystem.
