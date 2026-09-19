@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY & ARCHITECTURE PROFESSIONALIZATION IN PROGRESS / EMAIL-SMS RELIABILITY REMAINS ISOLATED / EXCEL-NATIVE OPERATIONS UX APPROVED FOR FUTURE IMPLEMENTATION / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY INTELLIGENCE RI-0 DOCUMENTED / REPOSITORY & ARCHITECTURE PROFESSIONALIZATION IN PROGRESS / EMAIL-SMS RELIABILITY REMAINS ISOLATED / EXCEL-NATIVE OPERATIONS UX APPROVED FOR FUTURE IMPLEMENTATION / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-18**
+Last updated: **2026-09-19**
 
 Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -15,6 +15,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Email/SMS phase contract:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
 **Security assurance contract:** `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
 **Security assurance implementation/evidence plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
+**Repository Intelligence architecture:** `docs/repository-intelligence/README.md` — RI-0 documentation complete; implementation not started
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 **Approved future Excel-Native Operations UX design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — implementation deferred
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
@@ -25,11 +26,12 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 ## Current execution tracks
 
-1. **Repository & Architecture Professionalization — active structural implementation.** Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state. Wave C is the Projects Portfolio/Register presentation extraction described below. The broader professionalization program remains incomplete.
-2. **Email/SMS Reliability — independent workstream.** Draft PR #176 remains isolated; do not absorb its owned files into structural cleanup.
-3. **Excel-Native Operations UX — approved future major UX direction.** The canonical design is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started and does not reorder the active structural work.
-4. **Release/readiness certification — parallel track.** Hosted/provider/QA evidence remains separate from structural merges and production authorization.
-5. **Wide Documents managed slices — deferred. Worker Registration — paused.**
+1. **Repository Intelligence — RI-0 documentation/architecture complete; implementation not started.** The canonical design is `docs/repository-intelligence/README.md`. It preserves the current Workflow Map and bounded context interfaces, is model-provider-neutral, and recommends RI-1 Incremental Repository Source Index as the next implementation slice only when the user explicitly starts it.
+2. **Repository & Architecture Professionalization — active structural implementation.** Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state. Wave C is the Projects Portfolio/Register presentation extraction described below. The broader professionalization program remains incomplete.
+3. **Email/SMS Reliability — independent workstream.** Draft PR #176 remains isolated; do not absorb its owned files into structural cleanup.
+4. **Excel-Native Operations UX — approved future major UX direction.** The canonical design is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started and does not reorder the active structural work.
+5. **Release/readiness certification — parallel track.** Hosted/provider/QA evidence remains separate from structural merges and production authorization.
+6. **Wide Documents managed slices — deferred. Worker Registration — paused.**
 
 ## Historical application / certification baselines
 
@@ -238,6 +240,16 @@ The project-manager Excel-native direction is approved and its future design con
 The repository professionalization track continues with Slice 5 Wave C, which extracts the Projects portfolio summary, search/filter controls, and responsive register presentation into `src/components/projects/ProjectPortfolioRegisterSection.tsx`. `ProjectsPage.tsx` line count is reduced from 1,413 lines to 713 lines. Authoritative project management view building (`buildProjectManagementView`), multi-currency portfolio summaries (`buildPortfolioManagementSummary`), deterministic filter/sort derivation (`filterAndSortProjectViews`), project editing, tax-treatment classification validation, and lifecycle action orchestration remain parent-owned.
  
 This is behavior-preserving architecture work. No database, migration, RLS/RPC, financial-semantic, provider, production, or persistence contract changed. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was introduced. Slice 5 Wave C is complete as this focused presentation extraction; the broader professionalization program remains in progress.
+
+## 2026-09-19 Repository Intelligence — RI-0
+
+Repository Intelligence is now documented as an additive developer architecture built on the existing Workflow Map rather than a replacement for it. The canonical documentation is `docs/repository-intelligence/README.md` with separate architecture, graph/provenance, AI Context Engine, explorer UX, and implementation-roadmap documents.
+
+RI-0 changes documentation only. No source indexer, unified graph implementation, explorer route, customer-facing navigation, dependency, migration, database/provider behavior, or production surface is added. The existing `workflow-map:generate`, `workflow-map:check`, `workflow-map:consistency`, `workflow-map:context`, and `agent:context` interfaces remain the current implementation.
+
+The planned core is model-provider-neutral. Current ChatGPT/Codex/Luna-compatible workflows may consume bounded packets where enabled, but Repository Intelligence does not depend on a model-specific API. No active/current DeepSeek dependency was found in the inspected main agent/roadmap/handoff/architecture documentation, so RI-0 does not rewrite historical records merely to remove a name.
+
+Recommended next implementation slice when explicitly authorized: **RI-1 — Incremental Repository Source Index**. It is additive and must not start in RI-0.
 
 ## Product dependency sequence
 
