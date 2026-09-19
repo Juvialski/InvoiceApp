@@ -436,8 +436,9 @@ const verifyPortfolioAttention: QaScenarioAction = async (page) => {
   await page.locator('summary:has-text("More filters")').first().click();
   const filter = page.getByRole("combobox", { name: "Filter by financial health and attention signals", exact: true }).first();
   await filter.selectOption("NEEDS_ATTENTION");
-  await page.locator("[data-project-id]").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  const flaggedProjects = await page.locator("[data-project-id]").count();
+  const projectRows = page.locator('[aria-label="Projects table"] [data-operations-grid="true"] tbody tr');
+  await projectRows.first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const flaggedProjects = await projectRows.count();
   await filter.selectOption("ALL");
   return [
     { id: "portfolio-attention-count-visible", passed: attentionCount > 0, details: `needs-attention labels: ${attentionCount}` } satisfies QaAssertion,
