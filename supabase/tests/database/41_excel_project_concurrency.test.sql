@@ -442,7 +442,7 @@ select is(
 
 select set_config('request.jwt.claim.sub', (select outsider_user::text from excel_concurrency_ids), true);
 select throws_ok(
-  $select public.apply_project_cost_control_group(
+  $auth$select public.apply_project_cost_control_group(
     (select project_id from excel_concurrency_ids),
     '2000-01-01 00:00:00+00'::timestamptz,
     jsonb_build_object(
@@ -456,7 +456,7 @@ select throws_ok(
       'taxTreatment', 'VAT'
     ),
     '[]'::jsonb
-  )$$,
+  )$auth$,
   '42501',
   null,
   'non-member cannot apply a project workbook group'
