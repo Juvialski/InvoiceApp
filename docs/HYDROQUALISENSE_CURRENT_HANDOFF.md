@@ -520,13 +520,11 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-The next Luna Max/Codex run remains the combined RI-2 + RI-3 core run for efficiency. Do not mix Excel Phase 0 or Excel feature implementation into it.
-
-After RI-2 and RI-3 merge, the immediate next run is **Repository & Architecture Professionalization Completion**. That run should use the new bounded Repository Intelligence context to finish the canonical remaining program in one deliberate consolidation pass where safe, with an explicit priority order and stop boundary.
+For maximum efficiency, the next Luna Max/Codex run may combine **RI-2 -> RI-3 -> Repository & Architecture Professionalization Completion** in one sequential PR. Do not mix Excel Phase 0 or Excel feature implementation into it. RI-2 must be proven before RI-3 begins, and RI-3 must be proven before the professionalization completion pass begins.
 
 Professionalization completion includes the still-valid goals in `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`: secondary large-module triage based on responsibilities/context budget, repository hygiene, current branding/repository-facing metadata cleanup where safe, tracked-vs-transient evidence policy, human onboarding/front-door clarity, and integration-aware repository identity/rename evaluation. It must not revive superseded App/server/static-analysis work that is already complete.
 
 Efficiency rules remain strict: pull current main first, one bounded context packet, zero subagents by default, focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.
 
-Excel Phase 0/readiness starts only after the professionalization program is explicitly marked COMPLETE.
+The combined run should stop only when the professionalization program is explicitly marked COMPLETE, or when a genuine external/manual constraint is documented precisely enough that no repository implementation work remains. Excel Phase 0/readiness starts only after that completion state.
 
