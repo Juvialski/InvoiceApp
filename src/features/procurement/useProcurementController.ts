@@ -211,7 +211,7 @@ export function useProcurementController({
       if (remoteWorkspaceConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
         throw new Error("You do not have permission to create or edit purchase orders.");
       }
-      const saved = await savePurchaseOrder(po, lines, expectedUpdatedAt);
+      const saved = await savePurchaseOrder(po, lines, expectedUpdatedAt || po.updatedAt);
       setPurchaseOrders((previous) => {
         const index = previous.findIndex((item) => item.id === saved.id);
         const next = index >= 0 ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
@@ -604,7 +604,7 @@ export function useProcurementController({
   ) => {
     try {
       if (remoteWorkspaceConfigured && !can(PERMISSION_KEYS.procurementWrite)) throw new Error("You do not have permission to create or edit RFQs.");
-      const saved = await saveRFQ(rfq, lines, invitedVendorIds, expectedUpdatedAt);
+      const saved = await saveRFQ(rfq, lines, invitedVendorIds, expectedUpdatedAt || rfq.updatedAt);
       setRfqs((previous) => {
         const index = previous.findIndex((item) => item.id === saved.id);
         const next = index >= 0 ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
