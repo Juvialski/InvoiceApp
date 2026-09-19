@@ -119,6 +119,19 @@ Wave C extracts the Projects portfolio and register presentation into `src/compo
  
 After the extraction, `ProjectsPage.tsx` is reduced from 1,413 lines to 713 lines. No database, financial-semantic, provider, production, route, or persistence contract changed. Slice 5 Wave C is complete as this focused presentation extraction. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was added. The broader secondary-module and repository professionalization program remains in progress.
 
+### Remaining program after Slice 5 Wave C
+
+PR #179 proposed a broader continuation plan, but much of it was superseded by work already merged on `main`: App decomposition, server decomposition, and staged ESLint/TypeScript hardening are complete. The still-valid continuation goals are retained here without creating a second competing design document:
+
+- continue secondary large-module triage only where multiple responsibilities or broad context requirements justify extraction;
+- treat architecture as a context budget: successful refactors reduce irrelevant files, central-file edits, conflict surface, and affected-test breadth rather than merely reducing line counts;
+- audit remaining stale branding and distinguish safe current-name cleanup from historical or persisted compatibility identifiers that must remain stable;
+- clarify tracked evidence versus transient generated artifacts so repository evidence policy is intentional;
+- evaluate any repository rename only as a dedicated integration-aware change after checking deployments, hooks, links, and remotes;
+- keep README/architecture documentation as the human front door while retaining `AGENTS.md` for the real ChatGPT/Codex workflow;
+- add concise architecture/onboarding material only where it improves human understanding rather than creating generic repository boilerplate.
+
+These goals resume after RI-1 through RI-3 unless explicitly reprioritized.
 ## Non-goals
 
 - No database schema redesign.
@@ -128,7 +141,7 @@ After the extraction, `ProjectsPage.tsx` is reduced from 1,413 lines to 713 line
 - No broad visual redesign.
 - No financial-semantic simplification.
 - No migration of production data.
-- No change to current Email/SMS Phase 2 behavior while PR #176 is active.
+- Preserve the merged Email/SMS reliability and provider boundaries; later professionalization must consume them rather than reimplement or compete with them.
 
 ## Safety and compatibility constraints
 
@@ -148,13 +161,9 @@ The following are invariants for all slices:
 
 ## Interaction with active work
 
-PR #176 (`phase-2-authenticated-request-recovery`) remains isolated from this professionalization track and owns:
+The Email/SMS reliability implementation is merged and remains an independent product boundary. Later structural work must preserve authenticated request recovery, Company SIM Gateway/PhilSMS provider boundaries, human-confirmed sends, delivery-history/idempotency/reconciliation, and truthful provider readiness rather than reimplementing them.
 
-- `src/lib/authenticatedRequestRecovery.ts`
-- `src/lib/companyApi.ts`
-- `tests/authenticatedRequestRecovery.test.ts`
-
-PR #180 did not edit those files. Any later App/server decomposition must continue consuming the Email/SMS reliability implementation rather than reimplementing or competing with it.
+Repository Intelligence RI-1 through RI-3 now precede the remaining professionalization work so later refactors can use a more precise bounded repository context.
 
 ## Validation strategy
 
@@ -187,7 +196,7 @@ Do not run the historical full suite merely because refactoring occurred. Escala
 
 ## Delivery strategy
 
-Implement each slice as a dedicated feature branch and PR separate from the Email/SMS reliability PR. Keep commits slice-oriented and reviewable. Before opening a PR, review the complete diff for accidental behavior changes, stale branding, duplicated abstractions, and scope creep.
+Implement each remaining slice as a dedicated feature branch and PR; provider/runtime certification remains a separate readiness track. Keep commits slice-oriented and reviewable. Before opening a PR, review the complete diff for accidental behavior changes, stale branding, duplicated abstractions, and scope creep.
 
 Codex/local implementation must not merge its own PR. A separate review pass should inspect the exact final head, applicable CI, mergeability, and unresolved blockers before merge.
 
