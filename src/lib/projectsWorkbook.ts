@@ -407,14 +407,19 @@ function projectProposal(
   const proposed: Project = { ...project };
   const editableChanges: ProjectsFieldChange[] = [];
   const protectedChanges: ProjectsFieldChange[] = [];
-  const parseEditableText = (field: string, header: string, current: string | undefined, assign: (value: string | undefined) => void) => {
+  const parseEditableText = (field: string, header: string, current: string | undefined, assign: (value: string | undefined) => void, required = false) => {
     const workbookValue = nullableText(row[header]);
+    if (required && !workbookValue) {
+      proposal.status = "INVALID";
+      proposal.messages.push(`${header} is required.`);
+      return;
+    }
     const next = change(field, current || null, workbookValue, exported[field] ?? null, true);
     if (next) editableChanges.push(next);
     assign(workbookValue || undefined);
   };
-  parseEditableText("projectCode", "Project Code", project.projectCode, (value) => { if (value !== undefined) proposed.projectCode = value; });
-  parseEditableText("projectName", "Project Name", project.projectName, (value) => { if (value !== undefined) proposed.projectName = value; });
+  parseEditableText("projectCode", "Project Code", project.projectCode, (value) => { if (value !== undefined) proposed.projectCode = value; }, true);
+  parseEditableText("projectName", "Project Name", project.projectName, (value) => { if (value !== undefined) proposed.projectName = value; }, true);
   parseEditableText("description", "Description", project.description, (value) => { proposed.description = value; });
   parseEditableText("clientName", "Client Name", project.clientName, (value) => { proposed.clientName = value; });
   parseEditableText("clientReference", "Client Reference", project.clientReference, (value) => { proposed.clientReference = value; });

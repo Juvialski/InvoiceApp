@@ -139,6 +139,21 @@ test("combined cost-code budgets are validated per project and new or missing ro
   assert.ok(duplicateReview.proposals.some((candidate) => candidate.status === "INVALID"));
 });
 
+test("required workbook values fail closed instead of silently becoming zero or unchanged", () => {
+  const artifact = exportProjectsWorkbook(context());
+  const blankNameReview = buildProjectsImportReview(setCell(artifact.bytes, "Projects", "Project Name", ""), context());
+  const blankNameProposal = blankNameReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(blankNameProposal?.status, "INVALID");
+  assert.equal(blankNameProposal?.canApply, false);
+
+  const bytes = setCell(artifact.bytes, "Projects", "Approved Project Budget", "not-a-number");
+  const review = buildProjectsImportReview(bytes, context());
+  const proposal = review.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(proposal?.status, "INVALID");
+  assert.equal(proposal?.canApply, false);
+  assert.ok(proposal?.messages.some((message) => message.includes("Project Name") || message.includes("Approved Project Budget")));
+});
+
 test("Apply sends one authoritative group with expected versions and keeps read-only review non-mutating", async () => {
   const artifact = exportProjectsWorkbook(context());
   const bytes = setCell(artifact.bytes, "Projects", "Contract Value", 1700);
