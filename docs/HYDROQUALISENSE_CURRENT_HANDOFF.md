@@ -335,6 +335,7 @@ Key decisions:
 Model/provider direction is neutral. Current ChatGPT/Codex/Luna-compatible workflows can consume the context interface where enabled; no model-specific API is part of the architecture. The active/current main documents inspected for this phase contained no DeepSeek reference, so no historical records were rewritten.
 
 Exact recommended next implementation phase, only when explicitly requested: **RI-1 — Incremental Repository Source Index**. Do not start RI-1 as part of this documentation phase.
+
 ## Completed quality/application context that remains valid
 
 ### First comprehensive Local-QA UI/UX pass — complete
