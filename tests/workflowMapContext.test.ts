@@ -21,7 +21,13 @@ import {
 } from "../scripts/workflow-map/repositoryContext.ts";
 import { WORKFLOW_GRAPH } from "../scripts/workflow-map/graph.ts";
 import type { WorkflowEdge, WorkflowGraph, WorkflowInvariant, WorkflowNode } from "../scripts/workflow-map/types.ts";
-import { contextCliUsage, parseContextCliArguments } from "../scripts/workflow-map/context-cli.ts";
+import {
+  contextCliUsage,
+  mergeRepositoryIntelligenceContextJson,
+  mergeRepositoryIntelligenceContextMarkdown,
+  parseContextCliArguments,
+} from "../scripts/workflow-map/context-cli.ts";
+import type { RepositoryIntelligenceContextPacket } from "../scripts/repository-intelligence/contextEngine.ts";
 
 const repository: RepositoryMetadata = {
   headSha: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
@@ -29,6 +35,32 @@ const repository: RepositoryMetadata = {
   dirty: true,
   changedFilePaths: ["src/lib/payroll.ts", "tests/payrollIntegrity.test.ts"],
 };
+
+function oversizedRepositoryIntelligencePacket(): RepositoryIntelligenceContextPacket {
+  const many = Array.from({ length: 400 }, (_, index) => `value-${index}-${"x".repeat(80)}`);
+  return {
+    packetType: "hydroqualisense-repository-intelligence-context",
+    schemaVersion: 1,
+    status: "fresh",
+    repository: { headSha: "a".repeat(40), branch: "test", dirty: true, changedFilePaths: many },
+    resolvedDomains: ["engineering"],
+    resolvedWorkflows: ["workflow"],
+    primarySource: [{ path: "src/primary.ts", symbolIds: many, score: 1000, reasons: many }],
+    supportingSource: many,
+    symbols: many,
+    executionPath: many,
+    boundaries: many,
+    tests: many,
+    invariants: many,
+    permissions: many,
+    confirmations: many,
+    databaseImpact: "none/unlikely",
+    providerImpact: "none/unlikely",
+    explicitlyExcludedDomains: ["finance", "procurement"],
+    conflicts: many,
+    provenanceNotes: many,
+  };
+}
 
 function syntheticNode(id: string, overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {
@@ -314,7 +346,7 @@ test("WM-5 Markdown and JSON are stable, versioned, and structurally equivalent"
   assert.equal(result.markdown, renderWorkflowContextMarkdown(result.packet));
   assert.equal(result.json, serializeWorkflowContextPacket(result.packet));
   assert.equal(result.json, repeated.json);
-  assert.match(result.markdown, /ENGORYX AGENT CONTEXT/);
+  assert.match(result.markdown, /HYDROQUALISENSE AGENT CONTEXT/);
   const parsed = JSON.parse(result.json) as typeof result.packet;
   assert.deepEqual(parsed.workflow.nodes.map((node) => node.nodeId), result.packet.workflow.nodes.map((node) => node.nodeId));
   assert.equal(parsed.repository.graphVersion, WORKFLOW_GRAPH.version);
@@ -382,4 +414,17 @@ test("WM-5 validates the hard character-budget ceiling", () => {
     () => generateWorkflowContext(WORKFLOW_GRAPH, { nodeId: "payroll-period", characterBudget: MAX_CONTEXT_CHARACTER_BUDGET + 1 }, repository),
     (error: unknown) => error instanceof WorkflowContextSelectionError && error.code === "budget",
   );
+});
+
+test("RI-3 compatibility output keeps merged Workflow Map and RI packets inside the requested budget", () => {
+  const packet = oversizedRepositoryIntelligencePacket();
+  const budget = 5_000;
+  const json = mergeRepositoryIntelligenceContextJson(JSON.stringify({ workflow: "x".repeat(3_800) }), packet, budget);
+  const markdown = mergeRepositoryIntelligenceContextMarkdown("# Workflow Context\n\n" + "x".repeat(3_800), packet, budget);
+
+  assert.ok(json.length <= budget);
+  assert.ok(markdown.length <= budget);
+  assert.equal(JSON.parse(json).repositoryIntelligence.truncated, true);
+  assert.match(markdown, /Repository Intelligence/);
+  assert.match(markdown, /truncated/);
 });

@@ -94,6 +94,8 @@ Rollback: delete cache and remove RI-1 scripts; existing Workflow Map remains un
 
 ## RI-2 — Unified graph and provenance query API
 
+Status: **complete**.
+
 Goal: merge source-derived index data with the curated Workflow Map without losing authority/provenance.
 
 Scope:
@@ -114,9 +116,15 @@ Evidence:
 - graph schema/version/staleness fields are tested;
 - current Workflow Map generation/check/consistency remain green.
 
+Implemented in `scripts/repository-intelligence/graph.ts` with focused
+provenance, authority, conflict, deterministic-query, source/test, domain,
+and freshness coverage.
+
 Rollback: context commands continue to use the original Workflow Map directly.
 
 ## RI-3 — AI Context Engine integration
+
+Status: **complete**.
 
 Goal: make task -> relevant code/tests/invariants fast and bounded.
 
@@ -140,13 +148,24 @@ Evidence:
 - current affected-test safety net is not reduced;
 - deterministic packet snapshots.
 
+Implemented in `scripts/repository-intelligence/contextEngine.ts` behind the
+existing `workflow-map:context` and `agent:context` entry points. Focused tests
+cover ranked bounded packets, compatibility formatting, and stale-index
+fallback. The existing affected-test safety net remains authoritative; touching
+its fallback-sensitive script correctly causes a full fallback recommendation.
+
 Rollback: switch context provider back to current Workflow Map implementation.
 
 ## Priority pause after RI-3
 
-RI-2 and RI-3 are the next near-term Repository Intelligence priority because RI-1 now supplies the incremental source data needed to improve bounded agent context for the rest of HydroQualiSense development. By explicit 2026-09-19 user reprioritization, they may be implemented in one sequential PR when RI-2 is built/tested first and RI-3 is layered only after that boundary is stable.
+RI-2 and RI-3 are complete in the current implementation boundary, layered sequentially on the RI-1 source index with separate focused evidence and rollback boundaries.
 
-After RI-3 is stable, **pause Repository Intelligence explorer work** and immediately continue into the full Repository & Architecture Professionalization completion program; this continuation may occur in the same sequential PR to reduce handoff overhead. The user explicitly requires professionalization to reach a complete state before Excel Phase 0/readiness or Excel feature implementation begins. RI-4 through RI-6 can resume later when they materially help active engineering or the user explicitly reprioritizes them.
+**Pause Repository Intelligence explorer work** after RI-3. The Repository &
+Architecture Professionalization program is also complete for the current
+repository boundary, as recorded in `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md`
+and `docs/REPOSITORY_EVIDENCE_POLICY.md`. The next implementation direction is
+Excel Phase 0/readiness. RI-4 through RI-6 can resume later when they materially
+help active engineering or the user explicitly reprioritizes them.
 
 The optional 3D explorer is not part of this near-term efficiency milestone and must remain the final RI phase.
 ## RI-4 — Developer explorer MVP: structured + 2D
@@ -244,10 +263,16 @@ Rollback: remove 3D presentation layer only.
 
 ## Recommended next implementation phase
 
-**Accelerated RI-2 + RI-3 core run.**
+**Accelerated RI-2 + RI-3 core run — complete.**
 
-RI-2 remains the first internal gate and builds the additive provenance-aware graph on RI-1. RI-3 then consumes that graph behind the existing context interfaces with fallback. The two phases may share one PR to reduce handoff/merge overhead, but tests and rollback boundaries must remain distinct.
+RI-2 was the first internal gate and built the additive provenance-aware graph
+on RI-1. RI-3 then consumed that graph behind the existing context interfaces
+with fallback. The stages share one implementation branch here, while their
+tests and rollback boundaries remain distinct.
 
-After RI-3, finish Repository & Architecture Professionalization before Excel. Near-term order is therefore **RI-2 → RI-3 → pause RI explorer work → professionalization completion → Excel readiness**. RI-4 through RI-6 are later developer-tooling phases. **RI-7 optional 3D explorer is last.**
+After RI-3, Repository & Architecture Professionalization is explicitly
+closed before Excel. The reconciled order is therefore **RI-2 → RI-3 →
+professionalization complete → Excel Phase 0/readiness**. RI-4 through RI-6
+are later developer-tooling phases. **RI-7 optional 3D explorer is last.**
 
 Start from the latest green `main`, create one bounded context packet, inspect only the existing Workflow Map/context and test-impact machinery needed for integration, and implement the indexer as a separate additive library.

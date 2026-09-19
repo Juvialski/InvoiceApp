@@ -172,7 +172,7 @@ export function extractWarnings(log: string, maxWarnings = 8): string[] {
 export function formatFailurePacket(log: string, options: FailurePacketOptions = {}): string {
   const excerpt = extractFailureContext(log, options);
   const lines = [
-    '# Engoryx Failure Context',
+    '# HydroQualiSense Failure Context',
     '',
     `- Workflow: ${options.workflow || 'unspecified'}`,
     `- Step: ${options.step || 'unspecified'}`,

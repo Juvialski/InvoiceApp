@@ -65,7 +65,7 @@ Large generated index files should not be committed merely so agents can read th
 
 The new source index must not overwrite curated edges. When source-derived structure conflicts with a curated architecture rule, the conflict is reported for review rather than silently choosing the inferred result.
 
-### 4. Unified graph/query layer
+### 4. Unified graph/query layer — implemented in RI-2
 
 The query layer exposes one logical graph while retaining provenance per node and edge. It should support:
 
@@ -81,7 +81,7 @@ The query layer exposes one logical graph while retaining provenance per node an
 
 The graph API is a library first. CLI and explorer surfaces consume the library rather than maintaining separate graph logic.
 
-### 5. AI Context Engine
+### 5. AI Context Engine — implemented in RI-3
 
 The context engine ranks graph evidence, expands only high-value relationships, applies hard budgets, and emits a compact task packet. It is an evolution of the existing `workflow-map:context` and `agent:context` behavior, not a replacement for repository policy.
 
@@ -100,12 +100,12 @@ Backward compatibility is preferred:
 - keep `workflow-map:generate`, `workflow-map:check`, and `workflow-map:consistency` unchanged while RI-1 is built;
 - keep `workflow-map:context` working through RI-2;
 - keep `agent:context` as the normal agent bootstrap interface;
-- in RI-3, move the internals of context resolution to the unified graph behind those interfaces;
+- in RI-3, the bounded context provider consumes the unified graph behind those interfaces;
 - add a new `repo-intel:*` diagnostic/query command only when it provides capability that cannot be expressed cleanly through existing commands.
 
 ## Generated and committed artifacts
 
-During RI-1 and RI-2:
+During RI-1 through RI-3:
 
 - source index/cache: generated locally, ignored, disposable;
 - unified graph: generated/queryable locally; CI may build it temporarily;

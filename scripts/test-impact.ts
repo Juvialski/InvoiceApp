@@ -1,5 +1,5 @@
 /**
- * Engoryx Test Impact Selector
+ * HydroQualiSense Test Impact Selector
  *
  * Deterministically selects tests to run based on changed files, static contract
  * mappings, AST dependency graphs, symbol-level granularity for high-churn files,
@@ -72,17 +72,32 @@ export interface ImpactSelectionResult {
   isDatabaseAffected: boolean;
 }
 
-export function runGit(args: string[], cwd: string = REPO_ROOT): { stdout: string; stderr: string; status: number | null } {
+export function runGit(args: string[], cwd: string = REPO_ROOT, preserveWhitespace = false): { stdout: string; stderr: string; status: number | null } {
   const result = spawnSync('git', args, {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
   });
   return {
-    stdout: result.stdout ? result.stdout.trim() : '',
+    stdout: result.stdout ? (preserveWhitespace ? result.stdout : result.stdout.trim()) : '',
     stderr: result.stderr ? result.stderr.trim() : '',
     status: result.status
   };
+}
+
+export function parseWorkingTreeStatusPaths(statusOutput: string): string[] {
+  const changed = new Set<string>();
+  for (const rawLine of statusOutput.split(/\r?\n/)) {
+    const line = rawLine.replace(/\r$/, '');
+    if (!line.trim()) continue;
+    const pathPart = line.length >= 3 ? line.slice(3) : line;
+    const renamedPath = pathPart.includes(' -> ')
+      ? pathPart.slice(pathPart.lastIndexOf(' -> ') + 4)
+      : pathPart;
+    const normalized = normalizePath(renamedPath.trim());
+    if (normalized) changed.add(normalized);
+  }
+  return Array.from(changed).sort();
 }
 
 /**
@@ -243,14 +258,9 @@ export function detectChangedFiles(options: {
       }
     }
 
-    const statusResult = runGit(['status', '--porcelain'], cwd);
+    const statusResult = runGit(['status', '--porcelain'], cwd, true);
     if (statusResult.status === 0 && statusResult.stdout) {
-      for (const line of statusResult.stdout.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        const filePath = normalizePath(trimmed.slice(3).trim());
-        if (filePath) changedSet.add(filePath);
-      }
+      for (const filePath of parseWorkingTreeStatusPaths(statusResult.stdout)) changedSet.add(filePath);
     }
   }
 
@@ -921,7 +931,7 @@ export function selectImpactedTests(options: ImpactSelectionOptions): ImpactSele
 export function formatConsoleSummary(result: ImpactSelectionResult): string {
   const lines: string[] = [];
   lines.push('============================================================');
-  lines.push('🎯 Engoryx Impact-Based Test Selector');
+  lines.push('🎯 HydroQualiSense Impact-Based Test Selector');
   lines.push('============================================================');
   lines.push(`Base Commit   : ${result.baseSha.slice(0, 10)}`);
   lines.push(`Head Commit   : ${result.headSha.slice(0, 10)}`);
@@ -963,7 +973,7 @@ export function writeGitHubStepSummary(result: ImpactSelectionResult): void {
     : '0.0';
 
   const mdLines = [
-    '### 🎯 Engoryx Impact-Based Test Selection Summary',
+    '### 🎯 HydroQualiSense Impact-Based Test Selection Summary',
     '',
     '| Metric | Value |',
     '| --- | --- |',

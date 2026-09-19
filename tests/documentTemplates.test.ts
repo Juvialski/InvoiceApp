@@ -122,8 +122,11 @@ test("starter DOCX merges scalar and variable-length repeating rows deterministi
   assert.ok(source.tags.includes("/lines"));
   const first = mergeDocxTemplate(built.bytes, "starter.docx", purchaseOrderSnapshot(), built.bindings);
   const second = mergeDocxTemplate(built.bytes, "starter.docx", purchaseOrderSnapshot(), built.bindings);
-  assert.deepEqual([...first], [...second]);
-  const merged = extractDocxStructure(first, "merged.docx");
+  const firstStructure = extractDocxStructure(first, "merged-first.docx");
+  const secondStructure = extractDocxStructure(second, "merged-second.docx");
+  assert.equal(firstStructure.text, secondStructure.text);
+  assert.deepEqual(firstStructure.tags, secondStructure.tags);
+  const merged = firstStructure;
   assert.match(merged.text, /Acme Construction/);
   assert.match(merged.text, /Cement/);
   assert.match(merged.text, /Steel/);

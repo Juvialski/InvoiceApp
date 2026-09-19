@@ -24,12 +24,14 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 - `HYDROQUALISENSE_PRODUCT_DIRECTION.md` — durable product direction.
 - `architecture/OVERVIEW.md` — concise architecture map.
 - `architecture/APP_WORKFLOW_MAP.md` — generated detailed workflow map.
-- `repository-intelligence/README.md` — canonical Repository Intelligence index, AI-context, and developer-explorer architecture.
+- `repository-intelligence/README.md` — canonical Repository Intelligence index, unified graph, AI-context, and developer-explorer architecture.
+- `REPOSITORY_ARCHITECTURE_TRIAGE.md` — closed responsibility/context-budget decisions for the current professionalization boundary.
+- `REPOSITORY_EVIDENCE_POLICY.md` — tracked versus transient evidence rules.
 
 ## Current structural work
 
-- `repository-intelligence/README.md` — Repository Intelligence RI-0 architecture and phased implementation plan. RI-1 implementation has not started.
-- `superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — active Repository & Architecture Professionalization design.
+- `repository-intelligence/README.md` — Repository Intelligence RI-1 source index, RI-2 graph/query API, RI-3 bounded context integration, and later explorer roadmap.
+- `superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — completed Repository & Architecture Professionalization design and closure record.
 - `superpowers/plans/2026-09-18-subcontract-register-wave-b.md` — completed Slice 5 Wave B implementation plan; retained as execution history.
 - `superpowers/plans/2026-09-18-projects-register-wave-c.md` — completed Slice 5 Wave C implementation plan; retained as execution history.
 
@@ -42,7 +44,7 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 
 ## Approved future designs
 
-- `superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future Excel-native Operations UX. Implementation is deferred while professionalization continues. For editable Excel-native workspaces, the design requires a real `.xlsx` round trip: export -> external edit -> upload -> validate/compare -> human review -> authoritative apply.
+- `superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future Excel-native Operations UX. Implementation has not started; Repository & Architecture Professionalization is complete for the current boundary, so Excel Phase 0/readiness is next before any shared grid/workbook implementation. For editable Excel-native workspaces, the design requires a real `.xlsx` round trip: export -> external edit -> upload -> validate/compare -> human review -> authoritative apply.
 
 The compatibility stub `HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` remains only so older links continue to resolve.
 
@@ -80,4 +82,4 @@ The compatibility stub `HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` remains o
 
 Files beginning with `ENGORYX_`, older `WAVE*_GOAL_STATE.md` files, and similarly dated historical documents remain in place to avoid breaking old references. They are not current product sequencing authority. Do not use them to override HydroQualiSense-named source-of-truth documents.
 
-A later repository-hygiene slice may physically archive or relocate historical files after reference/link impact is audited. Do not mass-move them casually.
+Historical files remain in place unless a separately reviewed reference-impact change moves them. Do not mass-move them casually.

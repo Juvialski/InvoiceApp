@@ -9,7 +9,7 @@ const ROOT = path.resolve(__dirname, "..");
 
 async function main() {
   console.log("============================================================");
-  console.log("🚀 InvoiceApp Database Migration Validation Suite");
+  console.log("🚀 HydroQualiSense Database Migration Validation Suite");
   console.log("============================================================\n");
 
   const isCI = process.env.CI === "true";

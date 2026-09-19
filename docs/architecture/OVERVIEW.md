@@ -66,11 +66,11 @@ Outbound providers are integrated server-side. Provider acceptance is not automa
 
 ## Repository intelligence developer tooling
 
-HydroQualiSense is adding a developer-only Repository Intelligence layer that extends the existing curated Workflow Map with an incremental source index, provenance-preserving unified graph, bounded AI context engine, and optional interactive explorer.
+HydroQualiSense has a developer-only Repository Intelligence layer that extends the existing curated Workflow Map with an incremental source index, provenance-preserving unified graph/query API, and bounded AI context engine. The optional interactive explorer remains a later developer-tooling phase.
 
 The existing `scripts/workflow-map/graph.ts`, generated `APP_WORKFLOW_MAP.md`, machine-readable `workflow-map.json`, consistency checks, and bounded `agent:context` workflow remain foundations. Repository Intelligence is additive: source-derived and inferred relationships do not override curated financial, security, permission, history, or source-of-truth rules.
 
-Repository Intelligence is not part of the customer application runtime or navigation. Its canonical architecture is `docs/repository-intelligence/README.md`.
+Repository Intelligence is not part of the customer application runtime or navigation. Its canonical architecture is `docs/repository-intelligence/README.md`; its responsibility triage and evidence rules are `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and `docs/REPOSITORY_EVIDENCE_POLICY.md`.
 
 ## Testing and change discipline
 

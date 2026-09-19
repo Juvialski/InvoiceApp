@@ -356,7 +356,7 @@ const nodes: readonly WorkflowNode[] = [
     domain: "platform-tenancy",
     type: "workflow",
     scope: "company",
-    description: "Mounts the production application for the one company configured to this Engoryx deployment; users do not choose or switch unrelated companies.",
+    description: "Mounts the production application for the one company configured to this HydroQualiSense deployment; users do not choose or switch unrelated companies.",
     sourceClassification: "mixed",
     fileRefs: ["src/main.tsx", "src/App.tsx", "src/app/AppProviders.tsx", "src/context/CompanyAccessContext.tsx", "src/lib/deploymentCompany.ts"],
     testRefs: ["tests/auth.test.ts", "tests/companyAccess.test.ts", "tests/singleCompanyDeployment.test.ts"],
@@ -2465,10 +2465,10 @@ const nodes: readonly WorkflowNode[] = [
     invariantIds: ["reports-are-derived-surfaces"],
   }),
 
-  // Engoryx Assistant read/navigation and guarded mutations.
+  // HydroQualiSense Assistant read/navigation and guarded mutations.
   node({
     id: "assistant-screen",
-    label: "Engoryx Assistant panel",
+    label: "HydroQualiSense Assistant panel",
     domain: "assistant",
     type: "screen",
     scope: "company",
@@ -4053,7 +4053,7 @@ export const WORKFLOW_GRAPH: WorkflowGraph = {
   schemaVersion: WORKFLOW_MAP_SCHEMA_VERSION,
   graphId: "engoryx-product-workflow",
   version: "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration+client-productization",
-  product: "Engoryx Engineering Operations Platform",
+  product: "HydroQualiSense Engineering Operations Platform",
   purpose: "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   canonicalSource: "scripts/workflow-map/graph.ts",
   sourceClassification: "mixed",

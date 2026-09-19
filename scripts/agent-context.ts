@@ -18,6 +18,11 @@ import {
   type RepositoryMetadata,
 } from './workflow-map/repositoryContext.ts';
 import type { WorkflowDomain, WorkflowGraph } from './workflow-map/types.ts';
+import {
+  buildRepositoryIntelligenceContext,
+  formatRepositoryIntelligenceContextMarkdown,
+  type RepositoryIntelligenceContextPacket,
+} from './repository-intelligence/contextEngine.ts';
 
 export const DEFAULT_AGENT_CONTEXT_BUDGET = 12_000;
 export const MIN_AGENT_CONTEXT_BUDGET = 4_000;
@@ -41,6 +46,7 @@ export interface AgentContextFormatInput {
   readonly repository: RepositoryMetadata;
   readonly impact: ImpactSelectionResult;
   readonly workflow: WorkflowContextPacket;
+  readonly repositoryIntelligence?: RepositoryIntelligenceContextPacket;
 }
 
 export interface AgentContextFallbackInput {
@@ -49,6 +55,7 @@ export interface AgentContextFallbackInput {
   readonly impact: ImpactSelectionResult;
   readonly selection: WorkflowContextSelectionInput;
   readonly graph?: WorkflowGraph;
+  readonly repositoryIntelligence?: RepositoryIntelligenceContextPacket;
 }
 
 interface FallbackPathMapping {
@@ -110,6 +117,16 @@ function compactList(values: readonly string[], limit: number): string[] {
     : selected;
 }
 
+function appendRepositoryIntelligence(
+  output: string,
+  packet: RepositoryIntelligenceContextPacket | undefined,
+  characterBudget: number,
+): string {
+  if (!packet) return output;
+  const intelligence = formatRepositoryIntelligenceContextMarkdown(packet, Math.min(5_000, characterBudget));
+  return fitToBudget(`${output}\n\n${intelligence}`, characterBudget);
+}
+
 function formatValidationRecommendation(impact: ImpactSelectionResult): string[] {
   const lines: string[] = [];
   if (impact.isFallback) {
@@ -135,7 +152,7 @@ export function formatAgentContextPacket(input: AgentContextFormatInput, charact
   const budget = boundedBudget(characterBudget);
   const { repository, impact, workflow } = input;
   const lines: string[] = [
-    '# Engoryx Agent Context',
+    '# HydroQualiSense Agent Context',
     '',
     ...(input.task ? [`Task: ${input.task}`, ''] : []),
     '## Provenance',
@@ -206,7 +223,7 @@ export function formatAgentContextPacket(input: AgentContextFormatInput, charact
   for (const requirement of workflow.requiredVerification) lines.push(`- ${requirement}`);
   lines.push('- Expand context only when a specific unresolved dependency, safety boundary, or failing evidence requires it.');
 
-  return fitToBudget(lines.join('\n'), budget);
+  return appendRepositoryIntelligence(fitToBudget(lines.join('\n'), budget), input.repositoryIntelligence, budget);
 }
 
 function graphPathMappings(graph: WorkflowGraph, paths: readonly string[]): FallbackPathMapping[] {
@@ -247,7 +264,7 @@ export function formatAgentFallbackContextPacket(input: AgentContextFallbackInpu
   const matchedMappings = mappings.filter((mapping) => mapping.nodeIds.length || mapping.invariantIds.length);
   const unmatched = mappings.filter((mapping) => !mapping.nodeIds.length && !mapping.invariantIds.length).map((mapping) => mapping.path);
   const lines: string[] = [
-    '# Engoryx Agent Context',
+    '# HydroQualiSense Agent Context',
     '',
     ...(input.task ? [`Task: ${input.task}`, ''] : []),
     `WARNING: ${WORKFLOW_FALLBACK_WARNING}`,
@@ -309,7 +326,7 @@ export function formatAgentFallbackContextPacket(input: AgentContextFallbackInpu
   lines.push('- Inspect this bounded working set first. Retry Workflow Map once only when an exact known node or file reference becomes available; otherwise continue with targeted source inspection.');
   lines.push('- Do not run speculative keyword retry loops or expand to a repository dump.');
 
-  return fitToBudget(lines.join('\n'), budget);
+  return appendRepositoryIntelligence(fitToBudget(lines.join('\n'), budget), input.repositoryIntelligence, budget);
 }
 
 export function agentContextUsage(): string {
@@ -485,6 +502,14 @@ export function runAgentContextCli(args: readonly string[] = process.argv.slice(
     throw new Error('Provide --task/--query, --node, --domain, --route, --file, or --changed so the packet stays scoped.');
   }
 
+  const repositoryIntelligence = buildRepositoryIntelligenceContext({
+    rootDir: WORKFLOW_MAP_REPOSITORY_ROOT,
+    workflowGraph: WORKFLOW_GRAPH,
+    repository,
+    selection,
+    ...(parsed.task ? { task: parsed.task } : {}),
+  }).packet;
+
   let output: string;
   try {
     const workflow = generateWorkflowContext(WORKFLOW_GRAPH, selection, repository).packet;
@@ -493,6 +518,7 @@ export function runAgentContextCli(args: readonly string[] = process.argv.slice(
       repository,
       impact,
       workflow,
+      repositoryIntelligence,
     }, parsed.characterBudget);
   } catch (error) {
     if (!isWorkflowCoverageGap(error, selection)) throw error;
@@ -502,6 +528,7 @@ export function runAgentContextCli(args: readonly string[] = process.argv.slice(
       impact,
       selection,
       graph: WORKFLOW_GRAPH,
+      repositoryIntelligence,
     }, parsed.characterBudget);
   }
 
