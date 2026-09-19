@@ -31,7 +31,7 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 ## Current structural work
 
 - `repository-intelligence/README.md` — Repository Intelligence RI-1 source index, RI-2 graph/query API, RI-3 bounded context integration, and later explorer roadmap.
-- `superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — active Repository & Architecture Professionalization design.
+- `superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — completed Repository & Architecture Professionalization design and closure record.
 - `superpowers/plans/2026-09-18-subcontract-register-wave-b.md` — completed Slice 5 Wave B implementation plan; retained as execution history.
 - `superpowers/plans/2026-09-18-projects-register-wave-c.md` — completed Slice 5 Wave C implementation plan; retained as execution history.
 

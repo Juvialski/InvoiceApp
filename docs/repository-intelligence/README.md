@@ -53,9 +53,9 @@ dependency and does not replace any `workflow-map:*` or `agent:context` command.
 
 ## Priority order
 
-Repository Intelligence implementation should proceed **RI-2 → RI-3 next**, because RI-1 is now the source-index foundation and those phases provide the provenance-aware graph and bounded agent context layers.
+RI-1, RI-2, and RI-3 are complete for the current repository boundary: RI-1 provides the source-index foundation, RI-2 the provenance-aware graph/query layer, and RI-3 bounded agent context behind the existing context interfaces.
 
-After RI-3, pause Repository Intelligence presentation/tooling work unless
+Pause further Repository Intelligence presentation/tooling work unless
 explicitly reprioritized and continue the approved HydroQualiSense product
 queue, beginning with Excel Phase 0/readiness. RI-4 through RI-6 are later
 developer-tooling improvements.

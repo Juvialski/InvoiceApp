@@ -158,15 +158,14 @@ Rollback: switch context provider back to current Workflow Map implementation.
 
 ## Priority pause after RI-3
 
-RI-2 and RI-3 are the next near-term Repository Intelligence priority because RI-1 now supplies the incremental source data needed to improve bounded agent context for the rest of HydroQualiSense development. By explicit 2026-09-19 user reprioritization, they may be implemented in one sequential PR when RI-2 is built/tested first and RI-3 is layered only after that boundary is stable.
+RI-2 and RI-3 are complete in the current implementation boundary, layered sequentially on the RI-1 source index with separate focused evidence and rollback boundaries.
 
-After RI-3 is stable, **pause Repository Intelligence explorer work** and close
-the Repository & Architecture Professionalization program before Excel Phase
-0/readiness or Excel feature implementation begins. The current run records
-that completion in `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and the evidence
-policy in `docs/REPOSITORY_EVIDENCE_POLICY.md`. RI-4 through RI-6 can resume
-later when they materially help active engineering or the user explicitly
-reprioritizes them.
+**Pause Repository Intelligence explorer work** after RI-3. The Repository &
+Architecture Professionalization program is also complete for the current
+repository boundary, as recorded in `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md`
+and `docs/REPOSITORY_EVIDENCE_POLICY.md`. The next implementation direction is
+Excel Phase 0/readiness. RI-4 through RI-6 can resume later when they materially
+help active engineering or the user explicitly reprioritizes them.
 
 The optional 3D explorer is not part of this near-term efficiency milestone and must remain the final RI phase.
 ## RI-4 — Developer explorer MVP: structured + 2D
