@@ -438,13 +438,16 @@ function projectProposal(
   }
   for (const [field, header, current] of [["contractValue", "Contract Value", project.contractValue], ["projectBudget", "Approved Project Budget", project.projectBudget]] as const) {
     const workbookValue = numberValue(row[header]);
-    const invalid = workbookValue === undefined && row[header] !== null && row[header] !== "";
+    const rawMissing = row[header] === null || row[header] === undefined || row[header] === "";
+    const invalid = (field === "projectBudget" && rawMissing)
+      || (workbookValue === undefined && !rawMissing)
+      || (workbookValue !== undefined && workbookValue < 0);
     if (invalid) {
       proposal.status = "INVALID";
-      proposal.messages.push(`${header} must be a valid number.`);
+      proposal.messages.push(`${header} ${field === "projectBudget" ? "is required and " : ""}must be a valid non-negative number.`);
       continue;
     }
-    const nextValue = workbookValue === undefined ? (field === "projectBudget" ? 0 : null) : workbookValue;
+    const nextValue = workbookValue === undefined ? null : workbookValue;
     const next = change(field, current ?? null, nextValue, exported[field] ?? null, true);
     if (next) editableChanges.push(next);
     (proposed as unknown as Record<string, unknown>)[field] = workbookValue;
@@ -584,6 +587,27 @@ export function buildProjectsImportReview(
     }
     const currentState = stateForCostCode(code, context.expectedCompanyId, context.costCodeFinancials?.[code.id]);
     const appChanged = fingerprintValue(currentState) !== meta.fingerprint || (meta.updatedAt && meta.updatedAt !== code.updatedAt) || false;
+    const costCodeText = nullableText(row.Code);
+    const workPackageText = nullableText(row["Work Package"]);
+    const approvedBudget = numberValue(row["Approved Budget"]);
+    const forecast = numberValue(row.Forecast);
+    const forecastRawMissing = row.Forecast === null || row.Forecast === undefined || row.Forecast === "";
+    if (!costCodeText) {
+      proposal.status = "INVALID";
+      proposal.messages.push(`Cost code ${code.code} must keep a non-empty Code value.`);
+    }
+    if (!workPackageText) {
+      proposal.status = "INVALID";
+      proposal.messages.push(`Cost code ${code.code} must keep a non-empty Work Package value.`);
+    }
+    if (approvedBudget === undefined || approvedBudget < 0) {
+      proposal.status = "INVALID";
+      proposal.messages.push(`Cost code ${code.code} Approved Budget is required and must be a valid non-negative number.`);
+    }
+    if (!forecastRawMissing && (forecast === undefined || forecast < 0)) {
+      proposal.status = "INVALID";
+      proposal.messages.push(`Cost code ${code.code} Forecast must be blank or a valid non-negative number.`);
+    }
     const changes = costCodeChangesForRow(row, code, meta, context);
     proposal.costCodeChanges.push(...changes);
     const protectedChange = changes.some((candidate) => !candidate.editable);
