@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — PR #176 FINALIZATION FIRST / PR #179 RECONCILIATION SECOND / RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — PR #176 MERGED / REMAINING EMAIL-SMS-SMS IMPROVEMENT NEXT / PR #179 RECONCILIATION AFTER MESSAGING / RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
 
@@ -12,7 +12,7 @@ The pre-Wave-C merged `main` baseline was:
 
 `4f840b291f4efa28eedceceae5ed95843d7c3f58`
 
-This handoff includes Slice 5 Wave C (Projects portfolio/register presentation decomposition) on top of that baseline. Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains incomplete. Draft PR #176 remains an independent Email/SMS reliability workstream.
+This handoff includes Slice 5 Wave C (Projects portfolio/register presentation decomposition) on top of that baseline. Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state; the broader professionalization program remains incomplete. PR #176 authenticated request recovery is merged; the remaining Email/SMS Reliability & SMS Improvement implementation is the next active product slice.
 
 The approved future Excel-Native Operations UX is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is not implemented and must not be treated as current product capability.
 
@@ -473,7 +473,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Finalize PR #176 — authenticated request recovery** against current `main`; review/fix/validate and merge if safe.
+1. **Finish remaining Email/SMS Reliability & SMS Improvement implementation.** PR #176 authenticated request recovery is merged. Complete the code/UX/provider-adapter work that does not require live credentials/device runtime; keep provider availability truthful and preserve human confirmation/history/idempotency boundaries.
 2. **Reconcile draft PR #179** against current documentation; preserve any unique still-valid guidance and close the superseded draft rather than running its old plan wholesale.
 3. **Repository Intelligence RI-1 — Incremental Repository Source Index.**
 4. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.**
