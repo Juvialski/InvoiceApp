@@ -1,8 +1,8 @@
 # HydroQualiSense Excel-Native Operations UX
 
-> **APPROVED FUTURE MAJOR UX DIRECTION — IMPLEMENTATION DEFERRED WHILE REPOSITORY/ARCHITECTURE PROFESSIONALIZATION IS IN PROGRESS**
+> **APPROVED AND ACCELERATED MAJOR UX DIRECTION — EXCEL-READINESS GATE FOLLOWS RI-3; NON-BLOCKING REPOSITORY POLISH DOES NOT DELAY IMPLEMENTATION**
 
-Status: **Approved future direction; requirements documented; implementation not started**
+Status: **Approved and accelerated; implementation not started; Phase 0/readiness follows RI-3**
 Repository: `Juvialski/InvoiceApp`
 Product: HydroQualiSense
 Approved direction: Make applicable operational work substantially more familiar to experienced Excel users without weakening HydroQualiSense business rules or turning the product into a generic spreadsheet.
@@ -648,7 +648,7 @@ This is provisional planning, not implementation authorization.
 
 Build and certify shared primitives for the grid foundation, sheet schema, column behavior, selection, filters, keyboard behavior, density, export framework, controlled import parser, metadata/versioning, validation, compare/review engine, and conflict detection.
 
-Do not begin this phase until repository professionalization makes the shared architecture boundary safe.
+Begin this phase once the post-RI-3 Excel-readiness gate confirms the shared architecture boundary is safe. The broader professionalization program does not need to be cosmetically or administratively complete; only concrete blockers to the shared grid/workbook/domain-mutation boundary remain prerequisites.
 
 ### Phase 2 — Procurement pilot
 
@@ -765,9 +765,9 @@ The product goal is reduced training burden and faster routine work, not visual 
 
 ## 29. Documentation status and sequencing
 
-The Excel-Native Operations UX direction is approved and its requirements are now documented here. Implementation has **not** started. Repository and architecture professionalization remains the immediate code focus, including focused decomposition and boundary work already underway.
+The Excel-Native Operations UX direction is approved and accelerated. Implementation has **not** started. RI-1 is complete; the next implementation run combines RI-2 and RI-3, then performs Excel Phase 0 / the Excel-readiness gate immediately.
 
-This direction must not reorder the currently active implementation sequence merely because it is approved. The design should be revisited when the codebase is sufficiently decomposed for a shared grid/workbook layer to be introduced safely. Future implementation must start from live repository state, not from assumptions in this document.
+By explicit 2026-09-19 reprioritization, the readiness gate—not completion of every remaining repository-professionalization item—controls entry to Phase 1. Only architecture work that concretely blocks the shared grid/workbook/schema/mutation boundary stays ahead of Excel. Repository rename, branding polish, generic onboarding, evidence-policy cleanup, and unrelated decomposition are non-blocking by default and may follow the Excel foundation/pilot. Future implementation must start from live repository state, not from assumptions in this document.
 
 This document is linked for discoverability from the active roadmap and current handoff. It is not a competing roadmap and does not mark any current capability as available or certified.
 
