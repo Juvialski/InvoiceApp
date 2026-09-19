@@ -36,6 +36,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function parseManifest(value: unknown): RepositoryIndexCacheManifest | undefined {
   if (!isRecord(value)) return undefined;
   if (typeof value.schemaVersion !== "number" || typeof value.generatorVersion !== "string" || typeof value.repositoryHeadSha !== "string") return undefined;
+  if (!Array.isArray(value.dirtyTrackedPaths) || value.dirtyTrackedPaths.some((item) => typeof item !== "string")) return undefined;
   if (!Array.isArray(value.files)) return undefined;
   const files: CacheManifestFile[] = [];
   for (const item of value.files) {
@@ -43,7 +44,13 @@ function parseManifest(value: unknown): RepositoryIndexCacheManifest | undefined
     if (item.recordFile !== cacheRecordFileName(item.path)) return undefined;
     files.push({ path: item.path, contentHash: item.contentHash, recordFile: item.recordFile });
   }
-  return { schemaVersion: value.schemaVersion, generatorVersion: value.generatorVersion, repositoryHeadSha: value.repositoryHeadSha, files };
+  return {
+    schemaVersion: value.schemaVersion,
+    generatorVersion: value.generatorVersion,
+    repositoryHeadSha: value.repositoryHeadSha,
+    dirtyTrackedPaths: [...value.dirtyTrackedPaths].sort(compareText),
+    files,
+  };
 }
 
 function parseFileRecord(value: unknown): FileIndexRecord | undefined {
