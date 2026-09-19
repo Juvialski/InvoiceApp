@@ -2,7 +2,7 @@ export const SESSION_EXPIRED_ERROR_CODE = "SESSION_EXPIRED" as const;
 
 export class SessionExpiredError extends Error {
   readonly code = SESSION_EXPIRED_ERROR_CODE;
-  readonly cause: unknown;
+  override readonly cause: unknown;
 
   constructor(message: string, cause?: unknown) {
     super(message);
