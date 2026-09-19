@@ -463,6 +463,10 @@ begin
   if nullif(p_project->>'companyId', '')::uuid is not null and nullif(p_project->>'companyId', '')::uuid is distinct from v_company_id then
     raise exception 'Workbook project company identity is outside the active company' using errcode = '42501';
   end if;
+  if nullif(p_project->>'currency', '') is not null
+     and upper(nullif(p_project->>'currency', '')) is distinct from v_project.currency then
+    raise exception 'Project currency is protected in workbook Apply' using errcode = '42501';
+  end if;
   if nullif(p_project->>'status', '') is not null and nullif(p_project->>'status', '') is distinct from v_project.status then
     raise exception 'Project lifecycle status is controlled by the project lifecycle workflow' using errcode = '42501';
   end if;
@@ -553,7 +557,7 @@ begin
          actual_end_date = nullif(coalesce(p_project->>'actualEndDate', v_project.actual_end_date::text), '')::date,
          contract_value = nullif(coalesce(p_project->>'contractValue', v_project.contract_value::text), '')::numeric,
          project_budget = v_project_budget,
-         currency = upper(coalesce(nullif(p_project->>'currency', ''), v_project.currency)),
+         currency = v_project.currency,
          tax_treatment = upper(coalesce(nullif(p_project->>'taxTreatment', ''), v_project.tax_treatment)),
          notes = nullif(coalesce(p_project->>'notes', v_project.notes), '')
    where id = p_project_id and company_id = v_company_id
