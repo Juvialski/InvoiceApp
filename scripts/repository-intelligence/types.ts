@@ -121,6 +121,7 @@ export interface RepositoryIndex {
   readonly schemaVersion: number;
   readonly generatorVersion: string;
   readonly repositoryHeadSha: string;
+  readonly dirtyTrackedPaths: readonly string[];
   readonly files: readonly FileIndexRecord[];
   readonly excludedFiles: readonly ExcludedFileRecord[];
 }
@@ -135,6 +136,7 @@ export interface RepositoryIndexCacheManifest {
   readonly schemaVersion: number;
   readonly generatorVersion: string;
   readonly repositoryHeadSha: string;
+  readonly dirtyTrackedPaths: readonly string[];
   readonly files: readonly CacheManifestFile[];
 }
 
