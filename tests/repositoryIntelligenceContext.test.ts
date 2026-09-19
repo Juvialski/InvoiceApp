@@ -98,18 +98,36 @@ test("RI-3 resolves a bounded deterministic packet with ranked sources, symbols,
 });
 
 test("RI-3 respects the one-hop execution-path bound instead of silently widening to two hops", () => {
+  const changedRepository = {
+    ...repository,
+    dirty: true,
+    changedFilePaths: ["src/entry.ts"],
+  };
+  const changedIndex = {
+    ...index,
+    dirtyTrackedPaths: ["src/entry.ts"],
+  };
+
   const oneHop = buildRepositoryIntelligenceContext({
-    index,
+    index: changedIndex,
     workflowGraph,
-    repository,
+    repository: changedRepository,
     task: "purchase order approval",
-    selection: { nodeId: "purchase-order", filePath: "src/entry.ts", hops: 1, characterBudget: 6_000 },
+    selection: { nodeId: "purchase-order", hops: 1, characterBudget: 6_000 },
+  });
+  const twoHop = buildRepositoryIntelligenceContext({
+    index: changedIndex,
+    workflowGraph,
+    repository: changedRepository,
+    task: "purchase order approval",
+    selection: { nodeId: "purchase-order", hops: 2, characterBudget: 6_000 },
   });
 
   assert.equal(oneHop.packet.status, "fresh");
   assert.ok(oneHop.packet.primarySource.some((source) => source.path === "src/entry.ts"));
   assert.ok(oneHop.packet.executionPath.some((path) => path.includes("src/procurement.ts")));
   assert.equal(oneHop.packet.executionPath.some((path) => path.includes("src/entry.ts")), false);
+  assert.ok(twoHop.packet.executionPath.some((path) => path.includes("src/entry.ts")));
 });
 
 test("RI-3 refuses stale index claims and exposes the current Workflow Map fallback", () => {
