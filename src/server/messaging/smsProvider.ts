@@ -144,32 +144,34 @@ async function requestJson(
 ): Promise<{ response: Response; body: unknown }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let response: Response;
   try {
-    response = await fetchImpl(url, { ...init, signal: controller.signal });
+    const response = await fetchImpl(url, { ...init, signal: controller.signal });
+    if (controller.signal.aborted) throw new ProviderNetworkError("The SMS provider request timed out.");
+    const contentLength = Number(response.headers.get("content-length") || 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_PROVIDER_RESPONSE_BYTES) {
+      throw new ProviderProtocolError("The SMS provider response was too large.");
+    }
+    let raw = "";
+    try {
+      raw = await response.text();
+    } catch {
+      if (controller.signal.aborted) throw new ProviderNetworkError("The SMS provider request timed out.");
+      throw new ProviderProtocolError("The SMS provider response could not be read.");
+    }
+    if (controller.signal.aborted) throw new ProviderNetworkError("The SMS provider request timed out.");
+    if (raw.length > MAX_PROVIDER_RESPONSE_BYTES) throw new ProviderProtocolError("The SMS provider response was too large.");
+    if (!raw.trim()) return { response, body: {} };
+    try {
+      return { response, body: JSON.parse(raw) as unknown };
+    } catch {
+      throw new ProviderProtocolError("The SMS provider response was not valid JSON.");
+    }
   } catch (error) {
+    if (error instanceof ProviderNetworkError || error instanceof ProviderProtocolError) throw error;
     if (controller.signal.aborted) throw new ProviderNetworkError("The SMS provider request timed out.");
     throw new ProviderNetworkError(error instanceof Error ? error.message : "The SMS provider request failed.");
   } finally {
     clearTimeout(timer);
-  }
-
-  const contentLength = Number(response.headers.get("content-length") || 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_PROVIDER_RESPONSE_BYTES) {
-    throw new ProviderProtocolError("The SMS provider response was too large.");
-  }
-  let raw = "";
-  try {
-    raw = await response.text();
-  } catch {
-    throw new ProviderProtocolError("The SMS provider response could not be read.");
-  }
-  if (raw.length > MAX_PROVIDER_RESPONSE_BYTES) throw new ProviderProtocolError("The SMS provider response was too large.");
-  if (!raw.trim()) return { response, body: {} };
-  try {
-    return { response, body: JSON.parse(raw) as unknown };
-  } catch {
-    throw new ProviderProtocolError("The SMS provider response was not valid JSON.");
   }
 }
 

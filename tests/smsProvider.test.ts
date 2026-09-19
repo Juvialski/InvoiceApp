@@ -149,6 +149,37 @@ test("PhilSMS missing provider id or network failure never claims a send", async
   assert.equal(networkResult.reconciliationRequired, true);
 });
 
+test("provider timeout also covers a stalled response body", async () => {
+  let signal: AbortSignal | undefined;
+  const stalledFetch = async (_url: string, init?: RequestInit) => {
+    signal = init?.signal;
+    return {
+      status: 202,
+      ok: true,
+      headers: new Headers(),
+      text: () => new Promise<string>((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      }),
+    } as Response;
+  };
+  const provider = createPhilSmsProvider({
+    SMS_PROVIDER: "PHILSMS",
+    PHILSMS_API_TOKEN: "phil-secret",
+    PHILSMS_SENDER_ID: "Hydro",
+    SMS_PROVIDER_TIMEOUT_MS: "2000",
+  }, stalledFetch);
+  assert.ok(provider);
+
+  const result = await Promise.race([
+    provider.send({ destination: "+639171234567", message: "Stalled body", idempotencyKey: "phil-stalled-body" }),
+    new Promise<"timed-out">((resolve) => setTimeout(() => resolve("timed-out"), 2500)),
+  ]);
+  if (result === "timed-out") assert.fail("provider response-body timeout was not enforced");
+  assert.equal(result.status, "UNKNOWN");
+  assert.equal(result.reconciliationRequired, true);
+  assert.equal(signal?.aborted, true);
+});
+
 test("provider status vocabularies fail closed for unknown upstream states", () => {
   assert.equal(normalizeAndroidGatewayStatus("Pending"), "ACCEPTED");
   assert.equal(normalizeAndroidGatewayStatus("Delivered"), "DELIVERED");
