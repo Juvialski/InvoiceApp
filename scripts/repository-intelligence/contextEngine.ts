@@ -418,7 +418,7 @@ export function buildRepositoryIntelligenceContext(
     ...(workflow?.protectedBoundaries.confirmations.map((item) => item.label) || []),
     ...workflowNodes.flatMap((node) => nodeAttributeStrings(node, "confirmationRequirement")),
   ]);
-  const requestedHops = Math.min(2, Math.max(0, options.selection.hops ?? 1));
+  const requestedHops = Math.min(2, Math.max(1, options.selection.hops ?? 1));
   const executionPath: string[] = [];
   for (const filePath of primaryPaths) {
     for (const workflowId of workflowSeedIds) {

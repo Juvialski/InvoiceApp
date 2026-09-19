@@ -32,6 +32,9 @@ const index: RepositoryIndex = {
   repositoryHeadSha: "a".repeat(40),
   dirtyTrackedPaths: [],
   files: [
+    record("src/entry.ts", {
+      imports: [{ moduleSpecifier: "./procurement", importedNames: ["preparePurchaseOrder"], isTypeOnly: false }],
+    }),
     record("src/procurement.ts", {
       symbols: [{ id: "symbol:src/procurement.ts#preparePurchaseOrder:function", name: "preparePurchaseOrder", qualifiedName: "preparePurchaseOrder", kind: "function", isExported: true }],
       imports: [{ moduleSpecifier: "./shared", importedNames: ["shared"], isTypeOnly: false }],
@@ -94,17 +97,19 @@ test("RI-3 resolves a bounded deterministic packet with ranked sources, symbols,
   assert.match(markdown, /po-authority/);
 });
 
-test("RI-3 respects explicit hop bounds instead of widening execution paths", () => {
-  const zeroHop = buildRepositoryIntelligenceContext({
+test("RI-3 respects the one-hop execution-path bound instead of silently widening to two hops", () => {
+  const oneHop = buildRepositoryIntelligenceContext({
     index,
     workflowGraph,
     repository,
     task: "purchase order approval",
-    selection: { domain: "procurement", query: "purchase order approval", hops: 0, characterBudget: 6_000 },
+    selection: { nodeId: "purchase-order", filePath: "src/entry.ts", hops: 1, characterBudget: 6_000 },
   });
 
-  assert.equal(zeroHop.packet.status, "fresh");
-  assert.deepEqual(zeroHop.packet.executionPath, []);
+  assert.equal(oneHop.packet.status, "fresh");
+  assert.ok(oneHop.packet.primarySource.some((source) => source.path === "src/entry.ts"));
+  assert.ok(oneHop.packet.executionPath.some((path) => path.includes("src/procurement.ts")));
+  assert.equal(oneHop.packet.executionPath.some((path) => path.includes("src/entry.ts")), false);
 });
 
 test("RI-3 refuses stale index claims and exposes the current Workflow Map fallback", () => {
