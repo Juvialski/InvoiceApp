@@ -450,9 +450,15 @@ function projectProposal(
     (proposed as unknown as Record<string, unknown>)[field] = workbookValue;
   }
   const taxTreatment = nullableText(row["Tax Treatment"])?.toUpperCase() || null;
-  const taxChange = change("taxTreatment", project.taxTreatment || null, taxTreatment, exported.taxTreatment ?? null, true);
-  if (taxChange) editableChanges.push(taxChange);
-  if (taxTreatment === "VAT" || taxTreatment === "NON_VAT") proposed.taxTreatment = taxTreatment;
+  const allowedTaxTreatments = new Set(["VAT", "NON_VAT", "UNCLASSIFIED"]);
+  if (!taxTreatment || !allowedTaxTreatments.has(taxTreatment)) {
+    proposal.status = "INVALID";
+    proposal.messages.push("Tax Treatment must be VAT, NON_VAT, or UNCLASSIFIED.");
+  } else {
+    const taxChange = change("taxTreatment", project.taxTreatment || null, taxTreatment, exported.taxTreatment ?? null, true);
+    if (taxChange) editableChanges.push(taxChange);
+    proposed.taxTreatment = taxTreatment as Project["taxTreatment"];
+  }
   const protectedFields: Array<[string, string, unknown, unknown]> = [
     ["status", "Status", project.status, text(row["Status"]).toUpperCase()],
     ["currency", "Currency", project.currency, text(row.Currency).toUpperCase()],
