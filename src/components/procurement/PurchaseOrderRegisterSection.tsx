@@ -4,6 +4,7 @@ import type { Project, PurchaseOrder, Vendor } from "../../types.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { calculatePOReceiptProgress } from "../../utils/purchaseOrderReceipts.ts";
 import { EmptyState } from "../ui/OperationsUI.tsx";
+import { OperationsGrid, type OperationsGridColumn } from "../ui/OperationsGrid.tsx";
 
 export interface PurchaseOrderRegisterCounts {
   draft: number;
@@ -93,6 +94,50 @@ export function PurchaseOrderRegisterSection({
   onPreviewPo,
   onOpenPo,
 }: PurchaseOrderRegisterSectionProps) {
+  const columns: OperationsGridColumn<PurchaseOrder>[] = [
+    {
+      key: "poNumber",
+      header: "PO Number",
+      value: (po) => <div className="max-w-xs"><div className="font-mono font-black text-slate-900">{po.poNumber}</div>{po.description && <div className="truncate text-[11px] font-normal text-slate-500">{po.description}</div>}</div>,
+      sortValue: (po) => po.poNumber,
+    },
+    {
+      key: "status",
+      header: "Status",
+      value: (po) => <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ${po.status === "APPROVED" ? "bg-blue-100 text-blue-800" : po.status === "ISSUED" ? "bg-purple-100 text-purple-800" : po.status === "CLOSED" ? "bg-emerald-100 text-emerald-800" : po.status === "CANCELLED" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-800"}`}>{po.status}</span>,
+      sortValue: (po) => po.status,
+      protected: true,
+    },
+    {
+      key: "delivery",
+      header: "Delivery",
+      value: (po) => {
+        const progress = poProgressMap.get(po.id);
+        if (po.status !== "ISSUED" && po.status !== "CLOSED") return <span className="text-[11px] italic text-slate-400">{po.status === "DRAFT" ? "Draft" : po.status === "APPROVED" ? "Not issued" : "—"}</span>;
+        return <div className="space-y-0.5"><span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold ${progress?.deliveryStatus === "FULLY_RECEIVED" ? "bg-emerald-100 text-emerald-800" : progress?.deliveryStatus === "PARTIALLY_RECEIVED" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>{progress?.deliveryStatus === "FULLY_RECEIVED" ? "Fully delivered" : progress?.deliveryStatus === "PARTIALLY_RECEIVED" ? `${progress.overallProgressPercent}% received` : "0% delivered"}</span>{progress && progress.totalOrderedQuantity > 0 && <div className="font-mono text-[10px] text-slate-400">{progress.totalReceivedQuantity} / {progress.totalOrderedQuantity} units</div>}</div>;
+      },
+      sortValue: (po) => poProgressMap.get(po.id)?.overallProgressPercent || 0,
+      protected: true,
+    },
+    {
+      key: "vendor",
+      header: "Supplier",
+      value: (po) => <div><div className="font-semibold text-slate-800">{vendorMap.get(po.vendorId)?.name || "Unknown vendor"}</div>{vendorMap.get(po.vendorId)?.taxId && <div className="text-[10px] text-slate-400">TIN: {vendorMap.get(po.vendorId)?.taxId}</div>}</div>,
+      sortValue: (po) => vendorMap.get(po.vendorId)?.name || "",
+      protected: false,
+    },
+    {
+      key: "project",
+      header: "Project",
+      value: (po) => <div><div className="font-semibold text-slate-800">{projectMap.get(po.projectId)?.projectCode || "—"}</div><div className="max-w-[140px] truncate text-[10px] text-slate-500">{projectMap.get(po.projectId)?.projectName || "—"}</div></div>,
+      sortValue: (po) => projectMap.get(po.projectId)?.projectCode || "",
+      protected: false,
+    },
+    { key: "issueDate", header: "Issue date", value: (po) => po.issueDate ? formatDate(po.issueDate, "short") : "—", sortValue: (po) => po.issueDate || "", protected: true },
+    { key: "items", header: "Items", value: (po) => po.lines?.length || 0, sortValue: (po) => po.lines?.length || 0, align: "center", protected: true },
+    { key: "amount", header: "Committed amount", value: (po) => formatMoney(po.totalAmount || 0, po.currency || "PHP"), sortValue: (po) => po.totalAmount || 0, align: "right", protected: true },
+  ];
+
   return <>
     {/* PO KPI Cards */}
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-5">
@@ -217,115 +262,15 @@ export function PurchaseOrderRegisterSection({
         <div className="space-y-2 p-3 lg:hidden" aria-label="Purchase order register cards">
           {filteredOrders.map((po) => <PurchaseOrderRegisterCard key={po.id} po={po} vendor={vendorMap.get(po.vendorId)} project={projectMap.get(po.projectId)} progress={poProgressMap.get(po.id)} onPreview={() => onPreviewPo(po)} onOpen={() => onOpenPo(po)} />)}
         </div>
-        <div className="hidden overflow-x-auto lg:block">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">PO Number</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Delivery Progress</th>
-                <th className="px-4 py-3">Supplier / Vendor</th>
-                <th className="px-4 py-3">Project</th>
-                <th className="px-4 py-3">Issue Date</th>
-                <th className="px-4 py-3 text-center">Items</th>
-                <th className="px-4 py-3 text-right">Committed Amount</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredOrders.map((po) => {
-                const vendor = vendorMap.get(po.vendorId);
-                const project = projectMap.get(po.projectId);
-                const progress = poProgressMap.get(po.id);
-                return (
-                  <tr
-                    key={po.id}
-                    onClick={() => onOpenPo(po)}
-                    className="cursor-pointer hover:bg-slate-50/80 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono font-bold text-slate-900">
-                      {po.poNumber}
-                      {po.description && (
-                        <div className="font-sans font-normal text-[11px] text-slate-500 truncate max-w-xs">
-                          {po.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                          po.status === "APPROVED"
-                            ? "bg-blue-100 text-blue-800"
-                            : po.status === "ISSUED"
-                            ? "bg-purple-100 text-purple-800"
-                            : po.status === "CLOSED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : po.status === "CANCELLED"
-                            ? "bg-rose-100 text-rose-800"
-                            : "bg-slate-100 text-slate-800"
-                        }`}
-                      >
-                        {po.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {po.status === "ISSUED" || po.status === "CLOSED" ? (
-                        <div className="space-y-0.5">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                              progress?.deliveryStatus === "FULLY_RECEIVED"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : progress?.deliveryStatus === "PARTIALLY_RECEIVED"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            <Truck className="h-3 w-3" />
-                            {progress?.deliveryStatus === "FULLY_RECEIVED"
-                              ? "Fully Delivered"
-                              : progress?.deliveryStatus === "PARTIALLY_RECEIVED"
-                              ? `${progress.overallProgressPercent}% Received`
-                              : "0% Delivered"}
-                          </span>
-                          {progress && progress.totalOrderedQuantity > 0 && (
-                            <div className="text-[10px] text-slate-400 font-mono">
-                              {progress.totalReceivedQuantity} / {progress.totalOrderedQuantity} units
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 italic">
-                          {po.status === "DRAFT" ? "Draft" : po.status === "APPROVED" ? "Not issued" : "—"}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-800">{vendor?.name || "Unknown Vendor"}</div>
-                      {vendor?.taxId && <div className="text-[10px] text-slate-400">TIN: {vendor.taxId}</div>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-800">{project?.projectCode || "—"}</div>
-                      <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
-                        {project?.projectName || "—"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 font-mono">
-                      {po.issueDate ? formatDate(po.issueDate, "short") : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-center tabular-nums text-slate-600">
-                      {po.lines?.length || 0}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                      {formatMoney(po.totalAmount || 0, po.currency || "PHP")}
-                    </td>
-                    <td className="px-4 py-3 text-right" onClick={(event) => event.stopPropagation()}>
-                      <div className="flex justify-end gap-1"><button type="button" onClick={() => onPreviewPo(po)} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"><FileText className="h-3.5 w-3.5" />Preview</button><button type="button" onClick={() => onOpenPo(po)} className="px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-900 rounded-lg hover:bg-indigo-50 transition">View / Edit</button></div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="hidden lg:block">
+          <OperationsGrid
+            ariaLabel="Purchase order register"
+            rows={filteredOrders}
+            columns={columns}
+            rowKey={(po) => po.id}
+            onRowActivate={onOpenPo}
+            renderActions={(po) => <div className="flex justify-end gap-1"><button type="button" onClick={() => onPreviewPo(po)} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"><FileText className="h-3.5 w-3.5" />Preview</button><button type="button" onClick={() => onOpenPo(po)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-900">View / Edit</button></div>}
+          />
         </div>
       </div>
     ) : (

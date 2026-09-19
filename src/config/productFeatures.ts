@@ -124,11 +124,12 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     title: "Procurement workspace",
     category: "Procurement",
     status: "AVAILABLE",
-    shortDescription: "Manage purchase orders and receipts, requests for quotation, supplier quotations, supplier selection, and project-linked procurement.",
+    shortDescription: "Manage purchase orders and receipts, requests for quotation, supplier quotations, supplier selection, and controlled project-linked procurement workbooks.",
     details: [
       "Track purchase commitments and received quantities, with supplier invoice matching available in the review workflow.",
       "After recording a receipt, continue to the exact Warehouse receipt context when explicit stock posting is required.",
       "Manage subcontracts, progress claims, and variations with their project context and history.",
+      "Export RFQ and Purchase Order registers to a controlled workbook, review proposed draft updates and stale conflicts, and Apply permitted changes through the existing procurement workflow.",
       "Approved progress claims show the net certified payable and continue into legitimate Cash & Banking settlement without duplicating project cost or payable truth.",
     ],
     sortOrder: 70,

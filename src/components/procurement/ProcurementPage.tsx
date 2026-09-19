@@ -63,6 +63,8 @@ import { calculatePOReceiptProgress } from "../../utils/purchaseOrderReceipts.ts
 import { PageHeader } from "../ui/OperationsUI.tsx";
 import { PurchaseOrderRegisterSection } from "./PurchaseOrderRegisterSection.tsx";
 import { RfqRegisterSection } from "./RfqRegisterSection.tsx";
+import { ProcurementWorkbookPanel } from "./ProcurementWorkbookPanel.tsx";
+import type { ProcurementRefreshContext } from "../../lib/procurementWorkbook.ts";
 import {
   SubcontractRegisterSection,
   type SubcontractRegisterCounts,
@@ -99,6 +101,7 @@ export interface ProcurementPageProps {
   initialSubcontractClaimId?: string;
   initialReturnPath?: string;
   onNavigatePath?: AppNavigate;
+  onRefreshProcurement?: () => Promise<ProcurementRefreshContext>;
   workspaceLoading?: boolean;
   canRead?: boolean;
   canManage?: boolean;
@@ -192,6 +195,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   initialSubcontractClaimId,
   initialReturnPath,
   onNavigatePath,
+  onRefreshProcurement,
   workspaceLoading = false,
   canRead = false,
   canManage = false,
@@ -1154,6 +1158,17 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           </div>
         )}
       </div>
+
+      {activeTab !== "subcontracts" && <ProcurementWorkbookPanel
+        rfqs={localRfqs}
+        purchaseOrders={purchaseOrders}
+        projects={projects}
+        vendors={vendors}
+        canManage={Boolean(canManage)}
+        onSaveRFQ={handleSaveRFQInternal}
+        onSavePurchaseOrder={onSavePO}
+        onRefreshProcurement={onRefreshProcurement}
+      />}
 
       {/* Sub-Tabs: [Purchase Orders] [Requests for Quotation (RFQs)] [Subcontracts] */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-slate-200">

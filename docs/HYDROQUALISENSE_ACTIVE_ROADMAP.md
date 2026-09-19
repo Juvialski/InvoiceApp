@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + PROCUREMENT PILOT IN CURRENT FEATURE BRANCH / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-19**
 
@@ -29,7 +29,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Next implementation direction: Excel Phase 0/readiness followed by Excel-Native Phase 1 + the Procurement pilot.** Build the shared OperationsGrid/workbook engine only after the readiness audit, then prove a real RFQ/Purchase Order web-grid + `.xlsx` round trip with review-before-apply and conflict protection.
+3. **Current implementation direction: Excel Phase 0/readiness, shared foundation, and the bounded Procurement pilot.** The current feature branch implements the readiness classifications, shared OperationsGrid/workbook contracts, and RFQ/Purchase Order `.xlsx` export-review-apply path. App-wide Excel capability remains unclaimed until later domains receive their own boundaries and certification.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -258,6 +258,31 @@ not represented as an unfinished repository implementation item. See
 
 This completion is structural/developer-tooling evidence only. It does not
 certify provider runtime, hosted QA, production, or Excel capability.
+
+## 2026-09-19 Excel Phase 0 + bounded Procurement pilot — current feature branch
+
+Phase 0 classified Procurement, Projects/Engineering, Expenses/Finance,
+Inventory/Warehouse, Equipment, Workforce/Payroll, and Documents/communication
+registers as Hybrid. The first implementation is intentionally limited to
+RFQs and Purchase Orders because their register presentation and parent-owned
+mutation callbacks are already bounded.
+
+The branch adds a reusable accessible `OperationsGrid`, a SheetJS-backed
+workbook safety/metadata/parser layer, and a Procurement adapter for the
+`RFQs`, `RFQ Lines`, `Purchase Orders`, `PO Lines`, and hidden
+`_HydroQualiSense` workbook shape. Upload creates typed proposals and review
+states; it never writes records. Draft-only editable fields are applied only
+after explicit confirmation through the existing RFQ/PO save callbacks. Status,
+workflow history, receiving/settlement evidence, derived totals, missing-row
+deletion, and new-record creation remain protected or deferred.
+
+Fresh host data is used for review/apply when the current application context
+provides the Procurement refresh hook. Deterministic fingerprints and existing
+`updatedAt` values detect stale changes at the review boundary. The current
+save RPCs do not accept a version precondition, so this pilot does not claim an
+atomic compare-and-apply guarantee across a race between refresh and mutation.
+No migration, Docker/Supabase change, new spreadsheet dependency, production
+operation, or app-wide Excel conversion is included.
 
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
 

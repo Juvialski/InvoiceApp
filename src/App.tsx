@@ -3516,6 +3516,10 @@ function InvoiceWorkspace() {
           onConfirmPurchaseOrderMatch={handleConfirmPurchaseOrderMatch}
           onUnmatchPurchaseOrderMatch={handleUnmatchPurchaseOrderMatch}
           onOpenPurchaseOrder={(id) => navigateToPath(appPathForPurchaseOrder(id, appPathForTab(activeTab)))}
+          onRefreshProcurement={async () => {
+            const [freshPurchaseOrders, freshRfqs] = await Promise.all([fetchPurchaseOrders(), fetchRFQs()]);
+            return { purchaseOrders: freshPurchaseOrders, rfqs: freshRfqs, projects, vendors };
+          }}
           rfqs={rfqs}
           supplierQuotations={supplierQuotations}
           onSaveRFQ={handleSaveRFQ}

@@ -2,7 +2,7 @@
 
 > **APPROVED MAJOR UX DIRECTION — PROFESSIONALIZATION COMPLETE; IMPLEMENTATION STARTS AFTER EXCEL PHASE 0/READINESS**
 
-Status: **Approved; Repository & Architecture Professionalization is complete for the current repository boundary; implementation not started; Phase 0/readiness is next**
+Status: **Approved; Phase 0/readiness and the bounded Procurement pilot are implemented in the current feature branch; app-wide Excel capability is not claimed**
 Repository: `Juvialski/InvoiceApp`
 Product: HydroQualiSense
 Approved direction: Make applicable operational work substantially more familiar to experienced Excel users without weakening HydroQualiSense business rules or turning the product into a generic spreadsheet.
@@ -10,6 +10,26 @@ Approved direction: Make applicable operational work substantially more familiar
 This document is an authoritative future design contract. It does not claim that the current Projects, Procurement, Finance, Inventory, Workforce, Payroll, Documents, or Communications registers already satisfy this specification. Existing register/table work remains the current application behavior, and the Slice 5 Subcontract presentation extraction is repository architecture work only. No Excel-native grid, workbook import/export, reverse-upload, schema engine, migration, dependency, or prototype is introduced by this document.
 
 The live repository, `AGENTS.md`, the active roadmap, the current handoff, and later approved implementation decisions remain authoritative when this document is eventually executed. Future work must start from live repository state rather than treating this document's examples or candidate classifications as a frozen code snapshot.
+
+## 0. Phase 0/readiness record — 2026-09-19
+
+The first implementation run audited the live register and mutation boundaries and recorded these rollout classifications:
+
+| Domain | Classification | Boundary decision |
+| --- | --- | --- |
+| Procurement | Hybrid | RFQ and Purchase Order registers use dense sheet-like scanning; comparison, detail editing, receiving, approval, issue, close, cancellation, and quotation conversion remain dedicated workflows. |
+| Projects / Engineering | Hybrid | Project and cost registers benefit from a future grid; engineering documents, site records, and lifecycle actions remain purpose-built. |
+| Expenses / Finance | Hybrid | Registers and ledgers benefit from scanning; verification, correction, reconciliation, settlement, and approval remain workflow-controlled. |
+| Inventory / Warehouse | Hybrid | Stock and movement registers benefit from a grid; receiving, issue/return, allocation, adjustment, and movement history remain authoritative workflows. |
+| Equipment | Hybrid | The equipment register is grid-suitable; assignment, transfer, return, and lifecycle history remain controlled actions. |
+| Workforce / Payroll | Hybrid | Worker, assignment, time, and permitted input registers may use a grid; calculation, approval, settlement, privacy, and history remain dedicated. |
+| Documents / communication registers | Hybrid | Document and delivery history can use registers; composition, preview, template administration, provider actions, and confirmation remain purpose-built. |
+
+The Procurement pilot deliberately supports update-only editing of existing draft RFQs and Purchase Orders. Its workbook shape is `RFQs`, `RFQ Lines`, `Purchase Orders`, `PO Lines`, and hidden `_HydroQualiSense` synchronization metadata. Stable record/line IDs, `updatedAt` where present, and a deterministic exported-state fingerprint are comparison evidence only; they are not authorization credentials.
+
+The pilot's Apply strategy is: fetch current records when the host provides the refresh hook, parse and validate the workbook, compare against current state, require human review and explicit confirmation, then call the existing parent-owned `onSaveRFQ`/`onSavePO` callbacks. Status, approval/issue/close/cancel history, quotation selection, receiving/settlement evidence, committed totals, cost-code identity, audit metadata, missing-row deletion, and new-record creation remain protected or deferred. The existing authoritative save paths remain responsible for permission, lifecycle, history, and derived-total enforcement. No migration or spreadsheet dependency was added.
+
+This run does not claim atomic cross-session optimistic concurrency: the current RFQ/PO save RPC contracts do not accept a version precondition. The pilot fails stale state at the fresh review/apply check and refuses the proposal when the current fingerprint differs; a future versioned mutation contract is required if the domain needs an atomic compare-and-apply guarantee.
 
 ---
 

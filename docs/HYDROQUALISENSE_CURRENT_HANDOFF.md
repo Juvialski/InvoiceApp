@@ -333,6 +333,34 @@ The next implementation direction is **Excel Phase 0/readiness**, followed by
 the approved shared Excel foundation. No Excel grid, workbook engine, reverse
 import, or spreadsheet dependency is included in this run.
 
+## 2026-09-19 Excel Phase 0 + bounded Procurement pilot — current feature branch
+
+The current feature branch begins the approved Excel-native direction. Phase 0
+classifies Procurement, Projects/Engineering, Expenses/Finance,
+Inventory/Warehouse, Equipment, Workforce/Payroll, and Documents/communication
+registers as Hybrid: dense registers may use a shared sheet-like interaction,
+while complex detail, lifecycle, financial, approval, settlement, receiving,
+composition, and history actions remain dedicated workflows.
+
+The bounded implementation covers only RFQs and Purchase Orders. It adds the
+shared `OperationsGrid`, SheetJS workbook safety/metadata/parser contracts,
+the controlled five-sheet Procurement workbook (`RFQs`, `RFQ Lines`, `Purchase
+Orders`, `PO Lines`, `_HydroQualiSense`), and an import review surface. The
+pilot is update-only for existing draft records: upload produces proposals,
+missing rows do not delete, new records are deferred, protected fields are
+rejected, and explicit human confirmation is required before the existing
+parent-owned RFQ/PO save callbacks are invoked.
+
+The host refresh hook fetches current RFQ/PO records before review/apply when
+available. Deterministic exported-state fingerprints plus `updatedAt` detect
+stale edits and distinguish workbook-only, app-only, and both-changed states.
+Read-only users can inspect proposals but cannot Apply. The existing save RPCs
+do not accept a version precondition, so this pilot is truthful about a
+remaining atomic compare-and-apply limitation; it does not claim protection
+against a race after the final read and before mutation. No database migration,
+Docker/Supabase replay, provider certification, production operation, or
+non-Procurement reverse-import work is included.
+
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
 Wave 4D remains **partially implemented but not complete**. The current approved

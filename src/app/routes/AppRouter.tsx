@@ -53,6 +53,7 @@ import type {
   EquipmentLifecycleStatus,
 } from "../../types";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
+import type { ProcurementRefreshContext } from "../../lib/procurementWorkbook";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import type { WorkspaceTab } from "../../components/projects/ProjectWorkspace";
 import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
@@ -369,6 +370,7 @@ export interface AppRouterProps {
   subcontractVariations?: SubcontractVariation[];
   receipts?: PurchaseOrderReceipt[];
   vendors?: Vendor[];
+  onRefreshProcurement?: () => Promise<ProcurementRefreshContext>;
   onSavePO?: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
@@ -486,6 +488,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   subcontractVariations = [],
   receipts = [],
   vendors = [],
+  onRefreshProcurement,
   onSavePO,
   onTransitionPO,
   onDeletePO,
@@ -1106,6 +1109,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         initialSubcontractClaimId={procurementContext?.subcontractClaimId}
         initialReturnPath={procurementContext?.returnTo}
         onNavigatePath={onNavigatePath}
+        onRefreshProcurement={onRefreshProcurement}
         workspaceLoading={workspaceLoading}
         inventoryMovements={inventoryMovements}
         projects={projects}
