@@ -329,13 +329,13 @@ connected GitHub administration and linked Render/webhook verification are not
 available in this run. The exact external follow-up is documented as a manual
 administrative option, not unfinished repository architecture.
 
-The next implementation direction is **Excel Phase 0/readiness**, followed by
-the approved shared Excel foundation. No Excel grid, workbook engine, reverse
-import, or spreadsheet dependency is included in this run.
+Excel Phase 0/readiness and the shared foundation are now implemented together
+with the bounded RFQ/Purchase Order pilot described below. The next Excel-native
+implementation should reuse that foundation rather than repeat readiness work.
 
-## 2026-09-19 Excel Phase 0 + bounded Procurement pilot — current feature branch
+## 2026-09-19 Excel Phase 0 + shared foundation + bounded Procurement pilot — implemented
 
-The current feature branch begins the approved Excel-native direction. Phase 0
+The implemented Procurement pilot begins the approved Excel-native direction. Phase 0
 classifies Procurement, Projects/Engineering, Expenses/Finance,
 Inventory/Warehouse, Equipment, Workforce/Payroll, and Documents/communication
 registers as Hybrid: dense registers may use a shared sheet-like interaction,
