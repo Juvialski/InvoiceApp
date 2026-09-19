@@ -2,7 +2,7 @@
 
 > **APPROVED MAJOR UX DIRECTION — PROFESSIONALIZATION COMPLETE; IMPLEMENTATION STARTS AFTER EXCEL PHASE 0/READINESS**
 
-Status: **Approved; Phase 0/readiness and the bounded Procurement pilot are implemented in the current feature branch; app-wide Excel capability is not claimed**
+Status: **Approved; Phase 0/readiness, the shared foundation, and the bounded Procurement pilot are implemented; app-wide Excel capability is not claimed**
 Repository: `Juvialski/InvoiceApp`
 Product: HydroQualiSense
 Approved direction: Make applicable operational work substantially more familiar to experienced Excel users without weakening HydroQualiSense business rules or turning the product into a generic spreadsheet.
