@@ -11,4 +11,5 @@ deployment/inventory.local.json
 !.env.example
 .vscode/
 .qa-e2e/
+.cache/repository-intelligence/
 .worktrees/

@@ -39,6 +39,8 @@ Rollback: revert documentation-only branch.
 
 ## RI-1 — Incremental repository source index
 
+Status: **complete**.
+
 Goal: build a fast, deterministic source inventory without changing Workflow Map behavior.
 
 Scope:
@@ -69,6 +71,24 @@ Evidence:
 - index from clean rebuild equals index from incremental path for the same revision;
 - secret/env values are excluded;
 - focused tests plus affected validation only.
+
+Implemented foundation:
+
+- `scripts/repository-intelligence/types.ts` — versioned index, cache, symbol, import/export, and run-summary contracts;
+- `scripts/repository-intelligence/classification.ts` — deterministic language and source/test/tooling/documentation/migration/exclusion rules;
+- `scripts/repository-intelligence/inventory.ts` — Git-tracked inventory, HEAD/dirty-tracked provenance, SHA-256 hashing, regular-file checks, and secret/binary denial;
+- `scripts/repository-intelligence/typescriptExtractor.ts` — syntax-level TypeScript/TSX compiler-API extraction with line-independent symbol IDs;
+- `scripts/repository-intelligence/cache.ts` — disposable manifest and per-file records with corrupt-cache recovery;
+- `scripts/repository-intelligence/indexer.ts` — full/incremental planning, rename/hash/schema invalidation, deterministic serialization, and concise summaries;
+- `scripts/repository-intelligence/cli.ts` — direct `index`/`update`/`clean`/`status` CLI without changing existing context commands or package scripts;
+- `tests/repositoryIntelligence.test.ts` — fixture coverage for reuse, add/modify/delete/rename, hash and version invalidation, convergence, secrets, untracked files, and performance;
+- `.gitignore` — ignored local cache path.
+
+RI-1 deliberately leaves the global affected-test configuration unchanged. The focused RI test is part of the RI-1 change itself, so the final affected run can remain narrow instead of forcing the repository-wide fallback merely to register a new tooling directory.
+
+The index contains metadata and extracted structure only; it does not persist full source,
+environment values, credentials, tokens, connection strings, or private document contents.
+The cache is safe to delete and is rebuilt when missing or corrupt.
 
 Rollback: delete cache and remove RI-1 scripts; existing Workflow Map remains untouched.
 
@@ -124,7 +144,7 @@ Rollback: switch context provider back to current Workflow Map implementation.
 
 ## Priority pause after RI-3
 
-RI-1, RI-2, and RI-3 are the near-term Repository Intelligence priority because they improve indexing and bounded agent context for the rest of HydroQualiSense development.
+RI-2 and RI-3 are the next near-term Repository Intelligence priority because RI-1 now supplies the incremental source data needed to improve bounded agent context for the rest of HydroQualiSense development.
 
 After RI-3 is stable, **pause Repository Intelligence explorer work by default** and return to the higher-priority repository/product sequence documented in `AGENTS.md` and `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`. RI-4 through RI-6 can resume later when they materially help active engineering or the user explicitly reprioritizes them.
 
@@ -224,10 +244,10 @@ Rollback: remove 3D presentation layer only.
 
 ## Recommended next implementation phase
 
-**RI-1 — Incremental repository source index.**
+**RI-2 — Unified Graph + Provenance Query API.**
 
-It is the smallest implementation slice that creates new capability without touching customer runtime or replacing the proven Workflow Map/context system.
+It is the next additive graph slice built on RI-1 without touching customer runtime or replacing the proven Workflow Map/context system.
 
-Near-term RI order: **RI-1 → RI-2 → RI-3**, then pause by default for the higher-priority HydroQualiSense queue. RI-4 through RI-6 are later developer-tooling phases. **RI-7 optional 3D explorer is last.**
+Near-term RI order: **RI-2 → RI-3**, then pause by default for the higher-priority HydroQualiSense queue. RI-4 through RI-6 are later developer-tooling phases. **RI-7 optional 3D explorer is last.**
 
 Start from the latest green `main`, create one bounded context packet, inspect only the existing Workflow Map/context and test-impact machinery needed for integration, and implement the indexer as a separate additive library.

@@ -1,10 +1,10 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — EMAIL-SMS IMPLEMENTATION COMPLETE / PROVIDER CERTIFICATION PENDING / PR #179 RECONCILED / RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — EMAIL-SMS IMPLEMENTATION COMPLETE / PROVIDER CERTIFICATION PENDING / PR #179 RECONCILED / RI-1 COMPLETE / RI-2→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
 
-RI-0 Repository Intelligence planning was prepared from current `main` at `f2ff96c22e1c58e18d52ebbcd88dcddbdf1e7416`. This phase is documentation/architecture only; no RI-1 source indexer or explorer implementation is included.
+RI-0 Repository Intelligence planning was prepared from current `main` at `f2ff96c22e1c58e18d52ebbcd88dcddbdf1e7416`. RI-1 is now implemented on the fresh branch from `main` SHA `117a61b8a6046b8c5938baf9130ffdb8a5c12f00`; RI-2 and RI-3 remain unimplemented.
 
 ## Current repository state
 
@@ -47,7 +47,7 @@ Read this handoff with:
 - `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — completed corrective foundation;
 - `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
 - `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` — authoritative contract for the next product phase after this correction;
-- `docs/repository-intelligence/README.md` — canonical Repository Intelligence architecture; RI-0 documented, implementation not started;
+- `docs/repository-intelligence/README.md` — canonical Repository Intelligence architecture; RI-1 implemented, RI-2/RI-3 not implemented;
 - `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md` — active repository decomposition design;
 - `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future direction; implementation deferred;
 - `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md` for the earlier quality-program foundation;
@@ -314,11 +314,44 @@ Worker Registration remains paused and must not be suggested as the immediate ne
 
 ---
 
-## 2026-09-19 Repository Intelligence — RI-0 documentation
+## 2026-09-19 Repository Intelligence — RI-0 and RI-1
 
 A new developer-only Repository Intelligence initiative is documented at `docs/repository-intelligence/`.
 
-The design preserves the current curated Workflow Map as the semantic foundation and adds, in later phases, a fast incremental source index, provenance-preserving unified graph/query API, bounded AI Context Engine, structured/2D developer explorer, change intelligence, and optional 3D visualization.
+RI-1 is implemented as a local-only, additive source index under
+`scripts/repository-intelligence/`. It uses `git ls-files` as the primary inventory,
+SHA-256 hashes eligible file bytes, classifies source/test/script/documentation/migration
+and excluded generated/vendor/cache/secret/binary paths, and extracts deterministic
+TypeScript/TSX symbols, imports, exports, and re-exports through the existing TypeScript
+compiler API. Stable symbol IDs use repository path, qualified name, kind, and only a
+content-derived disambiguator when duplicates require one; line numbers are never part of
+identity.
+
+The cache is a disposable ignored `.cache/repository-intelligence/` manifest plus per-file
+records. Repository HEAD and dirty tracked paths are recorded so later RI phases can distinguish
+exact-revision indexes from modified worktrees. Full rebuild, incremental update,
+rename/add/modify/delete/hash invalidation,
+schema/generator invalidation, corrupt-cache recovery, a direct `tsx scripts/repository-intelligence/cli.ts`
+index/update/clean/status interface, and focused fixture coverage are included. The index stores
+metadata and extracted structure, not full source contents, environment values, credentials,
+tokens, connection strings, or private customer-document contents. RI-1 deliberately leaves
+`package.json` and the global affected-test selector unchanged so this developer-only tooling
+does not force the historical repository-wide regression fallback merely for convenience aliases.
+
+Focused RI-1 evidence is 14/14 tests passing. The real CLI full rebuild indexed 1,129 eligible
+files from 1,169 Git-tracked files, and the immediate incremental update reparsed 0 and reused
+all 1,129 records with schema `1` and generator `ri-1.0.0`. Lint/typecheck passed on the
+implementation head. The final exact-head affected-test and CI evidence belongs to the reviewed
+PR head and must be used instead of the superseded earlier fallback run. No browser,
+Docker/Supabase, migration, provider, hosted-QA, or production checks are required by this
+developer-only slice unless the final diff expands into those domains.
+
+RI-1 does not change `workflow-map:generate`, `workflow-map:check`,
+`workflow-map:consistency`, `workflow-map:context`, or `agent:context`, and it introduces no
+customer/runtime dependency. The exact next phase is **RI-2 — Unified Graph + Provenance
+Query API**; RI-3, explorer work, and RI-7 remain out of scope.
+
+The design preserves the current curated Workflow Map as the semantic foundation. RI-1 now provides the fast incremental source index; later phases add the provenance-preserving unified graph/query API, bounded AI Context Engine, structured/2D developer explorer, change intelligence, and optional 3D visualization.
 
 Key decisions:
 
@@ -334,7 +367,7 @@ Key decisions:
 
 Model/provider direction is neutral. Current ChatGPT/Codex/Luna-compatible workflows can consume the context interface where enabled; no model-specific API is part of the architecture. The active/current main documents inspected for this phase contained no DeepSeek reference, so no historical records were rewritten.
 
-Repository Intelligence core priority is **RI-1 → RI-2 → RI-3**. After RI-3, pause explorer-focused work and return to the higher-priority structural/product queue unless the user explicitly reprioritizes it. **The optional 3D explorer is the final RI phase and should be last.**
+Repository Intelligence core priority is now **RI-2 → RI-3**. After RI-3, pause explorer-focused work and return to the higher-priority structural/product queue unless the user explicitly reprioritizes it. **The optional 3D explorer is the final RI phase and should be last.**
 
 ## Completed quality/application context that remains valid
 
@@ -473,36 +506,35 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Repository Intelligence RI-1 — Incremental Repository Source Index.**
-2. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.**
-3. **Repository Intelligence RI-3 — AI Context Engine integration.** Preserve the current `workflow-map:context` and `agent:context` interfaces while improving their internals.
-4. **Finish remaining Repository & Architecture Professionalization work** using the RI core as a bounded-context aid. PR #179 has been reconciled/closed; retain its still-valid repository-hygiene and human-onboarding goals without reviving superseded App/server/static-analysis plans.
-5. **Implement Excel-Native Operations UX** when the architecture boundary is ready.
-6. **Complete remaining Wave 4D provider/readiness evidence** when safe provider credentials/devices/QA prerequisites exist; this external-readiness work may run opportunistically when prerequisites become available.
-7. **Resume Wide Documents remaining managed slices.**
-8. **Worker Registration — still paused until Wave 4D is complete and the user explicitly resumes it.** Site Attendance follows; Face Recognition remains gated by separate privacy/security design.
-9. **RI-4 through RI-6** are later developer-tooling work, not prerequisites for the product queue above.
-10. **RI-7 optional 3D explorer — LAST.** Do not start WebGL/3D work merely because RI-3 is complete.
+1. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.**
+2. **Repository Intelligence RI-3 — AI Context Engine integration.** Preserve the current `workflow-map:context` and `agent:context` interfaces while improving their internals.
+3. **Finish remaining Repository & Architecture Professionalization work** using the RI core as a bounded-context aid. PR #179 has been reconciled/closed; retain its still-valid repository-hygiene and human-onboarding goals without reviving superseded App/server/static-analysis plans.
+4. **Implement Excel-Native Operations UX** when the architecture boundary is ready.
+5. **Complete remaining Wave 4D provider/readiness evidence** when safe provider credentials/devices/QA prerequisites exist; this external-readiness work may run opportunistically when prerequisites become available.
+6. **Resume Wide Documents remaining managed slices.**
+7. **Worker Registration — still paused until Wave 4D is complete and the user explicitly resumes it.** Site Attendance follows; Face Recognition remains gated by separate privacy/security design.
+8. **RI-4 through RI-6** are later developer-tooling work, not prerequisites for the product queue above.
+9. **RI-7 optional 3D explorer — LAST.** Do not start WebGL/3D work merely because RI-3 is complete.
 
 Do not skip directly to Worker Registration, and do not let visualization work displace the index/context, reliability, professionalization, Excel-native, provider-readiness, or approved product work above.
 ---
 
-## Fresh implementation handoff instructions
+## Next implementation handoff instructions
 
-For the next RI-1 implementation run, Codex should:
+For the next RI-2 implementation handoff, Codex should:
 
 - first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
 - read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, and `docs/repository-intelligence/README.md` plus `docs/repository-intelligence/IMPLEMENTATION_ROADMAP.md`;
 - default to zero subagents, hard maximum two concurrent bounded Codex subagents;
 - use at most one bounded `agent:context` packet when useful;
 - inspect only the existing Workflow Map/context/test-impact machinery needed for additive integration;
-- implement RI-1 as a local/developer-only incremental source index without changing customer runtime or replacing current Workflow Map behavior;
-- run new/edited tests, focused RI tests, then `npm.cmd run test:affected:agent`; run lint/build/Workflow Map only when the final diff requires them;
+- treat RI-1 as the available local/developer-only source-index foundation without changing customer runtime or replacing current Workflow Map behavior;
+- preserve source-derived versus curated authority as RI-2 adds the unified graph/query layer; use focused graph/context tests and the applicable affected-test/lint evidence;
 - do not start Docker/Supabase unless the final diff unexpectedly crosses a DB/security contract;
 - review the complete final diff, synchronize roadmap/handoff if actual scope changes, push/open PR, and stop; Codex must not merge its own PR.
 
-Provider/runtime certification for Brevo/SMS may proceed separately when safe external prerequisites exist; do not block RI-1 waiting for them.
+Provider/runtime certification for Brevo/SMS may proceed separately when safe external prerequisites exist; do not block RI-2 waiting for them.
 
 ## Stop boundary
 
-RI-1 is the incremental repository source index only. Do not expand it into RI-2 graph merging, RI-3 context-engine replacement, explorer UI/3D, Excel-native UX, provider certification, Worker Registration, or unrelated product work.
+RI-2 is the unified graph and provenance query layer only. Do not expand it into RI-3 context-engine replacement, explorer UI/3D, Excel-native UX, provider certification, Worker Registration, or unrelated product work.

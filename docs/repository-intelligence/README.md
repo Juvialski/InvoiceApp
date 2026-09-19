@@ -1,6 +1,6 @@
 # Repository Intelligence
 
-Status: **RI-0 architecture/documentation complete; implementation not started**
+Status: **RI-1 incremental source index implemented; RI-2/RI-3 not implemented**
 
 Repository Intelligence is the developer-facing index, graph, and bounded context layer for HydroQualiSense. Its primary purpose is to reduce repeated repository rediscovery by resolving a task to the smallest useful set of code, relationships, tests, invariants, permissions, and validation guidance.
 
@@ -27,6 +27,22 @@ Repository Intelligence extends rather than replaces the current Workflow Map sy
 
 Repository Intelligence adds source indexing and a unified query layer under those capabilities without weakening current safeguards.
 
+## RI-1 implementation
+
+RI-1 is an additive, local-only source index under `scripts/repository-intelligence/`.
+It uses Git-tracked paths as its inventory, hashes eligible files with SHA-256, classifies
+source/test/script/documentation/migration/generated/vendor/cache/excluded paths, and uses
+the repository's existing TypeScript compiler API for deterministic TypeScript/TSX symbols,
+imports, exports, and re-exports. Symbol identities are path/qualified-name based and do not
+use line numbers. The index records the repository HEAD plus any dirty tracked paths so later
+graph/context phases cannot mistake modified worktree content for exact-revision context.
+
+The disposable cache is `.cache/repository-intelligence/` and is ignored by Git. The CLI is
+available directly through `tsx scripts/repository-intelligence/cli.ts` with `index`/`update`,
+`clean`, and `status` commands. RI-1 intentionally does not modify `package.json` or the global
+test-impact selector merely to add convenience aliases. Indexing never becomes a customer-runtime
+dependency and does not replace any `workflow-map:*` or `agent:context` command.
+
 ## Canonical documents
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — target components, boundaries, CI/update flow, security, and generated artifacts.
@@ -37,7 +53,7 @@ Repository Intelligence adds source indexing and a unified query layer under tho
 
 ## Priority order
 
-Repository Intelligence implementation should proceed **RI-1 → RI-2 → RI-3 first**, because those phases directly reduce repository rediscovery and improve bounded agent context.
+Repository Intelligence implementation should proceed **RI-2 → RI-3 next**, because RI-1 is now the source-index foundation and those phases provide the provenance-aware graph and bounded agent context layers.
 
 After RI-3, pause Repository Intelligence presentation/tooling work unless explicitly reprioritized and return to the higher-priority HydroQualiSense structural/product queue. RI-4 through RI-6 are later developer-tooling improvements.
 
@@ -63,4 +79,7 @@ Repository Intelligence is a developer tool. It must not be added to normal cust
 
 ## Implementation status
 
-RI-0 changes documentation only. No source indexer, graph store, explorer, dependency, route, database migration, provider integration, or customer-facing feature is introduced by this phase.
+RI-0 established the architecture and documentation. RI-1 now provides the incremental local
+source index and fixture-driven tests. No unified graph, explorer route, customer-facing
+navigation, new runtime dependency, migration, database/provider behavior, or production
+surface is introduced. RI-2 remains the next approved phase.
