@@ -250,6 +250,7 @@ RI-0 changes documentation only. No source indexer, unified graph implementation
 The planned core is model-provider-neutral. Current ChatGPT/Codex/Luna-compatible workflows may consume bounded packets where enabled, but Repository Intelligence does not depend on a model-specific API. No active/current DeepSeek dependency was found in the inspected main agent/roadmap/handoff/architecture documentation, so RI-0 does not rewrite historical records merely to remove a name.
 
 Recommended next implementation slice when explicitly authorized: **RI-1 — Incremental Repository Source Index**. It is additive and must not start in RI-0.
+
 ## Product dependency sequence
 
 This sequence preserves the product/release dependency order established through the September reprioritizations. It is not the current structural implementation priority; the Current execution tracks section above governs that.
