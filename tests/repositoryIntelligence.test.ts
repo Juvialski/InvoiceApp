@@ -158,6 +158,7 @@ test("RI-1 indexes tracked files and extracts deterministic TypeScript facts", (
     const result = runFull(fixture);
     const source = recordFor(result, "src/index.ts");
 
+    assert.deepEqual(result.index.dirtyTrackedPaths, []);
     assert.deepEqual(result.index.files.map((file) => file.path), [...result.index.files.map((file) => file.path)].sort());
     assert.equal(source.language, "typescript");
     assert.equal(source.classification, "source");
@@ -179,6 +180,7 @@ test("RI-1 indexes tracked files and extracts deterministic TypeScript facts", (
     fixture.write("src/index.ts", `// line movement must not change symbol identity\n\n${SOURCE_FILE}`);
     fixture.stage();
     const moved = runIncremental(fixture);
+    assert.deepEqual(moved.index.dirtyTrackedPaths, ["src/index.ts"]);
     assert.equal(recordFor(moved, "src/index.ts").symbols.find((symbol) => symbol.qualifiedName === "greet")?.id, greetId);
     assert.equal(result.summary.reparsed, result.summary.eligibleFiles);
     assert.equal(result.summary.excludedFiles, Object.keys(BASE_FILES).length - result.summary.eligibleFiles);
@@ -212,6 +214,7 @@ test("RI-1 reparses only a modified file and records its hash change", () => {
     const result = runIncremental(fixture);
 
     assert.equal(result.summary.reparsed, 1);
+    assert.deepEqual(result.index.dirtyTrackedPaths, ["src/helper.ts"]);
     assert.deepEqual(result.summary.reparsedPaths, ["src/helper.ts"]);
     assert.equal(result.summary.hashChanged, 1);
     assert.equal(result.summary.reused, result.summary.eligibleFiles - 1);
