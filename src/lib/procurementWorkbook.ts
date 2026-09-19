@@ -382,6 +382,60 @@ function lineChange(lineId: string, field: string, currentValue: unknown, workbo
   return change ? { ...change, lineId } : undefined;
 }
 
+function validateLineSynchronization(
+  entity: "RFQ_LINE" | "PURCHASE_ORDER_LINE",
+  parentId: string,
+  lineId: string,
+  row: Record<string, unknown>,
+  metadata: Map<string, Record<string, unknown>>,
+  expectedCompanyId?: string,
+) {
+  const messages: string[] = [];
+  const sync = metadata.get(`${entity}:${parentId}:${lineId}`);
+  const exportedState = parseState(sync);
+  const fingerprint = text(sync?.fingerprint);
+  let invalid = false;
+  let unauthorized = false;
+
+  if (!sync || !exportedState || !fingerprint) {
+    invalid = true;
+    messages.push(`Synchronization metadata for line ${lineId} is missing or invalid.`);
+  } else {
+    if (fingerprintValue(exportedState) !== fingerprint) {
+      invalid = true;
+      messages.push(`Synchronization state for line ${lineId} does not match its fingerprint.`);
+    }
+    if (
+      text(sync.recordId) !== parentId
+      || text(sync.parentId) !== parentId
+      || text(sync.lineId) !== lineId
+      || text(row["__HQ Parent ID"]) !== parentId
+      || text(row["__HQ Line ID"]) !== lineId
+    ) {
+      invalid = true;
+      messages.push(`Synchronization identity for line ${lineId} does not match its exported parent/line identity.`);
+    }
+    if (text(row["__HQ Fingerprint"]) !== fingerprint) {
+      invalid = true;
+      messages.push(`Synchronization fingerprint for line ${lineId} does not match its metadata.`);
+    }
+    if (text(sync.companyId) && text(row["__HQ Company ID"]) !== text(sync.companyId)) {
+      invalid = true;
+      messages.push(`Synchronization company identity for line ${lineId} does not match its metadata.`);
+    }
+    if (
+      expectedCompanyId
+      && ((text(sync.companyId) && text(sync.companyId) !== expectedCompanyId)
+        || (text(row["__HQ Company ID"]) && text(row["__HQ Company ID"]) !== expectedCompanyId))
+    ) {
+      unauthorized = true;
+      messages.push(`Line ${lineId} is outside the active company scope.`);
+    }
+  }
+
+  return { invalid, unauthorized, messages };
+}
+
 function buildRfqProposal(rfq: RFQ, row: Record<string, unknown>, lineRows: Record<string, unknown>[], metadata: Map<string, Record<string, unknown>>, context: ProcurementImportContext, workbookCompanyId?: string): ProcurementProposal {
   const id = `RFQ:${rfq.id}`;
   const sync = metadata.get(`RFQ:${rfq.id}:`);
@@ -442,9 +496,15 @@ function buildRfqProposal(rfq: RFQ, row: Record<string, unknown>, lineRows: Reco
     if (uploadedLineIds.has(lineId) || !currentLines.has(lineId)) { unauthorized = true; messages.push(`Unknown or duplicate RFQ line identity ${lineId}.`); continue; }
     uploadedLineIds.add(lineId);
     const currentLine = currentLines.get(lineId)!;
+    const lineSync = validateLineSynchronization("RFQ_LINE", rfq.id, lineId, lineRow, metadata, context.expectedCompanyId);
+    if (lineSync.invalid) invalid = true;
+    if (lineSync.unauthorized) unauthorized = true;
+    messages.push(...lineSync.messages);
     const quantity = numberValue(lineRow.Quantity);
+    const lineNumber = numberValue(lineRow["Line Number"]);
     const deliveryDate = validDateOrError(lineRow["Requested Delivery Date"], "Requested delivery date");
     if (quantity === undefined || quantity <= 0) { invalid = true; messages.push(`RFQ line ${lineId} quantity must be positive.`); }
+    if (lineNumber === undefined || !Number.isInteger(lineNumber) || lineNumber <= 0) { invalid = true; messages.push(`RFQ line ${lineId} line number must be a positive integer.`); }
     if (deliveryDate.error) { invalid = true; messages.push(deliveryDate.error); }
     const line = {
       description: text(lineRow.Description),
@@ -457,6 +517,8 @@ function buildRfqProposal(rfq: RFQ, row: Record<string, unknown>, lineRows: Reco
     if (!line.description || !line.unit) { invalid = true; messages.push(`RFQ line ${lineId} description and unit are required.`); }
     const baselineLine = (exportedState?.lines as Array<Record<string, unknown>> | undefined)?.find((candidate) => candidate.id === lineId) || {};
     const lineFields: Array<[string, unknown, unknown, unknown, boolean]> = [
+      ["rfqNumber", rfq.rfqNumber, text(lineRow["RFQ Number"]), exportedState?.rfqNumber, false],
+      ["lineNumber", currentLine.lineNumber, lineNumber ?? currentLine.lineNumber, baselineLine.lineNumber, false],
       ["description", currentLine.description, line.description, baselineLine.description, true],
       ["quantity", currentLine.quantity, line.quantity, baselineLine.quantity, true],
       ["unit", currentLine.unit, line.unit, baselineLine.unit, true],
@@ -595,13 +657,21 @@ function buildPoProposal(po: PurchaseOrder, row: Record<string, unknown>, lineRo
     if (uploadedLineIds.has(lineId) || !currentLines.has(lineId)) { unauthorized = true; messages.push(`Unknown or duplicate purchase-order line identity ${lineId}.`); continue; }
     uploadedLineIds.add(lineId);
     const currentLine = currentLines.get(lineId)!;
+    const lineSync = validateLineSynchronization("PURCHASE_ORDER_LINE", po.id, lineId, lineRow, metadata, context.expectedCompanyId);
+    if (lineSync.invalid) invalid = true;
+    if (lineSync.unauthorized) unauthorized = true;
+    messages.push(...lineSync.messages);
     const quantity = numberValue(lineRow.Quantity);
+    const lineNumber = numberValue(lineRow["Line Number"]);
     const unitPrice = numberValue(lineRow["Unit Price"]);
     if (quantity === undefined || quantity <= 0 || unitPrice === undefined || unitPrice < 0) { invalid = true; messages.push(`Purchase-order line ${lineId} quantity and unit price must be valid.`); }
+    if (lineNumber === undefined || !Number.isInteger(lineNumber) || lineNumber <= 0) { invalid = true; messages.push(`Purchase-order line ${lineId} line number must be a positive integer.`); }
     const line = { description: text(lineRow.Description), quantity: quantity ?? currentLine.quantity, unit: text(lineRow.Unit), unitPrice: unitPrice ?? currentLine.unitPrice, amount: numberValue(lineRow.Amount) ?? currentLine.amount, projectCostCodeId: nullableText(lineRow["Project Cost Code"]) };
     if (!line.description || !line.unit) { invalid = true; messages.push(`Purchase-order line ${lineId} description and unit are required.`); }
     const baselineLine = (exportedState?.lines as Array<Record<string, unknown>> | undefined)?.find((candidate) => candidate.id === lineId) || {};
     const lineFields: Array<[string, unknown, unknown, unknown, boolean]> = [
+      ["poNumber", po.poNumber, text(lineRow["PO Number"]), exportedState?.poNumber, false],
+      ["lineNumber", currentLine.lineNumber, lineNumber ?? currentLine.lineNumber, baselineLine.lineNumber, false],
       ["description", currentLine.description, line.description, baselineLine.description, true],
       ["quantity", currentLine.quantity, line.quantity, baselineLine.quantity, true],
       ["unit", currentLine.unit, line.unit, baselineLine.unit, true],
@@ -727,6 +797,18 @@ export function buildProcurementImportReview(input: ArrayBuffer | Uint8Array, co
   const poLineRows = parsed.sheets["PO Lines"].rows;
   const rfqById = new Map(context.rfqs.map((record) => [record.id, record]));
   const poById = new Map(context.purchaseOrders.map((record) => [record.id, record]));
+  for (const lineRow of rfqLineRows) {
+    const parentId = text(lineRow["__HQ Parent ID"]);
+    if (!parentId || !rfqById.has(parentId)) {
+      throw new Error(`RFQ line synchronization parent "${parentId || "(missing)"}" is unknown or outside the active company scope.`);
+    }
+  }
+  for (const lineRow of poLineRows) {
+    const parentId = text(lineRow["__HQ Parent ID"]);
+    if (!parentId || !poById.has(parentId)) {
+      throw new Error(`Purchase-order line synchronization parent "${parentId || "(missing)"}" is unknown or outside the active company scope.`);
+    }
+  }
   const proposals: ProcurementProposal[] = [];
   const rfqTop = uniqueRows(rfqRows, "__HQ Record ID");
   const poTop = uniqueRows(poRows, "__HQ Record ID");
