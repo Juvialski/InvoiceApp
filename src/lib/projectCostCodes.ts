@@ -1,6 +1,7 @@
-import type { ProjectCostCode, ProjectCostCodeStatus } from "../types.ts";
+import type { Project, ProjectCostCode, ProjectCostCodeStatus } from "../types.ts";
 import { supabase } from "./supabase.ts";
 import { companyScopedRow, requireActiveCompanyId } from "./companyContext.ts";
+import { projectFromRow } from "./projects.ts";
 
 const COST_CODES_STORAGE_KEY = "engineering_project_cost_codes";
 type Row = Record<string, unknown>;
@@ -135,6 +136,89 @@ export async function loadProjectCostCodesFromSupabase(projectId?: string): Prom
   return (data || []).map((row) => costCodeFromRow(row as Row));
 }
 
+export interface ProjectCostCodeApplyInput {
+  id: string;
+  projectId: string;
+  code: string;
+  name: string;
+  description?: string;
+  approvedBudgetAmount: number;
+  forecastAmount?: number;
+  status: ProjectCostCodeStatus;
+  updatedAt: string;
+}
+
+export interface ProjectCostControlGroupResult {
+  project: Project;
+  costCodes: ProjectCostCode[];
+}
+
+export async function applyProjectCostControlGroupToSupabase(
+  project: Project,
+  expectedProjectUpdatedAt: string,
+  costCodes: readonly ProjectCostCodeApplyInput[],
+): Promise<ProjectCostControlGroupResult> {
+  const userId = await currentUserId();
+  if (!supabase || !userId) throw new Error("Sign in before applying project cost-control changes.");
+  const companyId = requireActiveCompanyId();
+  const projectCompanyId = (project as Project & { companyId?: string }).companyId;
+  if (projectCompanyId && projectCompanyId !== companyId) throw new Error("Project is outside the active company scope.");
+  if (costCodes.some((costCode) => costCode.projectId !== project.id)) {
+    throw new Error("Cost-code parent identity cannot be changed.");
+  }
+  if (costCodes.some((costCode) => !costCode.id || !costCode.updatedAt)) {
+    throw new Error("Existing cost-code freshness is unavailable; refresh before applying changes.");
+  }
+
+  const { data, error } = await supabase.rpc("apply_project_cost_control_group", {
+    p_project_id: project.id,
+    p_expected_project_updated_at: expectedProjectUpdatedAt,
+    p_project: {
+      id: project.id,
+      companyId,
+      projectCode: project.projectCode,
+      projectName: project.projectName,
+      description: project.description || null,
+      clientName: project.clientName || null,
+      clientReference: project.clientReference || null,
+      billingContactName: project.billingContactName || null,
+      billingEmail: project.billingEmail || null,
+      billingAddress: project.billingAddress || null,
+      location: project.location || null,
+      siteAddress: project.siteAddress || null,
+      projectManager: project.projectManager || null,
+      status: project.status,
+      startDate: project.startDate || null,
+      targetEndDate: project.targetEndDate || null,
+      actualEndDate: project.actualEndDate || null,
+      contractValue: project.contractValue ?? null,
+      projectBudget: project.projectBudget,
+      currency: project.currency,
+      taxTreatment: project.taxTreatment,
+      notes: project.notes || null,
+      archivedAt: project.archivedAt || null,
+      archivedFromStatus: project.archivedFromStatus || null,
+    },
+    p_cost_codes: costCodes.map((costCode) => ({
+      id: costCode.id,
+      projectId: costCode.projectId,
+      code: costCode.code,
+      name: costCode.name,
+      description: costCode.description || null,
+      approvedBudgetAmount: costCode.approvedBudgetAmount,
+      forecastAmount: costCode.forecastAmount ?? null,
+      status: costCode.status,
+      updatedAt: costCode.updatedAt,
+    })),
+  });
+  if (error) throw error;
+  const result = data as { project: Row; costCodes: Row[] };
+  return {
+    project: projectFromRow(result.project),
+    costCodes: (result.costCodes || []).map((row) => costCodeFromRow(row)),
+  };
+}
+
 export async function saveProjectCostCodeToSupabase(
   costCode: {
     id?: string;
@@ -163,6 +247,25 @@ export async function saveProjectCostCodeToSupabase(
     createdAt: costCode.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  if (costCode.id) {
+    if (!costCode.updatedAt) throw new Error("Cost-code freshness is unavailable; refresh before saving.");
+    const { data: projectRow, error: projectError } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", costCode.projectId)
+      .eq("company_id", companyId)
+      .single();
+    if (projectError) throw projectError;
+    const result = await applyProjectCostControlGroupToSupabase(
+      projectFromRow(projectRow as Row),
+      projectFromRow(projectRow as Row).updatedAt,
+      [{ ...fullCostCode, updatedAt: costCode.updatedAt }],
+    );
+    const saved = result.costCodes.find((candidate) => candidate.id === costCode.id);
+    if (!saved) throw new Error("Cost-code Apply did not return the updated cost code.");
+    return saved;
+  }
+
   const row = costCodeToRow(fullCostCode, userId, companyId);
   const { data, error } = await supabase.from("project_cost_codes").upsert(row).select("*").single();
   if (error) throw error;

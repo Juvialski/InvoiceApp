@@ -61,7 +61,7 @@ interface ProjectsPageProps {
   attentionToday?: string;
   initialEditingProject?: Project | null;
   onOpenProject: (project: Project) => void;
-  onSaveProject: (project: Project) => void;
+  onSaveProject: (project: Project) => Promise<void> | void;
   onPreviewProjectLifecycle: (project: Project) => Promise<ProjectLifecyclePreview>;
   onApplyProjectLifecycle: (
     project: Project,

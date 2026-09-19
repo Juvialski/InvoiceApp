@@ -296,6 +296,7 @@ export async function saveRFQ(
   rfq: Partial<RFQ> & { rfqNumber: string; title: string },
   lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
   invitedVendorIds?: string[],
+  expectedUpdatedAt?: string,
 ): Promise<RFQ> {
   const companyId = getActiveCompanyId();
 
@@ -305,6 +306,9 @@ export async function saveRFQ(
 
     if (existingIdx >= 0 && local[existingIdx].status !== "DRAFT") {
       throw new Error("Only draft RFQs may be modified");
+    }
+    if (existingIdx >= 0 && expectedUpdatedAt && local[existingIdx].updatedAt !== expectedUpdatedAt) {
+      throw new Error("RFQ changed after export; refresh and review the current record before applying the workbook.");
     }
 
     const rfqNumber = (rfq.rfqNumber || "").trim().toUpperCase();
@@ -412,6 +416,7 @@ export async function saveRFQ(
       notes: l.notes || null,
     })),
     p_invited_vendor_ids: invitedVendorIds && invitedVendorIds.length > 0 ? invitedVendorIds : null,
+    p_expected_updated_at: expectedUpdatedAt || null,
   });
 
   if (error) throw error;

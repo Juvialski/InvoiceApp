@@ -60,6 +60,7 @@ export interface ProjectBudgetControlPanelProps {
   canManageProject?: boolean;
   onSaveCostCode: (costCode: {
     id?: string;
+    updatedAt?: string;
     projectId: string;
     code: string;
     name: string;

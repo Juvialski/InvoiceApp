@@ -102,6 +102,7 @@ export interface ProcurementController extends ProcurementWorkspaceData {
   savePurchaseOrder: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+    expectedUpdatedAt?: string,
   ) => Promise<void>;
   transitionPurchaseOrder: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   deletePurchaseOrder: (id: string) => Promise<void>;
@@ -146,6 +147,7 @@ export interface ProcurementController extends ProcurementWorkspaceData {
     rfq: Partial<RFQ> & { rfqNumber: string; title: string },
     lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
     invitedVendorIds?: string[],
+    expectedUpdatedAt?: string,
   ) => Promise<void>;
   transitionRFQ: (id: string, targetStatus: RFQStatus, reason?: string) => Promise<void>;
   deleteRFQ: (id: string) => Promise<void>;
@@ -203,12 +205,13 @@ export function useProcurementController({
   const savePurchaseOrderHandler = useCallback(async (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+    expectedUpdatedAt?: string,
   ) => {
     try {
       if (remoteWorkspaceConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
         throw new Error("You do not have permission to create or edit purchase orders.");
       }
-      const saved = await savePurchaseOrder(po, lines);
+      const saved = await savePurchaseOrder(po, lines, expectedUpdatedAt);
       setPurchaseOrders((previous) => {
         const index = previous.findIndex((item) => item.id === saved.id);
         const next = index >= 0 ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
@@ -597,10 +600,11 @@ export function useProcurementController({
     rfq: Partial<RFQ> & { rfqNumber: string; title: string },
     lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
     invitedVendorIds?: string[],
+    expectedUpdatedAt?: string,
   ) => {
     try {
       if (remoteWorkspaceConfigured && !can(PERMISSION_KEYS.procurementWrite)) throw new Error("You do not have permission to create or edit RFQs.");
-      const saved = await saveRFQ(rfq, lines, invitedVendorIds);
+      const saved = await saveRFQ(rfq, lines, invitedVendorIds, expectedUpdatedAt);
       setRfqs((previous) => {
         const index = previous.findIndex((item) => item.id === saved.id);
         const next = index >= 0 ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];

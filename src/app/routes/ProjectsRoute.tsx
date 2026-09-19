@@ -136,6 +136,7 @@ export interface ProjectsRouteProps {
   onEditProject?: () => void;
   onSaveCostCode?: (costCode: {
     id?: string;
+    updatedAt?: string;
     projectId: string;
     code: string;
     name: string;

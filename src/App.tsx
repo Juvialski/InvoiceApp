@@ -1685,6 +1685,7 @@ function InvoiceWorkspace() {
 
   const handleSaveCostCode = async (costCode: {
     id?: string;
+    updatedAt?: string;
     projectId: string;
     code: string;
     name: string;
