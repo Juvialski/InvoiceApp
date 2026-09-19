@@ -135,3 +135,19 @@ After implementation: focused/new tests -> affected tests -> only relevant extra
 ## 9. Efficiency evidence
 
 Useful evidence is compact: changed-file count, applicable risk domain, tests actually selected, affected-test result, whether DB/browser/Workflow Map validation was required, and any real blocker. Do not collect metrics that cost more time than they save.
+## 10. Architecture as context budget
+
+Repository structure affects agent context size, edit reliability, conflict frequency, and affected-test breadth. Prefer boundaries that let a routine task follow a small path such as:
+
+`route/page -> focused domain controller -> domain service/persistence -> focused tests`
+
+When decomposing modules:
+
+- extract by real product responsibility, not line count alone;
+- keep interfaces narrow and typed;
+- avoid replacement mega-hooks/helper modules and avoid tiny-file indirection that increases hopping;
+- keep central composition files stable so domain-local work does not repeatedly touch them;
+- prefer structures that fit inside one bounded `agent:context` packet without losing required security/financial/history invariants;
+- judge success by reduced irrelevant context and narrower diffs/tests, not by file-count growth.
+
+Do not spend runtime estimating precise token savings. Cheap evidence is enough: fewer unrelated files opened, fewer central-file edits, narrower affected tests, and a final diff concentrated in the intended domain.
