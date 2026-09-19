@@ -38,7 +38,7 @@ select ok(
       join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.proname = 'save_rfq'
-       and pg_get_function_identity_arguments(p.oid) = 'p_rfq jsonb, p_lines jsonb, p_invited_vendor_ids uuid[], p_expected_updated_at timestamp with time zone'
+       and pg_get_function_identity_arguments(p.oid) = 'jsonb, jsonb, uuid[], timestamp with time zone'
   ),
   'RFQ save carries an expected timestamp argument'
 );
@@ -50,7 +50,7 @@ select ok(
       join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.proname = 'save_purchase_order'
-       and pg_get_function_identity_arguments(p.oid) = 'p_po jsonb, p_lines jsonb, p_expected_updated_at timestamp with time zone'
+       and pg_get_function_identity_arguments(p.oid) = 'jsonb, jsonb, timestamp with time zone'
   ),
   'purchase-order save carries an expected timestamp argument'
 );
@@ -62,7 +62,7 @@ select ok(
       join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.proname = 'save_project'
-       and pg_get_function_identity_arguments(p.oid) = 'p_project jsonb, p_expected_updated_at timestamp with time zone'
+       and pg_get_function_identity_arguments(p.oid) = 'jsonb, timestamp with time zone'
   ),
   'project save carries an expected timestamp argument'
 );
@@ -74,7 +74,7 @@ select ok(
       join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.proname = 'apply_project_cost_control_group'
-       and pg_get_function_identity_arguments(p.oid) = 'p_project_id uuid, p_expected_project_updated_at timestamp with time zone, p_project jsonb, p_cost_codes jsonb'
+       and pg_get_function_identity_arguments(p.oid) = 'uuid, timestamp with time zone, jsonb, jsonb'
   ),
   'grouped project Apply has project version and proposed cost-code payloads'
 );
@@ -100,4 +100,3 @@ select ok(
 
 select * from finish();
 rollback;
-

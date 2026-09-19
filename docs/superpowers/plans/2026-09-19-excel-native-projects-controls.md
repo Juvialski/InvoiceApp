@@ -154,3 +154,14 @@
 - [ ] **Step 4: Review the complete diff for direct workbook persistence, stale-write races, company/RBAC bypasses, lifecycle bypass, cost-code budget races, financial conflation, mixed-currency regression, duplicated workbook/grid infrastructure, and out-of-scope changes.
 - [ ] **Step 5: Commit the integrated branch, push `codex/projects-excel-native`, open a PR against current `main`, and report exact base/head SHAs, migration/RPC strategy, real `.xlsx` evidence, focused/affected/DB/browser evidence, skipped checks, known limitations, and that the PR was not merged.
 
+## Implementation outcome
+
+The plan was executed inline on `codex/projects-excel-native`. Tasks 1-6 are
+implemented and recorded in the branch ledger under
+`.superpowers/sdd/2026-09-19-excel-native-projects-controls/progress.md`.
+The final status is: version-aware RFQ/PO/project/cost-control contracts;
+Projects and cost-code `OperationsGrid` surfaces; controlled Projects/Cost Codes
+workbook export-review-apply; update-only existing-record semantics; atomic
+per-project Apply groups; protected lifecycle/financial/mixed-currency fields;
+and no workbook-cell direct persistence. Docker/Supabase replay and pgTAP
+remain not tested because the local Docker daemon was unavailable.

@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + SHARED FOUNDATION + PROCUREMENT PILOT IMPLEMENTED / PROJECTS & PROJECT CONTROLS NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + SHARED FOUNDATION + PROCUREMENT + PROJECTS/PROJECT CONTROLS IMPLEMENTED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-19**
 
@@ -29,7 +29,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the shared foundation, and the bounded Procurement pilot are implemented.** RFQ/Purchase Order now prove the controlled `.xlsx` export-review-apply pattern. The next Excel-native rollout is **Projects and project controls**, reusing the shared OperationsGrid/workbook contracts without reopening Phase 0.
+3. **Excel Phase 0/readiness, the shared foundation, the bounded Procurement pilot, and the Projects/project-controls rollout are implemented.** RFQ/Purchase Order and Projects/Cost Codes now prove controlled `.xlsx` export-review-apply patterns with authoritative version checks. Remaining Excel-native domains require their own bounded rollout; app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -284,17 +284,55 @@ atomic compare-and-apply guarantee across a race between refresh and mutation.
 No migration, Docker/Supabase change, new spreadsheet dependency, production
 operation, or app-wide Excel conversion is included.
 
+## 2026-09-19 Projects + Project Controls Excel-native rollout — implemented
+
+The Projects rollout extends the shared `OperationsGrid` and workbook engine to
+the Projects portfolio and project cost-code controls. Desktop project and
+cost-code registers now use dense keyboard-navigable grids with protected
+financial columns, while the existing parent-owned filters, attention/health
+derivation, detail/editor/lifecycle actions, and mobile card fallbacks remain.
+
+The controlled workbook shape is `Projects`, `Cost Codes`, and hidden
+`_HydroQualiSense`. Existing project and cost-code updates support reviewed
+master-data/commercial edits only. Project lifecycle/status/archive metadata,
+currency, Actual Cost, Committed Cost, billing/collection/settlement values,
+cost-code status, parent identity, and audit metadata remain protected.
+Missing rows are preserved, new workbook rows are unsupported, and no cell maps
+directly to a database update. The review surface classifies unchanged,
+workbook-only, app-only, stale/conflicting, protected, invalid, unauthorized,
+unknown-reference, and unsupported-new-record states.
+
+The final Apply boundary is atomic per project group: the project and affected
+cost-code proposals are checked against expected `updated_at` tokens while the
+project and all of its cost codes are locked, and the final active cost-code
+budget is validated against the authoritative approved project budget before
+mutation. RFQ/PO save RPCs now accept the same atomic expected-version contract,
+closing the pilot's documented stale-write race. Creation and deletion through
+the workbook remain deferred/unsupported.
+
+Focused adapter/UI/grid/typecheck evidence is recorded on the implementation
+branch. Docker/Supabase replay and pgTAP were not run because the local Docker
+daemon was unavailable; hosted QA, provider certification, and production
+promotion remain separate and unclaimed. Remaining Excel-native domains require
+future bounded rollouts.
+
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
 
 The repository professionalization track extracted the Subcontract register presentation into `src/components/procurement/SubcontractRegisterSection.tsx` while retaining subcontract, claim, variation, filtering, financial derivation, persistence, permission, lifecycle, and modal/drawer orchestration in `ProcurementPage.tsx`. The existing Claim and Variation workflow components remain authoritative. This is behavior-preserving architecture work; the later 2026-09-19 completion record closes the broader professionalization program for the current repository boundary.
 
-The project-manager Excel-native direction is approved and its future design contract is now documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started: no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review workflow, dependency, migration, or route change is authorized by this roadmap entry. Revisit it only after the repository/architecture boundaries are sufficiently decomposed for a safe shared grid/workbook phase. This future direction does not reorder the retained product dependency sequence below.
+At this historical 2026-09-18 checkpoint, the project-manager Excel-native
+direction was approved as a future design contract at
+`docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` and
+implementation had not started: no `OperationsGrid`, shared sheet schema,
+`.xlsx` reverse-import, import-review workflow, dependency, migration, or route
+change was authorized by that entry. The 2026-09-19 Projects/project-controls
+rollout supersedes this checkpoint while preserving its bounded-domain rule.
  
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave C
  
 The repository professionalization track continues with Slice 5 Wave C, which extracts the Projects portfolio summary, search/filter controls, and responsive register presentation into `src/components/projects/ProjectPortfolioRegisterSection.tsx`. `ProjectsPage.tsx` line count is reduced from 1,413 lines to 713 lines. Authoritative project management view building (`buildProjectManagementView`), multi-currency portfolio summaries (`buildPortfolioManagementSummary`), deterministic filter/sort derivation (`filterAndSortProjectViews`), project editing, tax-treatment classification validation, and lifecycle action orchestration remain parent-owned.
  
-This is behavior-preserving architecture work. No database, migration, RLS/RPC, financial-semantic, provider, production, or persistence contract changed. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was introduced. Slice 5 Wave C is complete as this focused presentation extraction; the later completion record closes the broader professionalization program.
+This is behavior-preserving architecture work. No database, migration, RLS/RPC, financial-semantic, provider, production, or persistence contract changed. At this historical checkpoint Excel-native implementation remained deferred and no grid or spreadsheet dependency/code was introduced. Slice 5 Wave C is complete as this focused presentation extraction; the later 2026-09-19 Projects rollout is the first product implementation on top of that boundary.
 
 ## 2026-09-19 Repository Intelligence — RI-0 through RI-3
 

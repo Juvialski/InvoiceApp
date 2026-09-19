@@ -1,13 +1,13 @@
 # HydroQualiSense Excel-Native Operations UX
 
-> **APPROVED MAJOR UX DIRECTION — PROFESSIONALIZATION COMPLETE; IMPLEMENTATION STARTS AFTER EXCEL PHASE 0/READINESS**
+> **APPROVED MAJOR UX DIRECTION — PROFESSIONALIZATION COMPLETE; CONTROLLED PROCUREMENT + PROJECTS ROLLOUTS IMPLEMENTED**
 
-Status: **Approved; Phase 0/readiness, the shared foundation, and the bounded Procurement pilot are implemented; app-wide Excel capability is not claimed**
+Status: **Approved; Phase 0/readiness, the shared foundation, the bounded Procurement pilot, and the Projects/project-controls rollout are implemented; app-wide Excel capability is not claimed**
 Repository: `Juvialski/InvoiceApp`
 Product: HydroQualiSense
 Approved direction: Make applicable operational work substantially more familiar to experienced Excel users without weakening HydroQualiSense business rules or turning the product into a generic spreadsheet.
 
-This document is an authoritative future design contract. It does not claim that the current Projects, Procurement, Finance, Inventory, Workforce, Payroll, Documents, or Communications registers already satisfy this specification. Existing register/table work remains the current application behavior, and the Slice 5 Subcontract presentation extraction is repository architecture work only. No Excel-native grid, workbook import/export, reverse-upload, schema engine, migration, dependency, or prototype is introduced by this document.
+This document is an authoritative design contract. It does not claim that Finance, Inventory, Workforce, Payroll, Documents, or Communications registers already satisfy this specification. Projects and Procurement have bounded implementations recorded below; remaining domains require their own controlled rollout. Existing detailed workflows remain purpose-built, and the Slice 5 Subcontract presentation extraction remains repository architecture work only.
 
 The live repository, `AGENTS.md`, the active roadmap, the current handoff, and later approved implementation decisions remain authoritative when this document is eventually executed. Future work must start from live repository state rather than treating this document's examples or candidate classifications as a frozen code snapshot.
 
@@ -29,7 +29,34 @@ The Procurement pilot deliberately supports update-only editing of existing draf
 
 The pilot's Apply strategy is: fetch current records when the host provides the refresh hook, parse and validate the workbook, compare against current state, require human review and explicit confirmation, then call the existing parent-owned `onSaveRFQ`/`onSavePO` callbacks. Status, approval/issue/close/cancel history, quotation selection, receiving/settlement evidence, committed totals, cost-code identity, audit metadata, missing-row deletion, and new-record creation remain protected or deferred. The existing authoritative save paths remain responsible for permission, lifecycle, history, and derived-total enforcement. No migration or spreadsheet dependency was added.
 
-This run does not claim atomic cross-session optimistic concurrency: the current RFQ/PO save RPC contracts do not accept a version precondition. The pilot fails stale state at the fresh review/apply check and refuses the proposal when the current fingerprint differs; a future versioned mutation contract is required if the domain needs an atomic compare-and-apply guarantee.
+At the initial Procurement pilot checkpoint, the save RPC contracts did not accept an atomic version precondition. That limitation was closed by the 2026-09-19 concurrency hardening rollout; the current RFQ/PO save paths now reject a stale expected version inside the authoritative mutation.
+
+### 0.1 Projects + Project Controls rollout record — 2026-09-19
+
+The Projects portfolio and project cost-code controls now use the shared
+`OperationsGrid` on desktop/laptop while retaining parent-owned filtering,
+financial derivation, attention/health signals, detail editing, lifecycle
+actions, archive/reactivate controls, and mobile cards. Financial columns are
+read-only/protected in the grid; engineering documents, site records, billing,
+collections, and other detailed workflows remain purpose-built.
+
+The bounded editable workbook shape is `Projects`, `Cost Codes`, and hidden
+`_HydroQualiSense` metadata. It is update-only for existing records. Project
+master-data/commercial fields and cost-code code/name/description/approved
+budget/forecast can be proposed; lifecycle status/archive metadata, currency,
+stable identities/parents, Actual Cost, Committed Cost, billing/collection/
+settlement values, cost-code status, and audit metadata are protected. Missing
+rows do not delete and new workbook rows remain unsupported.
+
+Projects review groups changes by project and requires explicit human
+confirmation. The final Apply boundary locks the project and its cost codes,
+checks expected authoritative `updated_at` tokens, validates the final active
+cost-code allocation against the approved project budget, and mutates one
+project group atomically. RFQ/PO save RPCs now use the same version-precondition
+contract. Hidden metadata remains comparison evidence only; server company,
+permission, RLS, lifecycle, history, and source-of-truth authority remain
+binding. This record does not claim hosted QA, provider certification,
+production authorization, or app-wide Excel completion.
 
 ---
 

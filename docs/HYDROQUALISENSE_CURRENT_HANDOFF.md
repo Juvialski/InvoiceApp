@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 NEXT / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + SHARED FOUNDATION + PROCUREMENT + PROJECTS/PROJECT CONTROLS IMPLEMENTED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
 
@@ -24,7 +24,7 @@ Email/SMS Reliability & SMS Improvement slice is complete on merged `main`;
 live Brevo/SMS provider certification remains pending external
 credentials/device/runtime.
 
-The approved future Excel-Native Operations UX is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is not implemented and must not be treated as current product capability.
+The approved Excel-Native Operations UX is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the shared foundation, the bounded Procurement pilot, and the Projects/project-controls rollout are implemented; app-wide Excel capability remains unclaimed.
 
 ### Earlier UI/UX and hosted-certification reference
 
@@ -283,7 +283,7 @@ Slice 5 Wave B extracted the Subcontract register presentation into `src/compone
 
 This is behavior-preserving architecture work. No database, migration, RLS/RPC, provider, production, route, or persistence contract changed. The later 2026-09-19 completion record closes the broader professionalization program for the current repository boundary.
 
-The approved future Excel-Native Operations UX direction is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. It is documentation only in this handoff: implementation has not started, current registers are not claimed to satisfy it, and no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review UI, dependency, migration, or route change is included. Revisit it from live repository state after the shared architecture boundary is safe.
+At this historical 2026-09-18 checkpoint, the approved Excel-Native Operations UX direction was documentation only: implementation had not started, current registers were not claimed to satisfy it, and no `OperationsGrid`, shared sheet schema, `.xlsx` reverse-import, import-review UI, dependency, migration, or route change was included. The later 2026-09-19 rollout supersedes that checkpoint for Projects/project controls.
 
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave C
 
@@ -360,6 +360,42 @@ remaining atomic compare-and-apply limitation; it does not claim protection
 against a race after the final read and before mutation. No database migration,
 Docker/Supabase replay, provider certification, production operation, or
 non-Procurement reverse-import work is included.
+
+## 2026-09-19 Projects + Project Controls Excel-native rollout — implemented
+
+The Projects rollout is now implemented on top of the shared foundation. The
+desktop portfolio register and project Budget Control cost-code register use
+`OperationsGrid` with stable columns, keyboard movement, row selection,
+sorting, protected numeric/financial cells, and preserved Open/Edit/Lifecycle
+or archive/reactivate actions. Mobile and tablet contexts retain the existing
+card fallback and purpose-built detail workflows.
+
+The Projects workbook contains `Projects`, `Cost Codes`, and hidden
+`_HydroQualiSense` synchronization metadata. It is update-only for existing
+records. Safe project master-data/commercial fields and cost-code code/name/
+description/approved-budget/forecast fields are reviewable; lifecycle status,
+archive provenance, currency, parent identity, Actual Cost, Committed Cost,
+billing/collection/settlement values, cost-code status, and audit metadata are
+protected. Missing rows do not delete and new workbook rows remain unsupported.
+
+Upload is proposal-only and groups review by project. The grouped Apply callback
+revalidates fresh state and invokes one authoritative transaction per project:
+project and affected cost codes are locked, expected `updated_at` tokens are
+checked, and the final active cost-code budget is checked against the approved
+project budget before mutation. Read-only users can review but cannot Apply.
+
+The Procurement pilot's RFQ/PO save paths now also accept an atomic expected
+version token, closing the previously documented race between the review read
+and the guarded save RPC. No lifecycle, receiving, settlement, financial
+history, mixed-currency, company-isolation, or source-ownership boundary was
+weakened. Creation/deletion through workbook import remains deferred.
+
+Focused workbook/grid/domain tests and TypeScript typecheck passed. A real
+SheetJS export/review/apply/re-export round trip is covered by the adapter
+tests. Docker/Supabase replay and pgTAP were not tested because the local Docker
+daemon was unavailable; hosted QA, provider certification, and production
+promotion remain separate and unclaimed. The next Excel-native work requires a
+new bounded domain rollout; app-wide Excel capability is not claimed.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
