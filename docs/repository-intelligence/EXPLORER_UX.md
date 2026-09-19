@@ -8,7 +8,7 @@ The useful hierarchy is:
 
 `index/graph first -> query/context second -> visualization third`
 
-RI-4 should begin with a structured and 2D explorer. Optional 3D visualization follows only after the graph/query model is stable.
+RI-4 may begin the later structured/2D explorer work after the RI-1→RI-3 core and higher-priority HydroQualiSense work permit it. Optional 3D visualization is RI-7 and remains the final Repository Intelligence phase.
 
 ## Access and deployment
 
@@ -133,7 +133,7 @@ The repository already depends on `@xyflow/react`, but RI-4 should only reuse it
 
 ## 3D direction
 
-RI-6 may add a richer WebGL view:
+RI-7 may add a richer WebGL view only after all earlier Repository Intelligence phases and higher-priority HydroQualiSense work are complete or explicitly reprioritized:
 
 - districts = domains;
 - buildings = files/components;
