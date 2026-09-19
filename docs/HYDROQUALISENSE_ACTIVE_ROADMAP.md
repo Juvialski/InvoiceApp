@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY INTELLIGENCE RI-0 DOCUMENTED / REPOSITORY & ARCHITECTURE PROFESSIONALIZATION IN PROGRESS / EMAIL-SMS RELIABILITY REMAINS ISOLATED / EXCEL-NATIVE OPERATIONS UX APPROVED FOR FUTURE IMPLEMENTATION / WIDE DOCUMENTS REMAINING SLICES DEFERRED / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — PR #176 RELIABILITY FINALIZATION FIRST / PR #179 RECONCILIATION SECOND / REPOSITORY INTELLIGENCE RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-19**
 
@@ -24,14 +24,19 @@ Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
 
-## Current execution tracks
+## Current priority sequence
 
-1. **Repository Intelligence — RI-0 documentation/architecture complete; implementation not started.** The canonical design is `docs/repository-intelligence/README.md`. It preserves the current Workflow Map and bounded context interfaces, is model-provider-neutral, and recommends RI-1 Incremental Repository Source Index as the next implementation slice only when the user explicitly starts it.
-2. **Repository & Architecture Professionalization — active structural implementation.** Slices 1-4 and Slice 5 Waves A-C are implemented in the current repository state. Wave C is the Projects Portfolio/Register presentation extraction described below. The broader professionalization program remains incomplete.
-3. **Email/SMS Reliability — independent workstream.** Draft PR #176 remains isolated; do not absorb its owned files into structural cleanup.
-4. **Excel-Native Operations UX — approved future major UX direction.** The canonical design is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Implementation has not started and does not reorder the active structural work.
-5. **Release/readiness certification — parallel track.** Hosted/provider/QA evidence remains separate from structural merges and production authorization.
-6. **Wide Documents managed slices — deferred. Worker Registration — paused.**
+1. **Finalize PR #176 — authenticated request recovery.** Bring the isolated reliability branch onto current `main`, review/fix it, validate proportionally, and merge only if safe.
+2. **Reconcile and close stale draft PR #179.** Carry forward only still-valid repository-professionalization guidance that is not superseded by current `main` or Repository Intelligence documentation; do not treat the old draft as a fresh implementation plan.
+3. **Repository Intelligence RI-1 → RI-2 → RI-3.** Implement the incremental source index, unified provenance-aware graph/query layer, then bounded AI Context Engine integration. Stop after RI-3 before explorer-focused work unless explicitly reprioritized.
+4. **Finish Repository & Architecture Professionalization.** Slices 1-4 and Slice 5 Waves A-C are already implemented; continue the remaining bounded structural work using the Repository Intelligence core to reduce rediscovery/context cost.
+5. **Implement Excel-Native Operations UX.** Begin only after the relevant architecture boundaries are ready; preserve bidirectional `.xlsx` round trips and all validation/security/financial/history rules.
+6. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** The reliability code path should not wait idly for credentials/devices; controlled Brevo/SMS certification can proceed when safe prerequisites exist.
+7. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
+8. **Later Repository Intelligence tooling: RI-4 through RI-6.** Structured/2D explorer, change intelligence, and agent-effectiveness hardening are useful but not prerequisites for the higher-priority product queue.
+9. **RI-7 optional 3D explorer — LAST.** It is a developer presentation layer, not an indexing/context dependency or release requirement.
+
+Release/readiness certification remains a parallel track and should run when its exact prerequisites exist. A structural merge never implies hosted certification or production authorization.
 
 ## Historical application / certification baselines
 
@@ -249,7 +254,7 @@ RI-0 changes documentation only. No source indexer, unified graph implementation
 
 The planned core is model-provider-neutral. Current ChatGPT/Codex/Luna-compatible workflows may consume bounded packets where enabled, but Repository Intelligence does not depend on a model-specific API. No active/current DeepSeek dependency was found in the inspected main agent/roadmap/handoff/architecture documentation, so RI-0 does not rewrite historical records merely to remove a name.
 
-Recommended next implementation slice when explicitly authorized: **RI-1 — Incremental Repository Source Index**. It is additive and must not start in RI-0.
+Repository Intelligence implementation priority is **RI-1 → RI-2 → RI-3**, then pause for higher-priority structural/product work unless explicitly reprioritized. RI-4 through RI-6 are later developer-tooling improvements, and **RI-7 optional 3D is last**.
 
 ## Product dependency sequence
 
