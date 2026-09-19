@@ -467,6 +467,11 @@ begin
      and upper(nullif(p_project->>'currency', '')) is distinct from v_project.currency then
     raise exception 'Project currency is protected in workbook Apply' using errcode = '42501';
   end if;
+  if nullif(p_project->>'taxTreatment', '') is not null
+     and upper(nullif(p_project->>'taxTreatment', '')) not in ('VAT', 'NON_VAT')
+     and upper(nullif(p_project->>'taxTreatment', '')) is distinct from v_project.tax_treatment then
+    raise exception 'A classified project cannot be changed back to an unclassified tax treatment through workbook Apply' using errcode = '42501';
+  end if;
   if nullif(p_project->>'status', '') is not null and nullif(p_project->>'status', '') is distinct from v_project.status then
     raise exception 'Project lifecycle status is controlled by the project lifecycle workflow' using errcode = '42501';
   end if;
