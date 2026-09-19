@@ -29,7 +29,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the shared foundation, the bounded Procurement pilot, and the Projects/project-controls rollout are implemented.** RFQ/Purchase Order and Projects/Cost Codes now prove controlled `.xlsx` export-review-apply patterns with authoritative version checks. Remaining Excel-native domains require their own bounded rollout; app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the shared foundation, the bounded Procurement pilot, and the Projects/project-controls rollout are implemented.** RFQ/Purchase Order and Projects/Cost Codes now prove controlled `.xlsx` export-review-apply patterns with authoritative version checks. The next bounded domain in the approved sequence is **Phase 4 — Expenses and Finance**; app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -311,10 +311,13 @@ closing the pilot's documented stale-write race. Creation and deletion through
 the workbook remain deferred/unsupported.
 
 Focused adapter/UI/grid/typecheck evidence is recorded on the implementation
-branch. Docker/Supabase replay and pgTAP were not run because the local Docker
-daemon was unavailable; hosted QA, provider certification, and production
-promotion remain separate and unclaimed. Remaining Excel-native domains require
-future bounded rollouts.
+branch. Local Docker/Supabase was unavailable during the Codex implementation
+run, so the protected exact-head Database Migration & Invariant workflow is the
+authoritative runtime gate for clean migration replay, pgTAP/invariants, and the
+historical-data upgrade path before merge. Demo Visual QA is likewise an
+exact-head merge gate for the changed Projects surfaces. Provider certification
+and production promotion remain separate and unclaimed. The next bounded
+Excel-native domain is Phase 4 — Expenses and Finance.
 
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
 
