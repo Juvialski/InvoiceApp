@@ -80,6 +80,7 @@ export function runRepositoryIntelligenceCli(args: readonly string[] = process.a
         schemaVersion: cache.manifest.schemaVersion,
         generatorVersion: cache.manifest.generatorVersion,
         repositoryHeadSha: cache.manifest.repositoryHeadSha,
+        dirtyTrackedPaths: cache.manifest.dirtyTrackedPaths,
         indexedFiles: cache.manifest.files.length,
         cache: cacheDir,
       }
