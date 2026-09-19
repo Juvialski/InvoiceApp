@@ -163,5 +163,7 @@ The final status is: version-aware RFQ/PO/project/cost-control contracts;
 Projects and cost-code `OperationsGrid` surfaces; controlled Projects/Cost Codes
 workbook export-review-apply; update-only existing-record semantics; atomic
 per-project Apply groups; protected lifecycle/financial/mixed-currency fields;
-and no workbook-cell direct persistence. Docker/Supabase replay and pgTAP
-remain not tested because the local Docker daemon was unavailable.
+and no workbook-cell direct persistence. Local Docker/Supabase was unavailable
+during the Codex implementation run; protected exact-head CI is the required
+source of clean migration replay, pgTAP/runtime-concurrency, and historical
+upgrade evidence before merge.
