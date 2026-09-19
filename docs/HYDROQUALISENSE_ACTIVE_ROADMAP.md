@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — EMAIL-SMS IMPLEMENTATION COMPLETE / PROVIDER CERTIFICATION PENDING / PR #179 RECONCILED / REPOSITORY INTELLIGENCE RI-1→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — EMAIL-SMS IMPLEMENTATION COMPLETE / PROVIDER CERTIFICATION PENDING / PR #179 RECONCILED / REPOSITORY INTELLIGENCE RI-1 COMPLETE / RI-2→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / QA CERTIFICATION NOT READY / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-19**
 
@@ -15,7 +15,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Email/SMS phase contract:** `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`
 **Security assurance contract:** `docs/HYDROQUALISENSE_CLIENT_SECURITY_ASSURANCE.md`
 **Security assurance implementation/evidence plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
-**Repository Intelligence architecture:** `docs/repository-intelligence/README.md` — RI-0 documentation complete; implementation not started
+**Repository Intelligence architecture:** `docs/repository-intelligence/README.md` — RI-1 implemented; RI-2/RI-3 remain planned
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 **Approved future Excel-Native Operations UX design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — implementation deferred
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
@@ -26,7 +26,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 ## Current priority sequence
 
-1. **Repository Intelligence RI-1 → RI-2 → RI-3.** The implementable Email/SMS Reliability & SMS Improvement slice is complete; provider/runtime certification remains separate. Implement the incremental source index, unified provenance-aware graph/query layer, then bounded AI Context Engine integration. Stop after RI-3 before explorer-focused work unless explicitly reprioritized.
+1. **Repository Intelligence RI-2 → RI-3.** RI-1 is implemented as an additive local source index. The implementable Email/SMS Reliability & SMS Improvement slice is complete; provider/runtime certification remains separate. Next implement the unified provenance-aware graph/query layer, then bounded AI Context Engine integration. Stop after RI-3 before explorer-focused work unless explicitly reprioritized.
 2. **Finish Repository & Architecture Professionalization.** PR #179 has been reconciled and closed as stale rather than adopted wholesale. Slices 1-4 and Slice 5 Waves A-C are already implemented; continue the remaining bounded structural/repository-hygiene/human-onboarding work using the Repository Intelligence core to reduce rediscovery/context cost.
 3. **Implement Excel-Native Operations UX.** Begin only after the relevant architecture boundaries are ready; preserve bidirectional `.xlsx` round trips and all validation/security/financial/history rules.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist; do not block RI work merely waiting for those prerequisites.
@@ -244,15 +244,17 @@ The repository professionalization track continues with Slice 5 Wave C, which ex
  
 This is behavior-preserving architecture work. No database, migration, RLS/RPC, financial-semantic, provider, production, or persistence contract changed. Excel-native implementation remains deferred; no grid or spreadsheet dependency/code was introduced. Slice 5 Wave C is complete as this focused presentation extraction; the broader professionalization program remains in progress.
 
-## 2026-09-19 Repository Intelligence — RI-0
+## 2026-09-19 Repository Intelligence — RI-0 and RI-1
 
 Repository Intelligence is now documented as an additive developer architecture built on the existing Workflow Map rather than a replacement for it. The canonical documentation is `docs/repository-intelligence/README.md` with separate architecture, graph/provenance, AI Context Engine, explorer UX, and implementation-roadmap documents.
 
-RI-0 changes documentation only. No source indexer, unified graph implementation, explorer route, customer-facing navigation, dependency, migration, database/provider behavior, or production surface is added. The existing `workflow-map:generate`, `workflow-map:check`, `workflow-map:consistency`, `workflow-map:context`, and `agent:context` interfaces remain the current implementation.
+RI-0 established the documentation-only architecture. RI-1 now adds the local-only source index under `scripts/repository-intelligence/`: Git-tracked inventory, deterministic classification, SHA-256 content hashes, TypeScript/TSX compiler-API extraction, versioned manifest/per-file cache, full/incremental rebuilds, safe exclusions, concise CLI commands, and fixture-driven tests. The existing `workflow-map:generate`, `workflow-map:check`, `workflow-map:consistency`, `workflow-map:context`, and `agent:context` interfaces remain unchanged.
+
+RI-1 does not add a customer/runtime dependency, unified graph merge, provenance conflict resolution, context-engine replacement, explorer route, database/provider behavior, or production surface. Its disposable cache is `.cache/repository-intelligence/` and is ignored by Git. The exact validation evidence is recorded in the current handoff; hosted QA, browser QA, Docker/Supabase, migrations, and provider certification remain out of scope.
 
 The planned core is model-provider-neutral. Current ChatGPT/Codex/Luna-compatible workflows may consume bounded packets where enabled, but Repository Intelligence does not depend on a model-specific API. No active/current DeepSeek dependency was found in the inspected main agent/roadmap/handoff/architecture documentation, so RI-0 does not rewrite historical records merely to remove a name.
 
-Repository Intelligence implementation priority is **RI-1 → RI-2 → RI-3**, then pause for higher-priority structural/product work unless explicitly reprioritized. RI-4 through RI-6 are later developer-tooling improvements, and **RI-7 optional 3D is last**.
+Repository Intelligence implementation priority is now **RI-2 → RI-3**, then pause for higher-priority structural/product work unless explicitly reprioritized. RI-4 through RI-6 are later developer-tooling improvements, and **RI-7 optional 3D is last**.
 
 ## Product dependency sequence
 

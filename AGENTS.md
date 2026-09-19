@@ -42,7 +42,7 @@ Prompt creators should put the pull-first instruction at the top of every normal
 
 This sequence supersedes older `active`, `next`, and implementation-order wording when they conflict. Live repository state still governs exact scope and merge safety.
 
-1. **Repository Intelligence RI-1 — Incremental Repository Source Index.** The implementable Email/SMS Reliability & SMS Improvement slice is complete on merged `main`; live Brevo/SMS provider certification remains a separate readiness track pending safe credentials/device runtime. Build the additive local file/hash/symbol/import index without changing current Workflow Map behavior.
+1. **Repository Intelligence RI-1 — Incremental Repository Source Index.** The additive local file/hash/symbol/import index is implemented without changing current Workflow Map behavior. The next implementation slice is RI-2.
 2. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.** Merge source-derived structure with the curated Workflow Map while preserving authority/provenance.
 3. **Repository Intelligence RI-3 — AI Context Engine integration.** Upgrade bounded task context behind the existing `workflow-map:context` / `agent:context` interfaces. This is the main Repository Intelligence efficiency milestone for later development.
 4. **Resume and finish remaining Repository & Architecture Professionalization work** using the improved bounded-context foundation. PR #179 has been reconciled rather than adopted wholesale; its still-valid context-budget, repository-hygiene, and human-onboarding goals are carried into current docs.
