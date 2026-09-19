@@ -317,7 +317,14 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     {
       key: "source",
       header: "Source / PO",
-      value: (expense) => { const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined; const purchaseOrder = expense.purchaseOrderId ? purchaseOrderMap.get(expense.purchaseOrderId) : undefined; return <div className="flex flex-col items-start gap-1">{invoice ? <span className="max-w-[190px] truncate text-[10px] font-black text-indigo-700">Supplier invoice {invoice.invoiceNumber || invoice.id.slice(0, 8)}</span> : <strong className="block truncate text-[10px] text-slate-700">Manual expense</strong>}{purchaseOrder ? <span className="max-w-[190px] truncate text-[10px] font-black text-indigo-700">PO {purchaseOrder.poNumber}</span> : <span className="block truncate text-[10px] text-slate-500">{expense.supplierInvoiceId ? "Source invoice on file" : "No linked source"}</span>}</div>; },
+      value: (expense) => {
+        const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined;
+        const purchaseOrder = expense.purchaseOrderId ? purchaseOrderMap.get(expense.purchaseOrderId) : undefined;
+        const invoicePath = invoice ? appPathForInvoice(invoice.id, appPathForExpense(expense.id)) : undefined;
+        const purchaseOrderPath = purchaseOrder ? appPathForPurchaseOrder(purchaseOrder.id, appPathForExpense(expense.id)) : undefined;
+        const navigateSource = (event: React.MouseEvent<HTMLAnchorElement>, path: string) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(path); };
+        return <div className="flex flex-col items-start gap-1">{invoicePath ? <a href={expenseRouteHref(invoicePath, invoice!.id)} onClick={(event) => navigateSource(event, invoicePath)} className="max-w-[190px] truncate text-left text-[10px] font-black text-indigo-700 hover:underline">Supplier invoice {invoice!.invoiceNumber || invoice!.id.slice(0, 8)}</a> : <strong className="block truncate text-[10px] text-slate-700">Manual expense</strong>}{purchaseOrderPath ? <a href={expenseRouteHref(purchaseOrderPath, purchaseOrder!.id)} onClick={(event) => navigateSource(event, purchaseOrderPath)} className="max-w-[190px] truncate text-left text-[10px] font-black text-indigo-700 hover:underline">PO {purchaseOrder!.poNumber}</a> : <span className="block truncate text-[10px] text-slate-500">{expense.supplierInvoiceId ? "Source invoice on file" : "No linked source"}</span>}</div>;
+      },
       sortValue: (expense) => expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId)?.invoiceNumber || "" : expense.purchaseOrderId ? purchaseOrderMap.get(expense.purchaseOrderId)?.poNumber || "" : "",
       protected: (expense) => Boolean(expense.supplierInvoiceId || expense.vendorId || expense.purchaseOrderId || expense.receiptSourceDocumentId),
       cellClassName: "min-w-[200px]",

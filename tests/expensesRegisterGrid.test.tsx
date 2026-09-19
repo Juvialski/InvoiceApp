@@ -27,4 +27,5 @@ test("Expense workbook integration preserves the existing route and financial ac
   assert.match(pageSource, /appPathForCashTarget/);
   assert.match(pageSource, /appPathForInvoice/);
   assert.match(pageSource, /appPathForPurchaseOrder/);
+  assert.match(pageSource, /key: ["']source["'][\s\S]{0,1400}invoicePath \? <a/);
 });
