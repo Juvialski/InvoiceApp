@@ -158,6 +158,18 @@ test("classifies protected status edits, unresolved references, unknown IDs, and
 
   const blankProject = editWorkbook(exportedBytes(), "Purchase Orders", "C2", "");
   assert.equal(buildProcurementImportReview(blankProject, context()).proposals.find((item) => item.entity === "PURCHASE_ORDER")?.status, "MISSING_REFERENCE");
+
+  const lineFingerprintEdited = editWorkbook(exportedBytes(), "RFQ Lines", "L2", "tampered-fingerprint");
+  assert.equal(buildProcurementImportReview(lineFingerprintEdited, context()).proposals.find((item) => item.entity === "RFQ")?.status, "INVALID");
+
+  const lineNumberEdited = editWorkbook(exportedBytes(), "PO Lines", "B2", 99);
+  assert.equal(buildProcurementImportReview(lineNumberEdited, context()).proposals.find((item) => item.entity === "PURCHASE_ORDER")?.status, "UNSUPPORTED_PROTECTED_FIELD");
+
+  const orphanedLine = editWorkbook(exportedBytes(), "RFQ Lines", "I2", "rfq-outside-scope");
+  assert.throws(
+    () => buildProcurementImportReview(orphanedLine, context()),
+    /synchronization parent.*outside the active company scope/i,
+  );
 });
 
 test("read-only review never gains apply authority and missing rows do not imply deletion", async () => {
