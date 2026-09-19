@@ -7,6 +7,7 @@ import type { ExcludedFileRecord, TrackedFileCandidate } from "./types.ts";
 
 export interface TrackedFileInventory {
   readonly repositoryHeadSha: string;
+  readonly dirtyTrackedPaths: readonly string[];
   readonly trackedFiles: readonly TrackedFileCandidate[];
   readonly excludedFiles: readonly ExcludedFileRecord[];
 }
@@ -35,6 +36,16 @@ export function listTrackedPaths(rootDir: string): readonly string[] {
     .map(normalizeRepositoryPath)
     .filter(Boolean)
     .sort(compareText);
+}
+
+export function listDirtyTrackedPaths(rootDir: string): readonly string[] {
+  const output = git(rootDir, ["diff", "--name-only", "-z", "HEAD", "--"]);
+  return [...new Set(
+    output
+      .split("\0")
+      .map(normalizeRepositoryPath)
+      .filter(Boolean),
+  )].sort(compareText);
 }
 
 function hashContents(contents: Buffer): string {
@@ -67,6 +78,7 @@ function absolutePathFor(rootDir: string, relativePath: string): string {
 export function collectTrackedFileInventory(rootDir: string): TrackedFileInventory {
   const resolvedRoot = path.resolve(rootDir);
   const repositoryHeadSha = git(resolvedRoot, ["rev-parse", "HEAD"]).trim() || "unknown";
+  const dirtyTrackedPaths = listDirtyTrackedPaths(resolvedRoot);
   const trackedFiles: TrackedFileCandidate[] = [];
   const excludedFiles: ExcludedFileRecord[] = [];
 
@@ -147,6 +159,7 @@ export function collectTrackedFileInventory(rootDir: string): TrackedFileInvento
 
   return {
     repositoryHeadSha,
+    dirtyTrackedPaths,
     trackedFiles: trackedFiles.sort((left, right) => compareText(left.path, right.path)),
     excludedFiles: excludedFiles.sort((left, right) => compareText(left.path, right.path)),
   };
