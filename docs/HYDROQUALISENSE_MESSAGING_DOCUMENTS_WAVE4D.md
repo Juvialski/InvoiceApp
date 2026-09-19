@@ -97,6 +97,25 @@ Brevo sender verification/controlled QA remains a separate operator task. SMS pr
 runtime completion remains separate and unavailable until controlled QA evidence exists.
 Worker Registration remains paused.
 
+## 2026-09-19 implementation checkpoint
+
+The implementable Email/SMS Reliability & SMS Improvement slice is complete on merged `main`.
+
+Current implemented SMS behavior includes:
+
+- Company SIM Gateway as the primary/recommended server-side provider and PhilSMS as the optional hosted fallback;
+- server-only credentials and provider-neutral status/response normalization;
+- one reviewed Philippine transactional recipient per send with canonical mobile normalization;
+- explicit human confirmation before send;
+- durable delivery-intent history, idempotency, duplicate-send protection, and reconciliation-required handling for ambiguous outcomes;
+- provider status lookup/reconciliation where supported;
+- Email / SMS Compose, Sent / Delivery History, provider-status, and SMS setup/status surfaces;
+- bounded provider HTTP response size and timeout handling through response-body reads;
+- focused contract coverage plus exact-head application validation/build evidence.
+
+No real SMS was sent during implementation. Company SIM Gateway and PhilSMS remain `Not configured` / unverified in product truth until controlled QA credentials/device runtime are available. Brevo live-provider certification remains separate for the same reason.
+
+Therefore the **implementation slice is complete**, but the broader Wave 4D completion gate remains open because criterion 7 still requires real provider-backed QA runtime evidence unless the user explicitly changes that definition. Worker Registration remains paused.
 ## Target top-level navigation
 
 The intended authenticated product navigation must expose distinct primary areas:
