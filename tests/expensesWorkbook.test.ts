@@ -229,6 +229,12 @@ function proposalFor(review: ReturnType<typeof buildExpensesImportReview>, expen
   return proposal;
 }
 
+function supplierProposalFor(review: ReturnType<typeof buildExpensesImportReview>, invoiceId: string) {
+  const proposal = review.proposals.find((candidate) => candidate.invoiceId === invoiceId);
+  assert.ok(proposal, `Expected a supplier payable proposal for ${invoiceId}`);
+  return proposal;
+}
+
 function changedDirectExpense() {
   return expense({ description: "Changed in app", updatedAt: "2026-09-22T00:00:00.000Z" });
 }
@@ -265,6 +271,8 @@ test("fails closed for stale state, hidden identity tampering, bad references, a
   const edited = setExpenseCells(exportedBytes(), { Description: "Workbook edit" }, 0);
   assert.equal(proposalFor(buildExpensesImportReview(edited, context({ expenses: [changedDirectExpense(), ...records().expenses.slice(1)] })), DIRECT_EXPENSE_ID).status, "STALE_CONFLICT");
   assert.equal(proposalFor(buildExpensesImportReview(editCell(edited, "Expenses", "__HQ Company ID", "other-company", 0), context()), DIRECT_EXPENSE_ID).status, "UNAUTHORIZED");
+  const supplierTampered = editCell(exportedBytes(), "Supplier Payables", "__HQ Linked Expense ID", "other-expense", 0);
+  assert.equal(supplierProposalFor(buildExpensesImportReview(supplierTampered, context()), SUPPLIER_INVOICE_ID).status, "INVALID");
   assert.equal(proposalFor(buildExpensesImportReview(setExpenseCells(exportedBytes(), { Project: "UNKNOWN" }, 0), context()), DIRECT_EXPENSE_ID).status, "UNKNOWN_REFERENCE");
   assert.equal(proposalFor(buildExpensesImportReview(setExpenseCells(exportedBytes(), { Amount: -1 }, 0), context()), DIRECT_EXPENSE_ID).status, "INVALID");
 });

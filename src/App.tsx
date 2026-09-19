@@ -1559,14 +1559,18 @@ function InvoiceWorkspace() {
 
   const handleRefreshExpensesWorkbook = async (): Promise<ExpensesWorkbookRecords> => {
     if (session && supabase && !guestModeState) {
+      const canReadExpenses = can(PERMISSION_KEYS.expensesRead) || can(PERMISSION_KEYS.expensesWrite);
+      const canReadProjects = can(PERMISSION_KEYS.projectsRead);
+      const canReadInvoices = can(PERMISSION_KEYS.invoicesRead);
+      const canReadProcurement = can(PERMISSION_KEYS.procurementRead);
       const [freshExpenses, freshProjects, freshCostCodes, freshInvoices, freshAllocations, freshPurchaseOrders, freshVendors] = await Promise.all([
-        loadExpensesFromSupabase(),
-        loadProjectsFromSupabase(),
-        loadProjectCostCodesFromSupabase(),
-        loadInvoicesFromSupabase(),
-        loadInvoiceProjectAllocationsFromSupabase(),
-        fetchPurchaseOrders(),
-        fetchVendors(),
+        canReadExpenses ? loadExpensesFromSupabase() : Promise.resolve(expenses),
+        canReadProjects ? loadProjectsFromSupabase() : Promise.resolve(projects),
+        canReadProjects ? loadProjectCostCodesFromSupabase() : Promise.resolve(costCodes),
+        canReadInvoices ? loadInvoicesFromSupabase() : Promise.resolve(invoices),
+        canReadProjects || canReadInvoices ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve(invoiceProjectAllocations),
+        canReadProcurement ? fetchPurchaseOrders() : Promise.resolve(purchaseOrders),
+        canReadProcurement || canReadInvoices || canReadExpenses ? fetchVendors() : Promise.resolve(vendors),
       ]);
       const freshProjections = buildSupplierInvoiceSettlementProjections(freshInvoices, freshExpenses, cashData.matches, supplierSettlementToday);
       setExpenses(freshExpenses);

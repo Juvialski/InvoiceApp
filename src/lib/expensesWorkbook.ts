@@ -662,6 +662,12 @@ function supplierPayableProposal(
     proposal.messages.push("Supplier payable synchronization metadata is missing, tampered, or outside the active company scope.");
     return proposal;
   }
+  if (nullableText(row["__HQ Linked Expense ID"]) !== (currentState.linkedExpenseId || null)
+    || metadata?.parentId !== (currentState.linkedExpenseId || undefined)) {
+    proposal.status = "INVALID";
+    proposal.messages.push("Supplier payable linked-Expense synchronization identity was changed in the workbook.");
+    return proposal;
+  }
   const exported = parseMetadataState(metadata) || {};
   const changes: ExpensesFieldChange[] = [];
   const invoiceDate = dateValue(row["Invoice Date"]) || null;

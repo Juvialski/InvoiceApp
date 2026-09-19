@@ -27,4 +27,6 @@ test("App owns Expense workbook permissions, refresh, and authoritative persiste
   assert.ok(applyStart >= 0 && refreshStart > applyStart);
   const applyBody = app.slice(applyStart, refreshStart);
   assert.doesNotMatch(applyBody, /applyExpenseCorrection|verifySupplierInvoiceAndCreateExpense/);
+  assert.match(app.slice(refreshStart), /PERMISSION_KEYS\.invoicesRead/);
+  assert.match(app.slice(refreshStart), /PERMISSION_KEYS\.procurementRead/);
 });
