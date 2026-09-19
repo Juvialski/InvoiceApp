@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — RI-1 COMPLETE / COMBINED RI-2+RI-3 NEXT / EXCEL-READINESS GATE IMMEDIATELY AFTER / EXCEL FOUNDATION + PROCUREMENT PILOT ACCELERATED / NON-BLOCKING PROFESSIONALIZATION DEFERRED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — RI-1 COMPLETE / COMBINED RI-2+RI-3 NEXT / FULL PROFESSIONALIZATION COMPLETION BEFORE EXCEL / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
 
@@ -507,9 +507,9 @@ Preserve throughout resumed Wave 4D and subsequent work:
 ## Required sequence from this handoff
 
 1. **Combined RI-2 + RI-3 implementation run.** RI-2 must land conceptually first inside the branch; RI-3 then consumes it. Preserve `workflow-map:context` / `agent:context` entry points, current safety-net test selection, curated authority, stale-index fail-closed behavior, and explicit fallback.
-2. **Excel-readiness gate / Excel Phase 0 in the same run after RI-3 is proven.** Use the new bounded repository context to classify operational screens, identify current XLSX/import-export utilities, define shared schema/protected-field rules and authoritative mutation boundaries, and determine whether any concrete architectural blocker remains.
-3. **If the readiness gate is green, Excel-Native Phase 1 is the immediate next implementation phase, followed by the Procurement RFQ/PO pilot.** Do not require completion of cosmetic/non-blocking professionalization first.
-4. **If the readiness gate finds a real blocker, fix only that blocker before Excel.** Remaining branding/repository hygiene/onboarding/artifact-policy/repository-rename work and arbitrary decomposition are deferred unless they materially block the Excel shared architecture.
+2. **Finish the entire remaining Repository & Architecture Professionalization program after RI-3.** Use the new bounded context to complete all still-valid structural and repository-facing work from the canonical professionalization design, not merely the pieces required for Excel.
+3. **Professionalization must reach an explicit COMPLETE state before Excel.** No vague "broader program remains in progress" status may remain. Any item that cannot be performed automatically must be resolved into a deliberate documented decision/manual external action rather than left as open implementation scope.
+4. **Only after that completion gate, perform Excel Phase 0/readiness, then Excel-Native Phase 1 and the Procurement RFQ/PO pilot.**
 5. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 6. **Resume Wide Documents remaining managed slices.**
 7. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
@@ -520,17 +520,13 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-The next Codex/Luna Max run is deliberately wider than the prior RI slices but remains sequential and bounded:
+The next Luna Max/Codex run remains the combined RI-2 + RI-3 core run for efficiency. Do not mix Excel Phase 0 or Excel feature implementation into it.
 
-1. implement and prove RI-2;
-2. immediately layer RI-3 onto the proven RI-2 graph;
-3. perform the Excel-readiness / Phase-0 inventory using the new bounded context;
-4. fix at most concrete architecture blockers genuinely required before Excel;
-5. if the gate is green, synchronize documentation so **Excel-Native Phase 1 — shared OperationsGrid/workbook engine** is the immediate next implementation phase.
+After RI-2 and RI-3 merge, the immediate next run is **Repository & Architecture Professionalization Completion**. That run should use the new bounded Repository Intelligence context to finish the canonical remaining program in one deliberate consolidation pass where safe, with an explicit priority order and stop boundary.
 
-Efficiency rules remain strict: pull current main first, one bounded context packet, zero subagents by default, focused tests while editing, one final affected-test pass, no ritual full suite, and no browser/DB/provider work unless the final diff actually crosses those risk domains.
+Professionalization completion includes the still-valid goals in `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`: secondary large-module triage based on responsibilities/context budget, repository hygiene, current branding/repository-facing metadata cleanup where safe, tracked-vs-transient evidence policy, human onboarding/front-door clarity, and integration-aware repository identity/rename evaluation. It must not revive superseded App/server/static-analysis work that is already complete.
 
-Do not spend this combined run on RI-4/RI-5/RI-6, explorer UI, 3D, repository rename, cosmetic branding, generic onboarding, artifact cleanup, broad unrelated refactors, provider certification, Worker Registration, or Excel feature implementation beyond the readiness/Phase-0 gate.
+Efficiency rules remain strict: pull current main first, one bounded context packet, zero subagents by default, focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.
 
-Provider/runtime certification for Brevo/SMS remains parallel and opportunistic when safe external prerequisites exist.
+Excel Phase 0/readiness starts only after the professionalization program is explicitly marked COMPLETE.
 
