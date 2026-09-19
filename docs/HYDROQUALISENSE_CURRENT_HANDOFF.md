@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — EMAIL-SMS IMPLEMENTATION COMPLETE / PROVIDER CERTIFICATION PENDING / PR #179 RECONCILED / RI-1 COMPLETE / RI-2→RI-3 NEXT / PROFESSIONALIZATION THEN EXCEL-NATIVE / 3D EXPLORER LAST / HOSTED-PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — RI-1 COMPLETE / COMBINED RI-2+RI-3 NEXT / EXCEL-READINESS GATE IMMEDIATELY AFTER / EXCEL FOUNDATION + PROCUREMENT PILOT ACCELERATED / NON-BLOCKING PROFESSIONALIZATION DEFERRED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-19**
 Repository: `Juvialski/InvoiceApp`
 
@@ -506,35 +506,31 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 ## Required sequence from this handoff
 
-1. **Repository Intelligence RI-2 — Unified Graph + Provenance Query API.**
-2. **Repository Intelligence RI-3 — AI Context Engine integration.** Preserve the current `workflow-map:context` and `agent:context` interfaces while improving their internals.
-3. **Finish remaining Repository & Architecture Professionalization work** using the RI core as a bounded-context aid. PR #179 has been reconciled/closed; retain its still-valid repository-hygiene and human-onboarding goals without reviving superseded App/server/static-analysis plans.
-4. **Implement Excel-Native Operations UX** when the architecture boundary is ready.
-5. **Complete remaining Wave 4D provider/readiness evidence** when safe provider credentials/devices/QA prerequisites exist; this external-readiness work may run opportunistically when prerequisites become available.
+1. **Combined RI-2 + RI-3 implementation run.** RI-2 must land conceptually first inside the branch; RI-3 then consumes it. Preserve `workflow-map:context` / `agent:context` entry points, current safety-net test selection, curated authority, stale-index fail-closed behavior, and explicit fallback.
+2. **Excel-readiness gate / Excel Phase 0 in the same run after RI-3 is proven.** Use the new bounded repository context to classify operational screens, identify current XLSX/import-export utilities, define shared schema/protected-field rules and authoritative mutation boundaries, and determine whether any concrete architectural blocker remains.
+3. **If the readiness gate is green, Excel-Native Phase 1 is the immediate next implementation phase, followed by the Procurement RFQ/PO pilot.** Do not require completion of cosmetic/non-blocking professionalization first.
+4. **If the readiness gate finds a real blocker, fix only that blocker before Excel.** Remaining branding/repository hygiene/onboarding/artifact-policy/repository-rename work and arbitrary decomposition are deferred unless they materially block the Excel shared architecture.
+5. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 6. **Resume Wide Documents remaining managed slices.**
-7. **Worker Registration — still paused until Wave 4D is complete and the user explicitly resumes it.** Site Attendance follows; Face Recognition remains gated by separate privacy/security design.
-8. **RI-4 through RI-6** are later developer-tooling work, not prerequisites for the product queue above.
-9. **RI-7 optional 3D explorer — LAST.** Do not start WebGL/3D work merely because RI-3 is complete.
+7. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
+8. **RI-4 through RI-6 are later tooling; RI-7 optional 3D explorer remains LAST.**
 
 Do not skip directly to Worker Registration, and do not let visualization work displace the index/context, reliability, professionalization, Excel-native, provider-readiness, or approved product work above.
 ---
 
 ## Next implementation handoff instructions
 
-For the next RI-2 implementation handoff, Codex should:
+The next Codex/Luna Max run is deliberately wider than the prior RI slices but remains sequential and bounded:
 
-- first fetch and fast-forward `main`, record the resulting exact SHA once, and branch from it;
-- read `AGENTS.md`, the efficiency guide, active roadmap, this handoff, and `docs/repository-intelligence/README.md` plus `docs/repository-intelligence/IMPLEMENTATION_ROADMAP.md`;
-- default to zero subagents, hard maximum two concurrent bounded Codex subagents;
-- use at most one bounded `agent:context` packet when useful;
-- inspect only the existing Workflow Map/context/test-impact machinery needed for additive integration;
-- treat RI-1 as the available local/developer-only source-index foundation without changing customer runtime or replacing current Workflow Map behavior;
-- preserve source-derived versus curated authority as RI-2 adds the unified graph/query layer; use focused graph/context tests and the applicable affected-test/lint evidence;
-- do not start Docker/Supabase unless the final diff unexpectedly crosses a DB/security contract;
-- review the complete final diff, synchronize roadmap/handoff if actual scope changes, push/open PR, and stop; Codex must not merge its own PR.
+1. implement and prove RI-2;
+2. immediately layer RI-3 onto the proven RI-2 graph;
+3. perform the Excel-readiness / Phase-0 inventory using the new bounded context;
+4. fix at most concrete architecture blockers genuinely required before Excel;
+5. if the gate is green, synchronize documentation so **Excel-Native Phase 1 — shared OperationsGrid/workbook engine** is the immediate next implementation phase.
 
-Provider/runtime certification for Brevo/SMS may proceed separately when safe external prerequisites exist; do not block RI-2 waiting for them.
+Efficiency rules remain strict: pull current main first, one bounded context packet, zero subagents by default, focused tests while editing, one final affected-test pass, no ritual full suite, and no browser/DB/provider work unless the final diff actually crosses those risk domains.
 
-## Stop boundary
+Do not spend this combined run on RI-4/RI-5/RI-6, explorer UI, 3D, repository rename, cosmetic branding, generic onboarding, artifact cleanup, broad unrelated refactors, provider certification, Worker Registration, or Excel feature implementation beyond the readiness/Phase-0 gate.
 
-RI-2 is the unified graph and provenance query layer only. Do not expand it into RI-3 context-engine replacement, explorer UI/3D, Excel-native UX, provider certification, Worker Registration, or unrelated product work.
+Provider/runtime certification for Brevo/SMS remains parallel and opportunistic when safe external prerequisites exist.
+
