@@ -76,7 +76,7 @@ Implemented foundation:
 
 - `scripts/repository-intelligence/types.ts` — versioned index, cache, symbol, import/export, and run-summary contracts;
 - `scripts/repository-intelligence/classification.ts` — deterministic language and source/test/tooling/documentation/migration/exclusion rules;
-- `scripts/repository-intelligence/inventory.ts` — Git-tracked inventory, SHA-256 hashing, regular-file checks, and secret/binary denial;
+- `scripts/repository-intelligence/inventory.ts` — Git-tracked inventory, HEAD/dirty-tracked provenance, SHA-256 hashing, regular-file checks, and secret/binary denial;
 - `scripts/repository-intelligence/typescriptExtractor.ts` — syntax-level TypeScript/TSX compiler-API extraction with line-independent symbol IDs;
 - `scripts/repository-intelligence/cache.ts` — disposable manifest and per-file records with corrupt-cache recovery;
 - `scripts/repository-intelligence/indexer.ts` — full/incremental planning, rename/hash/schema invalidation, deterministic serialization, and concise summaries;
