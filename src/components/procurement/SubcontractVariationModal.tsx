@@ -311,7 +311,8 @@ export const SubcontractVariationModal: React.FC<SubcontractVariationModalProps>
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex w-full max-w-4xl flex-col bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150"
+        data-working-canvas="true"
+        className="flex w-[96vw] max-w-[1500px] flex-col bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/90 px-6 py-4">

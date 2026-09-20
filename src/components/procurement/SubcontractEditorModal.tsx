@@ -370,7 +370,8 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150 my-8 flex flex-col max-h-[90vh]"
+        data-working-canvas="true"
+        className="w-[96vw] max-w-[1600px] rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150 my-8 flex flex-col max-h-[90vh]"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">

@@ -412,7 +412,8 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative flex min-h-0 w-full max-w-4xl flex-col max-h-[calc(100dvh-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150 sm:max-h-[calc(100dvh-2rem)]"
+        data-working-canvas="true"
+        className="relative flex min-h-0 w-[96vw] max-w-[1800px] flex-col max-h-[calc(100dvh-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150 sm:max-h-[calc(100dvh-2rem)]"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">

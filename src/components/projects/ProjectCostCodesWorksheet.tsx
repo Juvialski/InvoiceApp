@@ -323,6 +323,7 @@ export function ProjectCostCodesWorksheet({
     {
       key: "status",
       header: "Status",
+      align: "center",
       protected: true,
       editable: false,
       value: (row) => row.status,

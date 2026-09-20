@@ -638,7 +638,8 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
     >
       <div
         ref={dialogRef as unknown as React.RefCallback<HTMLDivElement>}
-        className="relative flex min-h-0 max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+        data-working-canvas="true"
+        className="relative flex min-h-0 max-h-[calc(100dvh-1rem)] w-[96vw] max-w-[1800px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
       >
         {/* Header */}
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">

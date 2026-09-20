@@ -131,6 +131,44 @@ test("Project Workspace and Budget Control put active work before secondary anal
   assert.match(budget, /Mixed Currency|Foreign currency costs detected/);
 });
 
+test("data-heavy procurement editors use a wide working canvas while confirmations stay compact", () => {
+  const dataHeavyModalPaths = [
+    "src/components/procurement/PurchaseOrderEditorModal.tsx",
+    "src/components/procurement/RFQEditorModal.tsx",
+    "src/components/procurement/RecordReceiptModal.tsx",
+    "src/components/procurement/RFQComparisonModal.tsx",
+    "src/components/procurement/SubcontractClaimEditorModal.tsx",
+    "src/components/procurement/SubcontractEditorModal.tsx",
+    "src/components/procurement/SubcontractVariationModal.tsx",
+    "src/components/procurement/SubcontractVariationDetailModal.tsx",
+    "src/components/procurement/SupplierQuotationModal.tsx",
+  ];
+
+  for (const path of dataHeavyModalPaths) {
+    const modal = source(path);
+    assert.match(modal, /data-working-canvas="true"/, path);
+    assert.match(modal, /w-\[96vw\]/, path);
+  }
+
+  const comparison = source("src/components/procurement/RFQComparisonModal.tsx");
+  assert.match(comparison, /max-w-md/);
+  assert.match(source("src/components/projects/ProjectDetailsWorksheet.tsx"), /data-working-canvas="true"/);
+});
+
+test("worksheet visual grammar exposes data-type alignment and a shared action bar", () => {
+  const worksheetEditor = source("src/components/ui/WorksheetEditor.tsx");
+  const projectDetails = source("src/components/projects/ProjectDetailsWorksheet.tsx");
+  const costCodes = source("src/components/projects/ProjectCostCodesWorksheet.tsx");
+
+  assert.match(worksheetEditor, /data-worksheet-action-bar="true"/);
+  assert.match(worksheetEditor, /data-worksheet-align=\{column\.align \|\| "left"\}/);
+  assert.match(projectDetails, /header: "Contract Value"[\s\S]*align: "right"/);
+  assert.match(projectDetails, /header: "Approved Cost Budget"[\s\S]*align: "right"/);
+  assert.match(projectDetails, /header: "Status"[\s\S]*align: "center"/);
+  assert.match(costCodes, /header: "Approved Budget"[\s\S]*align: "right"/);
+  assert.match(costCodes, /header: "Status"[\s\S]*align: "center"/);
+});
+
 test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
   const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');
