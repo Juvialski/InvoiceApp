@@ -169,6 +169,18 @@ test("worksheet visual grammar exposes data-type alignment and a shared action b
   assert.match(costCodes, /header: "Status"[\s\S]*align: "center"/);
 });
 
+test("PO and RFQ keep Save/Close in one stable modal action bar", () => {
+  const purchaseOrder = source("src/components/procurement/PurchaseOrderEditorModal.tsx");
+  const rfq = source("src/components/procurement/RFQEditorModal.tsx");
+
+  assert.match(purchaseOrder, /data-modal-action-bar="true"/);
+  assert.match(rfq, /data-modal-action-bar="true"/);
+  assert.doesNotMatch(purchaseOrder, /saveLabel="Save PO draft"/);
+  assert.doesNotMatch(purchaseOrder, /cancelLabel="Close editor"/);
+  assert.doesNotMatch(rfq, /saveLabel="Save RFQ draft"/);
+  assert.doesNotMatch(rfq, /cancelLabel="Close editor"/);
+});
+
 test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
   const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');

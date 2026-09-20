@@ -164,7 +164,7 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
   return (
     <div className="space-y-5">
       {/* Compact financial summary metrics */}
-      <section data-ux45c="budget-control-summary" aria-label="Budget Control Summary" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <section data-ux45c="budget-control-summary" aria-label="Budget Control Summary" className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
           label="Contract Value"
           value={money(project.contractValue, currency)}

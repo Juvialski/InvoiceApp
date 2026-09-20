@@ -730,12 +730,8 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
               columns={headerColumns}
               rowKey={(row) => row.id}
               onRowsChange={handleHeaderRowsChange}
-              onSave={!isReadOnly ? (rows) => handleSaveDraft(rows[0] || headerRows[0]) : undefined}
-              onCancel={onClose}
               disabled={isReadOnly || isSubmitting}
               isSaving={isSubmitting}
-              saveLabel="Save PO draft"
-              cancelLabel="Close editor"
               density="comfortable"
             />
 
@@ -754,13 +750,9 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
               canAddRow={!isReadOnly}
               onRemoveRow={isReadOnly ? undefined : () => undefined}
               canRemoveRow={isReadOnly ? false : (_row, index) => lines.length > 1 && index >= 0}
-              onSave={!isReadOnly ? (rows) => handleSaveDraft(headerRows[0], rows) : undefined}
-              onCancel={onClose}
-              disabled={isReadOnly || isSubmitting}
-              isSaving={isSubmitting}
-              saveLabel="Save PO draft"
-              cancelLabel="Close editor"
-              emptyState="No purchase-order lines yet. Add a row for each ordered item."
+               disabled={isReadOnly || isSubmitting}
+               isSaving={isSubmitting}
+               emptyState="No purchase-order lines yet. Add a row for each ordered item."
               density="compact"
             />
 
@@ -1213,7 +1205,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
         </div>
 
         {/* Footer Actions */}
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+        <footer data-modal-action-bar="true" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
           <div className="flex items-center gap-2">
             {isDraft && isEditing && canManage && !showDeleteConfirm && (
               <button type="button" onClick={() => setShowDeleteConfirm(true)} disabled={isSubmitting || loading} className="flex items-center px-3 py-1.5 text-xs font-semibold rounded text-rose-700 border border-rose-200 hover:bg-rose-50">
