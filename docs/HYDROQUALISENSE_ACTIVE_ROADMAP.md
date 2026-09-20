@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ-PO EDITORS IMPLEMENTED / UX-W4 CLIENT BILLING NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ-PO + CLIENT BILLING EDITORS IMPLEMENTED / UX-W4 EXPENSES NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -30,7 +30,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and the RFQ/PO portion of UX-W4 are implemented.** UX-W3 proves the corrected source-first Supplier Invoice review surface, and UX-W4 now proves worksheet editing for RFQ and Purchase Order draft headers/lines while preserving the existing `.xlsx` export-review-apply/version-check, optimistic-concurrency, lifecycle, and financial-authority contracts. The exact next bounded slice is **UX-W4 Client Billing draft editing**; later Finance/domain rollouts follow the corrected interaction grammar and app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and the Client Billing portion of UX-W4 are implemented.** UX-W3 proves the corrected source-first Supplier Invoice review surface, and UX-W4 now proves worksheet editing for RFQ, Purchase Order, and Client Billing draft headers/lines while preserving lifecycle and financial-authority contracts. The exact next bounded slice is **UX-W4 Expenses direct editable draft editing**; later Finance/domain rollouts follow the corrected interaction grammar and app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -185,9 +185,34 @@ lifecycle ownership.
 
 Focused Procurement/worksheet tests, ESLint, and TypeScript validation pass
 locally. This is a UI/application-only change: no migration, Docker/Supabase,
-provider, hosted-QA, or production operation is included. The next bounded
-slice within UX-W4 is **Client Billing draft worksheet editing**; do not claim
-app-wide Excel-native editing from this rollout.
+provider, hosted-QA, or production operation is included. Client Billing follows
+in the implementation section below; do not claim app-wide Excel-native editing
+from this RFQ/PO rollout.
+
+## 2026-09-20 UX-W4 — Client Billing draft worksheet editing implemented
+
+Client Billing draft create/edit now uses the shared `WorksheetEditor` foundation
+through `ClientBillingDraftWorksheet`. Billing Details and Billing Lines remain
+one draft aggregate with a single parent-owned Save draft boundary. Safe draft
+metadata and line Description/Amount/Notes fields are editable; project identity,
+currency, tax treatment, lifecycle/status, calculated total, collection position,
+settlement state, and audit/history context remain visibly protected.
+
+Add Row and draft-only Remove Row are controlled by the worksheet surface, and
+temporary worksheet line keys are stripped before the existing authoritative save
+path receives its payload. Submit, issue, cancel, void, preview, Collections, and
+Cash & Banking workflows remain outside the worksheet.
+
+The Client Billing save RPC now carries the draft metadata and an atomic expected
+`updated_at` precondition in one aggregate transaction. Stale edits fail closed
+with SQLSTATE `40001`; the existing company, permission, lifecycle, currency,
+contract-ceiling, history, and line-derived total rules remain authoritative.
+Local clean replay, full pgTAP (1,647 tests), and both upgrade fixtures pass for
+this branch. Exact-head CI remains the merge gate; no production operation is
+implied.
+
+The exact next bounded selective-workbook slice is **UX-W4 Expenses direct
+editable draft editing**. App-wide Excel-native editing remains unclaimed.
 
 ## Historical application / certification baselines
 
@@ -490,8 +515,9 @@ rows, and unsupported new rows before explicit Apply. Apply revalidates fresh
 state and calls the existing Expense save path with its `updated_at` precondition;
 the supplier invoice remains evidence and confirmed Cash & Banking matches
 remain the settlement authority. No migration or production operation is part
-of this bounded rollout. The next remaining Finance slices are client
-receivables, then Cash & Banking/reconciliation.
+of this bounded rollout. The next selective workbook slice is UX-W4 Expenses
+direct editable draft editing, followed by later bounded Finance and Cash &
+Banking/reconciliation work.
 
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
 

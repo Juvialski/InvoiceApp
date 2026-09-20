@@ -13,8 +13,21 @@ export interface ClientBillingLineInput {
   notes?: string;
 }
 
+export type ClientBillingWorksheetLine = ClientBillingLineInput & { worksheetId: string };
+
+export function clientBillingLinesForPersistence(
+  rows: readonly (ClientBillingLineInput & { worksheetId?: string })[],
+): ClientBillingLineInput[] {
+  return rows.map((line) => ({
+    description: line.description,
+    amount: line.amount,
+    notes: line.notes,
+  }));
+}
+
 export interface ClientBillingInput {
   id?: string;
+  expectedUpdatedAt?: string;
   projectId: string;
   billingNumber: string;
   billingDate?: string;
@@ -234,6 +247,9 @@ export function buildLocalClientBilling(
   companyId = "guest-company",
   timestamp = new Date().toISOString(),
 ): ClientBilling {
+  if (existing && existing.updatedAt !== input.expectedUpdatedAt) {
+    throw new Error("This client billing changed in another session. Refresh it before saving.");
+  }
   const normalizedLines = lines.map((line, index) => ({
     id: existing?.lines[index]?.id || localId("billing-line"),
     billingId: existing?.id || input.id || localId("billing"),
@@ -415,7 +431,10 @@ function responseBilling(value: unknown): ClientBilling {
 export async function saveClientBillingToSupabase(input: ClientBillingInput, lines: readonly ClientBillingLineInput[], existing?: ClientBilling): Promise<ClientBilling> {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving client billings.");
-  const companyId = requireActiveCompanyId();
+  requireActiveCompanyId();
+  if (existing && existing.updatedAt !== input.expectedUpdatedAt) {
+    throw new Error("This client billing changed in another session. Refresh it before saving.");
+  }
   const payload = companyScopedRow({
     ...(existing?.id && UUID_PATTERN.test(existing.id) ? { id: existing.id } : input.id && UUID_PATTERN.test(input.id) ? { id: input.id } : {}),
     projectId: input.projectId,
@@ -436,30 +455,10 @@ export async function saveClientBillingToSupabase(input: ClientBillingInput, lin
   const { data, error } = await supabase.rpc("create_or_update_client_billing", {
     p_billing: payload,
     p_lines: lines.map((line) => ({ description: line.description, amount: line.amount, notes: line.notes || null })),
+    p_expected_updated_at: input.expectedUpdatedAt || null,
   });
   if (error) throw error;
-  let saved = responseBilling(data);
-  // The mature billing RPC remains the financial source of truth; the
-  // lightweight contact/due-date fields are additive document metadata.
-  const metadata = {
-    due_date: input.dueDate || null,
-    payment_terms: input.paymentTerms || null,
-    billing_contact_name: input.billingContactName || null,
-    billing_email: input.billingEmail || null,
-    billing_address: input.billingAddress || null,
-  };
-  const persistedId = saved.id;
-  const { data: metadataRow, error: metadataError } = await supabase
-    .from("client_billings")
-    .update(metadata)
-    .eq("company_id", companyId)
-    .eq("id", persistedId)
-    .eq("status", "DRAFT")
-    .select("*")
-    .maybeSingle();
-  if (metadataError) throw metadataError;
-  if (metadataRow) saved = billingFromRow(metadataRow as Row, saved.lines);
-  return saved;
+  return responseBilling(data);
 }
 
 export async function transitionClientBillingToSupabase(
