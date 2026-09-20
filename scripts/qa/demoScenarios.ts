@@ -436,14 +436,14 @@ const verifyPortfolioAttention: QaScenarioAction = async (page) => {
   await page.locator('summary:has-text("More filters")').first().click();
   const filter = page.getByRole("combobox", { name: "Filter by financial health and attention signals", exact: true }).first();
   await filter.selectOption("NEEDS_ATTENTION");
-  const projectRows = page.locator('[aria-label="Projects table"] [data-operations-grid="true"] tbody tr');
-  await projectRows.first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  const flaggedProjects = await projectRows.count();
+  const projectCards = page.locator('[aria-label="Projects list cards"] [data-project-id]');
+  await projectCards.first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const flaggedProjects = await projectCards.count();
   await filter.selectOption("ALL");
   return [
     { id: "portfolio-attention-count-visible", passed: attentionCount > 0, details: `needs-attention labels: ${attentionCount}` } satisfies QaAssertion,
     { id: "portfolio-critical-count-visible", passed: criticalCount > 0, details: `critical-signal labels: ${criticalCount}` } satisfies QaAssertion,
-    { id: "portfolio-needs-attention-filter-returns-projects", passed: flaggedProjects > 0, details: `flagged project result nodes: ${flaggedProjects}` } satisfies QaAssertion,
+    { id: "portfolio-needs-attention-filter-returns-projects", passed: flaggedProjects > 0, details: `flagged project card nodes: ${flaggedProjects}` } satisfies QaAssertion,
   ] satisfies readonly QaAssertion[];
 };
 

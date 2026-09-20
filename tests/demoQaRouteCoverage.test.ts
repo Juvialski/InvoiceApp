@@ -35,3 +35,14 @@ test("demo Documents coverage includes the three Document Center views", () => {
   assert.ok(states.includes("Document Center Create rendered"));
   assert.ok(states.includes("Document Center Templates rendered"));
 });
+
+test("Projects attention-filter QA follows the card-first default instead of requiring the optional compact list", () => {
+  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const attentionActionStart = scenariosSource.indexOf("const verifyPortfolioAttention");
+  const attentionActionEnd = scenariosSource.indexOf("const verifyProjectAttentionAndEngineering", attentionActionStart);
+  assert.ok(attentionActionStart >= 0 && attentionActionEnd > attentionActionStart);
+  const attentionAction = scenariosSource.slice(attentionActionStart, attentionActionEnd);
+  assert.match(attentionAction, /Projects list cards/);
+  assert.match(attentionAction, /data-project-id/);
+  assert.doesNotMatch(attentionAction, /Projects table/);
+});
