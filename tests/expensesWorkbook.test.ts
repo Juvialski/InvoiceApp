@@ -280,7 +280,7 @@ test("fails closed for stale state, hidden identity tampering, bad references, a
 
 test("rejects workbook reassignment to an archived project", () => {
   const archivedProject = { ...project(PROJECT_TWO_ID, "PRJ-002", "South Plant"), status: "ARCHIVED" as const };
-  const bytes = setExpenseCells(exportedBytes(), { Project: "PRJ-002", "Cost Code": "MECH" }, 0);
+  const bytes = setExpenseCells(exportedBytes(), { Project: "PRJ-002" }, 0);
   const review = buildExpensesImportReview(bytes, context({
     projects: [project(PROJECT_ONE_ID, "PRJ-001", "North Plant"), archivedProject],
   }));
