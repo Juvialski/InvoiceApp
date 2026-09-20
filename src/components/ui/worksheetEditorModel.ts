@@ -241,7 +241,9 @@ export function applyWorksheetCellEdit<T>(
 export function parseWorksheetTsv(text: string): string[][] {
   const normalized = text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
   if (!normalized) return [[]];
-  return normalized.split("\n").map((line) => line.split("\t"));
+  const lines = normalized.split("\n");
+  if (lines.length > 1 && lines.at(-1) === "") lines.pop();
+  return lines.map((line) => line.split("\t"));
 }
 
 export function applyWorksheetPaste<T>(
