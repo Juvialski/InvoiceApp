@@ -460,6 +460,7 @@ export function ProjectCostCodesWorksheet({
         onRowsChange={handleRowsChange}
         onCellChange={({ row, column }) => markDirty(row.id, getWorksheetCellId(row.id, column.key))}
         cellIssues={cellIssues}
+        dirtyCells={dirtyCellKeys}
         onAddRow={handleAddRow}
         canAddRow={canManageProject}
         onSave={canManageProject ? handleSave : undefined}
