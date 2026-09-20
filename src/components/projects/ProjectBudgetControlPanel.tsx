@@ -1,21 +1,14 @@
 import React, { useMemo, useState } from "react";
 import {
   AlertTriangle,
-  Archive,
   Calculator,
   CheckCircle2,
   DollarSign,
-  Edit2,
-  Filter,
   Layers,
-  PieChart,
-  Plus,
-  RefreshCw,
   Search,
   ShieldAlert,
   Wallet,
 } from "lucide-react";
-import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type {
   Expense,
@@ -34,14 +27,12 @@ import type {
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import {
   calculateProjectBudgetControl,
-  type CostCodeFinancialSummary,
   type CostInvoice,
   type CostPayrollRecord,
   type ProjectBudgetControlSummary,
 } from "../../utils/projectCosting.ts";
-import { EmptyState, MetricCard, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
-import { OperationsGrid } from "../ui/OperationsGrid.tsx";
-import { ProjectCostCodeModal } from "./ProjectCostCodeModal.tsx";
+import { MetricCard } from "../ui/OperationsUI.tsx";
+import { ProjectCostCodesWorksheet, projectCostCodeWorksheetRow, type ProjectCostCodeWorksheetRow } from "./ProjectCostCodesWorksheet.tsx";
 
 export interface ProjectBudgetControlPanelProps {
   project: Project;
@@ -82,64 +73,6 @@ function money(value: number, currency: string) {
   }
 }
 
-function statusTone(status: string): StatusTone {
-  return status === "ACTIVE" ? "success" : "neutral";
-}
-
-function ProjectCostCodeOperationsGrid({
-  rows,
-  currency,
-  canManageProject,
-  onEdit,
-  onArchive,
-  onReactivate,
-  actionLoadingId,
-}: {
-  rows: readonly CostCodeFinancialSummary[];
-  currency: string;
-  canManageProject: boolean;
-  onEdit: (row: CostCodeFinancialSummary) => void;
-  onArchive: (id: string) => void;
-  onReactivate: (id: string) => void;
-  actionLoadingId: string | null;
-}) {
-  return (
-    <div className="hidden md:block" aria-label="Project cost codes table">
-      <OperationsGrid
-        ariaLabel="Project cost codes table"
-        rows={rows}
-        rowKey={(row) => row.costCodeId}
-        columns={[
-          { key: "code", header: "Code", sortValue: (row) => row.code, protected: true, cellClassName: "font-mono font-bold", value: (row) => <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-800">{row.code}</span> },
-          { key: "name", header: "Work Package", sortValue: (row) => row.name, protected: false, value: (row) => <div><p className="font-bold text-slate-900">{row.name}</p>{row.description && <p className="mt-0.5 max-w-[18rem] truncate text-[10px] text-slate-500">{row.description}</p>}{row.hasForeignAmounts && <p className="mt-0.5 text-[10px] text-amber-700">Foreign: {Object.entries(row.foreignCosts).map(([code, amount]) => code + " " + Number(amount).toFixed(2)).join(", ")}</p>}</div> },
-          { key: "status", header: "Status", sortValue: (row) => row.status, protected: true, value: (row) => <StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge> },
-          { key: "budget", header: "Approved Budget", align: "right" as const, sortValue: (row) => row.budgetAmount, protected: true, cellClassName: "font-black tabular-nums", value: (row) => money(row.budgetAmount, currency) },
-          { key: "actual", header: "Actual Cost", align: "right" as const, sortValue: (row) => row.actualCost, protected: true, cellClassName: "font-black tabular-nums", value: (row) => <span>{money(row.actualCost, currency)}{row.budgetAmount > 0 && <span className="block text-[10px] font-semibold text-slate-400">{row.hasForeignAmounts ? "Base-currency actual · partial" : row.budgetUsedPercent.toFixed(1) + "% used"}</span>}</span> },
-          { key: "committed", header: "Committed Cost", align: "right" as const, sortValue: (row) => row.committedCost ?? -Infinity, protected: true, cellClassName: "font-black tabular-nums text-purple-700", value: (row) => <span>{row.hasForeignAmounts ? <span className="font-semibold italic text-slate-400">Partial</span> : money(row.committedCost || 0, currency)}{Boolean(row.certifiedSubcontractCost && row.certifiedSubcontractCost > 0) && <span className="block text-[10px] font-semibold text-emerald-700">{money(row.certifiedSubcontractCost || 0, currency)} certified</span>}</span> },
-          { key: "forecast", header: "Forecast Cost", align: "right" as const, sortValue: (row) => row.forecastAmount ?? -Infinity, protected: true, cellClassName: "font-bold tabular-nums", value: (row) => row.forecastAmount != null ? money(row.forecastAmount, currency) : <span className="italic text-slate-400">Not set</span> },
-          { key: "actualVariance", header: "Actual Variance", align: "right" as const, sortValue: (row) => row.actualVariance, protected: true, cellClassName: "font-black tabular-nums", value: (row) => row.hasForeignAmounts ? <span className="italic text-slate-400">Unavailable</span> : <span className={row.actualVariance >= 0 ? "text-emerald-700" : "text-rose-600"}>{row.actualVariance >= 0 ? "+" : ""}{money(row.actualVariance, currency)}</span> },
-          { key: "forecastVariance", header: "Forecast Variance", align: "right" as const, sortValue: (row) => row.forecastVariance ?? -Infinity, protected: true, cellClassName: "font-bold tabular-nums", value: (row) => row.forecastVariance != null ? <span className={row.forecastVariance >= 0 ? "text-emerald-700" : "text-rose-600"}>{row.forecastVariance >= 0 ? "+" : ""}{money(row.forecastVariance, currency)}</span> : <span className="italic text-slate-400">Not set</span> },
-        ]}
-        renderActions={canManageProject ? (row) => {
-          const isLoading = actionLoadingId === row.costCodeId;
-          return (
-            <div className="flex items-center justify-end gap-1">
-              <button type="button" onClick={() => onEdit(row)} disabled={isLoading} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500" aria-label={"Edit cost code " + row.code}><Edit2 className="h-3.5 w-3.5" /></button>
-              {row.status === "ARCHIVED" ? (
-                <button type="button" onClick={() => onReactivate(row.costCodeId)} disabled={isLoading} className="rounded-lg p-1.5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700" aria-label={"Reactivate cost code " + row.code}><RefreshCw className={"h-3.5 w-3.5 " + (isLoading ? "animate-spin" : "")} /></button>
-              ) : (
-                <button type="button" onClick={() => onArchive(row.costCodeId)} disabled={isLoading} className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600" aria-label={"Archive cost code " + row.code}><Archive className="h-3.5 w-3.5" /></button>
-              )}
-            </div>
-          );
-        } : undefined}
-        density="compact"
-        className="rounded-none border-0"
-      />
-    </div>
-  );
-}
-
 export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps> = ({
   project,
   costCodes,
@@ -160,12 +93,8 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
   onArchiveCostCode,
   onReactivateCostCode,
 }) => {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingCode, setEditingCode] = useState<ProjectCostCode | null>(null);
-  const [modalLoading, setModalLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // 1. Prepare Cost Input
   const costInput = useMemo(() => {
@@ -211,7 +140,7 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
   }, [project, costCodes, costInput]);
 
   // 3. Filtered Cost Codes for display
-  const projectCodes = useMemo(() => {
+  const projectCodes = useMemo<readonly ProjectCostCodeWorksheetRow[]>(() => {
     return budgetControl.costCodes.filter((cc) => {
       const matchesStatus =
         statusFilter === "ALL" ||
@@ -224,63 +153,11 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
         cc.name.toLowerCase().includes(normalizedQuery) ||
         (cc.description && cc.description.toLowerCase().includes(normalizedQuery));
       return matchesStatus && matchesSearch;
+    }).flatMap((summary) => {
+      const source = costCodes.find((costCode) => costCode.id === summary.costCodeId);
+      return source ? [projectCostCodeWorksheetRow(source, summary)] : [];
     });
-  }, [budgetControl.costCodes, statusFilter, searchQuery]);
-
-  const handleOpenCreateModal = () => {
-    setEditingCode(null);
-    setModalOpen(true);
-  };
-
-  const handleOpenEditModal = (ccSummary: CostCodeFinancialSummary) => {
-    const original = costCodes.find((c) => c.id === ccSummary.costCodeId);
-    if (original) {
-      setEditingCode(original);
-      setModalOpen(true);
-    }
-  };
-
-  const handleSaveModal = async (input: {
-    id?: string;
-    projectId: string;
-    code: string;
-    name: string;
-    description?: string;
-    approvedBudgetAmount: number;
-    forecastAmount?: number;
-    status: ProjectCostCode["status"];
-  }) => {
-    setModalLoading(true);
-    try {
-      await onSaveCostCode(input);
-      setModalOpen(false);
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
-  const handleArchive = async (costCodeId: string) => {
-    if (typeof window !== "undefined" && !window.confirm("Archive this cost code? Historical actual costs will be preserved.")) {
-      return;
-    }
-    setActionLoadingId(costCodeId);
-    try {
-      await onArchiveCostCode(costCodeId);
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  const handleReactivate = async (costCodeId: string) => {
-    setActionLoadingId(costCodeId);
-    try {
-      await onReactivateCostCode(costCodeId);
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  const hasCostCodes = budgetControl.costCodes.length > 0;
+  }, [budgetControl.costCodes, costCodes, statusFilter, searchQuery]);
   const currency = project.currency || "PHP";
   const aggregatePayroll = laborSource === "aggregate";
 
@@ -388,241 +265,37 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
 
       {/* Main Cost Codes Section */}
       <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
-        {/* Table Header & Toolbar */}
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h3 className="text-sm font-black text-slate-950">Work Package Cost Codes</h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Budgets, actuals, committed costs, and forecasts structured by work package.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {canManageProject && (
-              <Button
-                variant="primary"
-                label="Add Cost Code"
-                icon={<Plus className="h-3.5 w-3.5" />}
-                onClick={handleOpenCreateModal}
-              />
-            )}
+            <p className="mt-0.5 text-xs text-slate-500">Edit code, work package, budget, and forecast fields in a worksheet. Actuals, commitments, variances, and lifecycle remain protected workflows.</p>
           </div>
         </div>
 
-        {/* Filter and Search Bar */}
-        {hasCostCodes && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-5">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setStatusFilter("ALL")}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold ${statusFilter === "ALL" ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-              >
-                All ({budgetControl.costCodes.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("ACTIVE")}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold ${statusFilter === "ACTIVE" ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-              >
-                Active ({budgetControl.costCodes.filter((c) => c.status === "ACTIVE").length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("ARCHIVED")}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold ${statusFilter === "ARCHIVED" ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-              >
-                Archived ({budgetControl.costCodes.filter((c) => c.status === "ARCHIVED").length})
-              </button>
-            </div>
-
-            <div className="relative min-w-[200px] max-w-xs flex-1">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search code or package..."
-                className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setStatusFilter("ALL")} className={statusFilter === "ALL" ? "rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-bold text-white" : "rounded-lg px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100"}>All ({budgetControl.costCodes.length})</button>
+            <button type="button" onClick={() => setStatusFilter("ACTIVE")} className={statusFilter === "ACTIVE" ? "rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-bold text-white" : "rounded-lg px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100"}>Active ({budgetControl.costCodes.filter((c) => c.status === "ACTIVE").length})</button>
+            <button type="button" onClick={() => setStatusFilter("ARCHIVED")} className={statusFilter === "ARCHIVED" ? "rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-bold text-white" : "rounded-lg px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100"}>Archived ({budgetControl.costCodes.filter((c) => c.status === "ARCHIVED").length})</button>
           </div>
-        )}
-
-        {/* Content View */}
-        {!hasCostCodes ? (
-          <div className="p-8 text-center sm:p-12">
-            <EmptyState
-              title="No cost codes defined for this project"
-              description="Create cost codes (e.g. CIVIL, MECH, ELEC) to structure work packages and track actual costs against approved budget ceilings."
-              icon={Calculator}
-              action={
-                canManageProject ? (
-                  <Button
-                    variant="primary"
-                    label="Add First Cost Code"
-                    icon={<Plus className="h-3.5 w-3.5" />}
-                    onClick={handleOpenCreateModal}
-                  />
-                ) : undefined
-              }
-            />
+          <div className="relative min-w-[200px] max-w-xs flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input type="text" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search code or package..." aria-label="Search cost codes" className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
           </div>
-        ) : projectCodes.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-500">
-            No cost codes match your filter or search query.
-          </div>
-        ) : (
-          <>
-            <ProjectCostCodeOperationsGrid
-              rows={projectCodes}
-              currency={currency}
-              canManageProject={canManageProject}
-              onEdit={handleOpenEditModal}
-              onArchive={(id) => void handleArchive(id)}
-              onReactivate={(id) => void handleReactivate(id)}
-              actionLoadingId={actionLoadingId}
-            />
+        </div>
 
-           {/* Mobile Cards View */}
-            <div className="divide-y divide-slate-100 md:hidden">
-              {projectCodes.map((cc) => {
-                const isArchived = cc.status === "ARCHIVED";
-                const isActionLoading = actionLoadingId === cc.costCodeId;
-                return (
-                  <article
-                    key={cc.costCodeId}
-                    className={`p-4 space-y-3 ${isArchived ? "opacity-60 bg-slate-50/40" : ""}`}
-                    aria-label={`Cost code ${cc.code}`}
-                  >
-                    {/* Top Row: Code, Badge & Actions */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-black rounded bg-slate-100 px-2 py-0.5 text-slate-900">
-                          {cc.code}
-                        </span>
-                        <StatusBadge tone={statusTone(cc.status)}>
-                          {cc.status}
-                        </StatusBadge>
-                        {cc.hasForeignAmounts && (
-                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
-                            Partial
-                          </span>
-                        )}
-                      </div>
-
-                      {canManageProject && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(cc)}
-                            disabled={isActionLoading}
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-indigo-600"
-                            aria-label={`Edit cost code ${cc.code}`}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          {isArchived ? (
-                            <button
-                              type="button"
-                              onClick={() => handleReactivate(cc.costCodeId)}
-                              disabled={isActionLoading}
-                              className="rounded-lg p-1.5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700"
-                              aria-label={`Reactivate cost code ${cc.code}`}
-                            >
-                              <RefreshCw className={`h-4 w-4 ${isActionLoading ? "animate-spin" : ""}`} />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleArchive(cc.costCodeId)}
-                              disabled={isActionLoading}
-                              className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
-                              aria-label={`Archive cost code ${cc.code}`}
-                            >
-                              <Archive className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Name & Description */}
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-950">{cc.name}</h4>
-                      {cc.description && (
-                        <p className="mt-0.5 text-[11px] text-slate-500">{cc.description}</p>
-                      )}
-                      {cc.hasForeignAmounts && (
-                        <p className="mt-1 text-[10px] text-amber-700">
-                          Foreign: {Object.entries(cc.foreignCosts).map(([c, v]) => `${c} ${Number(v).toFixed(2)}`).join(", ")}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Financial Metrics Grid */}
-                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs">
-                      <div>
-                        <span className="text-[10px] font-semibold text-slate-500">Approved Budget:</span>
-                        <p className="font-black tabular-nums text-slate-900">{money(cc.budgetAmount, currency)}</p>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-semibold text-slate-500">Actual Cost:</span>
-                        <p className="font-black tabular-nums text-slate-900">{money(cc.actualCost, currency)}</p>
-                        {cc.hasForeignAmounts && <p className="text-[9px] font-semibold text-slate-400">Base-currency actual · partial</p>}
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-semibold text-slate-500">Actual Variance:</span>
-                        {cc.hasForeignAmounts ? (
-                          <p className="font-semibold text-slate-400 italic">Unavailable</p>
-                        ) : (
-                          <p className={`font-black tabular-nums ${cc.actualVariance >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
-                            {cc.actualVariance >= 0 ? "+" : ""}{money(cc.actualVariance, currency)}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-semibold text-slate-500">Committed Cost:</span>
-                        <p className="font-black tabular-nums text-purple-700">
-                          {cc.hasForeignAmounts ? (
-                            <span className="font-semibold text-slate-400 italic">Partial</span>
-                          ) : (
-                            money(cc.committedCost || 0, currency)
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-semibold text-slate-500">Forecast Cost:</span>
-                        <p className="font-bold tabular-nums text-slate-900">
-                          {cc.forecastAmount != null ? money(cc.forecastAmount, currency) : <span className="text-slate-400 italic font-normal">Not set</span>}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-semibold text-slate-500">Forecast Variance:</span>
-                        <p className={`font-bold tabular-nums ${cc.forecastVariance != null && cc.forecastVariance >= 0 ? "text-emerald-700" : cc.forecastVariance != null ? "text-rose-600" : "text-slate-400 italic font-normal"}`}>
-                          {cc.forecastVariance != null ? `${cc.forecastVariance >= 0 ? "+" : ""}${money(cc.forecastVariance, currency)}` : "Not set"}
-                        </p>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </>
-        )}
+        <div className="min-w-0 p-3 sm:p-5">
+          <ProjectCostCodesWorksheet
+            project={project}
+            rows={projectCodes}
+            existingCodes={costCodes}
+            canManageProject={canManageProject}
+            onSaveCostCode={onSaveCostCode}
+            onArchiveCostCode={onArchiveCostCode}
+            onReactivateCostCode={onReactivateCostCode}
+          />
+        </div>
       </Card>
-
-      {/* Modal Dialog */}
-      <ProjectCostCodeModal
-        open={modalOpen}
-        projectId={project.id}
-        projectBudget={project.projectBudget}
-        currency={currency}
-        costCode={editingCode}
-        existingCodes={costCodes}
-        loading={modalLoading}
-        onSave={handleSaveModal}
-        onClose={() => setModalOpen(false)}
-      />
     </div>
   );
 };
