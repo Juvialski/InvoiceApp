@@ -68,6 +68,10 @@ function nextPOLineId() {
   return `draft-po-line-${Date.now()}-${poLineSequence}`;
 }
 
+export function persistedPurchaseOrderLineId(id: string): string | undefined {
+  return id.startsWith("draft-po-line-") ? undefined : id;
+}
+
 function emptyLine(): EditableLine {
   return {
     id: nextPOLineId(),
@@ -296,14 +300,17 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
           description: nextHeader.description.trim() || null,
           notes: nextHeader.notes.trim() || null,
         },
-        nextLines.map((l) => ({
-          id: l.id,
+        nextLines.map((l) => {
+          const persistedId = persistedPurchaseOrderLineId(l.id);
+          return {
+          ...(persistedId ? { id: persistedId } : {}),
           description: l.description.trim(),
           quantity: Math.max(0.0001, Number(l.quantity) || 1),
           unit: l.unit.trim() || "pcs",
           unitPrice: Math.max(0, Number(l.unitPrice) || 0),
           projectCostCodeId: l.projectCostCodeId || null,
-        })),
+          };
+        }),
         purchaseOrder?.updatedAt,
       );
       onClose();
