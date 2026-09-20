@@ -238,7 +238,7 @@ function lineColumn({
     options,
     value: (row) => row[key],
     setValue: (row, value) => ({ ...row, [key]: normalizeValue(kind, value) }),
-    editable: (row, rowIndex) => !protectedCell(row, rowIndex),
+    editable: (row) => !protectedCell(row),
     protected: protectedCell,
     render: lineCellRenderer(key, kind, invoice, options),
   };
