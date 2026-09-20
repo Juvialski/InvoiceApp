@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / SELECTIVE WORKBOOK EDITING UX CORRECTION ACTIVE / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 WORKSHEET FOUNDATION IMPLEMENTED / UX-W2 PROJECTS NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -30,7 +30,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables are implemented, but the in-app interaction model is now being corrected before more domains are added.** The next implementation sequence is UX-W1 shared worksheet editing foundation -> UX-W2 card-first Projects portfolio plus Project Details/Cost Codes worksheets -> UX-W3 supplier invoice source-on-top plus extracted-data worksheet. Only after that correction should later Finance/domain rollouts continue. Existing RFQ/Purchase Order, Projects/Cost Codes, and Expenses/Supplier Payables `.xlsx` export-review-apply/version-check contracts remain valid; app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, and UX-W1 shared worksheet editing foundation are implemented, but the corrected in-app interaction rollout remains incomplete.** The next implementation sequence is UX-W2 card-first Projects portfolio plus Project Details/Cost Codes worksheets -> UX-W3 supplier invoice source-on-top plus extracted-data worksheet. Only after that correction should later Finance/domain rollouts continue. Existing RFQ/Purchase Order, Projects/Cost Codes, and Expenses/Supplier Payables `.xlsx` export-review-apply/version-check contracts remain valid; app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -55,6 +55,31 @@ Immediate requirements:
 - Real `.xlsx` round trips remain required where supported, but import/export no longer defines what “Excel-native” means inside the app.
 
 Canonical contract: `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`.
+
+## 2026-09-20 UX-W1 — shared worksheet editing foundation implemented
+
+UX-W1 adds the reusable `WorksheetEditor` family without migrating a product
+domain. `src/components/ui/worksheetEditorModel.ts` owns the typed column
+contract and pure edit/paste/navigation rules; `src/components/ui/WorksheetEditor.tsx`
+owns the parent-controlled draft/edit surface; and
+`src/components/ui/WorksheetTabs.tsx` provides controlled local worksheet tabs.
+
+The API supports text, number, currency, date, and select columns; custom
+parsers, formatters, renderers, validation, protected/read-only cells, dirty
+and conflict state supplied by the parent, keyboard movement, explicit edit
+commit/cancel, plain TSV copy, rectangular TSV paste, controlled Add Row and
+Remove Row callbacks, Save/Apply/Cancel action slots, and contained responsive
+scrolling. Paste never creates rows or columns, protected values remain
+unchanged, invalid values remain visible as validation state, and persistence
+remains parent-owned. `OperationsGrid` is unchanged and remains the browse/
+register primitive.
+
+Focused behavioral tests, ESLint, and TypeScript validation pass locally. The
+component is intentionally not integrated into Projects or Supplier Invoice
+Review in this slice, so browser-route QA is deferred to those proving phases.
+No database, migration, RLS/RPC, provider, or production change occurred.
+The exact next implementation phase is **UX-W2 — Projects card-first
+portfolio + Project Details/Cost Codes worksheet**.
 
 ## Historical application / certification baselines
 
