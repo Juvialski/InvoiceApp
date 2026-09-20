@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH BOUNDED EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 IMPLEMENTED / UX-W4 HIGH-VALUE EDITORS NEXT / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH BOUNDED EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ-PO EDITORS IMPLEMENTED / UX-W4 CLIENT BILLING NEXT / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-20**
 Repository: `Juvialski/InvoiceApp`
 
@@ -26,7 +26,7 @@ credentials/device/runtime.
 
 The Excel-Native Operations workbook/authority contract is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the original shared foundation, the bounded Procurement pilot, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented; app-wide Excel capability remains unclaimed.
 
-The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, and UX-W3 Supplier Invoice source-first worksheet review are implemented; the exact next corrected rollout is UX-W4 bounded high-value transaction editors.
+The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and the RFQ/PO portion of UX-W4 are implemented; UX-W4 continues with bounded Client Billing draft editing.
 
 ### Earlier UI/UX and hosted-certification reference
 
@@ -533,9 +533,40 @@ database, accounting, provider, and production boundaries are unchanged.
   merge gate. No database/Docker/Supabase/provider or production validation was
   applicable to this UI-only diff.
 
-The exact next implementation phase is **UX-W4 — bounded high-value
-transaction editors**, beginning with RFQ and Purchase Order draft editing.
-App-wide Excel-native editing is not claimed.
+The RFQ/PO portion of UX-W4 is implemented. The exact next bounded slice is
+**UX-W4 Client Billing draft worksheet editing**. App-wide Excel-native editing
+is not claimed.
+
+## 2026-09-20 UX-W4 — RFQ + Purchase Order draft worksheet editors implemented
+
+This bounded UX-W4 slice moves the ordinary RFQ and Purchase Order draft
+surfaces to the shared `WorksheetEditor` interaction model while retaining
+Procurement authority in the existing parent callbacks and save paths.
+
+- RFQ header fields and RFQ lines use separate shared worksheets with stable
+  line IDs, active project cost-code options, required/positive-value checks,
+  requested delivery dates, notes, controlled Add Row, and draft-only safe row
+  removal.
+- Purchase Order header fields and PO lines use shared worksheets with
+  supplier/project/cost-code reference options, quantity/unit/unit-price and
+  description editing, stable line IDs, controlled Add Row, and protected
+  calculated Amount/Calculated Total/Received/Lifecycle cells.
+- Existing `updatedAt` optimistic-concurrency tokens now flow from the edited
+  RFQ/PO into the existing parent save callbacks and onward to the existing
+  save RPC path. Project/company reference validation remains domain-bound.
+- RFQ comparison, quotation evaluation/selection, issue/finalize, and
+  cancellation remain outside the worksheet. PO approval, issue, receiving,
+  close/cancel, supplier-invoice matching, and settlement remain explicit
+  workflows outside ordinary cells.
+- The existing Procurement `.xlsx` export/review/Apply path was preserved and
+  not rebuilt. Demo scenarios cover both draft worksheet surfaces at desktop,
+  tablet, and mobile viewports.
+
+Focused Procurement/worksheet tests, ESLint, and TypeScript validation pass
+locally. No migration, Docker/Supabase, provider, hosted-QA, or production
+operation was required or performed for this UI/application-only slice.
+The next bounded slice is Client Billing draft worksheet editing; app-wide
+Excel-native editing remains unclaimed.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
@@ -778,7 +809,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 1. **RI-2 + RI-3 implementation run — complete.** RI-2 lands conceptually first and RI-3 consumes it behind `workflow-map:context` / `agent:context`, preserving curated authority, current safety-net test selection, stale-index fail-closed behavior, and explicit fallback.
 2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
-4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, and source-first Supplier Invoice review. The exact next phase is UX-W4 bounded high-value transaction editors, beginning with RFQ and Purchase Order draft editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
+4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + the RFQ/PO portion of UX-W4 IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, and Purchase Order draft editing. The exact next bounded slice is UX-W4 Client Billing draft worksheet editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
 5. **Remaining Finance/domain rollouts follow the corrected interaction grammar.** Client receivables and Cash & Banking/reconciliation remain later bounded slices; settlement/reconciliation actions stay purpose-built and controlled.
 6. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 7. **Resume Wide Documents remaining managed slices.**
@@ -790,7 +821,7 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-The next Codex implementation run should begin **UX-W4 — bounded high-value transaction editors** from live repository state. UX-W1 through UX-W3 are implemented on the current handoff branch; consume the shared worksheet foundation and preserve the Supplier Invoice and Projects contracts rather than reimplementing or broadening them.
+The next Codex implementation run should begin **UX-W4 Client Billing draft worksheet editing** from live repository state. UX-W1 through UX-W3 and the RFQ/PO portion of UX-W4 are implemented on the current handoff branch; consume the shared worksheet foundation and preserve the Supplier Invoice, Projects, RFQ, and Purchase Order contracts rather than reimplementing or broadening them.
 
 It must read:
 
@@ -804,8 +835,8 @@ It must read:
 - `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md` when a later
   transaction editor touches supplier-derived monetary context.
 
-The UX-W4 run should consume the reusable worksheet-editing primitive only for
-the selected bounded transaction editor proving surface. It should not broadly
+The next UX-W4 run should consume the reusable worksheet-editing primitive only
+for the bounded Client Billing draft proving surface. It should not broadly
 migrate every domain in one PR and should not start arbitrary custom-column or
 database-schema support.
 
@@ -813,7 +844,7 @@ The immediate product sequence after UX-W2 is:
 
 1. UX-W2 — Projects: implemented as the card-first portfolio, Project Details worksheet, Cost Codes worksheet, and optional compact list described above.
 2. UX-W3 — Supplier invoice review: implemented as source image/PDF on top, extracted header/vendor/line/totals worksheet underneath, with extracted/manual/calculated/protected/error states and existing Vendor/project/PO/verification/Expense authority preserved.
-3. UX-W4 onward — bounded high-value editors and operational bulk-data editors; begin with RFQ and Purchase Order draft editing.
+3. UX-W4 — RFQ and Purchase Order draft worksheet editors: implemented. Continue with Client Billing draft worksheet editing, then later bounded Expenses editing.
 4. Resume remaining Finance/domain Excel rollouts only after the corrected interaction grammar is proven.
 
 Efficiency rules remain strict: pull current main first, record the SHA once, one bounded context packet, zero subagents by default (maximum two only for independent bounded work), focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.

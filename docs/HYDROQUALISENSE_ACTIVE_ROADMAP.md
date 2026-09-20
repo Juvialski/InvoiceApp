@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 IMPLEMENTED / UX-W4 HIGH-VALUE EDITORS NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ-PO EDITORS IMPLEMENTED / UX-W4 CLIENT BILLING NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -30,7 +30,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, and UX-W3 are implemented.** UX-W3 proves the corrected source-first Supplier Invoice review surface with extracted header/vendor/line/totals worksheets while preserving the existing `.xlsx` export-review-apply/version-check and financial-authority contracts. The exact next implementation phase is **UX-W4 — bounded high-value transaction editors**, beginning with RFQ and Purchase Order draft editing. Later Finance/domain rollouts follow the corrected interaction grammar; app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and the RFQ/PO portion of UX-W4 are implemented.** UX-W3 proves the corrected source-first Supplier Invoice review surface, and UX-W4 now proves worksheet editing for RFQ and Purchase Order draft headers/lines while preserving the existing `.xlsx` export-review-apply/version-check, optimistic-concurrency, lifecycle, and financial-authority contracts. The exact next bounded slice is **UX-W4 Client Billing draft editing**; later Finance/domain rollouts follow the corrected interaction grammar and app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -151,9 +151,43 @@ database, or accounting authority.
   browser merge gate. No database/Docker/Supabase/provider or production
   validation was applicable to this UI-only diff.
 
-The exact next implementation phase is **UX-W4 — bounded high-value transaction
-editors**, beginning with RFQ and Purchase Order draft editing. Do not claim
-app-wide Excel-native editing from UX-W3.
+At the UX-W3 checkpoint, the exact next implementation phase was **UX-W4 —
+bounded high-value transaction editors**, beginning with RFQ and Purchase
+Order draft editing. That RFQ/PO proving slice is recorded below; do not claim
+app-wide Excel-native editing from UX-W4.
+
+## 2026-09-20 UX-W4 — RFQ + Purchase Order draft worksheet editors implemented
+
+UX-W4 applies the shared worksheet interaction model to the ordinary RFQ and
+Purchase Order draft editors without changing procurement persistence or
+lifecycle ownership.
+
+- RFQ header fields and RFQ lines now use `WorksheetEditor`; active project
+  cost-code references, positive quantities, stable line identities, requested
+  delivery dates, notes, Add Row, and safe draft row removal remain bounded by
+  the existing domain model.
+- Purchase Order header fields and PO lines now use `WorksheetEditor`; unit
+  price, quantity, unit, description, project/cost-code references, calculated
+  line amount, calculated total, and received quantity are represented with
+  explicit protected semantics where applicable.
+- Existing draft validation, project/company reference checks, permissions,
+  and `updatedAt` optimistic-concurrency tokens remain authoritative through
+  the existing parent callbacks and RFQ/PO save RPCs. No worksheet cell can
+  approve, issue, receive, close, cancel, match, settle, or otherwise post a
+  Purchase Order.
+- RFQ comparison/quotation selection/issue/cancellation and Purchase Order
+  approval/issue/receiving/close/cancellation/invoice matching/settlement
+  remain purpose-built workflows. Existing Procurement `.xlsx` review/apply
+  behavior was not rebuilt.
+- Demo Visual QA scenarios now open both draft worksheet surfaces at desktop,
+  tablet, and mobile viewports. The browser scenarios remain exact-head CI
+  evidence; no local browser run was performed in this implementation pass.
+
+Focused Procurement/worksheet tests, ESLint, and TypeScript validation pass
+locally. This is a UI/application-only change: no migration, Docker/Supabase,
+provider, hosted-QA, or production operation is included. The next bounded
+slice within UX-W4 is **Client Billing draft worksheet editing**; do not claim
+app-wide Excel-native editing from this rollout.
 
 ## Historical application / certification baselines
 

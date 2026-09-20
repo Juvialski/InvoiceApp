@@ -1,7 +1,8 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertCircle, FileText, Plus, Trash2, X, Users, Calendar, CheckSquare, Square } from "lucide-react";
+import React, { useEffect, useId, useMemo, useState } from "react";
+import { AlertCircle, FileText, X, Users, CheckSquare, Square } from "lucide-react";
 import type { Project, ProjectCostCode, RFQ, RFQLine, Vendor } from "../../types.ts";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
+import { WorksheetEditor, type WorksheetColumn } from "../ui/WorksheetEditor.tsx";
 
 export interface RFQEditorModalProps {
   open: boolean;
@@ -14,12 +15,13 @@ export interface RFQEditorModalProps {
     rfq: Partial<RFQ> & { rfqNumber: string; title: string },
     lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
     invitedVendorIds?: string[],
+    expectedUpdatedAt?: string,
   ) => Promise<void> | void;
   onClose: () => void;
 }
 
 interface EditableRFQLine {
-  id?: string;
+  id: string;
   description: string;
   quantity: string;
   unit: string;
@@ -28,8 +30,33 @@ interface EditableRFQLine {
   notes: string;
 }
 
+interface EditableRFQHeader {
+  id: string;
+  rfqNumber: string;
+  title: string;
+  description: string;
+  projectId: string;
+  currency: string;
+  issueDate: string;
+  dueDate: string;
+  notes: string;
+  status: RFQ["status"];
+}
+
+let rfqLineSequence = 0;
+
+function nextRFQLineId() {
+  rfqLineSequence += 1;
+  return `draft-rfq-line-${Date.now()}-${rfqLineSequence}`;
+}
+
+export function persistedRFQLineId(id: string): string | undefined {
+  return id.startsWith("draft-rfq-line-") ? undefined : id;
+}
+
 function createEmptyLine(): EditableRFQLine {
   return {
+    id: nextRFQLineId(),
     description: "",
     quantity: "1",
     unit: "pcs",
@@ -37,6 +64,38 @@ function createEmptyLine(): EditableRFQLine {
     requestedDeliveryDate: "",
     notes: "",
   };
+}
+
+function headerFromRFQ(rfq: RFQ | null | undefined, defaultProjectId: string | undefined, projects: readonly Project[]): EditableRFQHeader {
+  return {
+    id: rfq?.id || "new-rfq",
+    rfqNumber: rfq?.rfqNumber || `RFQ-25-${Math.floor(1000 + Math.random() * 9000)}`,
+    title: rfq?.title || "",
+    description: rfq?.description || "",
+    projectId: rfq?.projectId || defaultProjectId || projects[0]?.id || "",
+    currency: rfq?.currency || "PHP",
+    issueDate: rfq?.issueDate || new Date().toISOString().split("T")[0],
+    dueDate: rfq?.dueDate || "",
+    notes: rfq?.notes || "",
+    status: rfq?.status || "DRAFT",
+  };
+}
+
+function linesFromRFQ(rfq: RFQ | null | undefined): EditableRFQLine[] {
+  if (!rfq?.lines?.length) return [createEmptyLine()];
+  return rfq.lines.map((line) => ({
+    id: line.id,
+    description: line.description,
+    quantity: String(line.quantity),
+    unit: line.unit || "pcs",
+    projectCostCodeId: line.projectCostCodeId || "",
+    requestedDeliveryDate: line.requestedDeliveryDate || "",
+    notes: line.notes || "",
+  }));
+}
+
+function textValue(value: unknown) {
+  return String(value ?? "");
 }
 
 export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
@@ -53,86 +112,29 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
   const dialogRef = useDialogFocus({ open, onClose });
 
   const isEditing = Boolean(rfq?.id);
+  const isDraft = !rfq?.id || rfq.status === "DRAFT";
 
-  const [rfqNumber, setRfqNumber] = useState(() => rfq?.rfqNumber || `RFQ-25-${Math.floor(1000 + Math.random() * 9000)}`);
-  const [title, setTitle] = useState(() => rfq?.title || "");
-  const [description, setDescription] = useState(() => rfq?.description || "");
-  const [projectId, setProjectId] = useState(() => rfq?.projectId || defaultProjectId || "");
-  const [currency, setCurrency] = useState(() => rfq?.currency || "PHP");
-  const [issueDate, setIssueDate] = useState(() => rfq?.issueDate || "");
-  const [dueDate, setDueDate] = useState(() => rfq?.dueDate || "");
-  const [notes, setNotes] = useState(() => rfq?.notes || "");
+  const [header, setHeader] = useState<EditableRFQHeader>(() => headerFromRFQ(rfq, defaultProjectId, projects));
   const [invitedVendorIds, setInvitedVendorIds] = useState<string[]>(
     () => rfq?.invitedVendorIds || rfq?.invitedVendors?.map((v) => v.vendorId) || [],
   );
-  const [lines, setLines] = useState<EditableRFQLine[]>(() => {
-    if (rfq?.lines && rfq.lines.length > 0) {
-      return rfq.lines.map((l) => ({
-        id: l.id,
-        description: l.description,
-        quantity: String(l.quantity),
-        unit: l.unit || "pcs",
-        projectCostCodeId: l.projectCostCodeId || "",
-        requestedDeliveryDate: l.requestedDeliveryDate || "",
-        notes: l.notes || "",
-      }));
-    }
-    return [createEmptyLine()];
-  });
+  const [lines, setLines] = useState<EditableRFQLine[]>(() => linesFromRFQ(rfq));
   const [vendorSearch, setVendorSearch] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize or reset fields
   useEffect(() => {
-    if (rfq) {
-      setRfqNumber(rfq.rfqNumber || "");
-      setTitle(rfq.title || "");
-      setDescription(rfq.description || "");
-      setProjectId(rfq.projectId || defaultProjectId || "");
-      setCurrency(rfq.currency || "PHP");
-      setIssueDate(rfq.issueDate || "");
-      setDueDate(rfq.dueDate || "");
-      setNotes(rfq.notes || "");
-      setInvitedVendorIds(rfq.invitedVendorIds || rfq.invitedVendors?.map((v) => v.vendorId) || []);
-
-      if (rfq.lines && rfq.lines.length > 0) {
-        setLines(
-          rfq.lines.map((l) => ({
-            id: l.id,
-            description: l.description,
-            quantity: String(l.quantity),
-            unit: l.unit || "pcs",
-            projectCostCodeId: l.projectCostCodeId || "",
-            requestedDeliveryDate: l.requestedDeliveryDate || "",
-            notes: l.notes || "",
-          })),
-        );
-      } else {
-        setLines([createEmptyLine()]);
-      }
-    } else {
-      // Auto-generate tentative draft RFQ number
-      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      setRfqNumber(`RFQ-25-${randomSuffix}`);
-      setTitle("");
-      setDescription("");
-      setProjectId(defaultProjectId || (projects[0]?.id ?? ""));
-      setCurrency("PHP");
-      setIssueDate(new Date().toISOString().split("T")[0]);
-      setDueDate("");
-      setNotes("");
-      setInvitedVendorIds([]);
-      setLines([createEmptyLine()]);
-    }
+    setHeader(headerFromRFQ(rfq, defaultProjectId, projects));
+    setInvitedVendorIds(rfq?.invitedVendorIds || rfq?.invitedVendors?.map((v) => v.vendorId) || []);
+    setLines(linesFromRFQ(rfq));
     setErrorMessage(null);
   }, [rfq, defaultProjectId, projects, open]);
 
   // Filter cost codes by selected project
   const availableCostCodes = useMemo(() => {
-    if (!projectId) return [];
-    return costCodes.filter((cc) => cc.projectId === projectId && cc.status === "ACTIVE");
-  }, [costCodes, projectId]);
+    if (!header.projectId) return [];
+    return costCodes.filter((cc) => cc.projectId === header.projectId && cc.status === "ACTIVE");
+  }, [costCodes, header.projectId]);
 
   // Filter vendors by search
   const filteredVendors = useMemo(() => {
@@ -152,50 +154,37 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
     );
   };
 
-  const handleLineChange = (index: number, field: keyof EditableRFQLine, value: string) => {
-    setLines((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], [field]: value };
-      return next;
-    });
-  };
-
-  const handleAddLine = () => {
-    setLines((prev) => [...prev, createEmptyLine()]);
-  };
-
-  const handleRemoveLine = (index: number) => {
-    if (lines.length <= 1) {
-      setLines([createEmptyLine()]);
-      return;
-    }
-    setLines((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveDraft = async (nextHeader = header, nextLines = lines) => {
     setErrorMessage(null);
 
-    const cleanNumber = rfqNumber.trim().toUpperCase();
+    if (!isDraft) return;
+
+    const cleanNumber = nextHeader.rfqNumber.trim().toUpperCase();
     if (!cleanNumber) {
       setErrorMessage("RFQ Number is required.");
       return;
     }
 
-    const cleanTitle = title.trim();
+    const cleanTitle = nextHeader.title.trim();
     if (!cleanTitle) {
       setErrorMessage("RFQ Title is required.");
       return;
     }
 
-    if (lines.length === 0) {
+    if (nextHeader.projectId && !projects.some((project) => project.id === nextHeader.projectId)) {
+      setErrorMessage("Choose a project that belongs to the current company workspace.");
+      return;
+    }
+
+    if (nextLines.length === 0) {
       setErrorMessage("At least one line item is required.");
       return;
     }
 
     const preparedLines: Array<Partial<RFQLine> & { description: string; quantity: number }> = [];
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+    const validCostCodeIds = new Set(costCodes.filter((costCode) => costCode.projectId === nextHeader.projectId && costCode.status === "ACTIVE").map((costCode) => costCode.id));
+    for (let i = 0; i < nextLines.length; i++) {
+      const line = nextLines[i];
       const desc = line.description.trim();
       if (!desc) {
         setErrorMessage(`Line ${i + 1}: Description is required.`);
@@ -206,9 +195,14 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
         setErrorMessage(`Line ${i + 1}: Quantity must be a positive number.`);
         return;
       }
+      if (line.projectCostCodeId && !validCostCodeIds.has(line.projectCostCodeId)) {
+        setErrorMessage(`Line ${i + 1}: Cost code must belong to the selected project and remain active.`);
+        return;
+      }
 
+      const persistedId = persistedRFQLineId(line.id);
       preparedLines.push({
-        id: line.id,
+        ...(persistedId ? { id: persistedId } : {}),
         lineNumber: i + 1,
         description: desc,
         quantity: qty,
@@ -226,15 +220,16 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
           id: rfq?.id,
           rfqNumber: cleanNumber,
           title: cleanTitle,
-          description: description.trim() || null,
-          projectId: projectId || null,
-          currency: currency.trim().toUpperCase() || "PHP",
-          issueDate: issueDate || null,
-          dueDate: dueDate || null,
-          notes: notes.trim() || null,
+          description: nextHeader.description.trim() || null,
+          projectId: nextHeader.projectId || null,
+          currency: nextHeader.currency.trim().toUpperCase() || "PHP",
+          issueDate: nextHeader.issueDate || null,
+          dueDate: nextHeader.dueDate || null,
+          notes: nextHeader.notes.trim() || null,
         },
         preparedLines,
         invitedVendorIds,
+        rfq?.updatedAt,
       );
       onClose();
     } catch (err: unknown) {
@@ -243,6 +238,169 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const headerColumns = useMemo<readonly WorksheetColumn<EditableRFQHeader>[]>(() => [
+    {
+      key: "rfqNumber",
+      header: "RFQ Number",
+      frozen: true,
+      minWidth: "12rem",
+      value: (row) => row.rfqNumber,
+      setValue: (row, value) => ({ ...row, rfqNumber: textValue(value).toUpperCase() }),
+      editable: isDraft,
+      protected: !isDraft,
+      validate: (value) => textValue(value).trim() ? undefined : "RFQ Number is required.",
+    },
+    {
+      key: "title",
+      header: "RFQ Title / Package",
+      minWidth: "20rem",
+      value: (row) => row.title,
+      setValue: (row, value) => ({ ...row, title: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+      validate: (value) => textValue(value).trim() ? undefined : "RFQ Title is required.",
+    },
+    {
+      key: "projectId",
+      header: "Project",
+      kind: "select",
+      minWidth: "18rem",
+      options: [{ value: "", label: "General / no project" }, ...projects.map((project) => ({ value: project.id, label: `${project.projectCode} — ${project.projectName}` }))],
+      value: (row) => row.projectId,
+      setValue: (row, value) => ({ ...row, projectId: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+    {
+      key: "currency",
+      header: "Currency",
+      kind: "select",
+      minWidth: "9rem",
+      options: ["PHP", "USD", "EUR", "JPY", "SGD"].map((value) => ({ value, label: value })),
+      value: (row) => row.currency,
+      setValue: (row, value) => ({ ...row, currency: textValue(value).toUpperCase() }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+    {
+      key: "issueDate",
+      header: "Issue Date",
+      kind: "date",
+      minWidth: "11rem",
+      value: (row) => row.issueDate,
+      setValue: (row, value) => ({ ...row, issueDate: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+    {
+      key: "dueDate",
+      header: "Due Date",
+      kind: "date",
+      minWidth: "11rem",
+      value: (row) => row.dueDate,
+      setValue: (row, value) => ({ ...row, dueDate: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+    {
+      key: "description",
+      header: "Scope / Description",
+      minWidth: "24rem",
+      value: (row) => row.description,
+      setValue: (row, value) => ({ ...row, description: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+    {
+      key: "notes",
+      header: "Commercial Notes",
+      minWidth: "22rem",
+      value: (row) => row.notes,
+      setValue: (row, value) => ({ ...row, notes: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+    {
+      key: "status",
+      header: "Status",
+      minWidth: "9rem",
+      value: (row) => row.status,
+      protected: true,
+      editable: false,
+    },
+  ], [isDraft, projects]);
+
+  const lineColumns = useMemo<readonly WorksheetColumn<EditableRFQLine>[]>(() => [
+    {
+      key: "description",
+      header: "Item / Description",
+      frozen: true,
+      minWidth: "22rem",
+      value: (row) => row.description,
+      setValue: (row, value) => ({ ...row, description: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+      validate: (value) => textValue(value).trim() ? undefined : "Description is required.",
+    },
+    {
+      key: "quantity",
+      header: "Quantity",
+      kind: "number",
+      minWidth: "9rem",
+      align: "right",
+      value: (row) => row.quantity,
+      setValue: (row, value) => ({ ...row, quantity: value === null ? "" : textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+      validate: (value) => Number(value) > 0 ? undefined : "Quantity must be a positive number.",
+    },
+    {
+      key: "unit",
+      header: "Unit",
+      minWidth: "8rem",
+      value: (row) => row.unit,
+      setValue: (row, value) => ({ ...row, unit: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+    {
+      key: "projectCostCodeId",
+      header: "Cost Code",
+      kind: "select",
+      minWidth: "18rem",
+      options: () => availableCostCodes.map((costCode) => ({ value: costCode.id, label: `${costCode.code} — ${costCode.name}` })),
+      value: (row) => row.projectCostCodeId,
+      setValue: (row, value) => ({ ...row, projectCostCodeId: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+      validate: (value) => !value || availableCostCodes.some((costCode) => costCode.id === value) ? undefined : "Choose an active cost code from the selected project.",
+    },
+    {
+      key: "requestedDeliveryDate",
+      header: "Requested Delivery Date",
+      kind: "date",
+      minWidth: "13rem",
+      value: (row) => row.requestedDeliveryDate,
+      setValue: (row, value) => ({ ...row, requestedDeliveryDate: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+    {
+      key: "notes",
+      header: "Notes / Specification",
+      minWidth: "18rem",
+      value: (row) => row.notes,
+      setValue: (row, value) => ({ ...row, notes: textValue(value) }),
+      editable: isDraft,
+      protected: !isDraft,
+    },
+  ], [availableCostCodes, isDraft]);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    await handleSaveDraft();
   };
 
   if (!open) return null;
@@ -295,279 +453,71 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
               </div>
             )}
 
-            {/* Top Metadata Grid */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  RFQ Number <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={rfqNumber}
-                  onChange={(e) => setRfqNumber(e.target.value.toUpperCase())}
-                  placeholder="e.g. RFQ-25-0004"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono font-semibold uppercase text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
+            <section data-testid="rfq-draft-worksheet" aria-label="RFQ draft worksheet" className="min-w-0 space-y-4">
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
+                <p className="font-black uppercase tracking-[0.12em]">RFQ draft worksheet</p>
+                <p className="mt-1">Edit safe RFQ header values and repeated line fields here. Comparison, quotation selection, issue, cancellation, and other lifecycle actions remain outside this worksheet.</p>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  RFQ Title / Package Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Chilled Water Piping & Valves Package"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Project</label>
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="">No Project Scoped (General)</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.projectCode} — {p.projectName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Currency</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="PHP">PHP (Philippine Peso)</option>
-                  <option value="USD">USD (US Dollar)</option>
-                  <option value="EUR">EUR (Euro)</option>
-                  <option value="JPY">JPY (Japanese Yen)</option>
-                  <option value="SGD">SGD (Singapore Dollar)</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:col-span-1">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Issue Date</label>
-                  <input
-                    type="date"
-                    value={issueDate}
-                    onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Description / Scope of Work</label>
-              <textarea
-                rows={2}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Scope details, technical standards, delivery terms, and submission requirements..."
-                className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              <WorksheetEditor
+                ariaLabel="RFQ draft header worksheet"
+                rows={[header]}
+                columns={headerColumns}
+                rowKey={(row) => row.id}
+                onRowsChange={(rows) => { if (rows[0]) setHeader(rows[0]); }}
+                onSave={isDraft ? (rows) => handleSaveDraft(rows[0] || header, lines) : undefined}
+                onCancel={onClose}
+                disabled={!isDraft || isSubmitting}
+                isSaving={isSubmitting}
+                saveLabel="Save RFQ draft"
+                cancelLabel="Close editor"
+                density="comfortable"
               />
-            </div>
 
-            {/* Invited Vendors Multi-Select */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-indigo-600" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Invited Vendors</span>
-                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-extrabold text-indigo-700">
-                    {invitedVendorIds.length} selected
-                  </span>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-indigo-600" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Invited Vendors</span>
+                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-extrabold text-indigo-700">{invitedVendorIds.length} selected</span>
+                  </div>
+                  <input type="text" value={vendorSearch} onChange={(event) => setVendorSearch(event.target.value)} placeholder="Search vendors..." className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none" />
                 </div>
-                <input
-                  type="text"
-                  value={vendorSearch}
-                  onChange={(e) => setVendorSearch(e.target.value)}
-                  placeholder="Search vendors..."
-                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-44 overflow-y-auto pr-1">
-                {filteredVendors.map((vendor) => {
-                  const isChecked = invitedVendorIds.includes(vendor.id);
-                  return (
-                    <button
-                      key={vendor.id}
-                      type="button"
-                      onClick={() => toggleVendor(vendor.id)}
-                      className={`flex items-start gap-2.5 rounded-lg border p-2 text-left transition ${
-                        isChecked
-                          ? "border-indigo-500 bg-indigo-50/70 text-indigo-900"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
-                      }`}
-                    >
-                      <div className="mt-0.5 shrink-0 text-indigo-600">
-                        {isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-slate-400" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-semibold truncate">{vendor.name}</div>
-                        <div className="text-[10px] text-slate-500 truncate">
-                          {vendor.defaultCategory || "General Supplier"}
-                          {vendor.taxId ? ` • TIN: ${vendor.taxId}` : ""}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Line Items Table */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Line Items</span>
-                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold text-slate-700">
-                    {lines.length}
-                  </span>
+                <div className="mt-3 grid max-h-44 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredVendors.map((vendor) => {
+                    const isChecked = invitedVendorIds.includes(vendor.id);
+                    return <button key={vendor.id} type="button" onClick={() => toggleVendor(vendor.id)} disabled={!isDraft} className={`flex items-start gap-2.5 rounded-lg border p-2 text-left transition ${isChecked ? "border-indigo-500 bg-indigo-50/70 text-indigo-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}>
+                      <div className="mt-0.5 shrink-0 text-indigo-600">{isChecked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-slate-400" />}</div>
+                      <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{vendor.name}</div><div className="truncate text-[10px] text-slate-500">{vendor.defaultCategory || "General Supplier"}{vendor.taxId ? ` • TIN: ${vendor.taxId}` : ""}</div></div>
+                    </button>;
+                  })}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddLine}
-                  className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Line Item
-                </button>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
-                    <tr>
-                      <th className="px-3 py-2 text-center w-10">#</th>
-                      <th className="px-3 py-2 min-w-[220px]">
-                        Description <span className="text-rose-500">*</span>
-                      </th>
-                      <th className="px-3 py-2 w-24">
-                        Quantity <span className="text-rose-500">*</span>
-                      </th>
-                      <th className="px-3 py-2 w-20">Unit</th>
-                      <th className="px-3 py-2 w-44">Cost Code</th>
-                      <th className="px-3 py-2 w-32">Req. Delivery</th>
-                      <th className="px-3 py-2 min-w-[140px]">Notes</th>
-                      <th className="px-3 py-2 text-center w-12">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {lines.map((line, idx) => (
-                      <tr key={line.id || idx} className="hover:bg-slate-50/50">
-                        <td className="px-3 py-2 text-center font-mono font-bold text-slate-400">{idx + 1}</td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="text"
-                            required
-                            value={line.description}
-                            onChange={(e) => handleLineChange(idx, "description", e.target.value)}
-                            placeholder="e.g. 150mm Carbon Steel Pipe"
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0.001"
-                            step="any"
-                            required
-                            value={line.quantity}
-                            onChange={(e) => handleLineChange(idx, "quantity", e.target.value)}
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-xs font-mono text-slate-900 focus:border-indigo-500 focus:outline-none"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="text"
-                            value={line.unit}
-                            onChange={(e) => handleLineChange(idx, "unit", e.target.value)}
-                            placeholder="pcs"
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <select
-                            value={line.projectCostCodeId}
-                            onChange={(e) => handleLineChange(idx, "projectCostCodeId", e.target.value)}
-                            className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-                          >
-                            <option value="">(None)</option>
-                            {availableCostCodes.map((cc) => (
-                              <option key={cc.id} value={cc.id}>
-                                {cc.code} — {cc.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="date"
-                            value={line.requestedDeliveryDate}
-                            onChange={(e) => handleLineChange(idx, "requestedDeliveryDate", e.target.value)}
-                            className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="text"
-                            value={line.notes}
-                            onChange={(e) => handleLineChange(idx, "notes", e.target.value)}
-                            placeholder="Specification details..."
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveLine(idx)}
-                            title="Remove line item"
-                            className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">RFQ Line Items</span>
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold text-slate-700">{lines.length}</span>
               </div>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Commercial Notes & Terms</label>
-              <textarea
-                rows={2}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Payment terms requirements, warranties, inspection requirements, and delivery guidelines..."
-                className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              <WorksheetEditor
+                ariaLabel="RFQ draft lines worksheet"
+                rows={lines}
+                columns={lineColumns}
+                rowKey={(row) => row.id}
+                onRowsChange={(rows) => setLines([...rows])}
+                onAddRow={isDraft ? () => createEmptyLine() : undefined}
+                canAddRow={isDraft}
+                onRemoveRow={isDraft ? () => undefined : undefined}
+                canRemoveRow={isDraft ? (_row, index) => lines.length > 1 && index >= 0 : false}
+                onSave={isDraft ? (rows) => handleSaveDraft(header, [...rows]) : undefined}
+                onCancel={onClose}
+                disabled={!isDraft || isSubmitting}
+                isSaving={isSubmitting}
+                saveLabel="Save RFQ draft"
+                cancelLabel="Close editor"
+                emptyState="No RFQ lines yet. Add a row for each requested item."
+                density="compact"
               />
-            </div>
+            </section>
           </div>
 
           {/* Modal Footer */}
@@ -584,13 +534,15 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
-              >
-                {isSubmitting ? "Saving..." : isEditing ? "Update RFQ" : "Create RFQ"}
-              </button>
+              {isDraft && (
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
+                >
+                  {isSubmitting ? "Saving..." : isEditing ? "Update RFQ" : "Create RFQ"}
+                </button>
+              )}
             </div>
           </div>
         </form>

@@ -3,7 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ProcurementPage } from "../src/components/procurement/ProcurementPage.tsx";
-import { RFQEditorModal } from "../src/components/procurement/RFQEditorModal.tsx";
+import { RFQEditorModal, persistedRFQLineId } from "../src/components/procurement/RFQEditorModal.tsx";
+import { PurchaseOrderEditorModal, persistedPurchaseOrderLineId } from "../src/components/procurement/PurchaseOrderEditorModal.tsx";
 import { SupplierQuotationModal } from "../src/components/procurement/SupplierQuotationModal.tsx";
 import { RFQComparisonModal } from "../src/components/procurement/RFQComparisonModal.tsx";
 import { createDemoRFQs, createDemoSupplierQuotations } from "../src/demo/data/procurement.ts";
@@ -179,6 +180,120 @@ test("RFQEditorModal renders with accessible dialog attributes, line items table
   assert.match(markup, /Metrosteel Supply Corp\./);
   assert.match(markup, /Line Items/);
   assert.match(markup, /Seamless Carbon Steel Pipe/);
+});
+
+test("worksheet-only procurement row ids never leak into authoritative save identities", () => {
+  assert.equal(persistedRFQLineId("draft-rfq-line-123-1"), undefined);
+  assert.equal(persistedRFQLineId("0f23ccaf-bf5e-4e72-9a8d-b23a97b55eb5"), "0f23ccaf-bf5e-4e72-9a8d-b23a97b55eb5");
+  assert.equal(persistedPurchaseOrderLineId("draft-po-line-123-1"), undefined);
+  assert.equal(persistedPurchaseOrderLineId("a91d3f47-17cb-4db6-a2a7-d95be2b670d0"), "a91d3f47-17cb-4db6-a2a7-d95be2b670d0");
+});
+
+test("RFQ draft editing uses shared worksheets for safe header and line fields", () => {
+  const rfq = demoRfqs.find((candidate) => candidate.status === "DRAFT") || demoRfqs[0];
+  const markup = renderToStaticMarkup(
+    <RFQEditorModal
+      open={true}
+      rfq={rfq}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      onSave={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /data-testid="rfq-draft-worksheet"/);
+  assert.equal((markup.match(/data-worksheet-editor="true"/g) || []).length, 2);
+  assert.match(markup, /aria-label="RFQ draft header worksheet"/);
+  assert.match(markup, /aria-label="RFQ draft lines worksheet"/);
+  assert.match(markup, /Requested Delivery/);
+  assert.match(markup, /data-worksheet-add-row="true"/);
+  assert.match(markup, /Save RFQ draft/);
+});
+
+test("RFQ non-draft worksheet is protected and does not offer a misleading update submit action", () => {
+  const rfq = demoRfqs.find((candidate) => candidate.status !== "DRAFT");
+  assert.ok(rfq, "Expected a non-draft RFQ in demo data");
+  const markup = renderToStaticMarkup(
+    <RFQEditorModal
+      open={true}
+      rfq={rfq}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      onSave={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /data-worksheet-protected="true"/);
+  assert.doesNotMatch(markup, /Update RFQ/);
+  assert.doesNotMatch(markup, /data-worksheet-add-row="true"/);
+});
+
+test("Purchase Order draft editing uses shared worksheets and protects calculated amounts", () => {
+  const purchaseOrder = demoWorkspace.purchaseOrders.find((candidate) => candidate.status === "DRAFT");
+  assert.ok(purchaseOrder, "Expected a draft purchase order in demo data");
+  const markup = renderToStaticMarkup(
+    <PurchaseOrderEditorModal
+      open={true}
+      purchaseOrder={purchaseOrder}
+      receipts={demoWorkspace.purchaseOrderReceipts}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canManage={true}
+      canApprove={true}
+      matches={demoWorkspace.purchaseOrderMatches}
+      invoices={demoWorkspace.invoices}
+      onSave={async () => {}}
+      onTransition={async () => {}}
+      onDelete={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /data-testid="purchase-order-draft-worksheet"/);
+  assert.equal((markup.match(/data-worksheet-editor="true"/g) || []).length, 2);
+  assert.match(markup, /aria-label="Purchase order header worksheet"/);
+  assert.match(markup, /aria-label="Purchase order draft lines worksheet"/);
+  assert.match(markup, /Unit Price/);
+  assert.match(markup, /Amount/);
+  assert.match(markup, /data-worksheet-protected="true"/);
+  assert.match(markup, /data-worksheet-add-row="true"/);
+  assert.match(markup, /Approve PO/);
+  assert.doesNotMatch(markup, /Record Delivery \/ Receipt/);
+});
+
+test("Purchase Order non-draft worksheet keeps editing protected while workflows stay outside the grid", () => {
+  const purchaseOrder = demoWorkspace.purchaseOrders.find((candidate) => candidate.status === "ISSUED");
+  assert.ok(purchaseOrder, "Expected an issued purchase order in demo data");
+  const markup = renderToStaticMarkup(
+    <PurchaseOrderEditorModal
+      open={true}
+      purchaseOrder={purchaseOrder}
+      receipts={demoWorkspace.purchaseOrderReceipts}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canManage={true}
+      canApprove={true}
+      matches={demoWorkspace.purchaseOrderMatches}
+      invoices={demoWorkspace.invoices}
+      onSave={async () => {}}
+      onTransition={async () => {}}
+      onDelete={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /data-testid="purchase-order-draft-worksheet"/);
+  assert.match(markup, /data-worksheet-protected="true"/);
+  assert.doesNotMatch(markup, /data-worksheet-add-row="true"/);
+  assert.match(markup, /Delivery &amp; Goods Receipts Tracking/);
+  assert.match(markup, /Record Delivery \/ Receipt/);
+  assert.doesNotMatch(markup, /Approve PO/);
 });
 
 test("SupplierQuotationModal renders with vendor selection, terms, and auto-populated line items", () => {

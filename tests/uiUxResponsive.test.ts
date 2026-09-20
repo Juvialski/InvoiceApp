@@ -14,12 +14,12 @@ test("narrow operational registers use progressive disclosure instead of forced 
   const receipts = source("src/components/procurement/RecordReceiptModal.tsx");
 
   assert.match(expenses, /aria-label="Expense register cards"/);
-  assert.match(expenses, /className="hidden lg:block ops-scrollbar overflow-auto"/);
+  assert.match(expenses, /className="hidden lg:block"/);
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
   assert.match(projectRegister, /data-project-id=\{project\.id\}/);
-  assert.match(projectRegister, /className="min-w-0 w-full p-4 shadow-sm space-y-3"/);
-  assert.match(projectRegister, /className="flex min-w-0 flex-col gap-2 border-t border-slate-100 pt-2\.5 sm:flex-row/);
-  assert.match(projectRegister, /label="Open Project →"[\s\S]*className="w-full sm:w-auto"/);
+  assert.match(projectRegister, /className="min-w-0 w-full overflow-hidden shadow-sm"/);
+  assert.match(projectRegister, /className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-slate-100 p-3"/);
+  assert.match(projectRegister, /Open project workspace for/);
   assert.match(purchaseOrderRegister, /aria-label="Purchase order register cards"/);
   assert.match(rfqRegister, /aria-label="RFQ register cards"/);
   assert.match(procurement, /flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-slate-200/);
@@ -69,6 +69,17 @@ test("desktop Procurement filters reserve readable space for the search field", 
   const purchaseOrderRegister = source("src/components/procurement/PurchaseOrderRegisterSection.tsx");
   assert.match(purchaseOrderRegister, /grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm xl:grid-cols-\[minmax\(18rem,1fr\)_minmax\(0,auto\)\] xl:items-center/);
   assert.match(purchaseOrderRegister, /flex w-full min-w-0 flex-wrap items-center gap-2 xl:w-auto/);
+});
+
+test("Procurement draft worksheets keep dense editing contained inside responsive surfaces", () => {
+  const rfqEditor = source("src/components/procurement/RFQEditorModal.tsx");
+  const purchaseOrderEditor = source("src/components/procurement/PurchaseOrderEditorModal.tsx");
+  assert.match(rfqEditor, /data-testid="rfq-draft-worksheet"/);
+  assert.match(rfqEditor, /ariaLabel="RFQ draft lines worksheet"/);
+  assert.match(rfqEditor, /className="min-w-0 space-y-4"/);
+  assert.match(purchaseOrderEditor, /data-testid="purchase-order-draft-worksheet"/);
+  assert.match(purchaseOrderEditor, /ariaLabel="Purchase order draft lines worksheet"/);
+  assert.match(purchaseOrderEditor, /className="min-w-0 space-y-4"/);
 });
 
 test("desktop Projects filters reserve readable space for project search", () => {
