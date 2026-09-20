@@ -336,8 +336,10 @@ run, so the protected exact-head Database Migration & Invariant workflow is the
 authoritative runtime gate for clean migration replay, pgTAP/invariants, and the
 historical-data upgrade path before merge. Demo Visual QA is likewise an
 exact-head merge gate for the changed Projects surfaces. Provider certification
-and production promotion remain separate and unclaimed. The next bounded
-Excel-native domain is Phase 4 — Expenses and Finance.
+and production promotion remain separate and unclaimed. That statement previously
+identified Phase 4 — Expenses and Finance as next; bounded Phase 4A is now
+implemented, and the 2026-09-20 selective workbook-editing UX correction
+supersedes that old next-step wording.
 
 ## 2026-09-20 Excel Phase 4A — Expenses + Supplier Payables — implemented
 
