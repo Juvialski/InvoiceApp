@@ -270,6 +270,7 @@ test("renders a labelled mobile row fallback without duplicating protected-state
   assert.match(html, /data-worksheet-protected="true"/);
   assert.match(html, /aria-readonly="true"/);
   assert.doesNotMatch(html, /<span[^>]*>Protected<\/span>/);
+  assert.doesNotMatch(html, />Locked<\/span>/);
   assert.match(html, /data-worksheet-add-row="true"/);
   assert.match(html, /data-worksheet-remove-row="row-1"/);
 });
@@ -285,6 +286,10 @@ test("keeps mobile validation beside the affected worksheet field", () => {
     />,
   );
   assert.match(html, /data-worksheet-mobile-field="row-1:amount"[^>]*data-worksheet-state="error"/);
+  assert.match(html, /aria-describedby="row-1-amount-message-desktop"/);
+  assert.match(html, /aria-describedby="row-1-amount-message-mobile"/);
+  assert.match(html, /id="row-1-amount-message-desktop"/);
+  assert.match(html, /id="row-1-amount-message-mobile"/);
   assert.match(html, /Review this amount/);
 });
 
