@@ -52,7 +52,7 @@ authority.
   Billing, Expense Draft, RFQ, Purchase Order, and Supplier Invoice for
   targeted evidence.
 
-Focused worksheet/responsive coverage passed 37/37; affected application
+Focused worksheet/responsive coverage passed 38/38; affected application
 selection passed 479/479 with database fallback disabled; TypeScript, ESLint,
 and the production build passed. Interactive local safe-demo visual inspection
 covered representative phone and desktop states. The repository Demo Visual QA
