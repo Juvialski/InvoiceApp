@@ -26,7 +26,7 @@ credentials/device/runtime.
 
 The Excel-Native Operations workbook/authority contract is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the original shared foundation, the bounded Procurement pilot, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented; app-wide Excel capability remains unclaimed.
 
-The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations are implemented at source revision `5011d137829cceef70cee6d8dcb96157aae02a39`; UX-W4.5C task-first hierarchy is next before UX-W5.
+The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations are implemented; targeted local visual evidence belongs to capture SHA `5011d137829cceef70cee6d8dcb96157aae02a39`, while the PR-reviewed application-bearing head is `85efe8f951b96df0c20dd6ffd4869f0b083c2343`. UX-W4.5C task-first hierarchy is next before UX-W5.
 
 The governing correction contract is `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`. The user-provided Projects and Supplier Invoice screenshots were examples only; the completed UX-W4.5A report visually inspected the broader safe-demo product across desktop, constrained laptop, tablet, and phone before broad remediation begins.
 
@@ -54,10 +54,13 @@ authority.
 
 Focused worksheet/responsive coverage passed 38/38; affected application
 selection passed 479/479 with database fallback disabled; TypeScript, ESLint,
-and the production build passed. Interactive local safe-demo visual inspection
-covered representative phone and desktop states. The repository Demo Visual QA
-runner was not claimed as passed because this clean worktree lacked the
-Playwright dependency; the exact qualified visual disposition is recorded in
+and the production build passed on the implementation run. Interactive local
+safe-demo visual inspection covered representative phone and desktop states at
+the qualified capture SHA. PR review then added the quiet mobile read-only,
+unique issue-description ID, and hidden-responsive-control focus fixes at
+`85efe8f951b96df0c20dd6ffd4869f0b083c2343`. The local Demo Visual QA runner was unavailable because that
+clean worktree lacked Playwright; protected exact-head browser CI remains the
+merge gate; the exact qualified visual disposition is recorded in
 `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md` and the follow-up
 section of `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
 
@@ -929,7 +932,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
 4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ/PO + Client Billing + Expenses IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, Purchase Order draft editing, Client Billing draft editing, and direct Expense DRAFT editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
-5. **UX-W4.5A is complete and UX-W4.5B shared responsive/editor foundations are implemented at source revision `5011d137829cceef70cee6d8dcb96157aae02a39`.** The durable sanitized report remains `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`; the qualified UX-W4.5B visual record is `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`. UX45A-003 and UX45A-010 are resolved for the bounded worksheet consumers; UX45A-002 is partial; the shared portion of UX45A-006 is resolved; UX45A-004 and Supplier Invoice page hierarchy remain deferred. The next bounded slice is UX-W4.5C task-first hierarchy. UX-W5 remains blocked until the remaining P1/shared-root-cause corrections are complete.
+5. **UX-W4.5A is complete and UX-W4.5B shared responsive/editor foundations are implemented.** The qualified local visual record belongs to `5011d137829cceef70cee6d8dcb96157aae02a39`; the PR-reviewed application-bearing head is `85efe8f951b96df0c20dd6ffd4869f0b083c2343`. The durable sanitized report remains `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`; the qualified UX-W4.5B visual record is `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`. UX45A-003 and UX45A-010 are resolved for the bounded worksheet consumers; UX45A-002 is partial; the shared portion of UX45A-006 is resolved; UX45A-004 and Supplier Invoice page hierarchy remain deferred. The next bounded slice is UX-W4.5C task-first hierarchy. UX-W5 remains blocked until the remaining P1/shared-root-cause corrections are complete.
 6. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 7. **Resume Wide Documents remaining managed slices.**
 8. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
