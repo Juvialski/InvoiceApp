@@ -64,6 +64,30 @@ Implementation consequences:
 
 Do not continue Client Receivables or Cash & Banking Excel rollout using the old register-plus-workbook pattern before this interaction correction is implemented, unless the user explicitly reprioritizes again.
 
+## Worksheet density and clarity correction — explicit 2026-09-20 override
+
+The first selective-workbook implementations exposed a presentation problem that must be corrected before the pattern expands to UX-W5. Read:
+
+- `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`
+
+**UX-W4 Expenses is implemented. UX-W4.5 — Information Density & Worksheet Clarity Correction is now the next product implementation gate before UX-W5.**
+
+UX-W4.5 must begin with **UX-W4.5A — an app-wide screenshot investigation and visual triage**. The two user-provided screenshots are examples only. The investigation must capture representative authenticated/demo states across the major product surfaces and desktop, constrained-laptop, tablet, and phone viewports, then the lead agent must actually inspect the screenshots and classify findings before broad remediation starts. Automated browser PASS/no-overflow is not a visual-quality PASS.
+
+Required consequences:
+
+1. Produce a durable sanitized visual-triage report following `docs/REPOSITORY_EVIDENCE_POLICY.md`, with exact SHA/environment/viewport/route/state, screenshot evidence, ACCEPTABLE / NEEDS CORRECTION / DEEPER WORKFLOW REVIEW, severity, task impact, root cause, and proposed direction.
+2. Primary working content must appear before optional explanations, analytics, workbook tools, and secondary disclosures.
+3. Projects must surface the project cards immediately after a compact task toolbar; Portfolio analysis and Excel import/export stay available but secondary.
+4. Protected/read-only semantics remain fully enforced, but `WorksheetEditor` must not repeat visible `PROTECTED` / `READ-ONLY` pills in every ordinary read-only cell by default.
+5. Ordinary source-evidence provenance should be visually quiet; exceptional states such as unresolved, manually corrected, error, warning, or conflict may remain explicit.
+6. Prefer progressive disclosure, section/column-level help, and accessible semantics over repeated helper paragraphs and badges.
+7. Audit all existing authenticated surfaces for hierarchy, density, excessive chrome, repetition, scanability, action discoverability, responsive usefulness, technical jargon, consistency, and professional finish—not only worksheet pages.
+8. Group repeated findings by shared root cause and fix shared primitives/components first where appropriate.
+9. This is a presentation/usability correction only. It must not weaken permissions, lifecycle authority, financial truth, provenance, history, concurrency, RLS, or review-before-apply behavior.
+
+Do not start UX-W5 operational bulk-data editors until UX-W4.5A is complete and the blocking P0/P1/shared-root-cause corrections from the visual investigation are implemented and validated.
+
 ## Current priority sequence — explicit 2026-09-19 override
 
 This sequence supersedes older `active`, `next`, and implementation-order wording when they conflict. Live repository state still governs exact scope and merge safety.
@@ -71,7 +95,7 @@ This sequence supersedes older `active`, `next`, and implementation-order wordin
 1. **Repository Intelligence core + Professionalization Completion is complete in the current implementation run.** RI-1 is merged; RI-2 provides the provenance-aware graph/query API; RI-3 integrates bounded context behind the existing `workflow-map:context` / `agent:context` interfaces with tested fallback; and the remaining professionalization decisions are recorded in `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and `docs/REPOSITORY_EVIDENCE_POLICY.md`.
 2. **Excel-native implementation follows the completed professionalization boundary.** Excel Phase 0/readiness, the approved shared foundation, the bounded RFQ/Purchase Order pilot, and the Projects/project-controls rollout are implemented. Remaining Excel-native domains require their own bounded rollouts; app-wide Excel capability is not claimed.
 3. **Professionalization completion gate.** Satisfied for this repository boundary: remaining large/shared modules are either decomposed or deliberately documented as cohesive; source/test ownership and evidence policy are explicit; safe current branding/onboarding cleanup is complete; and the repository rename is resolved as an external/manual administrative decision rather than open architecture work.
-4. **Excel Phase 0/readiness, the original shared grid/workbook foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, and UX-W1 shared worksheet foundation are implemented.** Before further Finance rollout, continue the 2026-09-20 selective-workbook correction with UX-W2 Projects card-first portfolio + Project Details/Cost Codes worksheet -> UX-W3 supplier invoice source-on-top + extracted worksheet review. Then continue later domain slices using the corrected browse-vs-edit grammar. Preserve real bidirectional `.xlsx` round trips, validation, permissions, history, financial authority, stale-workbook conflict review, and human confirmation before Apply.
+4. **Excel Phase 0/readiness, the original shared grid/workbook foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1 through UX-W3, and all bounded UX-W4 draft editors are implemented.** Complete **UX-W4.5 Information Density & Worksheet Clarity Correction** next, beginning with UX-W4.5A app-wide screenshot investigation, before UX-W5. UX-W4.5 must make primary content visible sooner, quiet repetitive protection/provenance labels without weakening semantics, simplify nested worksheet chrome, and audit all already-migrated worksheet surfaces. Preserve real bidirectional `.xlsx` round trips, validation, permissions, history, financial authority, stale-workbook conflict review, and human confirmation before Apply.
 5. **Complete remaining Wave 4D provider/readiness work** when required Brevo/SMS credentials, devices, or safe QA prerequisites become available. Provider certification may proceed opportunistically but must not displace the active RI-core/professionalization sequence.
 6. **Resume Wide Documents remaining managed slices.**
 7. **Worker Registration** only after the Wave 4D gate is genuinely complete and the user explicitly resumes it; Site Attendance follows, and Face Recognition requires its own privacy/security design first.

@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ-PO + CLIENT BILLING + EXPENSE DRAFT EDITORS IMPLEMENTED / UX-W5 SELECTIVE WORKSHEETS NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A APP-WIDE VISUAL INVESTIGATION NEXT / UX-W5 BLOCKED PENDING CLARITY CORRECTION / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -19,6 +19,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 **Excel-Native Operations UX workbook/authority design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — foundations implemented through bounded Expenses/Supplier Payables
 **Current selective workbook-editing interaction direction:** `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` — browse visually, edit like a spreadsheet, keep consequential workflows controlled
+**Blocking worksheet density/clarity correction:** `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md` — starts with app-wide screenshot investigation/visual triage before evidence-backed UI corrections and UX-W5
 Repository responsibility/evidence decisions: `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md`, `docs/REPOSITORY_EVIDENCE_POLICY.md`
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
@@ -30,7 +31,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** UX-W3 proves the corrected source-first Supplier Invoice review surface, and UX-W4 now covers RFQ, Purchase Order, Client Billing, and direct editable Expense DRAFT worksheet editing while preserving lifecycle and financial-authority contracts. The next selective-workbook candidate is **UX-W5 operational bulk-data editors**; current Wave 4D/provider readiness and the explicit Worker Registration pause remain higher-level sequencing gates. App-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** The next selective-workbook work is **UX-W4.5A — app-wide screenshot investigation and visual triage**, followed by bounded evidence-backed UX-W4.5 correction slices. UX-W5 operational bulk-data editors are blocked until the investigation and blocking P0/P1/shared-root-cause corrections are complete. App-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -55,6 +56,43 @@ Immediate requirements:
 - Real `.xlsx` round trips remain required where supported, but import/export no longer defines what “Excel-native” means inside the app.
 
 Canonical contract: `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`.
+
+## 2026-09-20 UX-W4.5 — information density and worksheet clarity correction planned
+
+This phase is now a **blocking usability gate before UX-W5**. The first card-first
+and worksheet-native surfaces prove the interaction model but also expose an
+over-labeling/over-containerization problem.
+
+The required correction is documented in
+`docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`.
+
+Key requirements:
+
+- Begin with a broad screenshot investigation of the authenticated/demo app,
+  reusing the existing visual-QA/Local-QA infrastructure. Automated PASS,
+  no-overflow, and clean console evidence are not visual-design certification;
+  the agent must inspect the screenshots and record concrete findings.
+- The investigation covers major routes plus representative dialogs/editors at
+  desktop, constrained-laptop, tablet, and phone viewports and groups findings
+  by shared root cause before implementation begins.
+- Projects cards become the first dominant working content after a compact
+  title/task toolbar; Portfolio analysis and Excel import/export remain
+  available but secondary.
+- `WorksheetEditor` keeps protected/read-only behavior, accessibility,
+  data-state attributes, and tests, but ordinary protected cells no longer
+  append a visible `PROTECTED` / `READ-ONLY` pill by default.
+- Supplier Invoice review treats source evidence as the normal quiet state and
+  reserves visible labels for decision-relevant exceptions such as manual
+  corrections, unresolved values, validation errors, warnings, or conflicts.
+- Repeated `WORKSHEET` headings, helper paragraphs, legends, warning text, and
+  nested card chrome are consolidated through progressive disclosure.
+- Project Details, Cost Codes, Supplier Invoice review, RFQ, Purchase Order,
+  Client Billing, and Expense draft worksheets are audited for the same noise
+  before any UX-W5 domain is added.
+
+This phase is presentation-only unless the final implementation diff proves
+otherwise. It must not weaken financial authority, lifecycle, permissions,
+history, provenance, concurrency, RLS, or XLSX review-before-apply behavior.
 
 ## 2026-09-20 UX-W1 — shared worksheet editing foundation implemented
 
