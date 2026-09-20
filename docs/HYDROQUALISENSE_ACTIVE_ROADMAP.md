@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A APP-WIDE VISUAL INVESTIGATION NEXT / UX-W5 BLOCKED PENDING CLARITY CORRECTION / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5 CORRECTION SLICES NEXT / UX-W5 BLOCKED PENDING CLARITY CORRECTION / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -23,6 +23,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 Repository responsibility/evidence decisions: `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md`, `docs/REPOSITORY_EVIDENCE_POLICY.md`
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
+UX-W4.5A visual triage report: `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
@@ -31,7 +32,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** The next selective-workbook work is **UX-W4.5A — app-wide screenshot investigation and visual triage**, followed by bounded evidence-backed UX-W4.5 correction slices. UX-W5 operational bulk-data editors are blocked until the investigation and blocking P0/P1/shared-root-cause corrections are complete. App-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation and visual triage is complete in the current evidence PR; the next selective-workbook work is the bounded UX-W4.5 correction sequence from `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.** UX-W5 operational bulk-data editors remain blocked until the P1/shared-root-cause corrections are complete. App-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -66,12 +67,21 @@ over-labeling/over-containerization problem.
 The required correction is documented in
 `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`.
 
+The UX-W4.5A evidence-first investigation is complete for source SHA
+`b279b02730b79cccac5f72ac4c93553d957db07b`. The durable report is
+`artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`; it reviewed 89 baseline demo
+screenshots plus 17 targeted editor/viewport captures across 34 routes and
+the four viewport classes. It recorded 22 ACCEPTABLE, 28 NEEDS CORRECTION,
+and 6 DEEPER WORKFLOW REVIEW state families, with 4 P1, 8 P2, and 2 P3
+findings. The next work is bounded UX-W4.5B/C/D/E correction slices; this PR
+does not implement those visual fixes.
+
 Key requirements:
 
-- Begin with a broad screenshot investigation of the authenticated/demo app,
-  reusing the existing visual-QA/Local-QA infrastructure. Automated PASS,
-  no-overflow, and clean console evidence are not visual-design certification;
-  the agent must inspect the screenshots and record concrete findings.
+- The app-wide screenshot investigation is complete in the current evidence
+  PR using the existing visual-QA infrastructure. Automated PASS, no-overflow,
+  and clean console evidence remain separate from the recorded visual
+  judgments in `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
 - The investigation covers major routes plus representative dialogs/editors at
   desktop, constrained-laptop, tablet, and phone viewports and groups findings
   by shared root cause before implementation begins.

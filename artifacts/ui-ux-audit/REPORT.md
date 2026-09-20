@@ -318,3 +318,13 @@ Full machine-readable finding records are in `artifacts/ui-ux-audit/findings.jso
 The local visual QA manifest and screenshots are under
 `artifacts/ui-ux-audit/after/`; representative before/after captures are under
 `artifacts/ui-ux-audit/screenshots/`.
+
+## UX-W4.5A follow-up — 2026-09-20
+
+The app-wide screenshot investigation and visual triage for the current
+worksheet-density correction is recorded in
+[`UX-W4.5A-REPORT.md`](UX-W4.5A-REPORT.md). It reviews the current safe-demo
+application at source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`, keeps
+automated browser PASS separate from visual judgment, and recommends bounded
+correction slices. The promoted synthetic evidence is under
+`screenshots/ux-w4-5a/`.
