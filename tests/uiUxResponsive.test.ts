@@ -91,6 +91,17 @@ test("Client Billing draft worksheet keeps spreadsheet density inside contained 
   assert.match(clientBilling, /className="min-w-0 space-y-4"/);
 });
 
+test("Expense direct draft worksheet keeps wide spreadsheet editing inside contained responsive surfaces", () => {
+  const expense = source("src/components/expenses/ExpenseDraftWorksheet.tsx");
+  const expensesPage = source("src/components/expenses/ExpensesPage.tsx");
+  assert.match(expense, /data-testid="expense-draft-worksheet"/);
+  assert.match(expense, /data-worksheet-scroll-container="expense-draft"/);
+  assert.match(expense, /ariaLabel="Expense draft worksheet"/);
+  assert.match(expense, /className="min-w-0 space-y-4"/);
+  assert.match(expensesPage, /max-w-\[95vw\]/);
+  assert.match(expensesPage, /overflow-y-auto/);
+});
+
 test("desktop Projects filters reserve readable space for project search", () => {
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
   assert.match(projectRegister, /<div className="relative xl:col-span-2">[\s\S]*aria-label="Search projects"/);

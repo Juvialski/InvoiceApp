@@ -1549,6 +1549,7 @@ function InvoiceWorkspace() {
       showNotification("success", "Expense saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save expense."));
+      throw error;
     }
   };
 
