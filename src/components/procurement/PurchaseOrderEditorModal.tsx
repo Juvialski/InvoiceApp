@@ -1,11 +1,12 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle, FileText, Plus, Trash2, X, Send, Ban, CheckCheck, Truck, PackageCheck, AlertTriangle, ExternalLink } from "lucide-react";
+import React, { useEffect, useId, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle, FileText, Trash2, X, Send, Ban, CheckCheck, Truck, PackageCheck, AlertTriangle, ExternalLink } from "lucide-react";
 import type { InvoiceData, Project, ProjectCostCode, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor } from "../../types.ts";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { isCommittedPurchaseOrder } from "../../utils/projectCosting.ts";
 import { calculatePOReceiptProgress, getReceiptsForPO, hasOutstandingReceiptQuantity } from "../../utils/purchaseOrderReceipts.ts";
 import { RecordReceiptModal } from "./RecordReceiptModal.tsx";
+import { WorksheetEditor, type WorksheetColumn } from "../ui/WorksheetEditor.tsx";
 
 export interface PurchaseOrderEditorModalProps {
   open: boolean;
@@ -24,6 +25,7 @@ export interface PurchaseOrderEditorModalProps {
   onSave: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+    expectedUpdatedAt?: string,
   ) => Promise<void> | void;
   onTransition: (poId: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void> | void;
   onDelete: (poId: string) => Promise<void> | void;
@@ -38,7 +40,7 @@ export interface PurchaseOrderEditorModalProps {
 }
 
 interface EditableLine {
-  id?: string;
+  id: string;
   description: string;
   quantity: string;
   unit: string;
@@ -46,8 +48,29 @@ interface EditableLine {
   projectCostCodeId: string;
 }
 
+interface EditablePOHeader {
+  id: string;
+  poNumber: string;
+  vendorId: string;
+  projectId: string;
+  issueDate: string;
+  currency: string;
+  description: string;
+  notes: string;
+  status: PurchaseOrderStatus;
+  calculatedTotal: number;
+}
+
+let poLineSequence = 0;
+
+function nextPOLineId() {
+  poLineSequence += 1;
+  return `draft-po-line-${Date.now()}-${poLineSequence}`;
+}
+
 function emptyLine(): EditableLine {
   return {
+    id: nextPOLineId(),
     description: "",
     quantity: "1",
     unit: "pcs",
@@ -152,13 +175,11 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
     });
   }, [linkedMatches, invoices, vendors, purchaseOrder?.vendorId]);
 
-  const poNumberInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useDialogFocus({
     open,
     onClose: () => {
       if (!isSubmitting && !loading && !showRecordReceiptModal) onClose();
     },
-    initialFocusRef: poNumberInputRef,
   });
 
   useEffect(() => {
@@ -174,7 +195,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
         setLines(
           purchaseOrder.lines && purchaseOrder.lines.length > 0
             ? purchaseOrder.lines.map((l) => ({
-                id: l.id,
+                id: l.id || nextPOLineId(),
                 description: l.description,
                 quantity: String(l.quantity),
                 unit: l.unit || "pcs",
@@ -214,28 +235,6 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
     }, 0);
   }, [lines]);
 
-  if (!open) return null;
-
-  const handleLineChange = (index: number, field: keyof EditableLine, value: string) => {
-    if (isReadOnly) return;
-    setLines((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  const handleAddLine = () => {
-    if (isReadOnly) return;
-    setLines((prev) => [...prev, emptyLine()]);
-  };
-
-  const handleRemoveLine = (index: number) => {
-    if (isReadOnly) return;
-    if (lines.length <= 1) return;
-    setLines((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const handleCreateVendor = async () => {
     if (!newVendorName.trim() || !onAddVendor) return;
     try {
@@ -248,23 +247,38 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!poNumber.trim()) {
+  const handleSaveDraft = async (
+    nextHeader: EditablePOHeader = {
+      id: purchaseOrder?.id || "new-purchase-order",
+      poNumber,
+      vendorId,
+      projectId,
+      issueDate,
+      currency,
+      description,
+      notes,
+      status,
+      calculatedTotal,
+    },
+    nextLines: readonly EditableLine[] = lines,
+  ) => {
+    if (!nextHeader.poNumber.trim()) {
       setErrorMessage("Purchase Order Number is required.");
       return;
     }
-    if (!vendorId) {
+    if (!nextHeader.vendorId) {
       setErrorMessage("Please select a vendor / supplier.");
       return;
     }
-    if (!projectId) {
+    if (!nextHeader.projectId || !projects.some((project) => project.id === nextHeader.projectId)) {
       setErrorMessage("Please select an associated project.");
       return;
     }
 
-    const invalidLine = lines.find((l) => !l.description.trim() || Number(l.quantity) <= 0 || Number(l.unitPrice) < 0);
+    const validCostCodeIds = new Set(costCodes.filter((costCode) => costCode.projectId === nextHeader.projectId && costCode.status === "ACTIVE").map((costCode) => costCode.id));
+    const invalidLine = nextLines.find((l) => !l.description.trim() || Number(l.quantity) <= 0 || Number(l.unitPrice) < 0 || Boolean(l.projectCostCodeId && !validCostCodeIds.has(l.projectCostCodeId)));
     if (invalidLine) {
-      setErrorMessage("Each line item must have a description, positive quantity, and valid unit price.");
+      setErrorMessage("Each line item must have a description, positive quantity, valid unit price, and a cost code from the selected project.");
       return;
     }
 
@@ -274,22 +288,23 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
       await onSave(
         {
           ...(purchaseOrder?.id ? { id: purchaseOrder.id } : {}),
-          poNumber: poNumber.trim().toUpperCase(),
-          vendorId,
-          projectId,
-          currency: currency.trim().toUpperCase(),
-          issueDate: issueDate || null,
-          description: description.trim() || null,
-          notes: notes.trim() || null,
+          poNumber: nextHeader.poNumber.trim().toUpperCase(),
+          vendorId: nextHeader.vendorId,
+          projectId: nextHeader.projectId,
+          currency: nextHeader.currency.trim().toUpperCase(),
+          issueDate: nextHeader.issueDate || null,
+          description: nextHeader.description.trim() || null,
+          notes: nextHeader.notes.trim() || null,
         },
-        lines.map((l) => ({
-          ...(l.id ? { id: l.id } : {}),
+        nextLines.map((l) => ({
+          id: l.id,
           description: l.description.trim(),
           quantity: Math.max(0.0001, Number(l.quantity) || 1),
           unit: l.unit.trim() || "pcs",
           unitPrice: Math.max(0, Number(l.unitPrice) || 0),
           projectCostCodeId: l.projectCostCodeId || null,
         })),
+        purchaseOrder?.updatedAt,
       );
       onClose();
     } catch (err: any) {
@@ -298,6 +313,211 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
       setIsSubmitting(false);
     }
   };
+
+  const headerRows = useMemo<readonly EditablePOHeader[]>(() => [{
+    id: purchaseOrder?.id || "new-purchase-order",
+    poNumber,
+    vendorId,
+    projectId,
+    issueDate,
+    currency,
+    description,
+    notes,
+    status,
+    calculatedTotal,
+  }], [calculatedTotal, currency, description, issueDate, notes, poNumber, projectId, purchaseOrder?.id, status, vendorId]);
+
+  const headerColumns = useMemo<readonly WorksheetColumn<EditablePOHeader>[]>(() => [
+    {
+      key: "poNumber",
+      header: "PO Number",
+      frozen: true,
+      minWidth: "12rem",
+      value: (row) => row.poNumber,
+      setValue: (row, value) => ({ ...row, poNumber: String(value ?? "").toUpperCase() }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+      validate: (value) => String(value ?? "").trim() ? undefined : "Purchase Order Number is required.",
+    },
+    {
+      key: "vendorId",
+      header: "Supplier / Vendor",
+      kind: "select",
+      minWidth: "18rem",
+      options: vendors.map((vendor) => ({ value: vendor.id, label: vendor.name })),
+      value: (row) => row.vendorId,
+      setValue: (row, value) => ({ ...row, vendorId: String(value ?? "") }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+      validate: (value) => String(value ?? "").trim() ? undefined : "Choose a supplier before saving.",
+    },
+    {
+      key: "projectId",
+      header: "Associated Project",
+      kind: "select",
+      minWidth: "19rem",
+      options: projects.map((project) => ({ value: project.id, label: `${project.projectCode} — ${project.projectName}` })),
+      value: (row) => row.projectId,
+      setValue: (row, value) => ({ ...row, projectId: String(value ?? "") }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+      validate: (value) => projects.some((project) => project.id === value) ? undefined : "Choose a project before saving.",
+    },
+    {
+      key: "issueDate",
+      header: "Issue Date",
+      kind: "date",
+      minWidth: "11rem",
+      value: (row) => row.issueDate,
+      setValue: (row, value) => ({ ...row, issueDate: String(value ?? "") }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+    },
+    {
+      key: "currency",
+      header: "Currency",
+      kind: "select",
+      minWidth: "9rem",
+      options: ["PHP", "USD", "EUR", "JPY"].map((value) => ({ value, label: value })),
+      value: (row) => row.currency,
+      setValue: (row, value) => ({ ...row, currency: String(value ?? "").toUpperCase() }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+    },
+    {
+      key: "description",
+      header: "Description / Title",
+      minWidth: "22rem",
+      value: (row) => row.description,
+      setValue: (row, value) => ({ ...row, description: String(value ?? "") }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+    },
+    {
+      key: "notes",
+      header: "Notes / Commercial Terms",
+      minWidth: "24rem",
+      value: (row) => row.notes,
+      setValue: (row, value) => ({ ...row, notes: String(value ?? "") }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+    },
+    {
+      key: "calculatedTotal",
+      header: "Calculated Total",
+      kind: "currency",
+      align: "right",
+      minWidth: "14rem",
+      currency: (row) => row.currency,
+      value: (row) => row.calculatedTotal,
+      protected: true,
+      editable: false,
+    },
+    {
+      key: "status",
+      header: "Lifecycle Status",
+      minWidth: "11rem",
+      value: (row) => row.status,
+      protected: true,
+      editable: false,
+    },
+  ], [isReadOnly, projects, vendors]);
+
+  const lineColumns = useMemo<readonly WorksheetColumn<EditableLine>[]>(() => [
+    {
+      key: "description",
+      header: "Item / Description",
+      frozen: true,
+      minWidth: "22rem",
+      value: (row) => row.description,
+      setValue: (row, value) => ({ ...row, description: String(value ?? "") }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+      validate: (value) => String(value ?? "").trim() ? undefined : "Description is required.",
+    },
+    {
+      key: "quantity",
+      header: "Quantity",
+      kind: "number",
+      align: "right",
+      minWidth: "9rem",
+      value: (row) => row.quantity,
+      setValue: (row, value) => ({ ...row, quantity: value === null ? "" : String(value) }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+      validate: (value) => Number(value) > 0 ? undefined : "Quantity must be positive.",
+    },
+    {
+      key: "unit",
+      header: "Unit",
+      minWidth: "8rem",
+      value: (row) => row.unit,
+      setValue: (row, value) => ({ ...row, unit: String(value ?? "") }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+    },
+    {
+      key: "unitPrice",
+      header: "Unit Price",
+      kind: "currency",
+      align: "right",
+      minWidth: "12rem",
+      currency: () => currency,
+      value: (row) => row.unitPrice,
+      setValue: (row, value) => ({ ...row, unitPrice: value === null ? "" : String(value) }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+      validate: (value) => Number(value) >= 0 ? undefined : "Unit price cannot be negative.",
+    },
+    {
+      key: "projectCostCodeId",
+      header: "Cost Code",
+      kind: "select",
+      minWidth: "18rem",
+      options: () => availableCostCodes.map((costCode) => ({ value: costCode.id, label: `${costCode.code} — ${costCode.name}` })),
+      value: (row) => row.projectCostCodeId,
+      setValue: (row, value) => ({ ...row, projectCostCodeId: String(value ?? "") }),
+      editable: !isReadOnly,
+      protected: isReadOnly,
+      validate: (value) => !value || availableCostCodes.some((costCode) => costCode.id === value) ? undefined : "Choose an active cost code from the selected project.",
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      kind: "currency",
+      align: "right",
+      minWidth: "13rem",
+      currency: () => currency,
+      value: (row) => Math.round(Math.max(0, Number(row.quantity) || 0) * Math.max(0, Number(row.unitPrice) || 0) * 100) / 100,
+      protected: true,
+      editable: false,
+    },
+    {
+      key: "receivedQuantity",
+      header: "Received",
+      kind: "number",
+      align: "right",
+      minWidth: "10rem",
+      value: (row) => poReceiptProgress?.lines[row.id]?.receivedQuantity ?? 0,
+      format: (value, row) => `${String(value ?? 0)} ${row.unit}`,
+      protected: true,
+      editable: false,
+    },
+  ], [availableCostCodes, currency, isReadOnly, poReceiptProgress]);
+
+  const handleHeaderRowsChange = (rows: readonly EditablePOHeader[]) => {
+    const row = rows[0];
+    if (!row) return;
+    setPoNumber(row.poNumber);
+    setVendorId(row.vendorId);
+    setProjectId(row.projectId);
+    setIssueDate(row.issueDate);
+    setCurrency(row.currency);
+    setDescription(row.description);
+    setNotes(row.notes);
+  };
+
+  const handleLinesChange = (nextLines: readonly EditableLine[]) => setLines([...nextLines]);
 
   const handleApprove = async () => {
     if (!purchaseOrder?.id) {
@@ -400,6 +620,8 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
     }
   };
 
+  if (!open) return null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-sm"
@@ -475,269 +697,67 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
             </div>
           )}
 
-          {/* Form Grid */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                PO Number <span className="text-rose-500">*</span>
-              </label>
-              <input
-                ref={poNumberInputRef}
-                type="text"
-                disabled={isReadOnly}
-                value={poNumber}
-                onChange={(e) => setPoNumber(e.target.value.toUpperCase())}
-                placeholder="e.g. PO-26-0001"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-mono text-slate-900 uppercase focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500"
-              />
+          <section data-testid="purchase-order-draft-worksheet" aria-label="Purchase order draft worksheet" className="min-w-0 space-y-4">
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
+              <p className="font-black uppercase tracking-[0.12em]">Purchase Order draft worksheet</p>
+              <p className="mt-1">Edit safe draft header and line fields here. Calculated amounts, received quantities, approval, issue, receiving, close, cancellation, matching, and settlement remain protected or purpose-built workflows.</p>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Supplier / Vendor <span className="text-rose-500">*</span>
-                </label>
-                {!isReadOnly && onAddVendor && !showAddVendor && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddVendor(true)}
-                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
-                  >
-                    + New
-                  </button>
-                )}
+            <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+              <span className="font-semibold text-slate-700">Supplier selection is a controlled reference; adding a vendor remains a separate master-data action.</span>
+              {!isReadOnly && onAddVendor && !showAddVendor && <button type="button" onClick={() => setShowAddVendor(true)} className="shrink-0 text-[11px] font-black text-indigo-700 hover:text-indigo-900">+ New vendor</button>}
+            </div>
+
+            {showAddVendor && (
+              <div className="flex flex-wrap gap-1.5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
+                <input type="text" value={newVendorName} onChange={(event) => setNewVendorName(event.target.value)} placeholder="Vendor Name" className="min-w-[12rem] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs" />
+                <button type="button" onClick={handleCreateVendor} disabled={!newVendorName.trim()} className="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">Add</button>
+                <button type="button" onClick={() => setShowAddVendor(false)} className="rounded border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-white">Cancel</button>
               </div>
-              {showAddVendor ? (
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={newVendorName}
-                    onChange={(e) => setNewVendorName(e.target.value)}
-                    placeholder="Vendor Name"
-                    className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
-                  />
-                  <button type="button" onClick={handleCreateVendor} disabled={!newVendorName.trim()} className="px-3 py-1 text-xs font-semibold rounded bg-indigo-600 text-white hover:bg-indigo-700">Add</button>
-                  <button type="button" onClick={() => setShowAddVendor(false)} className="px-3 py-1 text-xs font-semibold rounded text-slate-600 border border-slate-200 hover:bg-slate-50">Cancel</button>
-                </div>
-              ) : (
-                <select
-                  disabled={isReadOnly}
-                  value={vendorId}
-                  onChange={(e) => setVendorId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500"
-                >
-                  <option value="">Select a vendor...</option>
-                  {vendors.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} {v.taxId ? `(TIN: ${v.taxId})` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+            )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Associated Project <span className="text-rose-500">*</span>
-              </label>
-              <select
-                disabled={isReadOnly}
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500"
-              >
-                <option value="">Select a project...</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.projectCode} — {p.projectName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Issue Date</label>
-              <input
-                type="date"
-                disabled={isReadOnly}
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Currency</label>
-              <select
-                disabled={isReadOnly}
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500"
-              >
-                <option value="PHP">PHP — Philippine Peso</option>
-                <option value="USD">USD — US Dollar</option>
-                <option value="EUR">EUR — Euro</option>
-                <option value="JPY">JPY — Japanese Yen</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Description / Title</label>
-              <input
-                type="text"
-                disabled={isReadOnly}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g. Steel beams for Phase 2"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500"
-              />
-            </div>
-          </div>
-
-          {/* Line Items Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                Line Items ({lines.length})
-              </h3>
-              {!isReadOnly && (
-                <button
-                  type="button"
-                  onClick={handleAddLine}
-                  className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Line Item
-                </button>
-              )}
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2.5 w-8">#</th>
-                    <th className="px-3 py-2.5 min-w-[200px]">Description</th>
-                    <th className="px-3 py-2.5 w-24">Qty</th>
-                    <th className="px-3 py-2.5 w-20">Unit</th>
-                    <th className="px-3 py-2.5 w-32">Unit Price</th>
-                    <th className="px-3 py-2.5 min-w-[180px]">Cost Code</th>
-                    <th className="px-3 py-2.5 w-32 text-right">Amount</th>
-                    {!isReadOnly && <th className="px-3 py-2.5 w-10 text-center"></th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {lines.map((line, idx) => {
-                    const lineAmount = Math.max(0, (Number(line.quantity) || 0) * (Number(line.unitPrice) || 0));
-                    return (
-                      <tr key={line.id || idx} className="hover:bg-slate-50/60">
-                        <td className="px-3 py-2 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="text"
-                            disabled={isReadOnly}
-                            value={line.description}
-                            onChange={(e) => handleLineChange(idx, "description", e.target.value)}
-                            placeholder="Item description"
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-xs disabled:bg-transparent disabled:border-transparent"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="any"
-                            disabled={isReadOnly}
-                            value={line.quantity}
-                            onChange={(e) => handleLineChange(idx, "quantity", e.target.value)}
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-xs font-mono text-right disabled:bg-transparent disabled:border-transparent"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="text"
-                            disabled={isReadOnly}
-                            value={line.unit}
-                            onChange={(e) => handleLineChange(idx, "unit", e.target.value)}
-                            placeholder="pcs"
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-xs disabled:bg-transparent disabled:border-transparent"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            disabled={isReadOnly}
-                            value={line.unitPrice}
-                            onChange={(e) => handleLineChange(idx, "unitPrice", e.target.value)}
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-xs font-mono text-right disabled:bg-transparent disabled:border-transparent"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <select
-                            disabled={isReadOnly}
-                            value={line.projectCostCodeId}
-                            onChange={(e) => handleLineChange(idx, "projectCostCodeId", e.target.value)}
-                            className="w-full rounded border border-slate-200 px-2 py-1 text-[11px] disabled:bg-transparent disabled:border-transparent"
-                          >
-                            <option value="">Uncoded / None</option>
-                            {availableCostCodes.map((cc) => (
-                              <option key={cc.id} value={cc.id}>
-                                {cc.code} — {cc.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold text-slate-800">
-                          {formatMoney(lineAmount, currency)}
-                        </td>
-                        {!isReadOnly && (
-                          <td className="px-3 py-2 text-center">
-                            {lines.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveLine(idx)}
-                                className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="border-t border-slate-200 bg-slate-50 font-semibold text-slate-900">
-                  <tr>
-                    <td colSpan={6} className="px-4 py-3 text-right text-xs">
-                      Total PO Amount:
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono text-sm font-bold text-indigo-700">
-                      {formatMoney(calculatedTotal, currency)}
-                    </td>
-                    {!isReadOnly && <td></td>}
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-
-          {/* Notes & Commercial Terms */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Notes & Commercial Terms
-            </label>
-            <textarea
-              rows={3}
-              disabled={isReadOnly}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Delivery terms, warranty requirements, milestone payment schedules..."
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500"
+            <WorksheetEditor
+              ariaLabel="Purchase order header worksheet"
+              rows={headerRows}
+              columns={headerColumns}
+              rowKey={(row) => row.id}
+              onRowsChange={handleHeaderRowsChange}
+              onSave={!isReadOnly ? (rows) => handleSaveDraft(rows[0] || headerRows[0]) : undefined}
+              onCancel={onClose}
+              disabled={isReadOnly || isSubmitting}
+              isSaving={isSubmitting}
+              saveLabel="Save PO draft"
+              cancelLabel="Close editor"
+              density="comfortable"
             />
-          </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">PO Line Items</span>
+              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold text-slate-700">{lines.length}</span>
+            </div>
+
+            <WorksheetEditor
+              ariaLabel="Purchase order draft lines worksheet"
+              rows={lines}
+              columns={lineColumns}
+              rowKey={(row) => row.id}
+              onRowsChange={handleLinesChange}
+              onAddRow={isReadOnly ? undefined : () => emptyLine()}
+              canAddRow={!isReadOnly}
+              onRemoveRow={isReadOnly ? undefined : () => undefined}
+              canRemoveRow={isReadOnly ? false : (_row, index) => lines.length > 1 && index >= 0}
+              onSave={!isReadOnly ? (rows) => handleSaveDraft(headerRows[0], rows) : undefined}
+              onCancel={onClose}
+              disabled={isReadOnly || isSubmitting}
+              isSaving={isSubmitting}
+              saveLabel="Save PO draft"
+              cancelLabel="Close editor"
+              emptyState="No purchase-order lines yet. Add a row for each ordered item."
+              density="compact"
+            />
+
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold leading-4 text-amber-900">Amount and Received columns are calculated/protected. Editing this worksheet never approves, issues, receives, closes, cancels, matches, or settles a purchase order.</p>
+          </section>
 
           {/* Delivery & Goods Receipts Section for Non-Draft POs */}
           {isEditing && !isDraft && (
@@ -1208,7 +1228,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
             </button>
 
             {isDraft && canManage && (
-              <button type="button" onClick={handleSaveDraft} disabled={isSubmitting || loading} className="px-3 py-1.5 text-xs font-semibold rounded border border-slate-300 text-slate-700 hover:bg-slate-100">
+              <button type="button" onClick={() => void handleSaveDraft()} disabled={isSubmitting || loading} className="px-3 py-1.5 text-xs font-semibold rounded border border-slate-300 text-slate-700 hover:bg-slate-100">
                 Save Draft
               </button>
             )}

@@ -238,6 +238,38 @@ const verifyPurchaseOrderDocumentDeliverySurface: QaScenarioAction = async (page
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
+  await page.getByRole("button", { name: "Requests for Quotation (RFQs)", exact: true }).click();
+  await page.getByRole("button", { name: "New RFQ", exact: true }).click();
+  await waitForVisible(page, '[data-testid="rfq-draft-worksheet"]');
+  const rfqWorksheet = await page.locator('[data-testid="rfq-draft-worksheet"]').count();
+  const rfqEditors = await page.locator('[data-testid="rfq-draft-worksheet"] [data-worksheet-editor="true"]').count();
+  const rfqAddRow = await page.locator('[data-testid="rfq-draft-worksheet"] [data-worksheet-add-row="true"]').count();
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+
+  await page.getByRole("button", { name: "Purchase Orders", exact: true }).click();
+  await page.getByRole("button", { name: "New Purchase Order", exact: true }).click();
+  await waitForVisible(page, '[data-testid="purchase-order-draft-worksheet"]');
+  const poWorksheet = await page.locator('[data-testid="purchase-order-draft-worksheet"]').count();
+  const poEditors = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-editor="true"]').count();
+  const poAddRow = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-add-row="true"]').count();
+  const protectedCells = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-protected="true"]').count();
+  const approval = await page.getByRole("button", { name: "Approve PO", exact: true }).count();
+  const receiptWorkflow = await page.getByRole("button", { name: /Record Delivery \/ Receipt/ }).count();
+
+  return [
+    { id: "rfq-draft-worksheet-visible", passed: rfqWorksheet === 1, details: `RFQ worksheet surfaces: ${rfqWorksheet}` },
+    { id: "rfq-draft-worksheet-editors-visible", passed: rfqEditors === 2, details: `RFQ worksheet editors: ${rfqEditors}` },
+    { id: "rfq-draft-worksheet-add-row-visible", passed: rfqAddRow === 1, details: `RFQ Add row controls: ${rfqAddRow}` },
+    { id: "po-draft-worksheet-visible", passed: poWorksheet === 1, details: `PO worksheet surfaces: ${poWorksheet}` },
+    { id: "po-draft-worksheet-editors-visible", passed: poEditors === 2, details: `PO worksheet editors: ${poEditors}` },
+    { id: "po-draft-worksheet-add-row-visible", passed: poAddRow === 1, details: `PO Add row controls: ${poAddRow}` },
+    { id: "po-draft-protected-cells-visible", passed: protectedCells > 0, details: `PO protected cells: ${protectedCells}` },
+    { id: "po-draft-approval-workflow-outside-worksheet", passed: approval === 1, details: `PO approval controls: ${approval}` },
+    { id: "po-draft-receiving-workflow-not-on-draft", passed: receiptWorkflow === 0, details: `draft receiving controls: ${receiptWorkflow}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyClientInvoiceDocumentDeliverySurface: QaScenarioAction = async (page) => {
   const preview = page.getByRole("button", { name: "Preview / generate Client Invoice", exact: true }).first();
   const previewCount = await page.getByRole("button", { name: "Preview / generate Client Invoice", exact: true }).count();
@@ -573,6 +605,9 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.tablet, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.mobile, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "RFQ and Purchase Order draft worksheets verified", viewport: QA_VIEWPORTS.desktop, action: verifyProcurementDraftWorksheets }),
+  defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "RFQ and Purchase Order draft worksheets verified", viewport: QA_VIEWPORTS.tablet, action: verifyProcurementDraftWorksheets }),
+  defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "RFQ and Purchase Order draft worksheets verified", viewport: QA_VIEWPORTS.mobile, action: verifyProcurementDraftWorksheets }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim and variation parity verified", viewport: QA_VIEWPORTS.desktop, action: verifyProcurementSubcontractParity }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim settlement workflow verified", viewport: QA_VIEWPORTS.mobile, action: verifySubcontractMobileSettlementWorkflow }),
   defineQaScenario({ feature: "document-delivery", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "Purchase Order delivery preview and disconnected history verified", viewport: QA_VIEWPORTS.desktop, action: verifyPurchaseOrderDocumentDeliverySurface }),
