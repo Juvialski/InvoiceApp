@@ -114,7 +114,7 @@ UX-W2 applies the selective workbook-editing interaction grammar to Projects:
 
 No database, migration, RLS/RPC, provider, or production change occurred. The
 final focused Projects group passed **88/88**; `npm.cmd run test:affected:agent`
-passed **385/385** with database fallback disabled; ESLint and TypeScript
+passed **389/389** with database fallback disabled; ESLint and TypeScript
 validation passed; and the production build passed. Targeted browser QA was not
 run locally, so exact-head protected Demo Visual QA remains the browser evidence
 gate. Docker/Supabase and hosted/provider checks were not required for this
