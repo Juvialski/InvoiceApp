@@ -42,9 +42,12 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 - `superpowers/plans/2026-09-16-email-messaging-session-reliability-implementation-plan.md` — implementation plan for that isolated workstream.
 - `HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` — Wide Documents contract; remaining managed slices are deferred.
 
-## Approved future designs
+## Active Excel-native / worksheet UX designs
 
-- `superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — approved future Excel-native Operations UX. Implementation has not started; Repository & Architecture Professionalization is complete for the current boundary, so Excel Phase 0/readiness is next before any shared grid/workbook implementation. For editable Excel-native workspaces, the design requires a real `.xlsx` round trip: export -> external edit -> upload -> validate/compare -> human review -> authoritative apply.
+- `superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — workbook interchange, review/Apply, concurrency, protected-field, and domain-authority contract. Foundations are implemented through Procurement, Projects/Cost Codes, and bounded Expenses/Supplier Payables.
+- `superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` — later approved in-app interaction correction: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. It defines card-first Projects, worksheet-style Project editing, source-on-top supplier invoice review, the shared WorksheetEditor direction, selective domain candidates, and the custom-field boundary.
+
+The next implementation work is the shared worksheet editing foundation, then Projects and supplier-invoice review redesign, before later Finance/domain rollouts. Real `.xlsx` round trips remain required where supported: export -> external edit -> upload -> validate/compare -> human review -> authoritative apply.
 
 The compatibility stub `HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` remains only so older links continue to resolve.
 
