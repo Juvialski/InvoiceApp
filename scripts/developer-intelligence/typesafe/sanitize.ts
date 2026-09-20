@@ -34,7 +34,7 @@ function sensitivePath(value: string): boolean {
   if (!normalized) return false;
   if (SENSITIVE_PATH_PATTERN.test(normalized)) return true;
   const classification = classifyTrackedPath(normalized);
-  return !classification.eligible && classification.exclusionReason !== "binary artifact";
+  return !classification.eligible;
 }
 
 function sensitiveValue(value: string): boolean {

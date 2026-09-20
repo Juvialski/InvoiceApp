@@ -46,8 +46,23 @@ test("TypeSafe key presence is boolean-only and ignores blank values", () => {
 
 test("sanitizer rejects secret-like paths and credential patterns", () => {
   assert.equal(sanitizeTypeSafePayload({ path: ".env", value: "synthetic" }).ok, false);
+  assert.equal(sanitizeTypeSafePayload({ path: "src/receipt.pdf", value: "synthetic" }).ok, false);
   assert.equal(sanitizeTypeSafePayload({ path: "src/safe.ts", value: "DATABASE_URL=postgres://user:secret@host/db" }).ok, false);
   assert.equal(sanitizeTypeSafePayload({ path: "src/safe.ts", value: "Authorization: Bearer synthetic-token" }).ok, false);
+});
+
+test("adapter requires explicit live opt-in even when a gateway and key are present", async () => {
+  let calls = 0;
+  const result = await invokeTypeSafe(
+    { state: { task: "synthetic" }, questions: { category: { type: "choice", criteria: { unknown: null } } } },
+    {
+      env: { TYPESAFE_API_KEY: "ts-test-only" },
+      gateway: mockGateway({ answers: { category: { choice: "unknown" } } }, () => { calls += 1; }),
+    },
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.diagnostic.fallbackReason, "live-disabled");
+  assert.equal(calls, 0);
 });
 
 test("sanitizer accepts bounded synthetic metadata and rejects oversized payloads", () => {
@@ -65,6 +80,7 @@ test("adapter parses a typed response without forwarding environment values", as
     },
     {
       env: { TYPESAFE_API_KEY: "ts-test-only" },
+      live: true,
       gateway: mockGateway({ answers: { category: { choice: "unknown" } } }, (request) => { captured = request; }),
     },
   );
@@ -76,7 +92,7 @@ test("adapter parses a typed response without forwarding environment values", as
 });
 
 test("adapter falls back without a key or gateway", async () => {
-  const result = await invokeTypeSafe({ state: { task: "synthetic" }, questions: { category: { type: "choice", criteria: { unknown: null } } } }, { env: {} });
+  const result = await invokeTypeSafe({ state: { task: "synthetic" }, questions: { category: { type: "choice", criteria: { unknown: null } } } }, { env: {}, live: true });
   assert.equal(result.ok, false);
   assert.equal(result.diagnostic.fallbackReason, "missing-api-key");
 });
@@ -85,7 +101,7 @@ test("adapter falls back on sanitizer rejection before calling the gateway", asy
   let calls = 0;
   const result = await invokeTypeSafe(
     { state: { text: "DATABASE_URL=postgres://synthetic" }, questions: { category: { type: "choice", criteria: { unknown: null } } } },
-    { env: { TYPESAFE_API_KEY: "ts-test-only" }, gateway: mockGateway({}, () => { calls += 1; }) },
+    { env: { TYPESAFE_API_KEY: "ts-test-only" }, live: true, gateway: mockGateway({}, () => { calls += 1; }) },
   );
   assert.equal(result.ok, false);
   assert.equal(result.diagnostic.fallbackReason, "sanitizer-rejected");
@@ -97,6 +113,7 @@ test("adapter falls back on API failure and invalid response without raw error t
     { state: { task: "synthetic" }, questions: { category: { type: "choice", criteria: { unknown: null } } } },
     {
       env: { TYPESAFE_API_KEY: "ts-test-only" },
+      live: true,
       gateway: { systemOne: async () => { throw new Error("secret-bearing simulated failure"); } },
     },
   );
@@ -106,7 +123,7 @@ test("adapter falls back on API failure and invalid response without raw error t
 
   const invalid = await invokeTypeSafe(
     { state: { task: "synthetic" }, questions: { category: { type: "choice", criteria: { unknown: null } } } },
-    { env: { TYPESAFE_API_KEY: "ts-test-only" }, gateway: mockGateway({ answers: {} }) },
+    { env: { TYPESAFE_API_KEY: "ts-test-only" }, live: true, gateway: mockGateway({ answers: {} }) },
   );
   assert.equal(invalid.ok, false);
   assert.equal(invalid.diagnostic.fallbackReason, "invalid-response");
@@ -117,6 +134,7 @@ test("adapter falls back on a bounded timeout", async () => {
     { state: { task: "synthetic" }, questions: { category: { type: "choice", criteria: { unknown: null } } } },
     {
       env: { TYPESAFE_API_KEY: "ts-test-only" },
+      live: true,
       timeoutMs: 5,
       gateway: { systemOne: async () => new Promise(() => {}) },
     },
@@ -150,6 +168,7 @@ test("context reranking preserves must-keep candidates and batches bounded judgm
     candidates,
     maxSelected: 2,
     env: { TYPESAFE_API_KEY: "ts-test-only" },
+    live: true,
     gateway: mockGateway({ answers: { c0: { noul: 0.01 }, c1: { noul: 0.95 }, c2: { noul: 0.05 } } }, () => { calls += 1; }),
   });
 
@@ -170,6 +189,7 @@ test("context reranking returns the deterministic candidate set on TypeSafe fail
     candidates,
     maxSelected: 1,
     env: { TYPESAFE_API_KEY: "ts-test-only" },
+    live: true,
     gateway: { systemOne: async () => { throw new Error("simulated"); } },
   });
   assert.equal(result.fallback, true);
@@ -196,6 +216,7 @@ test("test triage never suppresses deterministic affected tests", async () => {
     task: "synthetic test triage",
     selection,
     env: { TYPESAFE_API_KEY: "ts-test-only" },
+    live: true,
     gateway: { systemOne: async () => ({ answers: { c0: { score: 2 }, c1: { score: 0 } } }) },
   });
   assert.equal(result.advisoryOnly, true);
@@ -219,6 +240,7 @@ test("CI triage rejects secret-bearing excerpts before any live call", async () 
   const result = await classifyCiFailure({
     excerpt: "DATABASE_URL=postgres://user:secret@host/db",
     env: { TYPESAFE_API_KEY: "ts-test-only" },
+    live: true,
     gateway: mockGateway({}, () => { calls += 1; }),
   });
   assert.equal(result.category, "unknown");
@@ -230,6 +252,7 @@ test("CI triage accepts a validated live category without exposing raw response 
   const result = await classifyCiFailure({
     excerpt: "Synthetic browser failure",
     env: { TYPESAFE_API_KEY: "ts-test-only" },
+    live: true,
     gateway: mockGateway({ answers: { category: { choice: "browser", confidence: 0.9 } } }),
   });
   assert.equal(result.category, "browser");
@@ -244,6 +267,7 @@ test("completion evidence check remains advisory and reports missing documentati
     declaredEvidence: ["implementation", "tests"],
     expectedEvidence: ["implementation", "tests", "documentation"],
     env: { TYPESAFE_API_KEY: "ts-test-only" },
+    live: true,
     gateway: mockGateway({ answers: { c0: { noul: 1 }, c1: { noul: 1 }, c2: { noul: 0 } } }),
   });
   assert.equal(result.advisoryOnly, true);

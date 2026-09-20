@@ -75,7 +75,7 @@ export async function invokeTypeSafe<T>(
   options: TypeSafeInvokeOptions = {},
 ): Promise<TypeSafeCallResult<T>> {
   const startedAt = Date.now();
-  if (options.live === false) {
+  if (options.live !== true) {
     return { ok: false, diagnostic: buildFailureDiagnostic(startedAt, options, "live-disabled") };
   }
   const sanitized = sanitizeTypeSafePayload(request);
