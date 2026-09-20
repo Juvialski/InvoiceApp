@@ -577,9 +577,17 @@ function expenseProposal(
     proposal.status = "UNKNOWN_REFERENCE";
     proposal.messages.push(resolvedProject.error);
   } else {
-    const next = change("projectId", expense.projectId || null, resolvedProject.id || null, exported.projectId || null, editable);
-    if (next) (editable ? editableChanges : protectedChanges).push(next);
-    proposed.projectId = resolvedProject.id;
+    const resolvedProjectRecord = resolvedProject.id
+      ? context.projects.find((item) => item.id === resolvedProject.id)
+      : undefined;
+    if (resolvedProjectRecord?.status === "ARCHIVED" && resolvedProjectRecord.id !== expense.projectId) {
+      proposal.status = "INVALID";
+      proposal.messages.push("New Expense assignments cannot target an archived project.");
+    } else {
+      const next = change("projectId", expense.projectId || null, resolvedProject.id || null, exported.projectId || null, editable);
+      if (next) (editable ? editableChanges : protectedChanges).push(next);
+      proposed.projectId = resolvedProject.id;
+    }
   }
 
   const hiddenCostCodeId = nullableText(row["__HQ Cost Code ID"]);
