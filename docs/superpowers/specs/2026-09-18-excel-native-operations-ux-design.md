@@ -7,7 +7,9 @@ Repository: `Juvialski/InvoiceApp`
 Product: HydroQualiSense
 Approved direction: Make applicable operational work substantially more familiar to experienced Excel users without weakening HydroQualiSense business rules or turning the product into a generic spreadsheet.
 
-This document is an authoritative design contract. It does not claim that Finance, Inventory, Workforce, Payroll, Documents, or Communications registers already satisfy this specification. Projects and Procurement have bounded implementations recorded below; remaining domains require their own controlled rollout. Existing detailed workflows remain purpose-built, and the Slice 5 Subcontract presentation extraction remains repository architecture work only.
+This document remains authoritative for the workbook interchange, validation/diff/apply, concurrency, protected-field, and controlled-rollout contracts. The later approved interaction correction at `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` refines how those capabilities appear in the application: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. Where this document can be read as making a dense sheet/register the default presentation for an important browse surface, the 2026-09-20 direction controls.
+
+This document does not claim that Finance, Inventory, Workforce, Payroll, Documents, or Communications registers already satisfy the final worksheet UX. Projects, Procurement, and bounded Expenses/Supplier Payables have implemented foundations recorded below; remaining domains and in-app worksheet editing require their own controlled rollout. Existing detailed workflows remain purpose-built, and the Slice 5 Subcontract presentation extraction remains repository architecture work only.
 
 The live repository, `AGENTS.md`, the active roadmap, the current handoff, and later approved implementation decisions remain authoritative when this document is eventually executed. Future work must start from live repository state rather than treating this document's examples or candidate classifications as a frozen code snapshot.
 
@@ -101,11 +103,13 @@ HydroQualiSense remains the system of record. Excel becomes a supported operatio
 
 ## 2. Core design principle
 
-The governing interaction model is:
+The governing interaction model, refined on 2026-09-20, is:
 
-**Sheet for everyday register work -> detail panel/editor for complex record work -> controlled workflow for consequential actions.**
+**Browse visually -> edit like a spreadsheet -> execute sensitive workflows deliberately.**
 
-Spreadsheet interaction should improve scanning, filtering, sorting, routine edits, bulk edits, copy/paste, offline editing, importing, exporting, and familiarity.
+`OperationsGrid` remains appropriate for browse/read/register scanning. A separate shared worksheet-editing primitive should own spreadsheet-familiar data entry, correction, row editing, keyboard/paste behavior, and explicit Save/Apply semantics.
+
+Spreadsheet interaction should improve structured data entry, repeated edits, bulk edits, copy/paste, offline editing, importing, exporting, and familiarity without forcing every browse page to look like Excel.
 
 It must not weaken:
 
@@ -125,7 +129,9 @@ An Excel-like UI is an interaction model, not a bypass around HydroQualiSense do
 
 ## 3. Future surface classification
 
-Before implementation, authenticated workflows must be audited and classified as `Sheet-native`, `Hybrid`, or `Purpose-built`. A classification is a design hypothesis, not authorization to change a surface.
+This section predates the 2026-09-20 browse-versus-edit correction. Read it together with `2026-09-20-selective-workbook-editing-ux-direction.md`. A domain may have a visual/card/list browse surface while its create/edit/correction surface is worksheet-native; therefore a register being listed below does **not** require the domain landing page to look like a spreadsheet.
+
+Before implementation, authenticated workflows must be audited and classified at the **surface/task level** as worksheet-native, hybrid, or purpose-built. A classification is a design hypothesis, not authorization to change a surface.
 
 ### A. Sheet-native
 
