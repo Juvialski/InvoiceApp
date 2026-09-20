@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 IMPLEMENTED / UX-W3 SUPPLIER INVOICE REVIEW NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 IMPLEMENTED / UX-W4 HIGH-VALUE EDITORS NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -30,7 +30,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, and UX-W2 are implemented.** UX-W2 establishes the card-first Projects browse surface, Project Details worksheet, and Cost Codes worksheet while preserving the existing `.xlsx` export-review-apply/version-check contract. The exact next implementation phase is UX-W3 supplier invoice source-on-top plus extracted-data worksheet review. Later Finance/domain rollouts follow only after that correction; app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, and UX-W3 are implemented.** UX-W3 proves the corrected source-first Supplier Invoice review surface with extracted header/vendor/line/totals worksheets while preserving the existing `.xlsx` export-review-apply/version-check and financial-authority contracts. The exact next implementation phase is **UX-W4 — bounded high-value transaction editors**, beginning with RFQ and Purchase Order draft editing. Later Finance/domain rollouts follow the corrected interaction grammar; app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -118,9 +118,42 @@ passed **389/389** with database fallback disabled; ESLint and TypeScript
 validation passed; and the production build passed. Targeted browser QA was not
 run locally, so exact-head protected Demo Visual QA remains the browser evidence
 gate. Docker/Supabase and hosted/provider checks were not required for this
-UI-only diff. The
-exact next implementation phase is **UX-W3 — Supplier Invoice source-on-top +
-extracted-data worksheet review**.
+UI-only diff. At the time of the UX-W2 handoff, the exact next implementation
+phase was **UX-W3 — Supplier Invoice source-on-top + extracted-data worksheet
+review**; UX-W3 is implemented in the section below.
+
+## 2026-09-20 UX-W3 — Supplier Invoice source-first worksheet review implemented
+
+UX-W3 applies the selective workbook-editing interaction grammar to the existing
+Supplier Invoice review workspace without changing extraction, persistence,
+database, or accounting authority.
+
+- The preserved `SourceComparison` surface now appears before extracted review
+  content in a responsive vertical flow. Image/PDF viewing, zoom, fit/actual
+  size controls, preserved email access, comparison/history tabs, missing-source
+  fallback, and source evidence remain available. The old desktop split pane and
+  mobile Details/Source toggle are removed.
+- `SupplierInvoiceWorksheet` consumes the shared `WorksheetEditor` for Invoice
+  Header, Vendor Evidence, Line Items, and Totals / Monetary Facts. Existing
+  safe posting context remains editable through the header worksheet; line rows
+  retain stable IDs and controlled Add Row/Remove Row behavior.
+- The worksheet reuses `financialFieldStatus` and the AI snapshot where present
+  to show source, manual, calculated, and unresolved provenance. Calculated
+  monetary facts and all verified/VOID cells are protected/read-only. Canonical
+  Vendor identity is not a worksheet cell; Vendor link/create, project
+  allocation, PO matching, material intake, verification, Expense authority,
+  settlement, correction, lifecycle, retry, and revert actions remain explicit
+  workflows.
+- Focused Supplier Invoice, worksheet, procurement-boundary, and settlement
+  regression coverage passed locally; `npm.cmd run test:affected:agent` passed
+  **170/170** with database fallback disabled; ESLint, TypeScript, and the
+  production build passed. Exact-head protected Demo Visual QA remains the
+  browser merge gate. No database/Docker/Supabase/provider or production
+  validation was applicable to this UI-only diff.
+
+The exact next implementation phase is **UX-W4 — bounded high-value transaction
+editors**, beginning with RFQ and Purchase Order draft editing. Do not claim
+app-wide Excel-native editing from UX-W3.
 
 ## Historical application / certification baselines
 

@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH BOUNDED EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 IMPLEMENTED / UX-W3 SUPPLIER INVOICE REVIEW NEXT / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH BOUNDED EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 IMPLEMENTED / UX-W4 HIGH-VALUE EDITORS NEXT / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-20**
 Repository: `Juvialski/InvoiceApp`
 
@@ -26,7 +26,7 @@ credentials/device/runtime.
 
 The Excel-Native Operations workbook/authority contract is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the original shared foundation, the bounded Procurement pilot, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented; app-wide Excel capability remains unclaimed.
 
-The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation and UX-W2 Projects integration are implemented; the exact next corrected rollout is UX-W3 supplier-invoice source-on-top + extracted worksheet review.
+The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, and UX-W3 Supplier Invoice source-first worksheet review are implemented; the exact next corrected rollout is UX-W4 bounded high-value transaction editors.
 
 ### Earlier UI/UX and hosted-certification reference
 
@@ -453,9 +453,9 @@ database, migration, RLS/RPC, provider, route, or production change occurred.
 
 Focused behavioral tests pass 21/21; ESLint and TypeScript validation pass.
 Because UX-W1 was intentionally a foundation-only slice, its route-level QA was
-deferred to the first domain integration in UX-W2. UX-W2 now supplies that
-Projects integration; the exact next implementation phase is **UX-W3 —
-Supplier Invoice source-on-top + extracted-data worksheet review**.
+deferred to the first domain integration in UX-W2. UX-W2 supplied that Projects
+integration; UX-W3 now supplies the Supplier Invoice source-first proving
+surface, recorded below.
 
 ## 2026-09-20 UX-W2 — Projects card-first portfolio + worksheets implemented
 
@@ -499,9 +499,43 @@ passed **389/389** with database fallback disabled; ESLint and TypeScript
 validation passed; and the production build passed. Targeted browser QA was not
 run locally, so exact-head protected Demo Visual QA remains the browser evidence
 gate. Docker/Supabase and hosted/provider checks were not required for this
-UI-only diff. The
-exact next implementation phase is **UX-W3 — Supplier Invoice source-on-top +
-extracted-data worksheet review**.
+UI-only diff. At that W2 handoff point, the exact next implementation phase was
+**UX-W3 — Supplier Invoice source-on-top + extracted-data worksheet review**;
+UX-W3 is implemented in the section below.
+
+## 2026-09-20 UX-W3 — Supplier Invoice source-first worksheet review implemented
+
+UX-W3 applies the corrected interaction grammar to the existing Supplier Invoice
+review workspace. It is a UI/application slice only; extraction, persistence,
+database, accounting, provider, and production boundaries are unchanged.
+
+- The preserved `SourceComparison` surface is now the first review surface in a
+  responsive vertical layout. Image/PDF viewing, zoom, fit/actual size,
+  preserved email evidence, comparison/history tabs, and missing-source
+  fallback remain available. The old desktop split pane and mobile
+  Details/Source toggle are removed.
+- `src/components/invoices/SupplierInvoiceWorksheet.tsx` composes four shared
+  `WorksheetEditor` sections: Invoice Header, Vendor Evidence, Line Items, and
+  Totals / Monetary Facts. Safe existing header/posting context remains in the
+  worksheet; line rows keep stable IDs and controlled Add Row/Remove Row
+  behavior. Explicit Save remains parent-owned.
+- `financialFieldStatus` and the AI snapshot are reused where available for
+  source/manual/calculated/unresolved provenance. Calculated monetary facts and
+  verified/VOID worksheets are protected. Canonical Vendor identity is not an
+  editable worksheet cell; Vendor link/create, project allocation, PO matching,
+  material intake, verification, linked-Expense authority, settlement,
+  correction, lifecycle, retry, and revert remain explicit workflows.
+- Focused Supplier Invoice, worksheet, procurement-boundary, and settlement
+  coverage passed locally; `npm.cmd run test:affected:agent` passed **170/170**
+  with database fallback disabled; ESLint, TypeScript, and the production build
+  passed. The new Demo Visual QA scenario covers the source-first surface at
+  desktop, tablet, and mobile, but exact-head protected browser QA remains the
+  merge gate. No database/Docker/Supabase/provider or production validation was
+  applicable to this UI-only diff.
+
+The exact next implementation phase is **UX-W4 — bounded high-value
+transaction editors**, beginning with RFQ and Purchase Order draft editing.
+App-wide Excel-native editing is not claimed.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
@@ -744,7 +778,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 1. **RI-2 + RI-3 implementation run — complete.** RI-2 lands conceptually first and RI-3 consumes it behind `workflow-map:context` / `agent:context`, preserving curated authority, current safety-net test selection, stale-index fail-closed behavior, and explicit fallback.
 2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
-4. **Selective workbook editing UX correction — UX-W1 + UX-W2 IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, and Cost Codes worksheet. The exact next phase is UX-W3 supplier invoice source-on-top plus extracted worksheet review. Preserve all existing workbook round-trip/concurrency/authority contracts.
+4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, and source-first Supplier Invoice review. The exact next phase is UX-W4 bounded high-value transaction editors, beginning with RFQ and Purchase Order draft editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
 5. **Remaining Finance/domain rollouts follow the corrected interaction grammar.** Client receivables and Cash & Banking/reconciliation remain later bounded slices; settlement/reconciliation actions stay purpose-built and controlled.
 6. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 7. **Resume Wide Documents remaining managed slices.**
@@ -756,7 +790,7 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-The next Codex implementation run should begin **UX-W3 — Supplier Invoice source-on-top + extracted-data worksheet review** from live repository state. UX-W1 and UX-W2 are implemented on the current handoff branch; consume the shared worksheet foundation and preserve the Projects contracts rather than reimplementing or broadening them.
+The next Codex implementation run should begin **UX-W4 — bounded high-value transaction editors** from live repository state. UX-W1 through UX-W3 are implemented on the current handoff branch; consume the shared worksheet foundation and preserve the Supplier Invoice and Projects contracts rather than reimplementing or broadening them.
 
 It must read:
 
@@ -766,18 +800,20 @@ It must read:
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
 - this handoff;
 - `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`; and
-- `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`.
+- `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`;
+- `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md` when a later
+  transaction editor touches supplier-derived monetary context.
 
-The UX-W3 run should consume the reusable worksheet-editing primitive only for
-the Supplier Invoice proving surface. It should not broadly migrate every
-domain in one PR and should not start arbitrary custom-column/database-schema
-support.
+The UX-W4 run should consume the reusable worksheet-editing primitive only for
+the selected bounded transaction editor proving surface. It should not broadly
+migrate every domain in one PR and should not start arbitrary custom-column or
+database-schema support.
 
 The immediate product sequence after UX-W2 is:
 
 1. UX-W2 — Projects: implemented as the card-first portfolio, Project Details worksheet, Cost Codes worksheet, and optional compact list described above.
-2. UX-W3 — Supplier invoice review: source image/PDF on top, extracted header/vendor/line/totals worksheet underneath, with extracted/manual/calculated/protected/error states and existing Vendor/project/PO/verification/Expense authority preserved.
-3. UX-W4 onward — bounded high-value editors and operational bulk-data editors.
+2. UX-W3 — Supplier invoice review: implemented as source image/PDF on top, extracted header/vendor/line/totals worksheet underneath, with extracted/manual/calculated/protected/error states and existing Vendor/project/PO/verification/Expense authority preserved.
+3. UX-W4 onward — bounded high-value editors and operational bulk-data editors; begin with RFQ and Purchase Order draft editing.
 4. Resume remaining Finance/domain Excel rollouts only after the corrected interaction grammar is proven.
 
 Efficiency rules remain strict: pull current main first, record the SHA once, one bounded context packet, zero subagents by default (maximum two only for independent bounded work), focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.

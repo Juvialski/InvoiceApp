@@ -119,10 +119,12 @@ test("R3 migration protects one-to-one provenance, immutable snapshots, buyer pr
 
 test("Supplier Invoice UI treats the Vendor as the external identity and omits buyer workflow controls", () => {
   const review = readFileSync(new URL("../src/components/SupplierInvoiceReview.tsx", import.meta.url), "utf8");
+  const worksheet = readFileSync(new URL("../src/components/invoices/SupplierInvoiceWorksheet.tsx", import.meta.url), "utf8");
   assert.match(review, /More extracted details/);
-  assert.match(review, /Edit details/);
-  assert.match(review, /Supplier name/);
-  assert.match(review, /Source monetary facts/);
+  assert.match(review, /SupplierInvoiceWorksheet/);
+  assert.match(worksheet, /Invoice Header/);
+  assert.match(worksheet, /Supplier Name/);
+  assert.match(worksheet, /Totals \/ Monetary Facts/);
   assert.doesNotMatch(review, /supplier-invoice-edit-buyer/);
   assert.doesNotMatch(review, /Buyer mismatch/);
   assert.doesNotMatch(review, /Customer \/ Buyer/);

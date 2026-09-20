@@ -132,7 +132,7 @@ const ProjectAssignmentPanel: React.FC<ProjectAssignmentPanelProps> = ({ invoice
     : phpTotal.requiresFx
       ? "PHP reporting basis requires authoritative FX evidence."
       : `PHP reporting basis ${phpAllocated.baseLabel} / ${phpTotal.baseLabel}`;
-  return <section className="min-w-0 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4"><div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700">Project allocation</p><p className="mt-1 break-words text-[10px] text-indigo-900">Project links are human-confirmed. The extracted project reference remains text only until assigned. Invoice details stay read-only after verification; allocation can be updated separately.</p></div>{!readOnly && <button type="button" onClick={() => addAllocation()} disabled={!invoiceTotalKnown || !projects.some((project) => project.status !== "ARCHIVED")} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-50"><Plus className="h-3 w-3" /> Add allocation</button>}</div>{suggestions.length > 0 && allocations.length === 0 && <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2"><div className="min-w-0"><p className="text-[10px] font-bold text-slate-600">Suggested project</p><p className="break-words text-xs font-black text-slate-900">{suggestions[0].project.projectCode} — {suggestions[0].project.projectName}</p><p className="break-words text-[9px] text-slate-500">Matched by {suggestions[0].reasons.join(", ")}</p></div>{!readOnly && <button type="button" onClick={() => addAllocation(suggestions[0].project.id)} disabled={!invoiceTotalKnown} className="shrink-0 rounded-lg bg-indigo-100 px-2.5 py-1.5 text-[10px] font-black text-indigo-800">Use suggestion</button>}</div>}{allocations.length > 0 ? <div className="mt-3 space-y-2">{allocations.map((allocation, index) => { const selectableCodes = getSelectableCostCodes(costCodes, allocation.projectId, allocation.projectCostCodeId); return <div key={allocation.id} className="grid min-w-0 gap-2 rounded-xl border border-indigo-100 bg-white p-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_110px_34px]"><select aria-label={`Allocation ${index + 1} project`} disabled={readOnly || !invoiceTotalKnown} value={allocation.projectId} onChange={(event) => { const nextProjectId = event.target.value; const currentCode = costCodes.find((cc) => cc.id === allocation.projectCostCodeId); const nextCostCodeId = currentCode && currentCode.projectId === nextProjectId ? allocation.projectCostCodeId : undefined; updateAllocation(allocation.id, { projectId: nextProjectId, projectCostCodeId: nextCostCodeId }); }} className="min-w-0 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px] font-semibold"><option value="">Select project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.projectCode} — {project.projectName}{project.status === "ARCHIVED" ? " (archived)" : ""}</option>)}</select><select aria-label={`Allocation ${index + 1} cost code`} disabled={readOnly || !invoiceTotalKnown || !allocation.projectId} value={allocation.projectCostCodeId || ""} onChange={(event) => updateAllocation(allocation.id, { projectCostCodeId: event.target.value || undefined })} className="min-w-0 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px]"><option value="">{allocation.projectId ? "Uncoded" : "Select project first"}</option>{selectableCodes.map((cc) => <option key={cc.id} value={cc.id}>{formatCostCodeOptionLabel(cc)}</option>)}</select><div className="flex min-w-0 items-center gap-1"><input aria-label={`Allocation ${index + 1} value`} disabled={readOnly || !invoiceTotalKnown} type="number" min="0" step="0.01" value={allocation.allocationType === "PERCENTAGE" ? allocation.allocationPercentage ?? "" : allocation.allocationAmount ?? ""} onChange={(event) => updateAllocation(allocation.id, allocation.allocationType === "PERCENTAGE" ? { allocationPercentage: Number(event.target.value) } : { allocationAmount: Number(event.target.value) })} className="min-w-0 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-right text-[10px] tabular-nums" /><select aria-label={`Allocation ${index + 1} type`} disabled={readOnly || !invoiceTotalKnown} value={allocation.allocationType} onChange={(event) => updateAllocation(allocation.id, { allocationType: event.target.value as InvoiceProjectAllocation["allocationType"], allocationAmount: event.target.value === "PERCENTAGE" ? normalizedInvoiceAllocationAmount(invoiceTotal, { ...allocation, allocationType: "PERCENTAGE" }) : allocation.allocationAmount })} className="w-16 shrink-0 rounded-lg border border-slate-200 px-1 py-1.5 text-[10px]"><option value="AMOUNT">Amount</option><option value="PERCENTAGE">%</option></select></div>{!readOnly && <button type="button" onClick={() => { setAllocationDraftDirty(true); setAllocations((current) => current.filter((item) => item.id !== allocation.id)); }} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700" aria-label={`Remove allocation ${index + 1}`}><Trash2 className="h-3.5 w-3.5" /></button>}</div>; })}</div> : <p className="mt-3 break-words rounded-xl border border-dashed border-indigo-200 bg-white/70 px-3 py-3 text-[10px] text-slate-600">Unallocated — this invoice does not affect project actual cost until a project is confirmed.</p>}<div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[10px]"><div className="flex min-w-0 flex-col gap-1"><span className="break-words font-semibold text-slate-600">Allocated source {invoice.currency || ""} {allocatedSourceLabel}</span>{phpReportingBasis && <span className={`break-words ${phpTotal.requiresFx ? "font-semibold text-amber-700" : "text-emerald-700"}`} data-testid="invoice-allocation-reporting-basis">{phpReportingBasis}</span>}</div>{!readOnly && <button type="button" onClick={() => void save()} disabled={saving || !invoiceTotalKnown} className="shrink-0 rounded-lg bg-emerald-700 px-3 py-1.5 font-black text-white disabled:opacity-50">{saving ? "Saving…" : "Save allocation"}</button>}</div>{error && <p role="alert" className="mt-2 break-words text-[10px] font-bold text-rose-700">{error}</p>}</section>;
+  return <section data-supplier-field="projectAllocations" data-testid="supplier-project-allocation" className="min-w-0 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4"><div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700">Project allocation</p><p className="mt-1 break-words text-[10px] text-indigo-900">Project links are human-confirmed. The extracted project reference remains text only until assigned. Invoice details stay read-only after verification; allocation can be updated separately.</p></div>{!readOnly && <button type="button" onClick={() => addAllocation()} disabled={!invoiceTotalKnown || !projects.some((project) => project.status !== "ARCHIVED")} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-50"><Plus className="h-3 w-3" /> Add allocation</button>}</div>{suggestions.length > 0 && allocations.length === 0 && <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2"><div className="min-w-0"><p className="text-[10px] font-bold text-slate-600">Suggested project</p><p className="break-words text-xs font-black text-slate-900">{suggestions[0].project.projectCode} — {suggestions[0].project.projectName}</p><p className="break-words text-[9px] text-slate-500">Matched by {suggestions[0].reasons.join(", ")}</p></div>{!readOnly && <button type="button" onClick={() => addAllocation(suggestions[0].project.id)} disabled={!invoiceTotalKnown} className="shrink-0 rounded-lg bg-indigo-100 px-2.5 py-1.5 text-[10px] font-black text-indigo-800">Use suggestion</button>}</div>}{allocations.length > 0 ? <div className="mt-3 space-y-2">{allocations.map((allocation, index) => { const selectableCodes = getSelectableCostCodes(costCodes, allocation.projectId, allocation.projectCostCodeId); return <div key={allocation.id} className="grid min-w-0 gap-2 rounded-xl border border-indigo-100 bg-white p-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_110px_34px]"><select aria-label={`Allocation ${index + 1} project`} disabled={readOnly || !invoiceTotalKnown} value={allocation.projectId} onChange={(event) => { const nextProjectId = event.target.value; const currentCode = costCodes.find((cc) => cc.id === allocation.projectCostCodeId); const nextCostCodeId = currentCode && currentCode.projectId === nextProjectId ? allocation.projectCostCodeId : undefined; updateAllocation(allocation.id, { projectId: nextProjectId, projectCostCodeId: nextCostCodeId }); }} className="min-w-0 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px] font-semibold"><option value="">Select project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.projectCode} — {project.projectName}{project.status === "ARCHIVED" ? " (archived)" : ""}</option>)}</select><select aria-label={`Allocation ${index + 1} cost code`} disabled={readOnly || !invoiceTotalKnown || !allocation.projectId} value={allocation.projectCostCodeId || ""} onChange={(event) => updateAllocation(allocation.id, { projectCostCodeId: event.target.value || undefined })} className="min-w-0 rounded-lg border border-slate-200 px-2 py-1.5 text-[10px]"><option value="">{allocation.projectId ? "Uncoded" : "Select project first"}</option>{selectableCodes.map((cc) => <option key={cc.id} value={cc.id}>{formatCostCodeOptionLabel(cc)}</option>)}</select><div className="flex min-w-0 items-center gap-1"><input aria-label={`Allocation ${index + 1} value`} disabled={readOnly || !invoiceTotalKnown} type="number" min="0" step="0.01" value={allocation.allocationType === "PERCENTAGE" ? allocation.allocationPercentage ?? "" : allocation.allocationAmount ?? ""} onChange={(event) => updateAllocation(allocation.id, allocation.allocationType === "PERCENTAGE" ? { allocationPercentage: Number(event.target.value) } : { allocationAmount: Number(event.target.value) })} className="min-w-0 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-right text-[10px] tabular-nums" /><select aria-label={`Allocation ${index + 1} type`} disabled={readOnly || !invoiceTotalKnown} value={allocation.allocationType} onChange={(event) => updateAllocation(allocation.id, { allocationType: event.target.value as InvoiceProjectAllocation["allocationType"], allocationAmount: event.target.value === "PERCENTAGE" ? normalizedInvoiceAllocationAmount(invoiceTotal, { ...allocation, allocationType: "PERCENTAGE" }) : allocation.allocationAmount })} className="w-16 shrink-0 rounded-lg border border-slate-200 px-1 py-1.5 text-[10px]"><option value="AMOUNT">Amount</option><option value="PERCENTAGE">%</option></select></div>{!readOnly && <button type="button" onClick={() => { setAllocationDraftDirty(true); setAllocations((current) => current.filter((item) => item.id !== allocation.id)); }} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700" aria-label={`Remove allocation ${index + 1}`}><Trash2 className="h-3.5 w-3.5" /></button>}</div>; })}</div> : <p className="mt-3 break-words rounded-xl border border-dashed border-indigo-200 bg-white/70 px-3 py-3 text-[10px] text-slate-600">Unallocated — this invoice does not affect project actual cost until a project is confirmed.</p>}<div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[10px]"><div className="flex min-w-0 flex-col gap-1"><span className="break-words font-semibold text-slate-600">Allocated source {invoice.currency || ""} {allocatedSourceLabel}</span>{phpReportingBasis && <span className={`break-words ${phpTotal.requiresFx ? "font-semibold text-amber-700" : "text-emerald-700"}`} data-testid="invoice-allocation-reporting-basis">{phpReportingBasis}</span>}</div>{!readOnly && <button type="button" onClick={() => void save()} disabled={saving || !invoiceTotalKnown} className="shrink-0 rounded-lg bg-emerald-700 px-3 py-1.5 font-black text-white disabled:opacity-50">{saving ? "Saving…" : "Save allocation"}</button>}</div>{error && <p role="alert" className="mt-2 break-words text-[10px] font-bold text-rose-700">{error}</p>}</section>;
 };
 
 function saveLabel(state: SaveState) {
@@ -195,11 +195,8 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   onRecordReceipt,
 }) => {
   const [loadedVendors, setLoadedVendors] = useState<Vendor[]>(vendors || []);
-  const [mobilePane, setMobilePane] = useState<"details" | "source">("details");
   const [warningConfirmation, setWarningConfirmation] = useState(false);
   const [retryConfirmation, setRetryConfirmation] = useState(false);
-  const [focusFieldPath, setFocusFieldPath] = useState<string>();
-  const [focusFieldToken, setFocusFieldToken] = useState(0);
 
   useEffect(() => {
     if (vendors && vendors.length > 0) {
@@ -246,9 +243,10 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   };
 
   const focusField = (path: string) => {
-    setFocusFieldPath(path);
-    setFocusFieldToken((token) => token + 1);
-    setMobilePane("details");
+    const target = Array.from(document.querySelectorAll<HTMLElement>("[data-supplier-field], [data-worksheet-cell]"))
+      .find((candidate) => candidate.dataset.supplierField === path || candidate.dataset.worksheetCell?.endsWith(`:${path}`));
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+    target?.focus();
   };
 
   const verifyAndNext = async () => {
@@ -270,8 +268,6 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   useEffect(() => {
     setWarningConfirmation(false);
     setRetryConfirmation(false);
-    setFocusFieldPath(undefined);
-    setMobilePane("details");
   }, [invoice.id, invoice.reviewStatus, invoice.lifecycleStatus]);
 
   useEffect(() => {
@@ -332,80 +328,78 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
       {retryConfirmation && <div className="rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3 text-[10px] text-sky-950"><p className="font-black">You have edited this extracted draft.</p><p className="mt-1">Retrying extraction may replace the current extracted draft. Your previous extraction and review history will remain preserved.</p><div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => setRetryConfirmation(false)} className="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 font-bold text-sky-800">Keep current draft</button><button type="button" onClick={() => { setRetryConfirmation(false); void onRetryExtraction(); }} disabled={isRetrying} className="rounded-lg bg-indigo-700 px-2.5 py-1.5 font-bold text-white disabled:opacity-60">Retry and replace draft</button></div></div>}
     </>}
 
-    <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 lg:hidden"><button type="button" aria-pressed={mobilePane === "details"} onClick={() => setMobilePane("details")} className={`rounded-lg px-3 py-2 text-xs font-black ${mobilePane === "details" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>Details</button><button type="button" aria-pressed={mobilePane === "source"} onClick={() => setMobilePane("source")} className={`rounded-lg px-3 py-2 text-xs font-black ${mobilePane === "source" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>Source</button></div>
-
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)] items-stretch lg:h-[calc(100vh-225px)] lg:min-h-[580px]">
-      <aside className={`${mobilePane === "source" ? "block" : "hidden"} lg:block min-w-0 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden`}><SourceComparison invoice={invoice} mode="source" /></aside>
-      <section className={`${mobilePane === "details" ? "block" : "hidden"} lg:block min-w-0 min-h-0 overflow-y-auto pr-0.5 pb-36 sm:pb-24`}>
-        <div className="space-y-3">
-          {onSaveProjectAllocations && (
-            <ProjectAssignmentPanel
-              invoice={invoice}
-              projects={projects}
-              costCodes={costCodes}
-              financialFxSnapshots={financialFxSnapshots}
-              preferredProject={projects.find((project) => project.id === preferredProjectId)}
-              savedAllocations={invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id)}
-              readOnly={invoice.lifecycleStatus === "VOID"}
-              onSave={(allocations) => onSaveProjectAllocations(invoice, allocations)}
-            />
-          )}
-          {canReadProcurement && purchaseOrders.length > 0 && (
-            <PurchaseOrderMatchSection
-              invoice={invoice}
-              purchaseOrders={purchaseOrders}
-              receipts={purchaseOrderReceipts}
-              vendors={loadedVendors}
-              projects={projects || []}
-              matches={purchaseOrderMatches}
-              readOnly={invoice.lifecycleStatus === "VOID"}
-              canManage={canManageProcurement && invoice.lifecycleStatus !== "VOID"}
-              onConfirmMatch={onConfirmPurchaseOrderMatch}
-              onUnmatch={onUnmatchPurchaseOrderMatch}
-              onOpenPurchaseOrder={onOpenPurchaseOrder}
-            />
-          )}
-          {canReadProcurement && (
-            <PurchasedMaterialIntakePanel
-              invoice={invoice}
-              inventoryItems={inventoryItems}
-              purchaseOrders={purchaseOrders}
-              receipts={purchaseOrderReceipts}
-              matches={purchaseOrderMatches}
-              readOnly={invoice.lifecycleStatus === "VOID"}
-              canManage={canManageProcurement && invoice.lifecycleStatus !== "VOID"}
-              onUpdateInvoice={handleInvoiceUpdate}
-              onRecordReceipt={onRecordReceipt}
-            />
-          )}
-             <SupplierInvoiceReview
-            invoice={invoice}
-            readOnly={isVerified || invoice.lifecycleStatus === "VOID"}
-            onVerify={needsReview && canVerify && supplierReadiness.complete ? () => void verifyAndNext() : undefined}
-             verifyLabel={repairMode ? (inReviewSession ? "Save & Create Expense & Next" : "Save & Create Expense") : (inReviewSession ? "Verify & Create Expense & Next" : "Verify & Create Expense")}
-            onReopen={isVerified && invoice.lifecycleStatus !== "VOID" ? onReopen : undefined}
-            allowReopen={canRepairVerifiedInvoice}
-            onRevertToAI={needsReview ? onRevertToAI : undefined}
-            onFocusField={focusField}
-            onRevertField={needsReview ? onRevertField : undefined}
-             vendors={loadedVendors}
-             onAddVendor={onAddVendor}
-             onCommitRepair={onCommitRepair}
-             onOpenCorrection={onOpenCorrection}
-             repairMode={repairMode}
-            linkedExpense={linkedExpense}
-            authorityConflict={supplierInvoiceAuthorityConflict}
-            linkedExpenseLoading={linkedExpenseLoading}
-            canRecordExpensePayment={canRecordExpensePayment}
-            canReverseExpensePayment={canReverseExpensePayment}
-            onNavigatePath={onNavigatePath}
-            financialFxSnapshots={financialFxSnapshots}
-            projects={projects}
-            projectAllocations={invoiceProjectAllocations}
-            onUpdateInvoice={handleInvoiceUpdate}
-          />
-        </div>
+    <div data-testid="supplier-invoice-source-first" className="min-w-0 space-y-3 pb-36 sm:pb-24">
+      <section data-testid="supplier-invoice-source-surface" aria-label="Original supplier invoice source" className="min-w-0">
+        <SourceComparison invoice={invoice} onRevertField={needsReview ? onRevertField : undefined} />
       </section>
+
+      <SupplierInvoiceReview
+        invoice={invoice}
+        readOnly={isVerified || invoice.lifecycleStatus === "VOID"}
+        onVerify={needsReview && canVerify && supplierReadiness.complete ? () => void verifyAndNext() : undefined}
+        verifyLabel={repairMode ? (inReviewSession ? "Save & Create Expense & Next" : "Save & Create Expense") : (inReviewSession ? "Verify & Create Expense & Next" : "Verify & Create Expense")}
+        onReopen={isVerified && invoice.lifecycleStatus !== "VOID" ? onReopen : undefined}
+        allowReopen={canRepairVerifiedInvoice}
+        onRevertToAI={needsReview ? onRevertToAI : undefined}
+        onFocusField={focusField}
+        onRevertField={needsReview ? onRevertField : undefined}
+        vendors={loadedVendors}
+        onAddVendor={onAddVendor}
+        onCommitRepair={onCommitRepair}
+        onOpenCorrection={onOpenCorrection}
+        repairMode={repairMode}
+        linkedExpense={linkedExpense}
+        authorityConflict={supplierInvoiceAuthorityConflict}
+        linkedExpenseLoading={linkedExpenseLoading}
+        canRecordExpensePayment={canRecordExpensePayment}
+        canReverseExpensePayment={canReverseExpensePayment}
+        onNavigatePath={onNavigatePath}
+        financialFxSnapshots={financialFxSnapshots}
+        projects={projects}
+        projectAllocations={invoiceProjectAllocations}
+        onUpdateInvoice={handleInvoiceUpdate}
+      />
+
+      {onSaveProjectAllocations && (
+        <ProjectAssignmentPanel
+          invoice={invoice}
+          projects={projects}
+          costCodes={costCodes}
+          financialFxSnapshots={financialFxSnapshots}
+          preferredProject={projects.find((project) => project.id === preferredProjectId)}
+          savedAllocations={invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id)}
+          readOnly={invoice.lifecycleStatus === "VOID"}
+          onSave={(allocations) => onSaveProjectAllocations(invoice, allocations)}
+        />
+      )}
+      {canReadProcurement && purchaseOrders.length > 0 && (
+        <PurchaseOrderMatchSection
+          invoice={invoice}
+          purchaseOrders={purchaseOrders}
+          receipts={purchaseOrderReceipts}
+          vendors={loadedVendors}
+          projects={projects || []}
+          matches={purchaseOrderMatches}
+          readOnly={invoice.lifecycleStatus === "VOID"}
+          canManage={canManageProcurement && invoice.lifecycleStatus !== "VOID"}
+          onConfirmMatch={onConfirmPurchaseOrderMatch}
+          onUnmatch={onUnmatchPurchaseOrderMatch}
+          onOpenPurchaseOrder={onOpenPurchaseOrder}
+        />
+      )}
+      {canReadProcurement && (
+        <PurchasedMaterialIntakePanel
+          invoice={invoice}
+          inventoryItems={inventoryItems}
+          purchaseOrders={purchaseOrders}
+          receipts={purchaseOrderReceipts}
+          matches={purchaseOrderMatches}
+          readOnly={invoice.lifecycleStatus === "VOID"}
+          canManage={canManageProcurement && invoice.lifecycleStatus !== "VOID"}
+          onUpdateInvoice={handleInvoiceUpdate}
+          onRecordReceipt={onRecordReceipt}
+        />
+      )}
     </div>
 
     {inReviewSession && <div className="sticky bottom-2 z-20 rounded-2xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur p-2.5"><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => void onPrevious()} disabled={queueIndex <= 0} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40"><ChevronLeft className="w-4 h-4" />Previous <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+P</span></button><span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 px-1"><Clock3 className="w-3.5 h-3.5" />{positionLabel}</span><button type="button" onClick={() => void onNext()} disabled={queueIndex >= queue.length - 1} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Next <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+N</span><ChevronRight className="w-4 h-4" /></button>{needsReview && canVerify ? <><button type="button" onClick={() => void onSave()} disabled={saveState === "saving"} className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-800 disabled:opacity-50"><Save className="w-3.5 h-3.5" />Save</button><div className="hidden md:flex items-center gap-1 text-[9px] text-slate-400"><Keyboard className="w-3.5 h-3.5" />Ctrl/Cmd+Enter</div>{supplierReadiness.complete ? <button type="button" onClick={() => void verifyAndNext()} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:bg-emerald-800"><ShieldCheck className="w-4 h-4" />{repairMode ? "Save & Create Expense & Next" : "Verify & Next"} <ArrowRight className="w-3.5 h-3.5" /></button> : <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-[10px] font-black text-amber-900">{supplierReadiness.blockingReasons[0] || "Resolve supplier posting facts before verification."}</span>}</> : <div className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black text-slate-700">{needsReview ? "Expense management permission required to verify" : <><ShieldCheck className="w-3.5 h-3.5" />Read-only verified · Fix invoice above</>}</div>}</div>{needsReview && canVerify && supplierReadiness.complete && warningConfirmation && <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] text-amber-900"><span><strong>{issueCount} validation warning{issueCount === 1 ? "" : "s"} remain.</strong> Verify this invoice anyway?</span><div className="flex items-center gap-2"><button type="button" onClick={() => setWarningConfirmation(false)} className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 font-bold text-amber-800">Cancel</button><button type="button" onClick={() => void verifyAndNext()} className="rounded-lg bg-amber-700 px-2.5 py-1.5 font-bold text-white">Verify &amp; Continue</button></div></div>}</div>}
