@@ -278,6 +278,18 @@ test("fails closed for stale state, hidden identity tampering, bad references, a
   assert.equal(proposalFor(buildExpensesImportReview(setExpenseCells(exportedBytes(), { Amount: -1 }, 0), context()), DIRECT_EXPENSE_ID).status, "INVALID");
 });
 
+test("rejects workbook reassignment to an archived project", () => {
+  const archivedProject = { ...project(PROJECT_TWO_ID, "PRJ-002", "South Plant"), status: "ARCHIVED" as const };
+  const bytes = setExpenseCells(exportedBytes(), { Project: "PRJ-002", "Cost Code": "MECH" }, 0);
+  const review = buildExpensesImportReview(bytes, context({
+    projects: [project(PROJECT_ONE_ID, "PRJ-001", "North Plant"), archivedProject],
+  }));
+  const proposal = proposalFor(review, DIRECT_EXPENSE_ID);
+  assert.equal(proposal.status, "INVALID");
+  assert.equal(proposal.canApply, false);
+  assert.match(proposal.messages.join(" "), /archived project/i);
+});
+
 test("keeps mixed currencies explicit and treats missing/new rows as non-destructive unsupported states", () => {
   const review = buildExpensesImportReview(removeExpenseRow(addNewExpenseRow(exportedBytes())), context());
   assert.equal(review.omittedExpenseIds.includes(DIRECT_EXPENSE_ID), true);
