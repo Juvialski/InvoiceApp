@@ -29,6 +29,10 @@ import { classifySupplierDocuments, unresolvedForeignExpenseIds, type SupplierDo
 import { appPathForCashTarget, appPathForExpense, appPathForInvoice, appPathForPurchaseOrder, appPathForTab } from "../../utils/appRouting.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import { deriveExpenseSettlementSummary } from "../../lib/financialSettlement.ts";
+import { OperationsGrid, type OperationsGridColumn } from "../ui/OperationsGrid.tsx";
+import { ExpensesWorkbookPanel } from "./ExpensesWorkbookPanel.tsx";
+import { settlementForExpenseWorkbook, type ExpensesWorkbookRecords } from "../../lib/expensesWorkbook.ts";
+import type { SupplierInvoiceSettlementMatch, SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
 import { FinancialSettlementCard } from "../FinancialSettlementCard.tsx";
 
 interface ExpensesPageProps {
@@ -47,6 +51,12 @@ interface ExpensesPageProps {
   onOpenSupplierInvoiceReview?: (invoice: InvoiceData) => void;
   onUploadSupplierInvoice?: () => void;
   onSave: (expense: Expense) => void;
+  settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  settlementMatches?: readonly SupplierInvoiceSettlementMatch[];
+  supplierSettlementToday?: string;
+  companyId?: string;
+  onRefreshExpenses?: () => Promise<ExpensesWorkbookRecords>;
+  onApplyExpenseWorkbook?: (expense: Expense) => Promise<void> | void;
   onPreviewCorrection: (expense: Expense) => Promise<FinancialCorrectionPreview>;
   onApplyCorrection: (expense: Expense, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
   initialProjectId?: string;
@@ -105,6 +115,12 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   onOpenSupplierInvoiceReview,
   onUploadSupplierInvoice,
   onSave,
+  settlementProjections,
+  settlementMatches,
+  supplierSettlementToday,
+  companyId,
+  onRefreshExpenses,
+  onApplyExpenseWorkbook,
   onPreviewCorrection,
   onApplyCorrection,
   initialProjectId,
@@ -269,8 +285,79 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5" aria-label="Expense detail recovery" role="alert"><p className="text-sm font-black text-amber-950">Expense unavailable</p><p className="mt-1 break-words text-xs leading-5 text-amber-900">The requested Expense is not available in this company workspace. No correction or payment action was opened.</p><a href={appPathForTab("expenses")} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(appPathForTab("expenses"), true); }} className="mt-3 inline-flex rounded-lg bg-white px-3 py-2 text-xs font-black text-amber-900 shadow-sm">Return to Expenses</a></section>
       : selectedExpense
         ? <ExpenseDetailPanel expense={selectedExpense} invoice={selectedExpense.supplierInvoiceId ? invoiceMap.get(selectedExpense.supplierInvoiceId) : undefined} purchaseOrder={selectedExpense.purchaseOrderId ? purchaseOrderMap.get(selectedExpense.purchaseOrderId) : undefined} project={selectedExpense.projectId ? projects.find((project) => project.id === selectedExpense.projectId) : undefined} returnPath={expenseReturnPath} canRecordPayments={canRecordPayments} canReversePayments={canReversePayments} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />
-        : null
+    : null
     : null;
+
+  const expenseGridColumns: OperationsGridColumn<Expense>[] = [
+    {
+      key: "dateDescription",
+      header: "Date / description",
+      value: (expense) => <div><strong className="block text-xs text-slate-900">{expense.description}</strong><span className="mt-0.5 block text-[10px] text-slate-500">{expense.expenseDate}</span></div>,
+      sortValue: (expense) => expense.expenseDate,
+      editable: (expense) => expense.status === "DRAFT" && !expense.archivedAt && !expense.supplierInvoiceId,
+      protected: (expense) => Boolean(expense.supplierInvoiceId || expense.status !== "DRAFT" || expense.archivedAt),
+      cellClassName: "min-w-[220px]",
+    },
+    {
+      key: "project",
+      header: "Project",
+      value: (expense) => { const project = projects.find((item) => item.id === expense.projectId); return <div><strong className="block text-[10px] text-indigo-700">{project?.projectCode || "Unallocated"}</strong><span className="mt-0.5 block text-[10px] text-slate-500">{project?.projectName || "Needs project confirmation"}</span></div>; },
+      sortValue: (expense) => projects.find((item) => item.id === expense.projectId)?.projectCode || "",
+      editable: (expense) => expense.status === "DRAFT" && !expense.archivedAt && !expense.supplierInvoiceId,
+      protected: (expense) => Boolean(expense.supplierInvoiceId || expense.status !== "DRAFT" || expense.archivedAt),
+    },
+    {
+      key: "categoryPayee",
+      header: "Category / payee",
+      value: (expense) => { const vendor = expense.vendorId ? vendorMap.get(expense.vendorId) : undefined; return <div><strong className="block text-[10px] text-slate-700">{expense.category}</strong><span className="mt-0.5 block text-[10px] text-slate-500">{vendor?.name || expense.payee || expense.referenceNumber || "No payee / reference"}</span></div>; },
+      sortValue: (expense) => `${expense.category} ${expense.payee || ""}`,
+      editable: (expense) => expense.status === "DRAFT" && !expense.archivedAt && !expense.supplierInvoiceId,
+      protected: (expense) => Boolean(expense.supplierInvoiceId || expense.status !== "DRAFT" || expense.archivedAt),
+    },
+    {
+      key: "source",
+      header: "Source / PO",
+      value: (expense) => {
+        const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined;
+        const purchaseOrder = expense.purchaseOrderId ? purchaseOrderMap.get(expense.purchaseOrderId) : undefined;
+        const invoicePath = invoice ? appPathForInvoice(invoice.id, appPathForExpense(expense.id)) : undefined;
+        const purchaseOrderPath = purchaseOrder ? appPathForPurchaseOrder(purchaseOrder.id, appPathForExpense(expense.id)) : undefined;
+        const navigateSource = (event: React.MouseEvent<HTMLAnchorElement>, path: string) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(path); };
+        return <div className="flex flex-col items-start gap-1">{invoicePath ? <a href={expenseRouteHref(invoicePath, invoice!.id)} onClick={(event) => navigateSource(event, invoicePath)} className="max-w-[190px] truncate text-left text-[10px] font-black text-indigo-700 hover:underline">Supplier invoice {invoice!.invoiceNumber || invoice!.id.slice(0, 8)}</a> : <strong className="block truncate text-[10px] text-slate-700">Manual expense</strong>}{purchaseOrderPath ? <a href={expenseRouteHref(purchaseOrderPath, purchaseOrder!.id)} onClick={(event) => navigateSource(event, purchaseOrderPath)} className="max-w-[190px] truncate text-left text-[10px] font-black text-indigo-700 hover:underline">PO {purchaseOrder!.poNumber}</a> : invoice?.sourceMetadata?.subject ? <span className="block max-w-[190px] truncate text-[10px] text-slate-500">From email: {invoice.sourceMetadata.subject}</span> : <span className="block truncate text-[10px] text-slate-500">{expense.supplierInvoiceId ? "Source invoice on file" : "No linked source"}</span>}</div>;
+      },
+      sortValue: (expense) => expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId)?.invoiceNumber || "" : expense.purchaseOrderId ? purchaseOrderMap.get(expense.purchaseOrderId)?.poNumber || "" : "",
+      protected: (expense) => Boolean(expense.supplierInvoiceId || expense.vendorId || expense.purchaseOrderId || expense.receiptSourceDocumentId),
+      cellClassName: "min-w-[200px]",
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      value: (expense) => {
+        const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined;
+        const phpAmount = expenseAmountForPhp(expense, invoice, financialFxSnapshots);
+        const needsFx = phpAmount.requiresFx;
+        return <div className="text-right font-sans font-bold tabular-nums text-slate-900"><span className="block">{phpAmount.baseLabel}</span>{phpAmount.sourceLabel && <span className="mt-1 block break-words text-[9px] font-normal text-slate-400">{phpAmount.sourceLabel}</span>}{expense.currency.toUpperCase() !== baseCurrency.toUpperCase() && <span className={`mt-1 block text-[9px] ${needsFx ? "font-bold text-amber-700" : "font-normal text-emerald-700"}`}>{needsFx ? "FX rate required" : `≈ ${money(phpAmount.baseAmount || 0, baseCurrency)}`}</span>}</div>;
+      },
+      sortValue: (expense) => expense.amount,
+      align: "right",
+      editable: (expense) => expense.status === "DRAFT" && !expense.archivedAt && !expense.supplierInvoiceId,
+      protected: (expense) => Boolean(expense.supplierInvoiceId || expense.status !== "DRAFT" || expense.archivedAt),
+    },
+    {
+      key: "settlement",
+      header: "Settlement",
+      value: (expense) => { const settlement = settlementForExpenseWorkbook(expense, { invoices, settlementProjections, settlementMatches }); return <div><strong className="block text-[10px] text-slate-700">{settlement.settlementState}</strong><span className="mt-0.5 block text-[10px] text-slate-500">Outstanding {money(settlement.outstanding, settlement.currency)}</span></div>; },
+      sortValue: (expense) => settlementForExpenseWorkbook(expense, { invoices, settlementProjections, settlementMatches }).outstanding,
+      protected: (expense) => Boolean(expense.supplierInvoiceId || expense.status !== "DRAFT" || expense.archivedAt),
+    },
+    {
+      key: "status",
+      header: "Status",
+      value: (expense) => { const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined; const needsFx = expenseAmountForPhp(expense, invoice, financialFxSnapshots).requiresFx; return <div className="flex flex-wrap gap-1"><StatusBadge tone={expenseTone(expense.status)} icon={expense.status === "APPROVED" || expense.status === "PAID" ? CheckCircle2 : expense.status === "VOID" ? Ban : undefined}>{expense.status}</StatusBadge>{expense.archivedAt && <StatusBadge tone="neutral" icon={Archive}>Archived</StatusBadge>}{needsFx && <StatusBadge tone="warning">FX required</StatusBadge>}</div>; },
+      sortValue: (expense) => expense.status,
+      protected: true,
+    },
+  ];
 
   return <div className="space-y-5">
     <PageHeader
@@ -282,6 +369,24 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
         <button type="button" onClick={() => setModal(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><Plus className="h-3.5 w-3.5" /> Add expense</button>
       </div> : canUploadSupplierInvoice && onUploadSupplierInvoice ? <button type="button" onClick={onUploadSupplierInvoice} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100"><ExternalLink className="h-3.5 w-3.5" /> Upload supplier invoice</button> : undefined}
     />
+
+    <ExpensesWorkbookPanel
+      expenses={expenses}
+      projects={projects}
+      costCodes={costCodes}
+      invoices={invoices}
+      purchaseOrders={purchaseOrders}
+      vendors={vendors}
+      expectedCompanyId={companyId}
+      companyId={companyId}
+      settlementProjections={settlementProjections}
+      settlementMatches={settlementMatches}
+      today={supplierSettlementToday}
+      canManage={canManage && Boolean(onApplyExpenseWorkbook)}
+      onRefreshExpenses={onRefreshExpenses}
+      onApplyExpenseWorkbook={onApplyExpenseWorkbook || (async () => { throw new Error("Expense workbook Apply is not configured."); })}
+    />
+    {!onApplyExpenseWorkbook && canManage && <p role="status" className="-mt-3 text-xs font-semibold text-amber-800">Expense workbook Apply is unavailable until the authoritative save callback is configured.</p>}
 
     {expenseDetail}
 
@@ -311,7 +416,22 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
           return <ExpenseRegisterCard key={expense.id} expense={expense} project={project} invoice={invoice} purchaseOrder={purchaseOrder} vendor={vendor} phpAmount={phpAmount} baseCurrency={baseCurrency} canManage={canManage} canManageFx={canManageFx && Boolean(onSaveFinancialFxSnapshot)} onConfirmFx={openFxConfirmation} onReviewCorrection={(item) => void openCorrection(item)} onNavigatePath={onNavigatePath} invoicePath={invoicePath} purchaseOrderPath={purchaseOrderPath} />;
         })}
       </div>
-      <div className="hidden lg:block ops-scrollbar overflow-auto"><table className="ops-table min-w-[1080px] w-full text-left text-xs"><caption className="sr-only">Expense register results: {expenseResultLabel}</caption><thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th scope="col" className="px-4 py-3">Date / description</th><th scope="col" className="px-4 py-3">Project</th><th scope="col" className="px-4 py-3">Category / payee</th><th scope="col" className="px-4 py-3">Source / PO</th><th scope="col" className="px-4 py-3 text-right">Amount</th><th scope="col" className="px-4 py-3">Status</th>{canManage && <th scope="col" className="px-4 py-3 text-right">Action</th>}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((expense) => { const project = projects.find((item) => item.id === expense.projectId); const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined; const purchaseOrder = expense.purchaseOrderId ? purchaseOrderMap.get(expense.purchaseOrderId) : undefined; const vendor = expense.vendorId ? vendorMap.get(expense.vendorId) : undefined; const phpAmount = expenseAmountForPhp(expense, invoice, financialFxSnapshots); const needsFx = phpAmount.requiresFx; const invoicePath = invoice ? appPathForInvoice(invoice.id, appPathForExpense(expense.id)) : undefined; const purchaseOrderPath = purchaseOrder ? appPathForPurchaseOrder(purchaseOrder.id, appPathForExpense(expense.id)) : undefined; const navigateSource = (event: React.MouseEvent<HTMLAnchorElement>, path: string) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(path); }; return <tr key={expense.id} className="align-top transition hover:bg-slate-50"><td className="px-4 py-3"><strong className="block text-xs text-slate-900">{expense.description}</strong><span className="mt-0.5 block text-[10px] text-slate-500">{expense.expenseDate}</span></td><td className="max-w-[220px] px-4 py-3"><strong className="block truncate text-[10px] text-indigo-700">{project?.projectCode || "Unallocated"}</strong><span className="mt-0.5 block truncate text-[10px] text-slate-500">{project?.projectName || "Needs project confirmation"}</span></td><td className="px-4 py-3"><strong className="block text-[10px] text-slate-700">{expense.category}</strong><span className="mt-0.5 block text-[10px] text-slate-500">{vendor?.name || expense.payee || expense.referenceNumber || "No payee / reference"}</span></td><td className="max-w-[240px] px-4 py-3"><div className="flex flex-col items-start gap-1">{invoicePath ? <a href={expenseRouteHref(invoicePath, invoice!.id)} onClick={(event) => navigateSource(event, invoicePath)} className="max-w-full truncate text-left text-[10px] font-black text-indigo-700 hover:underline">Supplier invoice {invoice!.invoiceNumber || invoice!.id.slice(0, 8)}</a> : <strong className="block truncate text-[10px] text-slate-700">Manual expense</strong>}{purchaseOrderPath ? <a href={expenseRouteHref(purchaseOrderPath, purchaseOrder!.id)} onClick={(event) => navigateSource(event, purchaseOrderPath)} className="max-w-full truncate text-left text-[10px] font-black text-indigo-700 hover:underline">PO {purchaseOrder!.poNumber}</a> : invoice?.sourceMetadata?.subject ? <span className="block max-w-full truncate text-[10px] text-slate-500">From email: {invoice.sourceMetadata.subject}</span> : expense.supplierInvoiceId ? <span className="block truncate text-[10px] text-slate-500">Source invoice on file</span> : <span className="block truncate text-[10px] text-slate-500">No linked source</span>}</div></td><td className="px-4 py-3 text-right font-sans font-bold tabular-nums text-slate-900"><span className="block">{phpAmount.baseLabel}</span>{phpAmount.sourceLabel && <span className="mt-1 block break-words text-[9px] text-slate-400">{phpAmount.sourceLabel}</span>}{expense.currency.toUpperCase() !== baseCurrency.toUpperCase() && <span className={`mt-1 block text-[9px] ${needsFx ? "font-bold text-amber-700" : "text-emerald-700"}`}>{needsFx ? "FX rate required" : `≈ ${money(phpAmount.baseAmount || 0, baseCurrency)}`}</span>}</td><td className="px-4 py-3"><div className="flex flex-wrap gap-1"><StatusBadge tone={expenseTone(expense.status)} icon={expense.status === "APPROVED" || expense.status === "PAID" ? CheckCircle2 : expense.status === "VOID" ? Ban : undefined}>{expense.status}</StatusBadge>{expense.archivedAt && <StatusBadge tone="neutral" icon={Archive}>Archived</StatusBadge>}{needsFx && <StatusBadge tone="warning">FX required</StatusBadge>}</div></td>{canManage && <td className="px-4 py-3 text-right"><div className="flex flex-col items-end gap-1">{needsFx && canManageFx && onSaveFinancialFxSnapshot && <button type="button" onClick={() => openFxConfirmation(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-amber-800 transition hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1">Confirm FX</button>}<button type="button" aria-label={`Review correction options for ${expense.description}`} onClick={() => void openCorrection(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-amber-800 transition hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"><Archive className="h-3 w-3" aria-hidden="true" /> Review correction</button></div></td>}</tr>; })}</tbody></table></div>
+      <div className="hidden lg:block">
+        <OperationsGrid
+          ariaLabel="Expense register results"
+          rows={rows}
+          columns={expenseGridColumns}
+          rowKey={(expense) => expense.id}
+          onRowActivate={(expense) => onNavigatePath?.(appPathForExpense(expense.id))}
+          renderActions={(expense) => {
+            const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined;
+            const phpAmount = expenseAmountForPhp(expense, invoice, financialFxSnapshots);
+            const needsFx = phpAmount.requiresFx;
+            if (!canManage) return null;
+            return <div className="flex flex-col items-end gap-1">{needsFx && canManageFx && onSaveFinancialFxSnapshot && <button type="button" onClick={() => openFxConfirmation(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-amber-800 transition hover:bg-amber-50">Confirm FX</button>}<button type="button" aria-label={`Review correction options for ${expense.description}`} onClick={() => void openCorrection(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-amber-800 transition hover:bg-amber-50"><Archive className="h-3 w-3" aria-hidden="true" /> Review correction</button></div>;
+          }}
+        />
+      </div>
     </section> : workspaceDataPending ? <div id="expenses-results" role="status" aria-live="polite" className="p-8 text-center text-xs font-semibold text-slate-500">Loading expenses…</div> : <div id="expenses-results"><EmptyState icon={Receipt} title={expenses.length ? "No expenses match this filter" : supplierDocuments.length ? "No expense records yet" : "No expenses yet"} description={expenses.length ? "Try a different status or search term." : supplierDocuments.length ? `${supplierDocuments.length} supplier document${supplierDocuments.length === 1 ? "" : "s"} still require review or Expense linking.` : canManage ? "Add a direct expense or upload a supplier invoice for review." : "No expense records are available for the current filter."} action={canManage && !expenses.length ? <button type="button" onClick={() => setModal(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"><Plus className="h-3.5 w-3.5" /> Add expense</button> : undefined} /></div>}
 
     {supplierDocuments.length > 0 && <section className="space-y-3" aria-label="Supplier document work">

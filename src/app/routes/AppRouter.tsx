@@ -75,6 +75,7 @@ import type { ProjectsWorkbookRecords } from "../../components/projects/Projects
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
 import type { SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
+import type { ExpensesWorkbookRecords } from "../../lib/expensesWorkbook.ts";
 import type {
   CashBankingWorkspaceData,
   FinancialAccount,
@@ -358,6 +359,8 @@ export interface AppRouterProps {
   selectedExpenseId?: string | null;
   expenseReturnPath?: string;
   onSaveExpense?: (expense: Expense) => void;
+  onRefreshExpenses?: () => Promise<ExpensesWorkbookRecords>;
+  onApplyExpenseWorkbook?: (expense: Expense) => Promise<void> | void;
   financialFxSnapshots?: readonly FinancialFxSnapshot[];
   baseCurrency?: string;
   onSaveFinancialFxSnapshot?: (input: FinancialFxSnapshotInput) => Promise<FinancialFxSnapshot | void>;
@@ -680,6 +683,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onPreviewExpenseCorrection,
   onApplyExpenseCorrection,
   onExpenseCorrectionContextConsumed,
+  onRefreshExpenses,
+  onApplyExpenseWorkbook,
   onExportReportsWorkbook,
   supplierInvoiceSettlementProjections,
   settlementMatches = [],
@@ -1084,6 +1089,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         vendors={expenseVendors}
         financialFxSnapshots={financialFxSnapshots}
         baseCurrency={baseCurrency}
+        settlementProjections={supplierInvoiceSettlementProjections}
+        settlementMatches={settlementMatches}
+        supplierSettlementToday={supplierSettlementToday}
+        companyId={companyId}
+        onRefreshExpenses={onRefreshExpenses}
+        onApplyExpenseWorkbook={onApplyExpenseWorkbook}
         onSaveFinancialFxSnapshot={onSaveFinancialFxSnapshot}
         onVerifySupplierInvoice={onVerifySupplierInvoice}
         onFixSupplierInvoice={onFixSupplierInvoice}

@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + SHARED FOUNDATION + PROCUREMENT + PROJECTS/PROJECT CONTROLS IMPLEMENTED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
-Date: **2026-09-19**
+Status: **CURRENT — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + SHARED FOUNDATION + PROCUREMENT + PROJECTS/PROJECT CONTROLS + BOUNDED EXPENSES/SUPPLIER PAYABLES IMPLEMENTED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Date: **2026-09-20**
 Repository: `Juvialski/InvoiceApp`
 
 RI-0 Repository Intelligence planning was prepared from the earlier current
@@ -394,12 +394,35 @@ weakened. Creation/deletion through workbook import remains deferred.
 Focused workbook/grid/domain tests and TypeScript typecheck passed. A real
 SheetJS export/review/apply/re-export round trip is covered by the adapter
 tests. Local Docker/Supabase was unavailable during the Codex implementation
-run; the protected exact-head Database Migration & Invariant workflow is the
-authoritative clean-replay, pgTAP/runtime-concurrency, and historical upgrade
-gate before merge, and exact-head Demo Visual QA gates the changed Projects
-surface. Provider certification and production promotion remain separate and
-unclaimed. The next bounded Excel-native domain is Phase 4 — Expenses and
-Finance; app-wide Excel capability is not claimed.
+run; the protected exact-head Database Migration & Invariant workflow remains
+the authoritative runtime gate for the changed Projects database contract.
+Provider certification and production promotion remain separate and unclaimed.
+The next bounded Excel-native domain after Projects is Phase 4A — Expenses and
+Supplier Payables.
+
+## 2026-09-20 Excel Phase 4A — Expenses + Supplier Payables — implemented
+
+Phase 4A adds the controlled Expenses workbook and a read-only `Supplier
+Payables` context sheet on the shared workbook foundation. The web Expense
+register now uses `OperationsGrid` on desktop while retaining mobile cards,
+detail, correction, source, FX, and settlement actions. The workbook includes
+`Expenses`, `Supplier Payables`, and hidden `_HydroQualiSense` metadata.
+
+Only direct, existing, unlinked `DRAFT` Expenses can propose ordinary date, category,
+description, payee, amount, currency, payment method, reference, notes, and
+authorized project/cost-code changes. Supplier-derived Expenses, source and
+vendor identity, status/lifecycle, settlement/payment values, canonical supplier
+allocations, and derived values are protected. Missing rows do not delete and
+new rows remain unsupported.
+
+Review is proposal-only and applies only after explicit confirmation. App-owned
+refresh revalidates the workbook against current Expenses, Projects, cost codes,
+supplier sources, and settlement projections; Apply calls the existing Expense
+save path with its atomic `updated_at` precondition. Supplier invoices remain
+source evidence and confirmed Cash & Banking matches remain settlement truth.
+No migration, production mutation, hosted/provider certification, or full
+Finance conversion is claimed. Remaining Finance work is client receivables,
+then Cash & Banking/reconciliation.
 
 ## Wave 4D messaging-provider integration/completion and readiness gate
 
@@ -641,8 +664,8 @@ Preserve throughout resumed Wave 4D and subsequent work:
 
 1. **RI-2 + RI-3 implementation run — complete.** RI-2 lands conceptually first and RI-3 consumes it behind `workflow-map:context` / `agent:context`, preserving curated authority, current safety-net test selection, stale-index fail-closed behavior, and explicit fallback.
 2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
-3. **Excel Phase 0/readiness, shared foundation, Procurement RFQ/PO, and Projects/project controls — implemented.**
-4. **Next bounded Excel-native domain: Phase 4 — Expenses and Finance.** Reuse the shared grid/workbook/review/apply contracts and preserve Expense, payable, receivable, Cash & Banking, reconciliation, settlement, currency, and history authority behind their owning workflows.
+3. **Excel Phase 0/readiness, shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
+4. **Remaining Finance slices: client receivables, then Cash & Banking/reconciliation.** Reuse the shared grid/workbook/review/apply contracts and preserve Expense, payable, receivable, settlement, currency, and history authority behind their owning workflows.
 5. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 6. **Resume Wide Documents remaining managed slices.**
 7. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
@@ -659,5 +682,9 @@ The completed professionalization decisions are recorded in `docs/REPOSITORY_ARC
 
 Efficiency rules remain strict: pull current main first, one bounded context packet, zero subagents by default, focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.
 
-The combined professionalization run remains complete. Excel Phase 0/readiness, Procurement, and Projects/project controls are implemented; Phase 4 Expenses and Finance is next, subject to live architecture and focused validation gates.
+The combined professionalization run remains complete. Excel Phase 0/readiness,
+Procurement, Projects/project controls, and bounded Phase 4A Expenses + Supplier
+Payables are implemented. Client receivables is the next remaining Finance slice,
+followed by Cash & Banking/reconciliation, subject to live architecture and
+focused validation gates.
 

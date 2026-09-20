@@ -116,6 +116,7 @@ import {
 } from "./lib/projectCostCodes";
 import type { ProjectsApplyGroup } from "./lib/projectsWorkbook.ts";
 import type { ProjectsWorkbookRecords } from "./components/projects/ProjectsWorkbookPanel.tsx";
+import type { ExpensesWorkbookRecords } from "./lib/expensesWorkbook.ts";
 import { applyExpenseCorrectionInSupabase, createLocalExpense, loadExpensesFromSupabase, previewExpenseCorrectionInSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
 import { buildLocalExpenseCorrectionPreview, buildLocalInvoiceCorrectionPreview, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./lib/financialLifecycle.ts";
 import { applyPayrollLifecycleToSupabase, canTransitionPayrollRun, deletePayrollPeriodToSupabase, deletePayrollRunToSupabase, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, previewWorkerLifecycleToSupabase, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
@@ -1534,16 +1535,74 @@ function InvoiceWorkspace() {
     }
   };
 
+  const persistExpense = async (expense: Expense): Promise<Expense> => {
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.expensesWrite)) throw new Error("You do not have permission to manage expenses in this company.");
+    const saved = session && supabase ? await saveExpenseToSupabase(expense) : { ...expense, updatedAt: new Date().toISOString() };
+    setExpenses((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]);
+    return saved;
+  };
+
   const handleSaveExpense = async (expense: Expense) => {
     try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.expensesWrite)) throw new Error("You do not have permission to manage expenses in this company.");
-      const saved = session && supabase ? await saveExpenseToSupabase(expense) : { ...expense, updatedAt: new Date().toISOString() };
-      setExpenses((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]);
+      await persistExpense(expense);
       setExpenseFormContext(null);
       showNotification("success", "Expense saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save expense."));
     }
+  };
+
+  const handleApplyExpenseWorkbook = async (expense: Expense): Promise<void> => {
+    const saved = await persistExpense(expense);
+    showNotification("success", `Expense ${saved.description || saved.id} applied from the reviewed workbook.`);
+  };
+
+  const handleRefreshExpensesWorkbook = async (): Promise<ExpensesWorkbookRecords> => {
+    if (session && supabase && !guestModeState) {
+      const canReadExpenses = can(PERMISSION_KEYS.expensesRead) || can(PERMISSION_KEYS.expensesWrite);
+      const canReadProjects = can(PERMISSION_KEYS.projectsRead);
+      const canReadInvoices = can(PERMISSION_KEYS.invoicesRead);
+      const canReadProcurement = can(PERMISSION_KEYS.procurementRead);
+      const [freshExpenses, freshProjects, freshCostCodes, freshInvoices, freshAllocations, freshPurchaseOrders, freshVendors] = await Promise.all([
+        canReadExpenses ? loadExpensesFromSupabase() : Promise.resolve(expenses),
+        canReadProjects ? loadProjectsFromSupabase() : Promise.resolve(projects),
+        canReadProjects ? loadProjectCostCodesFromSupabase() : Promise.resolve(costCodes),
+        canReadInvoices ? loadInvoicesFromSupabase() : Promise.resolve(invoices),
+        canReadProjects || canReadInvoices ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve(invoiceProjectAllocations),
+        canReadProcurement ? fetchPurchaseOrders() : Promise.resolve(purchaseOrders),
+        canReadProcurement || canReadInvoices || canReadExpenses ? fetchVendors() : Promise.resolve(vendors),
+      ]);
+      const freshProjections = buildSupplierInvoiceSettlementProjections(freshInvoices, freshExpenses, cashData.matches, supplierSettlementToday);
+      setExpenses(freshExpenses);
+      projectController.applyProjects(freshProjects);
+      setCostCodes(freshCostCodes);
+      setInvoices(freshInvoices);
+      setInvoiceProjectAllocations(freshAllocations);
+      return {
+        expenses: freshExpenses,
+        projects: freshProjects,
+        costCodes: freshCostCodes,
+        invoices: freshInvoices,
+        purchaseOrders: freshPurchaseOrders,
+        vendors: freshVendors,
+        expectedCompanyId: activeCompanyId || undefined,
+        settlementProjections: freshProjections,
+        settlementMatches: cashData.matches,
+        today: supplierSettlementToday,
+      };
+    }
+    return {
+      expenses,
+      projects,
+      costCodes,
+      invoices,
+      purchaseOrders,
+      vendors,
+      expectedCompanyId: activeCompanyId || undefined,
+      settlementProjections: supplierInvoiceSettlementProjections,
+      settlementMatches: cashData.matches,
+      today: supplierSettlementToday,
+    };
   };
 
   const handleSaveFinancialFxSnapshot = async (input: FinancialFxSnapshotInput) => {
@@ -3723,6 +3782,8 @@ function InvoiceWorkspace() {
           expenseFormContext={expenseFormContext}
           expenseCorrectionContext={expenseCorrectionContext}
           onSaveExpense={(expense) => void handleSaveExpense(expense)}
+          onRefreshExpenses={handleRefreshExpensesWorkbook}
+          onApplyExpenseWorkbook={handleApplyExpenseWorkbook}
           onPreviewExpenseCorrection={previewExpenseCorrection}
           onApplyExpenseCorrection={applyExpenseCorrection}
           onExpenseCorrectionContextConsumed={() => setExpenseCorrectionContext(null)}

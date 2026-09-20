@@ -6,6 +6,8 @@ import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCo
 import { useAppPermissions } from "../AppPermissionContext.tsx";
 import { hasAllPermissions, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
+import type { ExpensesWorkbookRecords } from "../../lib/expensesWorkbook.ts";
+import type { SupplierInvoiceSettlementMatch, SupplierInvoiceSettlementProjection } from "../../lib/supplierInvoiceSettlement.ts";
 
 export interface ExpensesRouteProps {
   expenses: Expense[];
@@ -29,6 +31,12 @@ export interface ExpensesRouteProps {
   onFixSupplierInvoice?: (invoice: InvoiceData) => Promise<void> | void;
   onOpenSupplierInvoiceReview?: (invoice: InvoiceData) => void;
   onUploadSupplierInvoice?: () => void;
+  settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
+  settlementMatches?: readonly SupplierInvoiceSettlementMatch[];
+  supplierSettlementToday?: string;
+  companyId?: string;
+  onRefreshExpenses?: () => Promise<ExpensesWorkbookRecords>;
+  onApplyExpenseWorkbook?: (expense: Expense) => Promise<void> | void;
   onPreviewCorrection: (expense: Expense) => Promise<FinancialCorrectionPreview>;
   onApplyCorrection: (expense: Expense, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
   onInitialCorrectionConsumed?: () => void;

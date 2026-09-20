@@ -77,6 +77,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
       "Use Change Status to record a full or partial payment against the linked Expense, including inline Cash/Bank account setup when permitted.",
       "Payment status is derived from confirmed linked-Expense settlement evidence; the verification-created Expense may remain DRAFT and confirmed payment evidence does not change that lifecycle. Cash & Banking remains available for deeper reconciliation, history, and corrections.",
       "Follow supplier invoice, Expense, purchase-order, and receipt context links to the exact record that owns each step of the workflow.",
+      "Export Expenses and related supplier-payable context to a controlled Excel workbook, review supported direct-draft changes, and apply only permitted updates through the Expense workflow.",
     ],
     sortOrder: 30,
   },

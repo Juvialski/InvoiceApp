@@ -2,7 +2,7 @@
 
 > **APPROVED MAJOR UX DIRECTION — PROFESSIONALIZATION COMPLETE; CONTROLLED PROCUREMENT + PROJECTS ROLLOUTS IMPLEMENTED**
 
-Status: **Approved; Phase 0/readiness, the shared foundation, the bounded Procurement pilot, and the Projects/project-controls rollout are implemented; app-wide Excel capability is not claimed**
+Status: **Approved; Phase 0/readiness, the shared foundation, the bounded Procurement pilot, the Projects/project-controls rollout, and bounded Phase 4A Expenses + Supplier Payables are implemented; app-wide Excel capability is not claimed**
 Repository: `Juvialski/InvoiceApp`
 Product: HydroQualiSense
 Approved direction: Make applicable operational work substantially more familiar to experienced Excel users without weakening HydroQualiSense business rules or turning the product into a generic spreadsheet.
@@ -57,6 +57,25 @@ contract. Hidden metadata remains comparison evidence only; server company,
 permission, RLS, lifecycle, history, and source-of-truth authority remain
 binding. This record does not claim hosted QA, provider certification,
 production authorization, or app-wide Excel completion.
+
+### 0.2 Expenses + Supplier Payables rollout record — 2026-09-20
+
+The bounded Phase 4A rollout extends the shared workbook engine and
+`OperationsGrid` to Expenses and the supplier-payable context directly related
+to Expenses. The workbook shape is `Expenses`, read-only `Supplier Payables`,
+and hidden `_HydroQualiSense` synchronization metadata. Only direct, existing,
+unlinked `DRAFT` Expenses expose ordinary fields already editable through the
+Expense workflow, including date, category, description, payee, amount,
+currency, notes, and authorized project/cost-code references.
+
+Supplier-derived Expenses, source/vendor/purchase-order identity, lifecycle and
+status, confirmed settlement values, canonical supplier allocations, and
+derived values remain protected. Supplier invoice data remains evidence and
+confirmed Cash & Banking matches remain settlement authority. Upload is
+proposal-only; missing rows do not delete, new rows are unsupported, and Apply
+revalidates current state before using the existing Expense save path's
+`updated_at` precondition. Client receivables and Cash & Banking/reconciliation
+remain later Finance slices; app-wide Excel capability is not claimed.
 
 ---
 
@@ -812,12 +831,13 @@ The product goal is reduced training burden and faster routine work, not visual 
 
 ## 29. Documentation status and sequencing
 
-The Excel-Native Operations UX direction is approved. Implementation has
-**not** started. RI-1, RI-2, and RI-3 are complete, and the Repository &
-Architecture Professionalization program is explicitly complete for the
-current repository boundary. The next implementation run is Excel Phase
-0/readiness, followed by a bounded shared foundation only after the live
-architecture and readiness evidence support it.
+The Excel-Native Operations UX direction is approved. Phase 0/readiness, the
+shared foundation, Procurement, Projects/project controls, and bounded Phase
+4A Expenses + Supplier Payables are implemented. RI-1, RI-2, and RI-3 are
+complete, and the Repository & Architecture Professionalization program is
+explicitly complete for the current repository boundary. Client receivables
+and then Cash & Banking/reconciliation remain later bounded Finance rollouts;
+app-wide Excel capability is not claimed.
 
 By the latest explicit 2026-09-19 reprioritization, Excel must start from the
 completed professionalized repository boundary recorded in
