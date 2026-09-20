@@ -803,6 +803,48 @@ In bounded slices:
 3. Client Billing;
 4. Expenses.
 
+### Phase UX-W4.5 — information density and worksheet clarity correction
+
+Before the worksheet interaction pattern expands into UX-W5, correct the
+presentation problems found in the first implemented surfaces.
+
+The phase begins with **UX-W4.5A app-wide screenshot investigation and visual
+triage**. The user-provided Projects and Supplier Invoice screenshots are
+examples only; they do not define the audit boundary. Reuse the existing
+browser/Local-QA screenshot infrastructure, inspect representative authenticated
+or safe demo states across desktop, constrained laptop, tablet, and phone, and
+produce a durable prioritized report before broad remediation begins.
+Automated PASS/no-overflow/clean-console evidence is not a visual-quality PASS.
+
+Required focus:
+
+- visually audit the broader authenticated app for hierarchy, density, chrome,
+  repetition, scanability, action discoverability, responsive usefulness,
+  language clarity, consistency, and professional finish;
+- group repeated problems by shared root cause before implementing fixes;
+- put primary working content before optional explanations/analytics/tools;
+- move Projects cards into the immediate primary flow after a compact task
+  toolbar;
+- keep Portfolio analysis and Excel import/export available but secondary;
+- remove repetitive visible per-cell `PROTECTED` / `READ-ONLY` pills while
+  preserving semantic protected/read-only enforcement and accessibility;
+- treat ordinary source evidence as a quiet default rather than repeating a
+  provenance badge in every cell;
+- keep exceptional states such as manual correction, unresolved data, error,
+  warning, and conflict visibly distinct;
+- consolidate redundant `WORKSHEET` headings, helper paragraphs, legends,
+  warnings, borders, and nested containers through progressive disclosure;
+- audit Project Details, Cost Codes, Supplier Invoice, RFQ, Purchase Order,
+  Client Billing, and Expense draft worksheet surfaces before another domain is
+  migrated.
+
+Canonical detailed contract:
+`docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`.
+
+UX-W5 must not start until the representative Projects/Supplier Invoice
+corrections and shared quiet protected-state behavior are implemented and
+validated.
+
 ### Phase UX-W5 — operational bulk-data editors
 
 In bounded slices:
@@ -866,6 +908,9 @@ are true.
 - Editing project details opens a worksheet-style editor.
 - Cost Codes support natural row editing.
 - Lifecycle and derived financial fields remain protected.
+- The project-card grid begins in the primary working viewport after a compact
+  toolbar; optional Portfolio/Excel utilities do not push the cards far down
+  the page.
 
 ### Supplier invoice review
 
@@ -873,6 +918,12 @@ are true.
 - Extracted header/vendor/line/totals data is presented in worksheet style.
 - Users can correct permitted fields and rows with spreadsheet-familiar
   interaction.
+- Ordinary protected/read-only cells do not repeat visible protection pills in
+  every cell; semantic protection remains enforced and accessible.
+- Ordinary unchanged source evidence is visually quiet; exceptional/manual/
+  unresolved/error/conflict states remain prominent.
+- Redundant worksheet labels/helper text/nested chrome do not dominate the
+  extracted data.
 - AI/source/manual/protected/error states are distinguishable.
 - Verification and financial authority remain deliberate workflows.
 
