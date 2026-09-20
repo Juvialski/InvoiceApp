@@ -161,20 +161,24 @@ action-bar marker; Project Details/Cost Codes use explicit numeric/status
 alignment; PO/RFQ Save/Close actions are owned by one stable modal footer.
 
 Focused hierarchy/domain/procurement validation passed **120/120** in the
-integrated changed-surface run; affected application selection passed **486/486**
-with database fallback disabled; ESLint, TypeScript, and production build passed
-(the local build emitted only the existing Inter-font/chunk-size/import.meta
-advisories). Manual local safe-demo inspection covered desktop Projects,
-Expenses, Cash & Banking, Project Workspace/Budget, Purchase Order, and RFQ
-states at the visible 1280x900 browser surface. Playwright was unavailable, so
-constrained-laptop/phone C-state screenshots and automated Demo Visual QA are
-not claimed. The detailed disposition and new WORKSPACE-WIDTH SUITABILITY and
-VISUAL-GRAMMAR CONSISTENCY root causes are recorded in
+integrated implementation run. PR review advanced the application-bearing head
+to `1652add981cb8d51ea24495f958273380627eb30`; exact-head Application
+Validation selected **486/486** affected application tests with database fallback
+disabled and passed lint/typecheck/build. Exact-head Workflow Map Consistency,
+the database-unaffected migration/invariant gate, and Demo Visual QA also passed.
+The protected screenshots were inspected directly. Review caught one remaining
+Project Overview defect—the tall Management Attention wall—and corrected it to a
+compact severity summary with evidence/drilldowns on demand, bringing the
+financial-control working surface back into the initial useful desktop viewport.
+Projects remained genuinely card-first and PO/RFQ retained the wide working
+canvas and stable footer across the captured responsive states. The detailed
+disposition and the WORKSPACE-WIDTH SUITABILITY and VISUAL-GRAMMAR CONSISTENCY
+root causes are recorded in
 `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
 
-UX45A-001 is resolved for the inspected Projects/Expenses/Cash states;
-UX45A-005, UX45A-008, UX45A-009, UX45A-013, and UX45A-014 are partial for the
-bounded touched surfaces; UX45A-004 remains deferred to UX-W4.5D. UX-W4.5E is
+UX45A-001 and the bounded UX45A-005 hierarchy target are resolved for W4.5C;
+UX45A-008, UX45A-009, UX45A-013, and UX45A-014 remain partial where they extend
+beyond the touched surfaces; UX45A-004 remains deferred to UX-W4.5D. UX-W4.5E is
 explicitly strengthened as the future **App-Wide Visual Consistency &
 Professional-Finish Certification** phase. DB validation was not applicable.
 
