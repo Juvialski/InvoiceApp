@@ -96,7 +96,7 @@ export async function rerankContextCandidates(options: ContextRerankOptions): Pr
       candidateCount: candidates.length,
     },
   );
-  if (!response.ok) return fallbackResult(candidates, response.diagnostic);
+  if (response.ok === false) return fallbackResult(candidates, response.diagnostic);
   const answers = response.value.answers;
   if (!isRecord(answers)) return fallbackResult(candidates, { ...response.diagnostic, fallbackReason: "invalid-response" });
 

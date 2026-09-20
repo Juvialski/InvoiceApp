@@ -39,6 +39,22 @@ Codex is the lead implementation/integration owner. Default to **zero subagents*
 
 Do not use spare agent capacity for duplicate audits or speculative scope expansion.
 
+### Experimental TypeSafe/Jev advisory pilot
+
+The 2026-09-21 pilot uses the official `@typesafe-ai/sdk` 0.6.0 behind an
+opt-in developer-only CLI. One live synthetic smoke request succeeded in 753 ms
+with typed category parsing; one batched live benchmark request completed in
+731 ms with 3,910 input and 764 output tokens. It reduced measured candidate
+context characters by 47.95% and retained 100% of manually declared must-keep
+files, but retained only 60% of manually expected relevant candidates.
+
+Therefore automatic Jev filtering is experimental/deferred. The deterministic
+RI/Workflow Map candidate set and `test:affected:agent` remain authoritative.
+Local advisory ranking, CI classification, test prioritization, and completion
+evidence checks may be run only through explicit TypeSafe commands with live
+mode opt-in; failures fall back deterministically. Normal CI, `agent:context`
+default behavior, and application/runtime bundles remain TypeSafe-free.
+
 ## 3. Implementation validation ladder
 
 Validation is **final-diff-first**. While editing, run only the new/edited test or smallest focused domain check needed to prove the current change. Do not rerun the full applicable ladder after every small edit.

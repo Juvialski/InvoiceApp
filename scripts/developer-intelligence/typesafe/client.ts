@@ -5,6 +5,8 @@ import {
 } from "./sanitize.ts";
 import type {
   TypeSafeCallResult,
+  TypeSafeDiagnostic,
+  TypeSafeFallbackReason,
   TypeSafeGateway,
   TypeSafeGatewayRequestOptions,
   TypeSafeInvokeOptions,
@@ -31,9 +33,9 @@ function validSystemOneResponse(value: unknown): value is Record<string, unknown
 function buildDiagnostic(
   startedAt: number,
   options: TypeSafeInvokeOptions,
-  fallbackReason?: import("./contracts.ts").TypeSafeFallbackReason,
+  fallbackReason?: TypeSafeFallbackReason,
   response?: Record<string, unknown>,
-) {
+): TypeSafeDiagnostic {
   const usage = isRecord(response?.usage) ? response.usage : undefined;
   return {
     durationMs: Date.now() - startedAt,
@@ -44,6 +46,10 @@ function buildDiagnostic(
     ...(typeof usage?.input_tokens === "number" ? { inputTokens: usage.input_tokens } : {}),
     ...(typeof usage?.output_tokens === "number" ? { outputTokens: usage.output_tokens } : {}),
   };
+}
+
+function buildFailureDiagnostic(startedAt: number, options: TypeSafeInvokeOptions, reason: TypeSafeFallbackReason): TypeSafeDiagnostic & { readonly fallbackReason: TypeSafeFallbackReason } {
+  return { ...buildDiagnostic(startedAt, options), fallbackReason: reason };
 }
 
 export function createTypeSafeGateway(options: { readonly env?: NodeJS.ProcessEnv; readonly client?: TypeSafeClient } = {}): TypeSafeGateway | undefined {
@@ -70,15 +76,15 @@ export async function invokeTypeSafe<T>(
 ): Promise<TypeSafeCallResult<T>> {
   const startedAt = Date.now();
   if (options.live === false) {
-    return { ok: false, diagnostic: buildDiagnostic(startedAt, options, "live-disabled") };
+    return { ok: false, diagnostic: buildFailureDiagnostic(startedAt, options, "live-disabled") };
   }
   const sanitized = sanitizeTypeSafePayload(request);
   if (!sanitized.ok) {
-    return { ok: false, diagnostic: buildDiagnostic(startedAt, options, "sanitizer-rejected") };
+    return { ok: false, diagnostic: buildFailureDiagnostic(startedAt, options, "sanitizer-rejected") };
   }
   const gateway = options.gateway || createTypeSafeGateway({ env: options.env });
   if (!gateway) {
-    return { ok: false, diagnostic: buildDiagnostic(startedAt, options, "missing-api-key") };
+    return { ok: false, diagnostic: buildFailureDiagnostic(startedAt, options, "missing-api-key") };
   }
 
   const timeoutMs = boundedTimeout(options.timeoutMs);
@@ -98,13 +104,13 @@ export async function invokeTypeSafe<T>(
       timeout,
     ]);
     if (!validSystemOneResponse(value)) {
-      return { ok: false, diagnostic: buildDiagnostic(startedAt, options, "invalid-response") };
+      return { ok: false, diagnostic: buildFailureDiagnostic(startedAt, options, "invalid-response") };
     }
     return { ok: true, value: value as T, diagnostic: buildDiagnostic(startedAt, options, undefined, value) };
   } catch {
     return {
       ok: false,
-      diagnostic: buildDiagnostic(startedAt, options, timedOut ? "timeout" : "api-error"),
+      diagnostic: buildFailureDiagnostic(startedAt, options, timedOut ? "timeout" : "api-error"),
     };
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle);

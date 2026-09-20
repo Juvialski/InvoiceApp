@@ -20,6 +20,14 @@ import {
   deterministicCiFailureCategory,
 } from "../scripts/developer-intelligence/typesafe/ciTriage.ts";
 import { checkCompletionEvidence } from "../scripts/developer-intelligence/typesafe/completionCheck.ts";
+import {
+  candidatesFromRiPacket,
+} from "../scripts/developer-intelligence/typesafe/contextCommand.ts";
+import {
+  getTypesafeBenchmarkFixtures,
+  runTypesafeBenchmark,
+} from "../scripts/developer-intelligence/typesafe/benchmark.ts";
+import { parseTypesafeCliArguments } from "../scripts/developer-intelligence/typesafe/cli.ts";
 
 function mockGateway(response: unknown, onRequest?: (request: unknown) => void): TypeSafeGateway {
   return {
@@ -242,4 +250,50 @@ test("completion evidence check remains advisory and reports missing documentati
   assert.equal(result.mergeDecision, "not-provided");
   assert.deepEqual(result.missingEvidence, ["documentation"]);
   assert.equal(result.fallback, false);
+});
+
+test("RI candidate adaptation preserves deterministic primary and changed files", () => {
+  const candidates = candidatesFromRiPacket({
+    primarySource: [{ path: "src/primary.ts", symbolIds: [], score: 1_000, reasons: ["exact file selector"] }],
+    supportingSource: ["src/supporting.ts"],
+    changedFilePaths: ["src/changed.ts"],
+  });
+  assert.deepEqual(candidates.map((candidate) => candidate.path), ["src/changed.ts", "src/primary.ts", "src/supporting.ts"]);
+  assert.equal(candidates.find((candidate) => candidate.path === "src/changed.ts")?.mustKeep, true);
+  assert.equal(candidates.find((candidate) => candidate.path === "src/primary.ts")?.mustKeep, true);
+  assert.equal(candidates.find((candidate) => candidate.path === "src/supporting.ts")?.mustKeep, false);
+});
+
+test("benchmark fixtures are deterministic and offline mock mode measures retention and reduction", async () => {
+  const fixtures = getTypesafeBenchmarkFixtures();
+  assert.equal(fixtures.length, 10);
+  assert.deepEqual(fixtures.map((fixture) => fixture.id), [
+    "ui-worksheet",
+    "project-hierarchy",
+    "migration-rls",
+    "finance-domain",
+    "documentation-only",
+    "ci-lint",
+    "ci-browser",
+    "supplier-invoice-ui",
+    "procurement",
+    "repository-intelligence",
+  ]);
+  const result = await runTypesafeBenchmark({ mode: "mock" });
+  assert.equal(result.mode, "mock");
+  assert.equal(result.summary.mustKeepRetention, 1);
+  assert.equal(result.summary.requestCount, 1);
+  assert.ok(result.summary.contextCharsAfter < result.summary.contextCharsBefore);
+  assert.ok(result.summary.contextReductionPercent > 20);
+});
+
+test("unified CLI parser keeps live mode explicit", () => {
+  assert.deepEqual(parseTypesafeCliArguments(["doctor"]), { command: "doctor", live: false, json: false });
+  assert.deepEqual(parseTypesafeCliArguments(["context", "--task", "synthetic", "--live", "--max-selected", "4"]), {
+    command: "context",
+    task: "synthetic",
+    live: true,
+    maxSelected: 4,
+    json: false,
+  });
 });

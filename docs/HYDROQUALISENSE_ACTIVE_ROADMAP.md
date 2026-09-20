@@ -39,6 +39,28 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 Release/readiness certification remains a parallel track and should run when its exact prerequisites exist. A structural merge never implies hosted certification or production authorization.
 
+## 2026-09-21 TypeSafe Jev developer-intelligence pilot — experimental/deferred
+
+The bounded developer-only pilot is implemented behind
+`scripts/developer-intelligence/typesafe/` using the official
+`@typesafe-ai/sdk` 0.6.0. It provides sanitized, opt-in advisory context
+reranking over RI-3 candidates, deterministic-test triage, closed-category CI
+triage, completion/evidence observations, a doctor command, and a ten-fixture
+benchmark. The default `agent:context` and `test:affected:agent` contracts are
+unchanged, normal CI makes no live requests, and the application/runtime bundle
+has no TypeSafe dependency.
+
+Measured evidence is intentionally mixed: the offline mock benchmark reduced
+context characters by 48.78%, while the single batched live benchmark reduced
+them by 47.95% (40 candidates to 20; 5,960 to 3,102 characters; 1,494 to 779
+`ceil(characters / 4)` token estimates), retained 100% of manually declared
+must-keep candidates, but retained only 60% of manually expected relevant
+candidates. The live request took 731 ms and used 3,910 input plus 764 output
+tokens. The pilot therefore remains experimental/deferred for automatic
+filtering; any local use must preserve the full deterministic candidate/test
+authority and treat Jev as advisory only. The exact next product phase remains
+UX-W4.5E, and no RI/product priority is changed by this pilot.
+
 ## 2026-09-20 selective workbook editing UX correction
 
 The user clarified that the target is **not** to make every applicable landing page look like Excel. The desired product grammar is:

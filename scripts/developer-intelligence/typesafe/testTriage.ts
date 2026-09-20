@@ -82,7 +82,7 @@ export async function triageAffectedTests(options: TestTriageOptions): Promise<T
       candidateCount: requiredTests.length,
     },
   );
-  if (!response.ok) return fallback(requiredTests, response.diagnostic);
+  if (response.ok === false) return fallback(requiredTests, response.diagnostic);
   const answers = response.value.answers;
   if (!isRecord(answers)) return fallback(requiredTests, { ...response.diagnostic, fallbackReason: "invalid-response" });
   const scored: Array<{ readonly path: string; readonly score: number; readonly index: number }> = [];

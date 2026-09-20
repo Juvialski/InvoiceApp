@@ -1,9 +1,9 @@
-import type { EntryType, Questions } from "@typesafe-ai/sdk";
+import type { Questions } from "@typesafe-ai/sdk";
 
 export type TypeSafeJsonValue = string | number | boolean | null | TypeSafeJsonValue[] | { [key: string]: TypeSafeJsonValue };
 
 export interface TypeSafeSystemOneRequest {
-  readonly state: EntryType | TypeSafeJsonValue;
+  readonly state: unknown;
   readonly questions: Questions | Record<string, unknown>;
 }
 
