@@ -321,10 +321,12 @@ export function getNextWorksheetCell(
   if (key === "Tab") {
     if (shiftKey) {
       if (column > 0) return { row, column: column - 1 };
-      return { row: Math.max(0, row - 1), column: columnCount - 1 };
+      if (row === 0) return null;
+      return { row: row - 1, column: columnCount - 1 };
     }
     if (column < columnCount - 1) return { row, column: column + 1 };
-    return { row: Math.min(rowCount - 1, row + 1), column: 0 };
+    if (row === rowCount - 1) return null;
+    return { row: row + 1, column: 0 };
   }
   return { row, column };
 }
