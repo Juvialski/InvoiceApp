@@ -85,6 +85,11 @@ test("Escape cancels navigation instead of moving the active cell", () => {
   assert.equal(getNextWorksheetCell({ row: 0, column: 0 }, "Escape", 2, 5), null);
 });
 
+test("Tab can leave the worksheet at its forward and backward boundaries", () => {
+  assert.equal(getNextWorksheetCell({ row: 1, column: 4 }, "Tab", 2, 5), null);
+  assert.equal(getNextWorksheetCell({ row: 0, column: 0 }, "Tab", 2, 5, true), null);
+});
+
 test("serializes selected worksheet values as plain TSV", () => {
   assert.equal(copyWorksheetTsv([["Name", "Amount"], ["Concrete", "100"]]), "Name\tAmount\nConcrete\t100");
 });
