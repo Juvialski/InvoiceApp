@@ -180,3 +180,51 @@ investigation PR.
 Representative coverage was captured, every available rendered state was
 visually inspected, findings were grouped, P0/P1 priorities are explicit, and
 bounded correction slices are documented. No broad UI remediation was made.
+
+## UX-W4.5B follow-up — shared responsive shell and worksheet foundations
+
+The bounded UX-W4.5B implementation was validated against source revision
+`fb939cda2d3d361212b9acdf9f8464a491fe822e` in the local synthetic safe demo.
+The targeted visual record is
+`artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`.
+
+Implemented shared corrections:
+
+- `useDialogFocus` now reference-counts document scroll locking and restores
+  prior body/document scroll styles after modal-style workflows close.
+- The shared shell exposes a focus-safe scroll-padding boundary; representative
+  Project Details, Expense, RFQ, and Purchase Order workflows now have one
+  deliberate dialog body scroll owner, while Client Billing and worksheet
+  consumers retain parent-owned actions.
+- `WorksheetEditor` keeps the desktop table/grid, keyboard navigation,
+  copy/paste, frozen identity columns, validation, dirty/conflict state, and
+  row-operation contracts, and adds a CSS-selected phone row/field fallback.
+- Ordinary protected/read-only cells retain `aria-readonly`, data-state
+  attributes, non-editability, titles, and restrained styling without a
+  repeated visible `Protected` / `Read-only` pill.
+
+Disposition from this correction slice:
+
+- **UX45A-002:** **PARTIAL** — shared shell/dialog containment is implemented
+  and representative modal states were visually inspected; the safe-demo SMS
+  provider-unconfigured state did not reproduce the original long-scroll
+  provider workflow, and automated Demo Visual QA was blocked by the missing
+  Playwright dependency.
+- **UX45A-003:** **RESOLVED for the bounded worksheet consumers** — Project
+  Details, Cost Codes/Project Controls, Client Billing, Expense Draft, RFQ,
+  and Purchase Order use the shared mobile fallback and contained modal/editor
+  behavior. Broader non-worksheet dialogs remain out of scope.
+- **UX45A-006:** **SHARED PORTION RESOLVED** — ordinary repeated protected/read-
+  only cell labels are quiet. Supplier Invoice page-specific repeated headings,
+  legends, and explanatory hierarchy remain UX-W4.5D work.
+- **UX45A-010:** **RESOLVED for the bounded worksheet consumers** — changed
+  worksheets use deliberate phone row/field rendering and preserved desktop
+  contained tables. Unchanged non-worksheet register/payment surfaces remain
+  out of scope.
+- **UX45A-004:** **DELIBERATELY DEFERRED** — full Supplier Invoice hierarchy
+  and provenance/source presentation remains UX-W4.5D.
+
+The interactive captures are local/demo, synthetic, and non-certifying. The
+repository Demo Visual QA command was not claimed as passed because the clean
+worktree lacks its `playwright` dependency; no screenshots were promoted as
+automated persisted artifacts.

@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5 CORRECTION SLICES NEXT / UX-W5 BLOCKED PENDING CLARITY CORRECTION / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C NEXT / UX-W5 BLOCKED PENDING CLARITY CORRECTION / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -32,7 +32,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation and visual triage is complete in the current evidence PR; the next selective-workbook work is the bounded UX-W4.5 correction sequence from `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.** UX-W5 operational bulk-data editors remain blocked until the P1/shared-root-cause corrections are complete. App-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation and visual triage is complete, and UX-W4.5B shared responsive shell/editor foundations are implemented in the current correction slice. The next bounded work is UX-W4.5C task-first hierarchy from `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.** UX-W5 operational bulk-data editors remain blocked until the remaining P1/shared-root-cause corrections are complete. App-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -103,6 +103,42 @@ Key requirements:
 This phase is presentation-only unless the final implementation diff proves
 otherwise. It must not weaken financial authority, lifecycle, permissions,
 history, provenance, concurrency, RLS, or XLSX review-before-apply behavior.
+
+## 2026-09-20 UX-W4.5B — shared responsive shell and worksheet foundations implemented
+
+UX-W4.5B addresses the shared root causes behind UX45A-002, UX45A-003,
+UX45A-006, and UX45A-010 without changing domain authority or persistence.
+
+- `useDialogFocus` now locks document scrolling while modal-style workflows are
+  open, reference-counts nested locks, restores prior styles on close, and
+  keeps Escape/Tab/focus return behavior intact.
+- The shell exposes a focus-safe scroll-padding boundary. Project Details,
+  Expense Draft, RFQ, and Purchase Order modal surfaces use explicit
+  overflow-hidden overlays and one deliberate dialog body scroll owner.
+- `WorksheetEditor` retains the desktop table/grid, keyboard navigation,
+  copy/paste, frozen identity column, validation, dirty/conflict state, and
+  controlled row operations while adding a phone row/field fallback.
+- Ordinary protected/read-only cells retain machine-readable semantics,
+  non-editability, titles, restrained styling, and stable data attributes but
+  no longer repeat visible `Protected` / `Read-only` pills.
+- Representative Project Details, Cost Codes, Client Billing, Expense Draft,
+  RFQ, Purchase Order, and Supplier Invoice surfaces expose stable responsive
+  evidence markers for targeted QA.
+
+Focused and affected application validation passed for the implementation
+head; TypeScript, ESLint, and the production build passed. Interactive local
+safe-demo visual inspection covered phone and desktop representative states;
+the repository Demo Visual QA runner was not claimed as passed because this
+clean worktree lacked its Playwright dependency. DB validation was not
+applicable. The qualified visual record and exact disposition are in
+`artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md` and the follow-up
+section of `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
+
+UX45A-002 is partial because the safe-demo SMS provider-unconfigured state did
+not reproduce the original long provider workflow. UX45A-003 and UX45A-010
+are resolved for the bounded worksheet consumers. UX45A-006 shared cell-state
+noise is resolved; Supplier Invoice page-specific hierarchy remains UX-W4.5D.
+UX45A-004 remains deliberately deferred.
 
 ## 2026-09-20 UX-W1 — shared worksheet editing foundation implemented
 
