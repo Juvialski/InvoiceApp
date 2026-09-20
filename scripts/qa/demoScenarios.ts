@@ -239,7 +239,7 @@ const verifyPurchaseOrderDocumentDeliverySurface: QaScenarioAction = async (page
 };
 
 const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
-  await page.getByRole("button", { name: "Requests for Quotation (RFQs)", exact: true }).click();
+  await page.getByRole("button", { name: "Requests for Quotation (RFQs)" }).click();
   await page.getByRole("button", { name: "New RFQ", exact: true }).click();
   await waitForVisible(page, '[data-testid="rfq-draft-worksheet"]');
   const rfqWorksheet = await page.locator('[data-testid="rfq-draft-worksheet"]').count();
@@ -247,7 +247,7 @@ const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
   const rfqAddRow = await page.locator('[data-testid="rfq-draft-worksheet"] [data-worksheet-add-row="true"]').count();
   await page.getByRole("button", { name: "Close dialog", exact: true }).click();
 
-  await page.getByRole("button", { name: "Purchase Orders", exact: true }).click();
+  await page.getByRole("button", { name: "Purchase Orders" }).click();
   await page.getByRole("button", { name: "New Purchase Order", exact: true }).click();
   await waitForVisible(page, '[data-testid="purchase-order-draft-worksheet"]');
   const poWorksheet = await page.locator('[data-testid="purchase-order-draft-worksheet"]').count();
