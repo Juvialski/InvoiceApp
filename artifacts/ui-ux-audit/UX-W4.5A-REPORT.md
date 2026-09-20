@@ -183,10 +183,15 @@ bounded correction slices are documented. No broad UI remediation was made.
 
 ## UX-W4.5B follow-up — shared responsive shell and worksheet foundations
 
-The bounded UX-W4.5B implementation was validated against source revision
-`5011d137829cceef70cee6d8dcb96157aae02a39` in the local synthetic safe demo.
-The targeted visual record is
-`artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`.
+The bounded UX-W4.5B implementation received targeted local synthetic safe-demo
+visual inspection at source revision
+`5011d137829cceef70cee6d8dcb96157aae02a39`. PR review then advanced the
+application-bearing head to `85efe8f951b96df0c20dd6ffd4869f0b083c2343` to remove the repeated mobile
+`Locked` label, keep responsive issue-description IDs unique, and exclude
+CSS-hidden responsive controls from dialog focus traversal. The targeted visual
+record remains qualified to its capture SHA at
+`artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`; exact-head protected
+application/browser CI is the merge gate for the reviewed application head.
 
 Implemented shared corrections:
 
