@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -273,6 +274,14 @@ test("renders controlled worksheet tabs with one selected tab", () => {
   assert.match(html, /Cost Codes/);
   assert.match(html, /aria-selected="true"/);
   assert.match(html, /role="tablist"/);
+});
+
+test("worksheet focus is requested only for deliberate navigation and editing", () => {
+  const source = readFileSync(new URL("../src/components/ui/WorksheetEditor.tsx", import.meta.url), "utf8");
+  assert.match(source, /if \(!editingCell && !focusActiveCellRef\.current\) return;/);
+  assert.match(source, /const focusCell = \(position: WorksheetCellPosition\) =>/);
+  assert.match(source, /if \(next\) focusCell\(next\);/);
+  assert.doesNotMatch(source, /useEffect\(\(\) => \{[\s\S]{0,900}?else \{\s*cell\.focus\(\);\s*\}\s*\}, \[activeCell/);
 });
 
 test("accepts typed rows without requiring a database-shaped index signature", () => {

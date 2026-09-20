@@ -164,6 +164,7 @@ export function WorksheetEditor<T>({
   const sourceRowsRef = useRef(rows);
   const cellRefs = useRef(new Map<string, HTMLTableCellElement>());
   const pendingActionRef = useRef<"save" | "apply" | null>(null);
+  const focusActiveCellRef = useRef(false);
 
   useEffect(() => {
     if (sourceRowsRef.current === rows) return;
@@ -181,6 +182,8 @@ export function WorksheetEditor<T>({
   }, [columns.length, draftRows.length]);
 
   useEffect(() => {
+    if (!editingCell && !focusActiveCellRef.current) return;
+    focusActiveCellRef.current = false;
     const row = draftRows[activeCell.row];
     const column = columns[activeCell.column];
     if (!row || !column) return;
@@ -190,11 +193,9 @@ export function WorksheetEditor<T>({
     const input = editingCell?.row === activeCell.row && editingCell.column === activeCell.column
       ? cell.querySelector<HTMLInputElement | HTMLSelectElement>("input, select")
       : null;
-    if (input) {
-      input.focus();
-    } else {
-      cell.focus();
-    }
+    const target = input || cell;
+    if (typeof document !== "undefined" && document.activeElement === target) return;
+    target.focus();
   }, [activeCell, columns.length, draftRows.length, editingCell]);
 
   const hasLocalDirty = localDirtyCells.size > 0;
@@ -217,6 +218,11 @@ export function WorksheetEditor<T>({
   };
 
   const positionForCell = (rowIndex: number, columnIndex: number): WorksheetCellPosition => ({ row: rowIndex, column: columnIndex });
+
+  const focusCell = (position: WorksheetCellPosition) => {
+    focusActiveCellRef.current = true;
+    setActiveCell(position);
+  };
 
   const beginEditing = (position: WorksheetCellPosition) => {
     const row = draftRows[position.row];
@@ -266,7 +272,7 @@ export function WorksheetEditor<T>({
     setEditorValue("");
     if (navigationKey) {
       const next = getNextWorksheetCell(editingCell, navigationKey, draftRows.length, columns.length, shiftKey);
-      if (next) setActiveCell(next);
+      if (next) focusCell(next);
     }
     return true;
   };
@@ -380,7 +386,7 @@ export function WorksheetEditor<T>({
       const next = getNextWorksheetCell(position, event.key as WorksheetNavigationKey, draftRows.length, columns.length, event.shiftKey);
       if (!next && event.key === "Tab") return;
       event.preventDefault();
-      if (next) setActiveCell(next);
+      if (next) focusCell(next);
     }
   };
 
@@ -410,7 +416,7 @@ export function WorksheetEditor<T>({
     const newRow = newRowValue as T;
     const nextRows = [...draftRows, newRow];
     updateRows(nextRows);
-    setActiveCell({ row: nextRows.length - 1, column: 0 });
+    focusCell({ row: nextRows.length - 1, column: 0 });
     setNotice("New row staged for editing.");
   };
 
@@ -420,7 +426,7 @@ export function WorksheetEditor<T>({
     onRemoveRow(row, rowIndex);
     const nextRows = draftRows.filter((_, index) => index !== rowIndex);
     updateRows(nextRows);
-    setActiveCell(clampPosition({ row: rowIndex, column: activeCell.column }, nextRows.length, columns.length));
+    focusCell(clampPosition({ row: rowIndex, column: activeCell.column }, nextRows.length, columns.length));
     setNotice("Row removal staged for review.");
   };
 
