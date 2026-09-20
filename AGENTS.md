@@ -38,6 +38,32 @@ For a new Codex implementation task:
 
 Prompt creators should put the pull-first instruction at the top of every normal Codex implementation prompt. Avoid wording that tells Codex to spend time independently establishing the latest green remote baseline before pulling; **pull latest `main`, record the SHA once, then work**.
 
+## Selective workbook editing UX — explicit 2026-09-20 override
+
+This later approved UX direction supersedes older wording that could be read as making dense Excel-like registers the primary experience on every applicable page.
+
+Read both:
+
+- `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` for workbook interchange, diff/review/Apply, concurrency, protected-field, and domain-authority rules; and
+- `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` for the current in-app interaction grammar.
+
+The governing rule is:
+
+**Browse visually -> edit like a spreadsheet -> execute sensitive workflows deliberately.**
+
+Implementation consequences:
+
+1. `OperationsGrid` remains a browse/read/register primitive. Do not force it to become the universal editor.
+2. Build a separate shared worksheet-editing foundation for structured create/edit/correction/bulk-entry surfaces.
+3. The next Excel-native product work is **UX-W1 shared worksheet foundation**, followed by **UX-W2 Projects card-first portfolio + worksheet editing** and **UX-W3 supplier invoice source-on-top + extracted worksheet review**, before resuming the remaining Finance rollout.
+4. Project names must become visually dominant on the Projects landing page; the default portfolio should be large clickable project cards with an optional compact list rather than a wide financial grid as the only desktop emphasis.
+5. Spreadsheet-style editing is preferred for Project Details/Cost Codes, supplier-invoice extracted fields/lines, RFQ/PO draft lines, Client Billing drafts, direct editable Expense drafts, Workers, Attendance, Time Entries, Project Assignments, Project Materials/Equipment, and appropriate master-data maintenance.
+6. Approval, verification, issue/finalize, settlement/reconciliation, payment, void/reverse, receiving/movement, payroll approval/finalization, lifecycle, identity resolution, provider actions, RBAC/security, and similar consequential actions remain explicit workflows rather than ordinary editable cells.
+7. **Add Row** is allowed only where the domain owns repeated child data and current permissions/validation/history rules allow it. **Add Column** must not dynamically mutate SQL schema; future user-defined columns require a separately designed typed custom-field definition/value model.
+8. Existing real `.xlsx` round trips remain required where supported, but import/export is a capability of the worksheet experience rather than the definition of Excel-native UX.
+
+Do not continue Client Receivables or Cash & Banking Excel rollout using the old register-plus-workbook pattern before this interaction correction is implemented, unless the user explicitly reprioritizes again.
+
 ## Current priority sequence — explicit 2026-09-19 override
 
 This sequence supersedes older `active`, `next`, and implementation-order wording when they conflict. Live repository state still governs exact scope and merge safety.
@@ -45,7 +71,7 @@ This sequence supersedes older `active`, `next`, and implementation-order wordin
 1. **Repository Intelligence core + Professionalization Completion is complete in the current implementation run.** RI-1 is merged; RI-2 provides the provenance-aware graph/query API; RI-3 integrates bounded context behind the existing `workflow-map:context` / `agent:context` interfaces with tested fallback; and the remaining professionalization decisions are recorded in `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md` and `docs/REPOSITORY_EVIDENCE_POLICY.md`.
 2. **Excel-native implementation follows the completed professionalization boundary.** Excel Phase 0/readiness, the approved shared foundation, the bounded RFQ/Purchase Order pilot, and the Projects/project-controls rollout are implemented. Remaining Excel-native domains require their own bounded rollouts; app-wide Excel capability is not claimed.
 3. **Professionalization completion gate.** Satisfied for this repository boundary: remaining large/shared modules are either decomposed or deliberately documented as cohesive; source/test ownership and evidence policy are explicit; safe current branding/onboarding cleanup is complete; and the repository rename is resolved as an external/manual administrative decision rather than open architecture work.
-4. **Excel Phase 0/readiness, the shared foundation, Procurement, and Projects/project controls are complete.** The next bounded rollout is **Phase 4 — Expenses and Finance** from the canonical Excel-native design. Preserve real bidirectional `.xlsx` round trips, validation, permissions, history, financial authority, stale-workbook conflict review, and human confirmation before Apply; do not claim the entire Finance domain Excel-native until its bounded slices are implemented and certified.
+4. **Excel Phase 0/readiness, the original shared grid/workbook foundation, Procurement, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables are implemented.** Before further Finance rollout, execute the 2026-09-20 selective-workbook correction: UX-W1 shared worksheet editor -> UX-W2 Projects card-first portfolio + Project Details/Cost Codes worksheet -> UX-W3 supplier invoice source-on-top + extracted worksheet review. Then continue later domain slices using the corrected browse-vs-edit grammar. Preserve real bidirectional `.xlsx` round trips, validation, permissions, history, financial authority, stale-workbook conflict review, and human confirmation before Apply.
 5. **Complete remaining Wave 4D provider/readiness work** when required Brevo/SMS credentials, devices, or safe QA prerequisites become available. Provider certification may proceed opportunistically but must not displace the active RI-core/professionalization sequence.
 6. **Resume Wide Documents remaining managed slices.**
 7. **Worker Registration** only after the Wave 4D gate is genuinely complete and the user explicitly resumes it; Site Attendance follows, and Face Recognition requires its own privacy/security design first.
@@ -59,7 +85,7 @@ This section supersedes older `active` / `current implementation` labels below w
 
 1. **Repository & Architecture Professionalization — COMPLETE for the current repository boundary.** Slices 1-4 and Slice 5 Waves A-C, RI-2/RI-3, responsibility triage, evidence policy, front-door synchronization, and repository-identity evaluation are recorded in the current repository state. This does not certify external GitHub/Render administration or provider readiness.
 2. **Email/SMS Reliability — implementable slice complete; runtime certification pending.** Authenticated request recovery, Company SIM Gateway/PhilSMS provider adapters, reviewed one-recipient SMS flow, delivery-history/idempotency/reconciliation, and provider timeout hardening are on merged `main`. Real Brevo/SMS provider certification remains separate until safe credentials/device runtime exist; professionalization work must not absorb or rewrite messaging/provider boundaries.
-3. **Excel-Native Operations UX — ACTIVE ROLLOUT.** The canonical design is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the shared foundation, the RFQ/Purchase Order pilot, and the Projects/project-controls rollout are implemented; remaining domains stay bounded and later.
+3. **Excel-Native Operations UX — ACTIVE ROLLOUT WITH 2026-09-20 INTERACTION CORRECTION.** The workbook/authority contract is `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`; the current in-app UX contract is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. Phase 0/readiness, the original shared foundation, RFQ/Purchase Order, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented. The next work is the shared worksheet editor plus Projects and supplier-invoice review redesign before later domain rollouts.
 4. **Wide Documents remaining managed slices — DEFERRED.**
 5. **Worker Registration — PAUSED** until the broader Wave 4D gate is genuinely complete and the user explicitly resumes it.
 
