@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — RI-1/RI-2/RI-3 COMPLETE / REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL PHASE 0 + SHARED FOUNDATION + PROCUREMENT + PROJECTS/PROJECT CONTROLS + BOUNDED EXPENSES/SUPPLIER PAYABLES IMPLEMENTED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / SELECTIVE WORKBOOK EDITING UX CORRECTION ACTIVE / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -17,7 +17,8 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Security assurance implementation/evidence plan:** `docs/superpowers/plans/2026-09-15-client-security-assurance.md`
 **Repository Intelligence architecture:** `docs/repository-intelligence/README.md` — RI-1, RI-2, and RI-3 implemented
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
-**Approved Excel-Native Operations UX design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — Phase 0/readiness follows the completed professionalization boundary
+**Excel-Native Operations UX workbook/authority design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — foundations implemented through bounded Expenses/Supplier Payables
+**Current selective workbook-editing interaction direction:** `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` — browse visually, edit like a spreadsheet, keep consequential workflows controlled
 Repository responsibility/evidence decisions: `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md`, `docs/REPOSITORY_EVIDENCE_POLICY.md`
 Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
 Current UI/UX audit evidence: `artifacts/ui-ux-audit/REPORT.md`  
@@ -29,12 +30,31 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the shared foundation, Procurement, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables are implemented.** RFQ/Purchase Order, Projects/Cost Codes, and the Expenses/Supplier Payables workbook now prove controlled `.xlsx` export-review-apply patterns with authoritative version checks. The remaining Finance work is bounded client receivables followed by Cash & Banking/reconciliation; app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables are implemented, but the in-app interaction model is now being corrected before more domains are added.** The next implementation sequence is UX-W1 shared worksheet editing foundation -> UX-W2 card-first Projects portfolio plus Project Details/Cost Codes worksheets -> UX-W3 supplier invoice source-on-top plus extracted-data worksheet. Only after that correction should later Finance/domain rollouts continue. Existing RFQ/Purchase Order, Projects/Cost Codes, and Expenses/Supplier Payables `.xlsx` export-review-apply/version-check contracts remain valid; app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
 
 Release/readiness certification remains a parallel track and should run when its exact prerequisites exist. A structural merge never implies hosted certification or production authorization.
+
+## 2026-09-20 selective workbook editing UX correction
+
+The user clarified that the target is **not** to make every applicable landing page look like Excel. The desired product grammar is:
+
+**Browse visually -> edit like a spreadsheet -> execute sensitive workflows deliberately.**
+
+Immediate requirements:
+
+- Projects becomes card-first so project names and identity are visually prominent; the whole card opens the project, with a clear secondary Edit Project Details action and an optional compact list for high-volume use.
+- Project Details and Cost Codes become worksheet-style edit surfaces rather than conventional stacked forms.
+- Supplier invoice extraction review places the source invoice image/PDF on top and the extracted editable header/vendor/line/totals data below in worksheet style.
+- A separate shared worksheet-editing primitive should own cell editing, keyboard navigation, paste/multi-cell paste, row operations, validation, dirty/conflict state, protected cells, responsive fallback, and explicit Save/Apply. `OperationsGrid` remains primarily a browse/register primitive.
+- Other strong worksheet candidates include RFQ/PO draft editing, Client Billing, direct editable Expenses, Workers, Attendance, Time Entries, Project Assignments, Project Materials/Equipment, Warehouse/Equipment masters, and Vendor master maintenance.
+- Dashboard, project overview, Cash & Banking settlement/reconciliation decisions, finalized financial lifecycle actions, inventory movements, payroll approval/finalization, RFIs/Submittals, Documents, Email/SMS, Settings, RBAC/security, provider configuration, and lifecycle dialogs remain purpose-built.
+- Add Row is domain-controlled. Add Column must not create arbitrary SQL columns; future custom columns require a typed custom-field architecture.
+- Real `.xlsx` round trips remain required where supported, but import/export no longer defines what “Excel-native” means inside the app.
+
+Canonical contract: `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`.
 
 ## Historical application / certification baselines
 
