@@ -43,6 +43,146 @@ test("remaining workspaces keep secondary framing behind the working surface", (
   assert.ok(equipment.indexOf("Search Equipment") < equipment.indexOf("Assignment authority is separate"));
 });
 
+test("Projects keeps the card/list working surface before secondary analysis and workbook tools", () => {
+  const projectsPage = source("src/components/projects/ProjectsPage.tsx");
+  const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
+  const toolbar = projectRegister.indexOf('data-ux45c="projects-primary-toolbar"');
+  const workingSurface = projectRegister.indexOf('data-ux45c="projects-primary-work"');
+  const secondaryAnalysis = projectRegister.indexOf('data-ux45c="projects-secondary-analysis"');
+  const workbook = projectsPage.indexOf('data-ux45c="projects-workbook"');
+  const register = projectsPage.indexOf("<ProjectPortfolioRegisterSection");
+
+  assert.ok(toolbar >= 0);
+  assert.ok(workingSurface > toolbar);
+  assert.ok(secondaryAnalysis > workingSurface);
+  assert.ok(workbook > register);
+  assert.match(projectRegister, /Compact List/);
+  assert.match(projectRegister, /Open project workspace for/);
+  assert.match(projectsPage, /onApplyProjectWorkbookGroup/);
+});
+
+test("Expenses keeps the register before detail, supporting context, and workbook tools", () => {
+  const expenses = source("src/components/expenses/ExpensesPage.tsx");
+  const controls = expenses.indexOf('data-ux45c="expenses-primary-controls"');
+  const register = expenses.indexOf('data-ux45c="expenses-primary-register"');
+  const detail = expenses.indexOf('data-ux45c="expenses-selected-detail"');
+  const supporting = expenses.indexOf('data-ux45c="expenses-supporting-context"');
+  const workbook = expenses.indexOf('data-ux45c="expenses-workbook"');
+
+  assert.ok(controls >= 0);
+  assert.ok(register > controls);
+  assert.ok(detail > register);
+  assert.ok(supporting > detail);
+  assert.ok(workbook > supporting);
+  assert.match(expenses, /Add expense/);
+  assert.match(expenses, /Edit draft worksheet/);
+  assert.match(expenses, /FinancialSettlementCard/);
+  assert.match(expenses, /onOpenSupplierInvoiceReview/);
+  assert.match(expenses, /onReviewCorrection/);
+  assert.match(expenses, /Confirm FX/);
+});
+
+test("Cash & Banking puts transaction and settlement work before secondary summaries", () => {
+  const cashPage = source("src/components/CashBankingPage.tsx");
+  const cashRoute = source("src/app/routes/CashBankingRoute.tsx");
+  const controls = cashPage.indexOf('data-ux45c="cash-account-controls"');
+  const transactions = cashPage.indexOf('data-ux45c="cash-primary-transactions"');
+  const settlement = cashPage.indexOf('data-ux45c="cash-settlement-working"');
+  const summary = cashPage.indexOf('data-ux45c="cash-secondary-summary"');
+
+  assert.ok(controls >= 0);
+  assert.ok(transactions > controls);
+  assert.ok(settlement > transactions);
+  assert.ok(summary > settlement);
+  assert.match(cashPage, /primarySettlementWorkspace\?: React\.ReactNode/);
+  assert.equal((cashRoute.match(/<CashSettlementAllocationWorkspace/g) || []).length, 1);
+  assert.match(cashRoute, /primarySettlementWorkspace=\{<CashSettlementAllocationWorkspace/);
+  assert.match(cashRoute, /onSaveMatchBatch/);
+  assert.match(cashRoute, /onReverseMatch/);
+  assert.match(cashRoute, /canReverseMatch/);
+});
+
+test("Project Workspace and Budget Control put active work before secondary analysis", () => {
+  const workspace = source("src/components/projects/ProjectWorkspace.tsx");
+  const overview = source("src/components/projects/ProjectOverview.tsx");
+  const budget = source("src/components/projects/ProjectBudgetControlPanel.tsx");
+  const workspaceTabs = workspace.indexOf('aria-label="Project workspace sections"');
+  const activeSurface = workspace.indexOf('data-ux45c="project-workspace-active-surface"');
+  const overviewAttention = overview.indexOf('data-ux45c="project-overview-attention"');
+  const overviewAnalytics = overview.indexOf("Explore cost analytics");
+  const budgetSummary = budget.indexOf('data-ux45c="budget-control-summary"');
+  const budgetWorksheet = budget.indexOf('data-ux45c="budget-control-worksheet"');
+  const budgetAttention = budget.indexOf('data-ux45c="budget-control-attention"');
+
+  assert.ok(workspaceTabs >= 0);
+  assert.ok(activeSurface > workspaceTabs);
+  assert.ok(overviewAttention >= 0);
+  assert.ok(overviewAttention < overviewAnalytics);
+  assert.match(overview, /data-management-attention-details="true"/);
+  assert.doesNotMatch(overview, /data-management-attention-details="true"[^>]*\sopen(?:=|\s|>)/);
+  assert.ok(budgetSummary >= 0);
+  assert.ok(budgetWorksheet > budgetSummary);
+  assert.ok(budgetAttention > budgetWorksheet);
+  for (const label of ["Contract Value", "Approved Cost Budget", "Actual Cost", "Committed Cost", "Remaining Budget"]) {
+    assert.match(overview, new RegExp(label));
+  }
+  for (const label of ["Contract Value", "Approved Project Budget", "Coded Actual Cost", "Uncoded Actual Cost"]) {
+    assert.match(budget, new RegExp(label));
+  }
+  assert.match(budget, /onSaveCostCode/);
+  assert.match(budget, /Mixed Currency|Foreign currency costs detected/);
+});
+
+test("data-heavy procurement editors use a wide working canvas while confirmations stay compact", () => {
+  const dataHeavyModalPaths = [
+    "src/components/procurement/PurchaseOrderEditorModal.tsx",
+    "src/components/procurement/RFQEditorModal.tsx",
+    "src/components/procurement/RecordReceiptModal.tsx",
+    "src/components/procurement/RFQComparisonModal.tsx",
+    "src/components/procurement/SubcontractClaimEditorModal.tsx",
+    "src/components/procurement/SubcontractEditorModal.tsx",
+    "src/components/procurement/SubcontractVariationModal.tsx",
+    "src/components/procurement/SubcontractVariationDetailModal.tsx",
+    "src/components/procurement/SupplierQuotationModal.tsx",
+  ];
+
+  for (const path of dataHeavyModalPaths) {
+    const modal = source(path);
+    assert.match(modal, /data-working-canvas="true"/, path);
+    assert.match(modal, /w-\[96vw\]/, path);
+  }
+
+  const comparison = source("src/components/procurement/RFQComparisonModal.tsx");
+  assert.match(comparison, /max-w-md/);
+  assert.match(source("src/components/projects/ProjectDetailsWorksheet.tsx"), /data-working-canvas="true"/);
+});
+
+test("worksheet visual grammar exposes data-type alignment and a shared action bar", () => {
+  const worksheetEditor = source("src/components/ui/WorksheetEditor.tsx");
+  const projectDetails = source("src/components/projects/ProjectDetailsWorksheet.tsx");
+  const costCodes = source("src/components/projects/ProjectCostCodesWorksheet.tsx");
+
+  assert.match(worksheetEditor, /data-worksheet-action-bar="true"/);
+  assert.match(worksheetEditor, /data-worksheet-align=\{column\.align \|\| "left"\}/);
+  assert.match(projectDetails, /header: "Contract Value"[\s\S]*align: "right"/);
+  assert.match(projectDetails, /header: "Approved Cost Budget"[\s\S]*align: "right"/);
+  assert.match(projectDetails, /header: "Status"[\s\S]*align: "center"/);
+  assert.match(costCodes, /header: "Approved Budget"[\s\S]*align: "right"/);
+  assert.match(costCodes, /header: "Status"[\s\S]*align: "center"/);
+});
+
+test("PO and RFQ keep Save/Close in one stable modal action bar", () => {
+  const purchaseOrder = source("src/components/procurement/PurchaseOrderEditorModal.tsx");
+  const rfq = source("src/components/procurement/RFQEditorModal.tsx");
+
+  assert.match(purchaseOrder, /data-modal-action-bar="true"/);
+  assert.match(rfq, /data-modal-action-bar="true"/);
+  assert.doesNotMatch(purchaseOrder, /saveLabel="Save PO draft"/);
+  assert.doesNotMatch(purchaseOrder, /cancelLabel="Close editor"/);
+  assert.doesNotMatch(rfq, /saveLabel="Save RFQ draft"/);
+  assert.doesNotMatch(rfq, /cancelLabel="Close editor"/);
+});
+
 test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
   const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');

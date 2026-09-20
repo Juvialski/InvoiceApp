@@ -5,9 +5,9 @@ import { CashSettlementAllocationWorkspace } from "../../components/CashSettleme
 export type CashBankingRouteProps = CashBankingPageProps;
 
 export const CashBankingRoute: React.FC<CashBankingRouteProps> = (props) => {
-  return <div className="space-y-5">
-    <CashBankingPage {...props} />
-    <CashSettlementAllocationWorkspace
+  return <CashBankingPage
+    {...props}
+    primarySettlementWorkspace={<CashSettlementAllocationWorkspace
       data={props.data}
       selectedTransactionId={props.selectedTransactionId}
       targetContext={props.targetContext}
@@ -19,8 +19,8 @@ export const CashBankingRoute: React.FC<CashBankingRouteProps> = (props) => {
       onSaveMatchBatch={props.onSaveMatchBatch}
       onReverseMatch={props.onReverseMatch}
       canReverseMatch={props.canReverseMatch}
-    />
-  </div>;
+    />}
+  />;
 };
 
 export default CashBankingRoute;

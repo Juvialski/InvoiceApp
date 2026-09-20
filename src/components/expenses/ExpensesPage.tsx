@@ -417,40 +417,9 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       </div> : canUploadSupplierInvoice && onUploadSupplierInvoice ? <button type="button" onClick={onUploadSupplierInvoice} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100"><ExternalLink className="h-3.5 w-3.5" /> Upload supplier invoice</button> : undefined}
     />
 
-    <ExpensesWorkbookPanel
-      expenses={expenses}
-      projects={projects}
-      costCodes={costCodes}
-      invoices={invoices}
-      purchaseOrders={purchaseOrders}
-      vendors={vendors}
-      expectedCompanyId={companyId}
-      companyId={companyId}
-      settlementProjections={settlementProjections}
-      settlementMatches={settlementMatches}
-      today={supplierSettlementToday}
-      canManage={canManage && Boolean(onApplyExpenseWorkbook)}
-      onRefreshExpenses={onRefreshExpenses}
-      onApplyExpenseWorkbook={onApplyExpenseWorkbook || (async () => { throw new Error("Expense workbook Apply is not configured."); })}
-    />
-    {!onApplyExpenseWorkbook && canManage && <p role="status" className="-mt-3 text-xs font-semibold text-amber-800">Expense workbook Apply is unavailable until the authoritative save callback is configured.</p>}
+    <section data-ux45c="expenses-primary-controls" className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4" aria-label="Expense filters"><div className="mb-3 flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-black text-slate-950">Expense register</p><p className="mt-0.5 text-[10px] text-slate-500">Search expenses by description, project, payee, or status.</p></div><p className="text-xs font-semibold text-slate-500" role="status" aria-live="polite">Showing <span className="text-slate-900">{expenseResultLabel}</span></p></div><div className="flex flex-col gap-2 sm:flex-row"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"><Search aria-hidden="true" className="h-4 w-4 text-slate-400" /><span className="sr-only">Search expenses</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search expense, project, payee…" className="w-full bg-transparent text-xs outline-none placeholder:text-slate-400 focus-visible:outline-none" /></label><label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5"><Filter aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" /><span className="sr-only">Expense status</span><select value={status} onChange={(event) => setStatus(event.target.value)} className="bg-transparent text-xs font-semibold outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"><option value="ALL">All statuses</option>{["DRAFT", "APPROVED", "PAID", "VOID"].map((value) => <option key={value} value={value}>{value === "DRAFT" ? "Draft" : value === "APPROVED" ? "Approved" : value === "PAID" ? "Paid" : "Void"}</option>)}</select></label></div></section>
 
-    {expenseDetail}
-
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label="Expense summary">
-      <MetricCard label="Expense records" value={expenses.length} loading={isHydrating} icon={Receipt} tone="info" />
-      {(expenses.length > 0 || supplierDocuments.length > 0) && <MetricCard label={`Confirmed ${normalizeFinancialCurrency(baseCurrency)} cost`} value={money(confirmedBaseCost, normalizeFinancialCurrency(baseCurrency))} loading={isHydrating} detail="Verified supplier links or approved / paid records" icon={CircleDollarSign} tone="success" />}
-      {supplierDocuments.length > 0 && <MetricCard label="Source documents" value={supplierDocuments.length} loading={isHydrating} detail="Source document on file" icon={ShieldCheck} tone="info" />}
-      {needsReviewDocuments.length > 0 && <MetricCard label="Needs Review" value={needsReviewDocuments.length} loading={isHydrating} detail="Human verification required" icon={CircleAlert} tone="warning" />}
-      {readyToLinkDocuments.length > 0 && <MetricCard label="Ready to Link" value={readyToLinkDocuments.length} loading={isHydrating} detail="Verified source documents" icon={ArrowRight} tone="info" />}
-      {unresolvedFxExpenseIds.length > 0 && <MetricCard label="Unresolved FX" value={unresolvedFxExpenseIds.length} loading={isHydrating} detail={`${normalizeFinancialCurrency(baseCurrency)} reporting excluded`} icon={CircleAlert} tone="warning" />}
-    </div>
-
-    {linkError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{linkError}</div>}
-
-    <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4" aria-label="Expense filters"><div className="mb-3 flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-black text-slate-950">Expense register</p><p className="mt-0.5 text-[10px] text-slate-500">Search expenses by description, project, payee, or status.</p></div><p className="text-xs font-semibold text-slate-500" role="status" aria-live="polite">Showing <span className="text-slate-900">{expenseResultLabel}</span></p></div><div className="flex flex-col gap-2 sm:flex-row"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"><Search aria-hidden="true" className="h-4 w-4 text-slate-400" /><span className="sr-only">Search expenses</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search expense, project, payee…" className="w-full bg-transparent text-xs outline-none placeholder:text-slate-400 focus-visible:outline-none" /></label><label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5"><Filter aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" /><span className="sr-only">Expense status</span><select value={status} onChange={(event) => setStatus(event.target.value)} className="bg-transparent text-xs font-semibold outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"><option value="ALL">All statuses</option>{["DRAFT", "APPROVED", "PAID", "VOID"].map((value) => <option key={value} value={value}>{value === "DRAFT" ? "Draft" : value === "APPROVED" ? "Approved" : value === "PAID" ? "Paid" : "Void"}</option>)}</select></label></div></section>
-
-    {rows.length ? <section id="expenses-results" className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Expense register">
+    {rows.length ? <section id="expenses-results" data-ux45c="expenses-primary-register" className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Expense register">
       <div className="space-y-2 p-3 lg:hidden" aria-label="Expense register cards">
         {rows.map((expense) => {
           const project = projects.find((item) => item.id === expense.projectId);
@@ -481,12 +450,51 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       </div>
     </section> : workspaceDataPending ? <div id="expenses-results" role="status" aria-live="polite" className="p-8 text-center text-xs font-semibold text-slate-500">Loading expenses…</div> : <div id="expenses-results"><EmptyState icon={Receipt} title={expenses.length ? "No expenses match this filter" : supplierDocuments.length ? "No expense records yet" : "No expenses yet"} description={expenses.length ? "Try a different status or search term." : supplierDocuments.length ? `${supplierDocuments.length} supplier document${supplierDocuments.length === 1 ? "" : "s"} still require review or Expense linking.` : canManage ? "Add a direct expense or upload a supplier invoice for review." : "No expense records are available for the current filter."} action={canManage && !expenses.length ? <button type="button" onClick={openNewExpenseEditor} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"><Plus className="h-3.5 w-3.5" /> Add expense</button> : undefined} /></div>}
 
-    {supplierDocuments.length > 0 && <section className="space-y-3" aria-label="Supplier document work">
+    {linkError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{linkError}</div>}
+
+    {expenseDetail && <div data-ux45c="expenses-selected-detail">{expenseDetail}</div>}
+
+    {supplierDocuments.length > 0 && <section data-ux45c="expenses-supporting-context" className="space-y-3" aria-label="Supplier document work">
       <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs font-black text-slate-950">Source document follow-up</p><p className="mt-0.5 text-[10px] text-slate-500">Review and link supplier documents here; the Expense register above remains the payable and cost workspace.</p></div><StatusBadge tone="info">{supplierDocuments.length} source document{supplierDocuments.length === 1 ? "" : "s"}</StatusBadge></div>
       {needsReviewDocuments.length > 0 && <SupplierDocumentSection title="Supplier documents requiring review or completion" rows={needsReviewDocuments} projects={projects} onFix={onFixSupplierInvoice} onOpenReview={onOpenSupplierInvoiceReview} financialFxSnapshots={financialFxSnapshots} />}
       {readyToLinkDocuments.length > 0 && <SupplierDocumentSection title="Verified supplier invoices awaiting Expense link" rows={readyToLinkDocuments} projects={projects} canManage={canManage && canVerifySupplierInvoice} linkingInvoiceId={linkingInvoiceId} onLink={linkSupplierInvoice} onOpenReview={onOpenSupplierInvoiceReview} financialFxSnapshots={financialFxSnapshots} />}
       {supplierDocuments.some((row) => row.state === "LINKED") && <SupplierDocumentSection title="Linked supplier source documents" rows={supplierDocuments.filter((row) => row.state === "LINKED")} projects={projects} financialFxSnapshots={financialFxSnapshots} />}
     </section>}
+
+    <section data-ux45c="expenses-attention-summary" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label="Expense summary">
+      <MetricCard label="Expense records" value={expenses.length} loading={isHydrating} icon={Receipt} tone="info" />
+      {(expenses.length > 0 || supplierDocuments.length > 0) && <MetricCard label={`Confirmed ${normalizeFinancialCurrency(baseCurrency)} cost`} value={money(confirmedBaseCost, normalizeFinancialCurrency(baseCurrency))} loading={isHydrating} detail="Verified supplier links or approved / paid records" icon={CircleDollarSign} tone="success" />}
+      {supplierDocuments.length > 0 && <MetricCard label="Source documents" value={supplierDocuments.length} loading={isHydrating} detail="Source document on file" icon={ShieldCheck} tone="info" />}
+      {needsReviewDocuments.length > 0 && <MetricCard label="Needs Review" value={needsReviewDocuments.length} loading={isHydrating} detail="Human verification required" icon={CircleAlert} tone="warning" />}
+      {readyToLinkDocuments.length > 0 && <MetricCard label="Ready to Link" value={readyToLinkDocuments.length} loading={isHydrating} detail="Verified source documents" icon={ArrowRight} tone="info" />}
+      {unresolvedFxExpenseIds.length > 0 && <MetricCard label="Unresolved FX" value={unresolvedFxExpenseIds.length} loading={isHydrating} detail={`${normalizeFinancialCurrency(baseCurrency)} reporting excluded`} icon={CircleAlert} tone="warning" />}
+    </section>
+
+    <details data-ux45c="expenses-workbook" aria-label="Expense workbook tools" className="rounded-xl border border-slate-200 bg-slate-50/70">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 [&::-webkit-details-marker]:hidden">
+        <span>Excel import/export</span>
+        <span className="text-[11px] font-semibold text-slate-500">Optional workbook tools · review before Apply</span>
+      </summary>
+      <div className="border-t border-slate-100 p-3">
+        <ExpensesWorkbookPanel
+          expenses={expenses}
+          projects={projects}
+          costCodes={costCodes}
+          invoices={invoices}
+          purchaseOrders={purchaseOrders}
+          vendors={vendors}
+          expectedCompanyId={companyId}
+          companyId={companyId}
+          settlementProjections={settlementProjections}
+          settlementMatches={settlementMatches}
+          today={supplierSettlementToday}
+          canManage={canManage && Boolean(onApplyExpenseWorkbook)}
+          onRefreshExpenses={onRefreshExpenses}
+          onApplyExpenseWorkbook={onApplyExpenseWorkbook || (async () => { throw new Error("Expense workbook Apply is not configured."); })}
+        />
+        {!onApplyExpenseWorkbook && canManage && <p role="status" className="mt-2 text-xs font-semibold text-amber-800">Expense workbook Apply is unavailable until the authoritative save callback is configured.</p>}
+      </div>
+    </details>
 
     {canManage && modal && <div ref={expenseDialogRef} data-expense-draft-dialog="true" className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="expense-form-title"><div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[95vw] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"><div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 p-4 sm:p-5"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Cost record</p><h2 id="expense-form-title" className="mt-1 truncate text-lg font-black">{editingExpense ? "Edit direct Expense draft" : "Add direct Expense draft"}</h2></div><button ref={expenseDialogCloseButtonRef} type="button" onClick={closeExpenseEditor} disabled={expenseEditorSaving} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-50" aria-label="Close expense worksheet"><X className="h-4 w-4" /></button></div><div data-dialog-scroll-container="expense-draft" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5"><ExpenseDraftWorksheet projects={projects} costCodes={costCodes} expense={editingExpense || undefined} invoice={editingExpense?.supplierInvoiceId ? invoiceMap.get(editingExpense.supplierInvoiceId) : undefined} purchaseOrder={editingExpense?.purchaseOrderId ? purchaseOrderMap.get(editingExpense.purchaseOrderId) : undefined} vendor={editingExpense?.vendorId ? vendorMap.get(editingExpense.vendorId) : undefined} financialFxSnapshots={financialFxSnapshots} baseCurrency={baseCurrency} settlementState={editingExpense ? settlementForExpenseWorkbook(editingExpense, { invoices, settlementProjections, settlementMatches }).settlementState : undefined} initialProjectId={editingExpense ? undefined : initialProjectId} isSaving={expenseEditorSaving} errorMessage={expenseEditorError} onSave={saveExpenseDraft} onCancel={closeExpenseEditor} /></div></div></div>}
     {canManageFx && fxExpense && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="expense-fx-title"><section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Base-currency reporting</p><h2 id="expense-fx-title" className="mt-1 text-lg font-black text-slate-950">Confirm FX rate</h2><p className="mt-1 text-xs text-slate-500">The original transaction remains {money(fxExpense.amount, fxExpense.currency)}. This snapshot is used only for {normalizeFinancialCurrency(baseCurrency)} reporting.</p></div><button type="button" onClick={closeFxConfirmation} disabled={fxBusy} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-50" aria-label="Close FX confirmation"><X className="h-4 w-4" /></button></div><div className="mt-4 space-y-3"><label className="block space-y-1"><span className="field-label">Rate (1 {normalizeFinancialCurrency(fxExpense.currency)} = {normalizeFinancialCurrency(baseCurrency)})</span><input autoFocus type="number" min="0.00000001" step="0.00000001" value={fxRate} onChange={(event) => setFxRate(event.target.value)} className="field-input" placeholder="e.g. 56.25" /></label><label className="block space-y-1"><span className="field-label">Rate date</span><input type="date" value={fxRateDate} onChange={(event) => setFxRateDate(event.target.value)} className="field-input" /></label><label className="block space-y-1"><span className="field-label">Source note (optional)</span><textarea value={fxNote} onChange={(event) => setFxNote(event.target.value)} rows={2} className="field-input resize-y" placeholder="Manual source or approval reference" /></label><div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] leading-4 text-amber-900"><LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" />The confirmed rate and PHP equivalent are immutable transaction evidence. A later rate change will not rewrite this record.</div>{fxError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{fxError}</div>}</div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={closeFxConfirmation} disabled={fxBusy} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">Cancel</button><button type="button" onClick={() => void confirmFx()} disabled={fxBusy} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{fxBusy ? "Confirming…" : "Confirm rate"}</button></div></section></div>}

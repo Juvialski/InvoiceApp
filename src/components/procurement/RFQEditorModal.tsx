@@ -412,7 +412,8 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative flex min-h-0 w-full max-w-4xl flex-col max-h-[calc(100dvh-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150 sm:max-h-[calc(100dvh-2rem)]"
+        data-working-canvas="true"
+        className="relative flex min-h-0 w-[96vw] max-w-[1800px] flex-col max-h-[calc(100dvh-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150 sm:max-h-[calc(100dvh-2rem)]"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">
@@ -465,12 +466,8 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
                 columns={headerColumns}
                 rowKey={(row) => row.id}
                 onRowsChange={(rows) => { if (rows[0]) setHeader(rows[0]); }}
-                onSave={isDraft ? (rows) => handleSaveDraft(rows[0] || header, lines) : undefined}
-                onCancel={onClose}
                 disabled={!isDraft || isSubmitting}
                 isSaving={isSubmitting}
-                saveLabel="Save RFQ draft"
-                cancelLabel="Close editor"
                 density="comfortable"
               />
 
@@ -508,12 +505,8 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
                 canAddRow={isDraft}
                 onRemoveRow={isDraft ? () => undefined : undefined}
                 canRemoveRow={isDraft ? (_row, index) => lines.length > 1 && index >= 0 : false}
-                onSave={isDraft ? (rows) => handleSaveDraft(header, [...rows]) : undefined}
-                onCancel={onClose}
                 disabled={!isDraft || isSubmitting}
                 isSaving={isSubmitting}
-                saveLabel="Save RFQ draft"
-                cancelLabel="Close editor"
                 emptyState="No RFQ lines yet. Add a row for each requested item."
                 density="compact"
               />
@@ -521,7 +514,7 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
           </div>
 
           {/* Modal Footer */}
-          <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/80 px-6 py-4">
+          <div data-modal-action-bar="true" className="flex items-center justify-between border-t border-slate-200 bg-slate-50/80 px-6 py-4">
             <div className="text-xs text-slate-500">
               {lines.length} line item{lines.length === 1 ? "" : "s"} • {invitedVendorIds.length} vendor{invitedVendorIds.length === 1 ? "" : "s"} invited
             </div>
@@ -537,6 +530,7 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
               {isDraft && (
                 <button
                   type="submit"
+                  aria-label="Save RFQ draft"
                   disabled={isSubmitting}
                   className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
                 >

@@ -456,7 +456,8 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+        data-working-canvas="true"
+        className="flex max-h-[92vh] w-[96vw] max-w-[1500px] flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">

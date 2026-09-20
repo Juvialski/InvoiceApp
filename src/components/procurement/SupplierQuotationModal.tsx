@@ -332,7 +332,8 @@ export const SupplierQuotationModal: React.FC<SupplierQuotationModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative flex flex-col w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        data-working-canvas="true"
+        className="relative flex flex-col w-[96vw] max-w-[1500px] max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">

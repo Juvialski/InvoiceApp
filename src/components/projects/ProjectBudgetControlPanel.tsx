@@ -163,8 +163,15 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
 
   return (
     <div className="space-y-5">
-      {/* Top 5 Summary Metrics Cards */}
-      <section aria-label="Budget Control Summary" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {/* Compact financial summary metrics */}
+      <section data-ux45c="budget-control-summary" aria-label="Budget Control Summary" className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
+        <MetricCard
+          label="Contract Value"
+          value={money(project.contractValue, currency)}
+          detail="Client-facing contract value"
+          icon={Wallet}
+          tone="info"
+        />
         <MetricCard
           label="Approved Project Budget"
           value={money(budgetControl.projectBudget, currency)}
@@ -209,62 +216,8 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
         />
       </section>
 
-      {/* Uncoded Actual Cost Alert Card */}
-      {budgetControl.uncodedActualCost > 0 && (
-        <Card className="border-amber-200 bg-amber-50/70 p-4 shadow-sm" elevation="low">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-              <AlertTriangle className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1 text-xs text-amber-950">
-              <h3 className="font-black text-amber-900">
-                Uncoded Actual Cost: {money(budgetControl.uncodedActualCost, currency)}
-              </h3>
-              <p className="mt-1 leading-5">
-                {aggregatePayroll
-                  ? "Invoice and expense costs can be classified by cost code. Payroll is included here from the permission-safe authoritative aggregate, so its detail-level cost-code provenance is intentionally not exposed in this view."
-                  : "Authoritative costs have been incurred on this project that are not yet assigned to a cost code. Assign cost codes when creating invoice allocations, approving payroll, or logging direct expenses."}
-              </p>
-              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold text-amber-900">
-                <span>Invoices: <strong className="tabular-nums">{money(budgetControl.uncodedSummary.invoiceCost, currency)}</strong></span>
-                <span>•</span>
-                <span>Payroll: <strong className="tabular-nums">{money(budgetControl.uncodedSummary.payrollCost, currency)}</strong></span>
-                <span>•</span>
-                <span>Expenses: <strong className="tabular-nums">{money(budgetControl.uncodedSummary.otherExpenseCost, currency)}</strong></span>
-                {budgetControl.uncodedPendingCost > 0 && (
-                  <>
-                    <span>•</span>
-                    <span className="text-amber-800">Pending unverified: <strong className="tabular-nums">{money(budgetControl.uncodedPendingCost, currency)}</strong></span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {aggregatePayroll && (budgetControl.uncodedSummary.payrollCost > 0 || budgetControl.baseCostSummary.pendingPayrollCost > 0) && (
-        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 p-3.5 text-xs text-indigo-950">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-indigo-700" />
-          <div><strong>Payroll is aggregate-only in Budget Control.</strong> Confirmed and pending labor remain part of the authoritative project total, but individual payroll cost-code assignments are not exposed without detail-level lifecycle context.</div>
-        </div>
-      )}
-
-      {/* Mixed Currency Notification */}
-      {budgetControl.hasForeignAmounts && (
-        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50 p-3.5 text-xs text-sky-950">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
-          <div>
-            <strong>Foreign currency costs detected.</strong> Foreign currency amounts remain recorded in their original currency and are not converted to {currency}. Base-currency actuals are partial, so actual variance and utilization are withheld where a cost code contains foreign amounts.
-            {Object.entries(budgetControl.foreignCosts).map(([curr, amt]) => (
-              <span key={curr} className="ml-2 font-mono font-bold">{curr} {Number(amt).toFixed(2)}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Main Cost Codes Section */}
-      <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
+      <Card data-ux45c="budget-control-worksheet" className="overflow-hidden p-0 shadow-sm" elevation="low">
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h3 className="text-sm font-black text-slate-950">Work Package Cost Codes</h3>
@@ -296,6 +249,51 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
           />
         </div>
       </Card>
+
+      <div data-ux45c="budget-control-attention" className="space-y-3">
+        {budgetControl.uncodedActualCost > 0 && (
+          <Card className="border-amber-200 bg-amber-50/70 p-4 shadow-sm" elevation="low">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1 text-xs text-amber-950">
+                <h3 className="font-black text-amber-900">Uncoded Actual Cost: {money(budgetControl.uncodedActualCost, currency)}</h3>
+                <p className="mt-1 leading-5">
+                  {aggregatePayroll
+                    ? "Invoice and expense costs can be classified by cost code. Payroll is included here from the permission-safe authoritative aggregate, so its detail-level cost-code provenance is intentionally not exposed in this view."
+                    : "Authoritative costs have been incurred on this project that are not yet assigned to a cost code. Assign cost codes when creating invoice allocations, approving payroll, or logging direct expenses."}
+                </p>
+                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold text-amber-900">
+                  <span>Invoices: <strong className="tabular-nums">{money(budgetControl.uncodedSummary.invoiceCost, currency)}</strong></span>
+                  <span>•</span>
+                  <span>Payroll: <strong className="tabular-nums">{money(budgetControl.uncodedSummary.payrollCost, currency)}</strong></span>
+                  <span>•</span>
+                  <span>Expenses: <strong className="tabular-nums">{money(budgetControl.uncodedSummary.otherExpenseCost, currency)}</strong></span>
+                  {budgetControl.uncodedPendingCost > 0 && <><span>•</span><span className="text-amber-800">Pending unverified: <strong className="tabular-nums">{money(budgetControl.uncodedPendingCost, currency)}</strong></span></>}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {aggregatePayroll && (budgetControl.uncodedSummary.payrollCost > 0 || budgetControl.baseCostSummary.pendingPayrollCost > 0) && (
+          <div role="status" className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 p-3.5 text-xs text-indigo-950">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-indigo-700" />
+            <div><strong>Payroll is aggregate-only in Budget Control.</strong> Confirmed and pending labor remain part of the authoritative project total, but individual payroll cost-code assignments are not exposed without detail-level lifecycle context.</div>
+          </div>
+        )}
+
+        {budgetControl.hasForeignAmounts && (
+          <div role="status" className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50 p-3.5 text-xs text-sky-950">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
+            <div>
+              <strong>Foreign currency costs detected.</strong> Foreign currency amounts remain recorded in their original currency and are not converted to {currency}. Base-currency actuals are partial, so actual variance and utilization are withheld where a cost code contains foreign amounts.
+              {Object.entries(budgetControl.foreignCosts).map(([curr, amt]) => <span key={curr} className="ml-2 font-mono font-bold">{curr} {Number(amt).toFixed(2)}</span>)}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

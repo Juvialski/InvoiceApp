@@ -521,7 +521,7 @@ export function WorksheetEditor<T>({
 
   return (
     <section data-worksheet-editor="true" data-worksheet-dirty={rootDirty} className={`min-w-0 rounded-xl border border-slate-200 bg-white ${className}`} aria-label={ariaLabel}>
-      <div className="flex min-w-0 flex-col gap-3 border-b border-slate-200 bg-slate-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-worksheet-action-bar="true" className="flex min-w-0 flex-col gap-3 border-b border-slate-200 bg-slate-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="sr-only">{ariaLabel}</span>
           {isDirty && <span data-worksheet-unsaved="true" className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black text-amber-900">Unsaved changes</span>}
@@ -547,6 +547,7 @@ export function WorksheetEditor<T>({
                   role="columnheader"
                   scope="col"
                   aria-colindex={columnIndex + 1}
+                  data-worksheet-align={column.align || "left"}
                   className={`whitespace-nowrap px-3 ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${columnIndex === frozenColumnIndex ? "sticky left-0 z-30 bg-slate-50" : ""}`}
                   style={{ width: column.width, minWidth: column.minWidth }}
                 >
@@ -574,6 +575,7 @@ export function WorksheetEditor<T>({
                         aria-readonly={!cell.editableCell || undefined}
                         aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
                         aria-describedby={viewDescribedBy}
+                        data-worksheet-align={column.align || "left"}
                         tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
                         data-worksheet-cell={cell.key}
                         data-worksheet-editable={cell.editableCell ? "true" : "false"}
@@ -623,6 +625,7 @@ export function WorksheetEditor<T>({
                       aria-describedby={viewDescribedBy}
                       tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
                       data-worksheet-mobile-field={cell.key}
+                      data-worksheet-align={column.align || "left"}
                       data-worksheet-mobile-identity={columnIndex === (frozenColumnIndex >= 0 ? frozenColumnIndex : 0) ? "true" : "false"}
                       data-worksheet-mobile-editable={cell.editableCell ? "true" : "false"}
                       data-worksheet-cell={cell.key}

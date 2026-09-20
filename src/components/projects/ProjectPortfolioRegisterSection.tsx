@@ -386,74 +386,9 @@ export function ProjectPortfolioRegisterSection({
 
   return (
     <>
-      {/* Top Portfolio Management Summary: one compact decision surface. */}
-      <details aria-label="Portfolio Management Summary" className="group rounded-xl border border-slate-200 bg-white shadow-sm">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 [&::-webkit-details-marker]:hidden">
-          <span>Portfolio snapshot</span>
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800">
-            <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-            Attention Signals: {portfolio.projectsNeedingAttentionCount}
-          </span>
-        </summary>
-        <div className="space-y-3 border-t border-slate-100 p-3">
-          <Card className="p-4 shadow-sm" elevation="low">
-            <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-4" aria-label="Project counts">
-              <div><dt className="text-slate-500">Total projects</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-950">{isHydrating ? "…" : portfolio.totalProjects}</dd></div>
-              <div><dt className="text-slate-500">Active</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-emerald-700">{isHydrating ? "…" : portfolio.activeProjects}</dd></div>
-              <div><dt className="text-slate-500">On hold</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-amber-700">{isHydrating ? "…" : portfolio.onHoldProjects}</dd></div>
-              <div><dt className="text-slate-500">Archived</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-700">{isHydrating ? "…" : portfolio.archivedProjects}</dd></div>
-            </dl>
-            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-slate-100 pt-3 text-xs sm:grid-cols-4" aria-label="Project management attention counts">
-              <div><dt className="text-slate-500">Needs attention</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.projectsNeedingAttentionCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>{isHydrating ? "…" : portfolio.projectsNeedingAttentionCount}</dd></div>
-              <div><dt className="text-slate-500">Critical signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.criticalAttentionCount > 0 ? "text-rose-700" : "text-slate-700"}`}>{isHydrating ? "…" : portfolio.criticalAttentionCount}</dd></div>
-              <div><dt className="text-slate-500">Warning signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.warningAttentionCount > 0 ? "text-amber-700" : "text-slate-700"}`}>{isHydrating ? "…" : portfolio.warningAttentionCount}</dd></div>
-              <div><dt className="text-slate-500">Info signals</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-indigo-700">{isHydrating ? "…" : portfolio.infoAttentionCount}</dd></div>
-            </div>
-          </Card>
-
-          {/* Financial distinctions stay available by currency without dominating the register. */}
-          {portfolio.currencies.length > 0 && (
-            <details className="group rounded-xl border border-slate-200 bg-white shadow-sm" aria-label="Portfolio Financial Totals">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-black text-slate-800 [&::-webkit-details-marker]:hidden">
-                <span className="inline-flex items-center gap-1.5"><Coins className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />Financial totals by currency</span>
-                <span className="text-[10px] font-semibold text-slate-500 group-open:hidden">Show detail</span>
-                <span className="hidden text-[10px] font-semibold text-slate-500 group-open:inline">Hide detail</span>
-              </summary>
-              <div className="grid gap-3 border-t border-slate-100 p-3 sm:grid-cols-2 xl:grid-cols-3">
-                {portfolio.currencies.map((currencyCode) => {
-                  const group = portfolio.currencyGroups[currencyCode];
-                  if (!group) return null;
-                  const metrics: Array<[string, PortfolioMetricAggregate]> = [
-                    ["Contract Value", group.financialMetrics.contractValue],
-                    ["Approved Budget", group.financialMetrics.approvedCostBudget],
-                    ["Actual Cost", group.financialMetrics.actualCost],
-                    ["Committed Cost", group.financialMetrics.committedCost],
-                    ["Billed", group.financialMetrics.billed],
-                    ["Collected", group.financialMetrics.collected],
-                    ["Outstanding", group.financialMetrics.outstandingReceivables],
-                    ["Remaining to Bill", group.financialMetrics.remainingToBill],
-                  ];
-                  return (
-                    <Card key={currencyCode} className="p-4 shadow-none" elevation="low" data-portfolio-currency={currencyCode}>
-                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                        <span className="text-xs font-black uppercase text-indigo-700">{currencyCode} Portfolio ({group.projectCount})</span>
-                        {!group.isComplete && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">Partial / unavailable</span>}
-                      </div>
-                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-                        {metrics.map(([label, metric]) => <div key={label} className="flex min-w-0 flex-col"><span className="text-slate-500">{label}</span><PortfolioFinancialValue metric={metric} currency={currencyCode} /></div>)}
-                      </div>
-                      <div className="mt-3 border-t border-slate-100 pt-2 text-[9px] text-slate-500">Optional controls: pending {portfolioMetricInline(group.financialMetrics.pendingCostExposure, currencyCode)} · payables {portfolioMetricInline(group.financialMetrics.outstandingPayables, currencyCode)}</div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </details>
-          )}
-        </div>
-      </details>
-
       {/* Filter and Search Toolbar */}
-      <Card className="p-4 shadow-sm space-y-3" elevation="low">
+      <div data-ux45c="projects-primary-toolbar">
+      <Card className="space-y-3 p-4 shadow-sm" elevation="low">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
           {/* Search Query */}
           <div className="relative xl:col-span-2">
@@ -613,7 +548,7 @@ export function ProjectPortfolioRegisterSection({
           </div>
         </div>
 
-        {/* Filter Summary & Reset Bar */}
+        {/* Filter Summary & View Mode */}
         {hasProjectFilters && (
           <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-slate-500">
             <span>
@@ -628,36 +563,97 @@ export function ProjectPortfolioRegisterSection({
             </button>
           </div>
         )}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
+          <span className="text-[11px] font-semibold text-slate-500">{projectResultLabel}</span>
+          <div role="group" aria-label="Project portfolio view" className="inline-flex shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <button type="button" aria-pressed={viewMode === "cards"} onClick={() => setViewMode("cards")} className={`rounded-md px-3 py-1.5 text-xs font-black ${viewMode === "cards" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Cards</button>
+            <button type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")} className={`rounded-md px-3 py-1.5 text-xs font-black ${viewMode === "list" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Compact List</button>
+          </div>
+        </div>
       </Card>
-
-      <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-black text-slate-900">Projects</p>
-          <p className="text-[11px] text-slate-500">Open a project card for its workspace, or switch to a dense list for high-volume scanning.</p>
-        </div>
-        <div role="group" aria-label="Project portfolio view" className="inline-flex shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-1">
-          <button type="button" aria-pressed={viewMode === "cards"} onClick={() => setViewMode("cards")} className={`rounded-md px-3 py-1.5 text-xs font-black ${viewMode === "cards" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Cards</button>
-          <button type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")} className={`rounded-md px-3 py-1.5 text-xs font-black ${viewMode === "list" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Compact List</button>
-        </div>
       </div>
 
       {/* Main Content Area: visual cards by default, compact register on request */}
+      <div id="projects-results" data-ux45c="projects-primary-work" className="space-y-4">
       {displayedViews.length ? (
-        <div id="projects-results" className="space-y-4">
-          {viewMode === "list" ? (
-            <ProjectPortfolioOperationsGrid displayedViews={displayedViews} canManage={canManage} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Projects list cards">
-              {displayedViews.map((view) => <ProjectRegisterCard key={view.project.id} view={view} canManage={canManage} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />)}
-            </div>
-          )}
-        </div>
+        viewMode === "list" ? (
+          <ProjectPortfolioOperationsGrid displayedViews={displayedViews} canManage={canManage} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Projects list cards">
+            {displayedViews.map((view) => <ProjectRegisterCard key={view.project.id} view={view} canManage={canManage} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />)}
+          </div>
+        )
       ) : (
         <Card className="p-8 text-center text-xs text-slate-500" elevation="low">
           <p className="font-semibold text-slate-700">No projects match the current filters.</p>
           <p className="mt-1">Try adjusting your search query, status, or financial health filter.</p>
         </Card>
       )}
+      </div>
+
+      {/* Secondary portfolio analysis stays available after the primary project work. */}
+      <details aria-label="Portfolio Management Summary" data-ux45c="projects-secondary-analysis" className="group rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 [&::-webkit-details-marker]:hidden">
+          <span>Portfolio snapshot</span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800">
+            <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
+            Attention Signals: {portfolio.projectsNeedingAttentionCount}
+          </span>
+        </summary>
+        <div className="space-y-3 border-t border-slate-100 p-3">
+          <Card className="p-4 shadow-sm" elevation="low">
+            <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-4" aria-label="Project counts">
+              <div><dt className="text-slate-500">Total projects</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-950">{isHydrating ? "…" : portfolio.totalProjects}</dd></div>
+              <div><dt className="text-slate-500">Active</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-emerald-700">{isHydrating ? "…" : portfolio.activeProjects}</dd></div>
+              <div><dt className="text-slate-500">On hold</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-amber-700">{isHydrating ? "…" : portfolio.onHoldProjects}</dd></div>
+              <div><dt className="text-slate-500">Archived</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-700">{isHydrating ? "…" : portfolio.archivedProjects}</dd></div>
+            </dl>
+            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-slate-100 pt-3 text-xs" aria-label="Project management attention counts">
+              <div><dt className="text-slate-500">Needs attention</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.projectsNeedingAttentionCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>{isHydrating ? "…" : portfolio.projectsNeedingAttentionCount}</dd></div>
+              <div><dt className="text-slate-500">Critical signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.criticalAttentionCount > 0 ? "text-rose-700" : "text-slate-700"}`}>{isHydrating ? "…" : portfolio.criticalAttentionCount}</dd></div>
+              <div><dt className="text-slate-500">Warning signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.warningAttentionCount > 0 ? "text-amber-700" : "text-slate-700"}`}>{isHydrating ? "…" : portfolio.warningAttentionCount}</dd></div>
+              <div><dt className="text-slate-500">Info signals</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-indigo-700">{isHydrating ? "…" : portfolio.infoAttentionCount}</dd></div>
+            </div>
+          </Card>
+          {portfolio.currencies.length > 0 && (
+            <details className="group rounded-xl border border-slate-200 bg-white shadow-sm" aria-label="Portfolio Financial Totals">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-black text-slate-800 [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-1.5"><Coins className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />Financial totals by currency</span>
+                <span className="text-[10px] font-semibold text-slate-500 group-open:hidden">Show detail</span>
+                <span className="hidden text-[10px] font-semibold text-slate-500 group-open:inline">Hide detail</span>
+              </summary>
+              <div className="grid gap-3 border-t border-slate-100 p-3 sm:grid-cols-2 xl:grid-cols-3">
+                {portfolio.currencies.map((currencyCode) => {
+                  const group = portfolio.currencyGroups[currencyCode];
+                  if (!group) return null;
+                  const metrics: Array<[string, PortfolioMetricAggregate]> = [
+                    ["Contract Value", group.financialMetrics.contractValue],
+                    ["Approved Budget", group.financialMetrics.approvedCostBudget],
+                    ["Actual Cost", group.financialMetrics.actualCost],
+                    ["Committed Cost", group.financialMetrics.committedCost],
+                    ["Billed", group.financialMetrics.billed],
+                    ["Collected", group.financialMetrics.collected],
+                    ["Outstanding", group.financialMetrics.outstandingReceivables],
+                    ["Remaining to Bill", group.financialMetrics.remainingToBill],
+                  ];
+                  return (
+                    <Card key={currencyCode} className="p-4 shadow-none" elevation="low" data-portfolio-currency={currencyCode}>
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                        <span className="text-xs font-black uppercase text-indigo-700">{currencyCode} Portfolio ({group.projectCount})</span>
+                        {!group.isComplete && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">Partial / unavailable</span>}
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                        {metrics.map(([label, metric]) => <div key={label} className="flex min-w-0 flex-col"><span className="text-slate-500">{label}</span><PortfolioFinancialValue metric={metric} currency={currencyCode} /></div>)}
+                      </div>
+                      <div className="mt-3 border-t border-slate-100 pt-2 text-[9px] text-slate-500">Optional controls: pending {portfolioMetricInline(group.financialMetrics.pendingCostExposure, currencyCode)} · payables {portfolioMetricInline(group.financialMetrics.outstandingPayables, currencyCode)}</div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+        </div>
+      </details>
     </>
   );
 }
