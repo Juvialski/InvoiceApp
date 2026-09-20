@@ -17,6 +17,48 @@ interface UseDialogFocusOptions {
   restoreFocusFallback?: () => HTMLElement | null;
 }
 
+interface DocumentScrollLockSnapshot {
+  bodyOverflow: string;
+  bodyOverscrollBehavior: string;
+  documentOverscrollBehavior: string;
+}
+
+let activeDocumentScrollLocks = 0;
+let documentScrollLockSnapshot: DocumentScrollLockSnapshot | null = null;
+
+function lockDocumentScroll() {
+  if (typeof document === "undefined" || !document.body) return () => undefined;
+
+  if (activeDocumentScrollLocks === 0) {
+    documentScrollLockSnapshot = {
+      bodyOverflow: document.body.style.overflow,
+      bodyOverscrollBehavior: document.body.style.overscrollBehavior,
+      documentOverscrollBehavior: document.documentElement.style.overscrollBehavior,
+    };
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overscrollBehavior = "none";
+    document.body.setAttribute("data-dialog-scroll-locked", "true");
+    document.documentElement.setAttribute("data-dialog-scroll-locked", "true");
+  }
+  activeDocumentScrollLocks += 1;
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    activeDocumentScrollLocks = Math.max(0, activeDocumentScrollLocks - 1);
+    if (activeDocumentScrollLocks > 0 || !documentScrollLockSnapshot || !document.body) return;
+
+    document.body.style.overflow = documentScrollLockSnapshot.bodyOverflow;
+    document.body.style.overscrollBehavior = documentScrollLockSnapshot.bodyOverscrollBehavior;
+    document.documentElement.style.overscrollBehavior = documentScrollLockSnapshot.documentOverscrollBehavior;
+    document.body.removeAttribute("data-dialog-scroll-locked");
+    document.documentElement.removeAttribute("data-dialog-scroll-locked");
+    documentScrollLockSnapshot = null;
+  };
+}
+
 function focusElement(element: HTMLElement | null | undefined) {
   if (!element) return;
   try {
@@ -29,7 +71,9 @@ function focusElement(element: HTMLElement | null | undefined) {
 function focusableElements(dialog: HTMLElement) {
   return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((element) => {
     const style = window.getComputedStyle(element);
-    return style.display !== "none" && style.visibility !== "hidden";
+    return style.display !== "none"
+      && style.visibility !== "hidden"
+      && element.getClientRects().length > 0;
   });
 }
 
@@ -52,6 +96,11 @@ export function useDialogFocus({ open, onClose, initialFocusRef, restoreFocusRef
   useEffect(() => {
     restoreFocusFallbackRef.current = restoreFocusFallback;
   }, [restoreFocusFallback]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    return lockDocumentScroll();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;

@@ -528,6 +528,7 @@ export const Header: React.FC<HeaderProps> = ({
       </aside>
 
       <header
+        data-app-shell-header="true"
         className={`sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur transition-[margin] duration-200 ${
           collapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
         }`}

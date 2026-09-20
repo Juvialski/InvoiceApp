@@ -405,7 +405,7 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
   const handleLineRowsChange = (rows: readonly LineItem[]) => updateDraftInvoice({ ...draftInvoiceRef.current, items: [...rows] });
   const handleTotalRowsChange = (rows: readonly InvoiceData[]) => { if (rows[0]) updateDraftInvoice(rows[0]); };
 
-  return <section data-testid="supplier-invoice-extracted-worksheet" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-3">
+  return <section data-testid="supplier-invoice-extracted-worksheet" data-worksheet-responsive-surface="supplier-invoice" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-3">
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-[10px] leading-4 text-slate-600">
       <p className="font-black uppercase tracking-[0.12em] text-slate-700">Extracted data worksheet</p>
       <p className="mt-1">Correct preserved source evidence here and save deliberately. All sections share one review draft: saving from any section saves all current worksheet edits, while discarding from any section resets the full worksheet draft. Cells marked calculated, protected, or unresolved keep their current accounting meaning; the canonical Vendor relationship remains a separate confirmed workflow.</p>

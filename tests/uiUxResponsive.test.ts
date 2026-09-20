@@ -102,6 +102,56 @@ test("Expense direct draft worksheet keeps wide spreadsheet editing inside conta
   assert.match(expensesPage, /overflow-y-auto/);
 });
 
+test("shared shell and worksheet dialogs contain long mobile scrolling", () => {
+  const shell = source("src/app/AppShell.tsx");
+  const header = source("src/components/Header.tsx");
+  const dialogFocus = source("src/components/ui/useDialogFocus.ts");
+  const projectDetails = source("src/components/projects/ProjectDetailsWorksheet.tsx");
+  const expensesPage = source("src/components/expenses/ExpensesPage.tsx");
+  const rfq = source("src/components/procurement/RFQEditorModal.tsx");
+  const purchaseOrder = source("src/components/procurement/PurchaseOrderEditorModal.tsx");
+
+  assert.match(shell, /data-app-shell="true"/);
+  assert.match(shell, /data-app-shell-main="true"/);
+  assert.match(shell, /root\.style\.scrollPaddingTop/);
+  assert.match(header, /data-app-shell-header="true"/);
+  assert.match(dialogFocus, /document\.body\.style\.overflow\s*=\s*"hidden"/);
+  assert.match(dialogFocus, /data-dialog-scroll-locked/);
+  assert.match(dialogFocus, /getClientRects\(\)\.length > 0/);
+  assert.match(projectDetails, /overflow-hidden/);
+  assert.match(projectDetails, /data-dialog-scroll-container="project-details"/);
+  assert.match(expensesPage, /useDialogFocus/);
+  assert.match(expensesPage, /data-dialog-scroll-container="expense-draft"/);
+  assert.match(rfq, /fixed inset-0 z-50 flex items-center justify-center overflow-hidden/);
+  assert.match(rfq, /data-dialog-scroll-container="rfq-editor"/);
+  assert.match(purchaseOrder, /fixed inset-0 z-50 flex items-center justify-center overflow-hidden/);
+  assert.match(purchaseOrder, /data-dialog-scroll-container="purchase-order-editor"/);
+});
+
+test("representative worksheet consumers expose stable responsive surfaces and keep authority in parents", () => {
+  const projectDetails = source("src/components/projects/ProjectDetailsWorksheet.tsx");
+  const costCodes = source("src/components/projects/ProjectCostCodesWorksheet.tsx");
+  const clientBilling = source("src/components/projects/ClientBillingDraftWorksheet.tsx");
+  const expense = source("src/components/expenses/ExpenseDraftWorksheet.tsx");
+  const rfq = source("src/components/procurement/RFQEditorModal.tsx");
+  const purchaseOrder = source("src/components/procurement/PurchaseOrderEditorModal.tsx");
+  const supplierInvoice = source("src/components/invoices/SupplierInvoiceWorksheet.tsx");
+
+  assert.match(projectDetails, /data-worksheet-responsive-surface="project-details"/);
+  assert.match(projectDetails, /onSave=\{handleSave\}/);
+  assert.match(costCodes, /data-worksheet-responsive-surface="cost-codes"/);
+  assert.match(costCodes, /onSave=\{canManageProject \? handleSave : undefined\}/);
+  assert.match(clientBilling, /data-worksheet-responsive-surface="client-billing"/);
+  assert.match(clientBilling, /data-testid="client-billing-save-draft"/);
+  assert.match(expense, /data-worksheet-responsive-surface="expense-draft"/);
+  assert.match(expense, /onSave=\{editable \? handleSave : undefined\}/);
+  assert.match(rfq, /data-worksheet-responsive-surface="rfq-draft"/);
+  assert.match(purchaseOrder, /data-worksheet-responsive-surface="purchase-order-draft"/);
+  assert.match(supplierInvoice, /data-worksheet-responsive-surface="supplier-invoice"/);
+  assert.match(supplierInvoice, /protectedWhen:/);
+  assert.match(supplierInvoice, /onSave=\{!readOnly && onUpdateInvoice \?/);
+});
+
 test("desktop Projects filters reserve readable space for project search", () => {
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
   assert.match(projectRegister, /<div className="relative xl:col-span-2">[\s\S]*aria-label="Search projects"/);

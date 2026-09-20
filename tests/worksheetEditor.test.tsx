@@ -240,9 +240,57 @@ test("renders accessible headers, protected semantics, and contained responsive 
   assert.match(html, /aria-label="Materials worksheet"/);
   assert.match(html, /scope="col"/);
   assert.match(html, /data-worksheet-protected="true"/);
-  assert.match(html, /Protected/);
+  assert.doesNotMatch(html, /<span[^>]*>Protected<\/span>/);
+  assert.doesNotMatch(html, /<span[^>]*>Read-only<\/span>/);
   assert.match(html, /data-worksheet-scroll-container="true"/);
   assert.match(html, /overflow-x-auto/);
+});
+
+test("renders a labelled mobile row fallback without duplicating protected-state pills", () => {
+  const html = renderToStaticMarkup(
+    <WorksheetEditor
+      ariaLabel="Materials worksheet"
+      rows={rows}
+      columns={columns}
+      rowKey={(row) => row.id}
+      initialEditingCell={{ row: 0, column: 0 }}
+      onAddRow={() => ({ ...rows[0], id: "row-3" })}
+      onRemoveRow={() => undefined}
+      canAddRow
+      canRemoveRow
+    />,
+  );
+  assert.match(html, /data-worksheet-mobile-fallback="true"/);
+  assert.match(html, /data-worksheet-mobile-row-key="row-1"/);
+  assert.match(html, /data-worksheet-mobile-identity="true"/);
+  assert.match(html, /data-worksheet-mobile-field="row-1:name"/);
+  assert.match(html, /data-worksheet-mobile-editable="true"/);
+  assert.match(html, /aria-label="Name, row 1"/);
+  assert.match(html, /data-worksheet-mobile-field="row-1:protectedValue"/);
+  assert.match(html, /data-worksheet-protected="true"/);
+  assert.match(html, /aria-readonly="true"/);
+  assert.doesNotMatch(html, /<span[^>]*>Protected<\/span>/);
+  assert.doesNotMatch(html, />Locked<\/span>/);
+  assert.match(html, /data-worksheet-add-row="true"/);
+  assert.match(html, /data-worksheet-remove-row="row-1"/);
+});
+
+test("keeps mobile validation beside the affected worksheet field", () => {
+  const html = renderToStaticMarkup(
+    <WorksheetEditor
+      ariaLabel="Materials worksheet"
+      rows={rows}
+      columns={columns}
+      rowKey={(row) => row.id}
+      cellIssues={{ [cellId(0, "amount")]: { severity: "error", message: "Review this amount." } }}
+    />,
+  );
+  assert.match(html, /data-worksheet-mobile-field="row-1:amount"[^>]*data-worksheet-state="error"/);
+  assert.match(html, /aria-describedby="row-1-amount-message-desktop"/);
+  assert.match(html, /aria-describedby="row-1-amount-message-mobile"/);
+  assert.match(html, /id="row-1-amount-message-desktop"/);
+  assert.match(html, /id="row-1-amount-message-mobile"/);
+  assert.match(html, /Review this amount/);
 });
 
 test("supports select option resolvers and custom cell renderers", () => {

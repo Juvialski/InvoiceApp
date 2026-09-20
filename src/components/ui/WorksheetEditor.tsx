@@ -162,7 +162,8 @@ export function WorksheetEditor<T>({
   const [localDirtyCells, setLocalDirtyCells] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
   const sourceRowsRef = useRef(rows);
-  const cellRefs = useRef(new Map<string, HTMLTableCellElement>());
+  const cellRefs = useRef(new Map<string, HTMLElement>());
+  const mobileCellRefs = useRef(new Map<string, HTMLElement>());
   const pendingActionRef = useRef<"save" | "apply" | null>(null);
   const focusActiveCellRef = useRef(false);
 
@@ -188,7 +189,11 @@ export function WorksheetEditor<T>({
     const column = columns[activeCell.column];
     if (!row || !column) return;
     const key = getWorksheetCellId(rowKey(row, activeCell.row), column.key);
-    const cell = cellRefs.current.get(key);
+    const cell = [mobileCellRefs.current.get(key), cellRefs.current.get(key)].find((candidate) => {
+      if (!candidate || typeof window === "undefined") return Boolean(candidate);
+      const style = window.getComputedStyle(candidate);
+      return style.display !== "none" && style.visibility !== "hidden" && candidate.getClientRects().length > 0;
+    });
     if (!cell) return;
     const input = editingCell?.row === activeCell.row && editingCell.column === activeCell.column
       ? cell.querySelector<HTMLInputElement | HTMLSelectElement>("input, select")
@@ -357,7 +362,7 @@ export function WorksheetEditor<T>({
     setActiveCell(start);
   };
 
-  const handlePaste = (event: React.ClipboardEvent<HTMLTableCellElement>, position: WorksheetCellPosition) => {
+  const handlePaste = (event: React.ClipboardEvent<HTMLElement>, position: WorksheetCellPosition) => {
     if (actionDisabled) return;
     const text = event.clipboardData.getData("text/plain");
     if (!text) return;
@@ -366,7 +371,7 @@ export function WorksheetEditor<T>({
     handlePasteResult(result, position);
   };
 
-  const handleCellKeyDown = (event: React.KeyboardEvent<HTMLTableCellElement>, position: WorksheetCellPosition) => {
+  const handleCellKeyDown = (event: React.KeyboardEvent<HTMLElement>, position: WorksheetCellPosition) => {
     const row = draftRows[position.row];
     const column = columns[position.column];
     const isEditingActive = Boolean(row && column && editingCell?.row === position.row && editingCell.column === position.column && isWorksheetColumnEditable(column, row, position.row));
@@ -433,11 +438,92 @@ export function WorksheetEditor<T>({
   const rootDirty = isDirty ? "true" : "false";
   const frozenColumnIndex = useMemo(() => columns.findIndex((column) => column.frozen), [columns]);
 
+  const getCellView = (row: T, rowIndex: number, column: WorksheetColumn<T>, columnIndex: number) => {
+    const position = positionForCell(rowIndex, columnIndex);
+    const currentRowKey = rowKey(row, rowIndex);
+    const key = getWorksheetCellId(currentRowKey, column.key);
+    const protectedCell = isWorksheetColumnProtected(column, row, rowIndex);
+    const editableCell = isWorksheetColumnEditable(column, row, rowIndex);
+    const readOnlyCell = !editableCell;
+    const isEditing = editingCell?.row === rowIndex && editingCell.column === columnIndex && editableCell;
+    const externalIssue = issueValue(cellIssues?.[key], "error");
+    const conflict = issueValue(conflicts?.[key], "warning");
+    const issue = localIssues[key] || externalIssue;
+    const suppliedState = cellStates?.[key];
+    const state: WorksheetCellState = conflict
+      ? "conflict"
+      : issue?.severity === "error"
+        ? "error"
+        : issue?.severity === "warning"
+          ? "warning"
+          : readOnlyCell
+            ? "protected"
+            : isEditing
+              ? "editing"
+              : suppliedState || (collectionHas(dirtyCells, key) || localDirtyCells.has(key) ? "dirty" : activeCell.row === rowIndex && activeCell.column === columnIndex ? "selected" : "clean");
+    const describedBy = issue || conflict ? `${key.replace(/[^a-zA-Z0-9_-]/g, "-")}-message` : undefined;
+    const context: WorksheetCellContext<T> = { row, rowIndex, rowKey: currentRowKey, column, columnIndex, source: "edit" };
+    const displayValue = getWorksheetColumnValue(row, column);
+    const options = typeof column.options === "function" ? column.options(row, rowIndex) : column.options || [];
+    return { position, currentRowKey, key, column, columnIndex, protectedCell, editableCell, readOnlyCell, isEditing, issue, conflict, state, describedBy, context, displayValue, options };
+  };
+
+  type CellView = ReturnType<typeof getCellView>;
+
+  const renderCellDisplay = (cell: CellView) => cell.column.render
+    ? cell.column.render(cell.displayValue, cell.context.row, cell.context)
+    : cell.column.format
+      ? cell.column.format(cell.displayValue, cell.context.row)
+      : defaultDisplayValue(cell.displayValue, cell.context.row, cell.context.rowIndex, cell.column);
+
+  const renderEditorControl = (cell: CellView, describedBy = cell.describedBy) => cell.column.kind === "select" ? (
+    <select
+      value={editorValue}
+      onChange={(event) => setEditorValue(event.currentTarget.value)}
+      onBlur={() => commitEditing()}
+      onKeyDown={(event) => handleInputKeyDown(event, cell.position)}
+      aria-label={`${cell.column.header}, row ${cell.context.rowIndex + 1}`}
+      aria-invalid={cell.issue?.severity === "error" || undefined}
+      aria-describedby={describedBy}
+      disabled={actionDisabled}
+      className="w-full min-w-0 rounded-md border border-indigo-400 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-200 md:min-w-[8rem]"
+    >
+      <option value="">Select…</option>
+      {cell.options.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+    </select>
+  ) : (
+    <input
+      type={cell.column.kind === "number" || cell.column.kind === "currency" ? "text" : cell.column.kind === "date" ? "date" : "text"}
+      value={editorValue}
+      onChange={(event) => setEditorValue(event.currentTarget.value)}
+      onBlur={() => commitEditing()}
+      onKeyDown={(event) => handleInputKeyDown(event, cell.position)}
+      aria-label={`${cell.column.header}, row ${cell.context.rowIndex + 1}`}
+      aria-invalid={cell.issue?.severity === "error" || undefined}
+      aria-describedby={describedBy}
+      placeholder={cell.column.placeholder}
+      disabled={actionDisabled}
+      className="w-full min-w-0 rounded-md border border-indigo-400 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-200 md:min-w-[8rem]"
+    />
+  );
+
+  const renderMobileDisplay = (cell: CellView) => (
+    <div
+      role={cell.editableCell ? "button" : undefined}
+      aria-label={cell.editableCell ? `Edit ${cell.column.header}, row ${cell.context.rowIndex + 1}` : undefined}
+      onClick={cell.editableCell ? () => beginEditing(cell.position) : undefined}
+      className={`min-w-0 break-words whitespace-normal rounded-md px-2 py-1.5 text-left text-xs ${cell.editableCell ? "cursor-text hover:bg-indigo-50" : "cursor-not-allowed text-slate-600"}`}
+    >
+      {renderCellDisplay(cell)}
+      {cell.readOnlyCell && <span className="sr-only">{cell.protectedCell ? "Protected field. " : "Read-only field. "}Cannot be edited.</span>}
+    </div>
+  );
+
   return (
     <section data-worksheet-editor="true" data-worksheet-dirty={rootDirty} className={`min-w-0 rounded-xl border border-slate-200 bg-white ${className}`} aria-label={ariaLabel}>
       <div className="flex min-w-0 flex-col gap-3 border-b border-slate-200 bg-slate-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-600">Worksheet</span>
+          <span className="sr-only">{ariaLabel}</span>
           {isDirty && <span data-worksheet-unsaved="true" className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black text-amber-900">Unsaved changes</span>}
           {notice && <span role="status" className="text-[11px] font-semibold text-slate-600">{notice}</span>}
           {toolbar}
@@ -450,7 +536,8 @@ export function WorksheetEditor<T>({
           {onAddRow && <button type="button" data-worksheet-add-row="true" onClick={handleAddRow} disabled={actionDisabled || !canAddRow} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Add row</button>}
         </div>
       </div>
-      <div data-worksheet-scroll-container="true" className="min-w-0 max-h-[min(70vh,52rem)] overflow-x-auto overflow-y-auto">
+      <div data-worksheet-scroll-container="true" className="min-w-0 max-h-none overflow-x-hidden overflow-y-visible overscroll-contain md:max-h-[min(70vh,52rem)] md:overflow-x-auto md:overflow-y-auto">
+        <div data-worksheet-desktop-grid="true" className="hidden md:block">
         <table role="grid" aria-label={ariaLabel} aria-rowcount={draftRows.length + 1} className="min-w-full border-collapse text-left text-xs">
           <thead className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
             <tr role="row">
@@ -476,60 +563,36 @@ export function WorksheetEditor<T>({
               return (
                 <tr key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-row-key={currentRowKey} className="border-b border-slate-100">
                   {columns.map((column, columnIndex) => {
-                    const position = positionForCell(rowIndex, columnIndex);
-                    const key = getWorksheetCellId(currentRowKey, column.key);
-                    const protectedCell = isWorksheetColumnProtected(column, row, rowIndex);
-                    const editableCell = isWorksheetColumnEditable(column, row, rowIndex);
-                    const readOnlyCell = !editableCell;
-                    const isEditing = editingCell?.row === rowIndex && editingCell.column === columnIndex && editableCell;
-                    const externalIssue = issueValue(cellIssues?.[key], "error");
-                    const conflict = issueValue(conflicts?.[key], "warning");
-                    const issue = localIssues[key] || externalIssue;
-                    const suppliedState = cellStates?.[key];
-                    const state: WorksheetCellState = conflict ? "conflict" : issue?.severity === "error" ? "error" : issue?.severity === "warning" ? "warning" : readOnlyCell ? "protected" : isEditing ? "editing" : suppliedState || (collectionHas(dirtyCells, key) || localDirtyCells.has(key) ? "dirty" : activeCell.row === rowIndex && activeCell.column === columnIndex ? "selected" : "clean");
-                    const describedBy = issue || conflict ? `${key.replace(/[^a-zA-Z0-9_-]/g, "-")}-message` : undefined;
-                    const context: WorksheetCellContext<T> = { row, rowIndex, rowKey: currentRowKey, column, columnIndex, source: "edit" };
-                    const displayValue = getWorksheetColumnValue(row, column);
-                    const options = typeof column.options === "function" ? column.options(row, rowIndex) : column.options || [];
+                    const cell = getCellView(row, rowIndex, column, columnIndex);
+                    const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-desktop` : undefined;
                     return (
                       <td
                         key={column.key}
-                        ref={(node) => { if (node) cellRefs.current.set(key, node); else cellRefs.current.delete(key); }}
+                        ref={(node) => { if (node) cellRefs.current.set(cell.key, node); else cellRefs.current.delete(cell.key); }}
                         role="gridcell"
                         aria-colindex={columnIndex + 1}
-                        aria-readonly={!editableCell || undefined}
+                        aria-readonly={!cell.editableCell || undefined}
                         aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
-                        aria-describedby={describedBy}
-                        tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !isEditing ? 0 : -1}
-                        data-worksheet-cell={key}
-                        data-worksheet-editable={editableCell ? "true" : "false"}
-                        data-worksheet-protected={protectedCell ? "true" : "false"}
-                        data-worksheet-readonly={readOnlyCell ? "true" : "false"}
-                        data-worksheet-state={state}
-                        title={readOnlyCell ? protectedCell ? "Protected field: cannot be edited" : "Read-only field: cannot be edited" : undefined}
-                        onFocus={() => setActiveCell(position)}
-                        onClick={() => setActiveCell(position)}
-                        onDoubleClick={() => beginEditing(position)}
-                        onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(position, event.clipboardData); }}
-                        onPaste={(event) => handlePaste(event, position)}
-                        onKeyDown={(event) => handleCellKeyDown(event, position)}
-                        className={`relative whitespace-nowrap px-3 align-top ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${stateClasses[state]} ${columnIndex === frozenColumnIndex ? "sticky left-0 z-10" : ""}`}
+                        aria-describedby={viewDescribedBy}
+                        tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
+                        data-worksheet-cell={cell.key}
+                        data-worksheet-editable={cell.editableCell ? "true" : "false"}
+                        data-worksheet-protected={cell.protectedCell ? "true" : "false"}
+                        data-worksheet-readonly={cell.readOnlyCell ? "true" : "false"}
+                        data-worksheet-state={cell.state}
+                        title={cell.readOnlyCell ? cell.protectedCell ? "Protected field: cannot be edited" : "Read-only field: cannot be edited" : undefined}
+                        onFocus={() => setActiveCell(cell.position)}
+                        onClick={() => setActiveCell(cell.position)}
+                        onDoubleClick={() => beginEditing(cell.position)}
+                        onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
+                        onPaste={(event) => handlePaste(event, cell.position)}
+                        onKeyDown={(event) => handleCellKeyDown(event, cell.position)}
+                        className={`relative whitespace-nowrap px-3 align-top ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${stateClasses[cell.state]} ${cell.readOnlyCell ? "cursor-not-allowed" : ""} ${columnIndex === frozenColumnIndex ? "sticky left-0 z-10" : ""}`}
                         style={{ width: column.width, minWidth: column.minWidth }}
                       >
-                        {isEditing ? (
-                          column.kind === "select" ? (
-                            <select autoFocus value={editorValue} onChange={(event) => setEditorValue(event.currentTarget.value)} onBlur={() => commitEditing()} onKeyDown={(event) => handleInputKeyDown(event, position)} aria-label={`${column.header}, row ${rowIndex + 1}`} aria-invalid={issue?.severity === "error" || undefined} aria-describedby={describedBy} disabled={actionDisabled} className="w-full min-w-[8rem] rounded-md border border-indigo-400 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-200"><option value="">Select…</option>{options.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}</select>
-                          ) : (
-                            <input autoFocus type={column.kind === "number" || column.kind === "currency" ? "text" : column.kind === "date" ? "date" : "text"} value={editorValue} onChange={(event) => setEditorValue(event.currentTarget.value)} onBlur={() => commitEditing()} onKeyDown={(event) => handleInputKeyDown(event, position)} aria-label={`${column.header}, row ${rowIndex + 1}`} aria-invalid={issue?.severity === "error" || undefined} aria-describedby={describedBy} placeholder={column.placeholder} disabled={actionDisabled} className="w-full min-w-[8rem] rounded-md border border-indigo-400 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-200" />
-                          )
-                        ) : (
-                          <span className="block min-h-5">
-                            {column.render ? column.render(displayValue, row, context) : column.format ? column.format(displayValue, row) : defaultDisplayValue(displayValue, row, rowIndex, column)}
-                            {readOnlyCell && <span className="ml-2 inline-flex rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-600">{protectedCell ? "Protected" : "Read-only"}</span>}
-                          </span>
-                        )}
-                        {conflict && renderIssue(conflict, describedBy || `${key}-conflict-message`)}
-                        {!conflict && renderIssue(issue, describedBy || `${key}-message`)}
+                        {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : <span className="block min-h-5">{renderCellDisplay(cell)}</span>}
+                        {cell.conflict && renderIssue(cell.conflict, viewDescribedBy || `${cell.key}-conflict-message-desktop`)}
+                        {!cell.conflict && renderIssue(cell.issue, viewDescribedBy || `${cell.key}-message-desktop`)}
                       </td>
                     );
                   })}
@@ -539,6 +602,59 @@ export function WorksheetEditor<T>({
             })}
           </tbody>
         </table>
+        </div>
+        <div data-worksheet-mobile-fallback="true" role="grid" aria-label={`${ariaLabel} mobile`} aria-rowcount={draftRows.length + 1} className="divide-y divide-slate-200 md:hidden">
+          {draftRows.length === 0 && <div role="row" className="p-6 text-center text-xs text-slate-500">{emptyState}</div>}
+          {draftRows.map((row, rowIndex) => {
+            const currentRowKey = rowKey(row, rowIndex);
+            return (
+              <div key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-mobile-row-key={currentRowKey} className="space-y-3 p-3">
+                {columns.map((column, columnIndex) => {
+                  const cell = getCellView(row, rowIndex, column, columnIndex);
+                  const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-mobile` : undefined;
+                  return (
+                    <div
+                      key={column.key}
+                      ref={(node) => { if (node) mobileCellRefs.current.set(cell.key, node); else mobileCellRefs.current.delete(cell.key); }}
+                      role="gridcell"
+                      aria-label={`${column.header}, row ${rowIndex + 1}`}
+                      aria-readonly={!cell.editableCell || undefined}
+                      aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
+                      aria-describedby={viewDescribedBy}
+                      tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
+                      data-worksheet-mobile-field={cell.key}
+                      data-worksheet-mobile-identity={columnIndex === (frozenColumnIndex >= 0 ? frozenColumnIndex : 0) ? "true" : "false"}
+                      data-worksheet-mobile-editable={cell.editableCell ? "true" : "false"}
+                      data-worksheet-cell={cell.key}
+                      data-worksheet-editable={cell.editableCell ? "true" : "false"}
+                      data-worksheet-protected={cell.protectedCell ? "true" : "false"}
+                      data-worksheet-readonly={cell.readOnlyCell ? "true" : "false"}
+                      data-worksheet-state={cell.state}
+                      title={cell.readOnlyCell ? cell.protectedCell ? "Protected field: cannot be edited" : "Read-only field: cannot be edited" : undefined}
+                      onFocus={() => setActiveCell(cell.position)}
+                      onClick={() => setActiveCell(cell.position)}
+                      onDoubleClick={() => beginEditing(cell.position)}
+                      onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
+                      onPaste={(event) => handlePaste(event, cell.position)}
+                      onKeyDown={(event) => handleCellKeyDown(event, cell.position)}
+                      className={`min-w-0 rounded-lg border px-2.5 py-2 ${stateClasses[cell.state]} ${cell.readOnlyCell ? "cursor-not-allowed" : ""}`}
+                    >
+                      <div className="flex min-w-0 items-center justify-between gap-3">
+                        <span className="min-w-0 text-[10px] font-black uppercase tracking-wide text-slate-500">{column.header}</span>
+                      </div>
+                      <div className="mt-1 min-w-0">
+                        {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : renderMobileDisplay(cell)}
+                        {cell.conflict && renderIssue(cell.conflict, viewDescribedBy || `${cell.key}-conflict-message-mobile`)}
+                        {!cell.conflict && renderIssue(cell.issue, viewDescribedBy || `${cell.key}-message-mobile`)}
+                      </div>
+                    </div>
+                  );
+                })}
+                {onRemoveRow && <button type="button" data-worksheet-remove-row={currentRowKey} onClick={() => handleRemoveRow(row, rowIndex)} disabled={actionDisabled || !(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow)} className="inline-flex min-h-9 items-center rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40">Remove row {rowIndex + 1}</button>}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

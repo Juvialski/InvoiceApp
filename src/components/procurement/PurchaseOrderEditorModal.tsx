@@ -631,14 +631,14 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-900/60 p-2 backdrop-blur-sm sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="po-modal-title"
     >
       <div
         ref={dialogRef as unknown as React.RefCallback<HTMLDivElement>}
-        className="relative flex max-h-[92vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl overflow-hidden"
+        className="relative flex min-h-0 max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
       >
         {/* Header */}
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">
@@ -688,7 +688,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
         </header>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div data-dialog-scroll-container="purchase-order-editor" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-6">
           {errorMessage && (
             <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
@@ -704,7 +704,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
             </div>
           )}
 
-          <section data-testid="purchase-order-draft-worksheet" aria-label="Purchase order draft worksheet" className="min-w-0 space-y-4">
+          <section data-testid="purchase-order-draft-worksheet" data-worksheet-responsive-surface="purchase-order-draft" aria-label="Purchase order draft worksheet" className="min-w-0 space-y-4">
             <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
               <p className="font-black uppercase tracking-[0.12em]">Purchase Order draft worksheet</p>
               <p className="mt-1">Edit safe draft header and line fields here. Calculated amounts, received quantities, approval, issue, receiving, close, cancellation, matching, and settlement remain protected or purpose-built workflows.</p>
