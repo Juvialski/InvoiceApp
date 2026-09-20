@@ -55,3 +55,9 @@ test("Projects route/page wire fresh refresh and grouped Apply boundaries", () =
   assert.match(route, /onApplyProjectWorkbookGroup/);
   assert.match(route, /onRefreshProjects/);
 });
+
+test("Projects keeps workbook tools behind a secondary disclosure", () => {
+  const page = readFileSync(new URL("../src/components/projects/ProjectsPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /<details[^>]*aria-label="Excel import\/export"/);
+  assert.match(page, /ProjectsWorkbookPanel/);
+});

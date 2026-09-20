@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import type { Project, ProjectCostCode, ProjectCostSummary } from "../src/types.ts";
 import {
   buildPortfolioManagementSummary,
@@ -27,6 +27,8 @@ const projectOverviewSource = readFileSync(
   new URL("../src/components/projects/ProjectOverview.tsx", import.meta.url),
   "utf8",
 );
+const projectDetailsWorksheetPath = new URL("../src/components/projects/ProjectDetailsWorksheet.tsx", import.meta.url);
+const projectDetailsWorksheetSource = existsSync(projectDetailsWorksheetPath) ? readFileSync(projectDetailsWorksheetPath, "utf8") : "";
 
 function createMockProject(overrides?: Partial<Project>): Project {
   return {
@@ -92,7 +94,7 @@ test("ProjectsPage passes financial data completeness to project management view
   assert.match(projectsPageSource, /financialDataComplete: costDataComplete/);
 });
 
-test("ProjectsPage enforces portfolio summary, responsive desktop table and mobile cards", () => {
+test("ProjectsPage keeps a visual card portfolio and optional compact register", () => {
   // Check Portfolio Summary structure
   assert.match(projectsSurfaceSource, /(?:<details|<section) aria-label="Portfolio Management Summary"/);
   assert.match(projectsPageSource, /buildPortfolioManagementSummary\(projectViews\)/);
@@ -105,15 +107,27 @@ test("ProjectsPage enforces portfolio summary, responsive desktop table and mobi
   assert.match(projectsPageSource, /sortField/);
   assert.match(projectsPageSource, /sortDirection/);
 
-  // Check Desktop Table and Mobile Cards Hybrid
-  assert.match(projectsSurfaceSource, /hidden lg:block/);
-  assert.match(projectsSurfaceSource, /grid gap-3\.5 lg:hidden/);
+  // Cards are the default portfolio; the existing register remains optional.
+  assert.match(projectRegisterSectionSource, /useState<"cards"\s*\|\s*"list">\("cards"\)/);
+  assert.match(projectRegisterSectionSource, /Compact List/);
+  assert.match(projectRegisterSectionSource, /grid grid-cols-1/);
   assert.match(projectsSurfaceSource, /aria-label="Projects table"/);
   assert.match(projectsSurfaceSource, /aria-label="Projects list cards"/);
   assert.match(projectRegisterSectionSource, /OperationsGrid/);
   assert.match(projectRegisterSectionSource, /protected:\s*true/);
   assert.match(operationsGridSource, /data-field-protected/);
   assert.match(operationsGridSource, /sticky/);
+});
+
+test("Projects portfolio defaults to cards and keeps compact list as an accessible secondary view", () => {
+  assert.match(projectRegisterSectionSource, /useState<"cards"\s*\|\s*"list">\("cards"\)/);
+  assert.match(projectRegisterSectionSource, /aria-pressed/);
+  assert.match(projectRegisterSectionSource, /Cards/);
+  assert.match(projectRegisterSectionSource, /Compact List/);
+  assert.match(projectRegisterSectionSource, /Edit project details/);
+  assert.match(projectRegisterSectionSource, /Open project workspace/i);
+  assert.match(projectRegisterSectionSource, /grid-cols-1/);
+  assert.match(projectRegisterSectionSource, /More actions/);
 });
 
 test("ProjectsPage exposes the required portfolio financial columns and deterministic controls", () => {
@@ -127,6 +141,17 @@ test("ProjectsPage exposes the required portfolio financial columns and determin
   assert.match(projectsSurfaceSource, /Partial · \$\{metric\.includedProjectCount\}/);
   assert.match(projectsSurfaceSource, /Unavailable/);
   assert.doesNotMatch(projectsSurfaceSource, /project_dashboard_totals/);
+});
+
+test("Project Details uses one shared worksheet for New and Edit with all current fields", () => {
+  for (const field of ["Project Code", "Project Name", "Currency", "Tax Treatment", "Contract Value", "Approved Cost Budget", "Client Name", "Project Manager", "Billing Contact", "Billing Email", "Billing Address", "Location / City", "Status", "Operational Notes / Scope"]) {
+    assert.match(projectDetailsWorksheetSource, new RegExp(field.replace("/", "\\/")));
+  }
+  assert.match(projectDetailsWorksheetSource, /WorksheetEditor/);
+  assert.match(projectDetailsWorksheetSource, /kind:\s*["']select["']/);
+  assert.match(projectDetailsWorksheetSource, /onSave/);
+  assert.match(projectDetailsWorksheetSource, /onClose/);
+  assert.match(projectDetailsWorksheetSource, /w-full[^\n]*max-w-\[95vw\]|max-w-\[95vw\][^\n]*w-full/);
 });
 
 test("ProjectOverview enforces single-source management snapshot and truthful commercial controls notice", () => {

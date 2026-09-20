@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
 function source(path: string) {
-  return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+  const url = new URL(`../${path}`, import.meta.url);
+  return existsSync(url) ? readFileSync(url, "utf8") : "";
 }
 
 test("RFQ and purchase-order save clients pass expected updated_at tokens", () => {
@@ -29,6 +30,15 @@ test("cost-control Apply has one grouped RPC boundary and rejects parent redirec
   assert.match(costCodes, /expectedProjectUpdatedAt/);
   assert.match(costCodes, /projectId.*projectId|projectId.*same project/s);
   assert.doesNotMatch(costCodes, /saveProjectCostCodeToSupabase[\s\S]*for \(.*costCode/);
+});
+
+test("worksheet cost-code edits keep the existing versioned callback boundary", () => {
+  const worksheet = source("src/components/projects/ProjectCostCodesWorksheet.tsx");
+  const panel = source("src/components/projects/ProjectBudgetControlPanel.tsx");
+  assert.match(worksheet, /updatedAt/);
+  assert.match(worksheet, /onSaveCostCode/);
+  assert.match(worksheet, /validateProjectCostCodeInput/);
+  assert.match(panel, /ProjectCostCodesWorksheet/);
 });
 
 test("controller and page callback shapes preserve explicit expected versions", () => {

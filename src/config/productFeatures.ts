@@ -49,6 +49,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Manage projects and bring commercial, financial, workforce, materials, equipment, and field context together in one project workspace.",
     details: [
       "Create and manage project records, managers, status, location, contract value, and approved budget.",
+      "Browse projects as visual cards or a compact list, edit project details in a structured worksheet, and maintain project cost codes with clear protected financial context.",
       "Open project workspaces for budget control, cost codes, supplier documents, expenses, payroll, materials, equipment, engineering, billing, collections, and project reports.",
     ],
     sortOrder: 10,
@@ -61,6 +62,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Monitor contract value, budget, actual cost, committed cost, pending exposure, billing, and collections with clear source status.",
     details: [
       "Review project budget position and cost-code controls alongside the records that support the position.",
+      "Update permitted cost-code budgets and forecasts through the project worksheet while actual and committed cost remain source-derived.",
       "Incomplete source visibility or unresolved currency conversion is identified instead of being presented as a complete total.",
     ],
     sortOrder: 20,

@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 WORKSHEET FOUNDATION IMPLEMENTED / UX-W2 PROJECTS NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 IMPLEMENTED / UX-W3 SUPPLIER INVOICE REVIEW NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -30,7 +30,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, and UX-W1 shared worksheet editing foundation are implemented, but the corrected in-app interaction rollout remains incomplete.** The next implementation sequence is UX-W2 card-first Projects portfolio plus Project Details/Cost Codes worksheets -> UX-W3 supplier invoice source-on-top plus extracted-data worksheet. Only after that correction should later Finance/domain rollouts continue. Existing RFQ/Purchase Order, Projects/Cost Codes, and Expenses/Supplier Payables `.xlsx` export-review-apply/version-check contracts remain valid; app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, and UX-W2 are implemented.** UX-W2 establishes the card-first Projects browse surface, Project Details worksheet, and Cost Codes worksheet while preserving the existing `.xlsx` export-review-apply/version-check contract. The exact next implementation phase is UX-W3 supplier invoice source-on-top plus extracted-data worksheet review. Later Finance/domain rollouts follow only after that correction; app-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -75,11 +75,52 @@ remains parent-owned. `OperationsGrid` is unchanged and remains the browse/
 register primitive.
 
 Focused behavioral tests, ESLint, and TypeScript validation pass locally. The
-component is intentionally not integrated into Projects or Supplier Invoice
-Review in this slice, so browser-route QA is deferred to those proving phases.
-No database, migration, RLS/RPC, provider, or production change occurred.
-The exact next implementation phase is **UX-W2 — Projects card-first
-portfolio + Project Details/Cost Codes worksheet**.
+component was intentionally foundation-only in UX-W1; route-level QA was
+deferred to the first domain integration in UX-W2. No database, migration,
+RLS/RPC, provider, or production change occurred. The exact next implementation
+phase after the completed UX-W2 proving integration is **UX-W3 — Supplier
+Invoice source-on-top + extracted-data worksheet review**.
+
+## 2026-09-20 UX-W2 — Projects card-first portfolio + worksheets implemented
+
+UX-W2 applies the selective workbook-editing interaction grammar to Projects:
+
+- Projects now defaults to a responsive card-first portfolio across desktop,
+  tablet, and phone. Project names and identity are visually dominant; the
+  primary card region opens the Project Workspace with keyboard focus support;
+  `Edit project details` is a secondary authorized action; and lifecycle access
+  remains in a restrained More actions disclosure.
+- The existing `OperationsGrid` remains available as an accessible Compact List
+  toggle using the same filtered/sorted `displayedViews`. Portfolio summaries,
+  filters, sorting, multi-currency grouping, partial/unavailable truth, and the
+  distinct Contract Value, Approved Budget, Actual Cost, and Committed Cost cues
+  remain parent-derived.
+- `.xlsx` Projects/Cost Codes export, proposal-only import, validation, review,
+  stale/conflict handling, human confirmation, grouped authoritative Apply, and
+  refresh boundaries remain available behind the secondary **Excel import/export**
+  disclosure. The workbook engine was not rewritten for presentation.
+- Project Details now uses a wide one-row `WorksheetEditor` for the existing
+  editable project fields, including code/name, currency, tax treatment,
+  contract/budget values, client/manager, billing contact/email/address,
+  location, status, and operational notes. Parent-owned validation and the
+  existing `onSaveProject` authority remain in force for both New and Edit.
+- Project Cost Codes now use a multi-row `WorksheetEditor` in Budget Control.
+  Code, work package, description, approved budget, and forecast are staged for
+  editing; Status, Actual Cost, Committed Cost, and derived variances remain
+  protected. Add Row stages new codes, no arbitrary Remove Row exists, the
+  existing `validateProjectCostCodeInput` contract runs before saves, stable
+  `id`/`updatedAt` values are preserved, and archive/reactivate remain explicit
+  lifecycle actions. Per-row save failures retain remaining unsaved rows.
+
+No database, migration, RLS/RPC, provider, or production change occurred. The
+final focused Projects group passed **88/88**; `npm.cmd run test:affected:agent`
+passed **389/389** with database fallback disabled; ESLint and TypeScript
+validation passed; and the production build passed. Targeted browser QA was not
+run locally, so exact-head protected Demo Visual QA remains the browser evidence
+gate. Docker/Supabase and hosted/provider checks were not required for this
+UI-only diff. The
+exact next implementation phase is **UX-W3 — Supplier Invoice source-on-top +
+extracted-data worksheet review**.
 
 ## Historical application / certification baselines
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { createProjectDraft } from "../src/utils/projectDraft.ts";
 
@@ -13,5 +13,9 @@ test("project drafts have a valid identity before authenticated persistence", ()
 
 test("new project drafts are presented as creation rather than editing", () => {
   const source = readFileSync("src/components/projects/ProjectsPage.tsx", "utf8");
-  assert.match(source, /editing\.id && editing\.projectCode\.trim\(\) \? `Edit \$\{editing\.projectCode\}` : "Create New Project"/);
+  const worksheetPath = "src/components/projects/ProjectDetailsWorksheet.tsx";
+  const worksheet = existsSync(worksheetPath) ? readFileSync(worksheetPath, "utf8") : "";
+  assert.match(source, /ProjectDetailsWorksheet/);
+  assert.match(worksheet, /Create New Project|Edit Project Details/);
+  assert.match(worksheet, /project\.id/);
 });
