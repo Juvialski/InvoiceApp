@@ -251,15 +251,22 @@ the repository's Playwright dependency.
 | Projects | `/demo/app/projects`, card portfolio | desktop browser surface | **ACCEPTABLE for the inspected viewport** — title/New Project, compact filters, and the first card row are visible before Portfolio snapshot and Excel tools. |
 | Expenses | `/demo/app/expenses`, register loaded | desktop browser surface | **ACCEPTABLE for the inspected viewport** — Add Expense, register controls, and records precede supplier-document follow-up, summary metrics, and workbook disclosure. |
 | Cash & Banking | `/demo/app/cash`, active account ledger and settlement workspace | desktop browser surface | **ACCEPTABLE for the inspected viewport** — controls/accounts/ledger are above settlement; summary cards are below the working and exception regions. |
-| Project Workspace | `/demo/app/projects/demo-project-warehouse`, Overview | desktop browser surface | **NEEDS CORRECTION / bounded follow-up** — project identity, tabs, context, and one attention region are clear, but the attention region is visually tall and pushes the financial control dashboard below the first viewport. |
-| Budget Control | same project, `Budget Control` tab | desktop browser surface | **NEEDS CORRECTION / bounded follow-up** — the cost-code worksheet follows the compact metrics; the first inspection showed narrow six-column metric cards, corrected in the follow-up to use six columns only at `2xl` widths. |
+| Project Workspace | `/demo/app/projects/demo-project-warehouse`, Overview | desktop browser surface + protected exact-head desktop capture | **ACCEPTABLE after PR-review correction** — the attention region is now a compact severity summary with evidence/drilldowns disclosed on demand, so the Project Financial Control Dashboard begins immediately after it instead of being buried below a tall wall of alerts. |
+| Budget Control | same project, `Budget Control` tab | desktop browser surface + exact-head structural/browser regression evidence | **ACCEPTABLE for the bounded W4.5C correction** — the cost-code worksheet follows the compact metrics and six-column metric density now begins only at `2xl`; the protected run reported no responsive overflow. A dedicated Budget Control-tab visual recapture remains part of the later W4.5E certification rather than being overclaimed here. |
 | Purchase Order | New Purchase Order draft working canvas | desktop browser surface | **ACCEPTABLE for the inspected viewport** — the editor uses nearly the full useful width, internal worksheet scroll remains bounded to genuinely wide columns, and one footer action bar owns Close/Save/lifecycle actions. |
 | RFQ | New RFQ draft working canvas | desktop browser surface | **ACCEPTABLE for the inspected viewport** — header/vendor/line worksheets use the same wide-canvas treatment and the stable footer owns Save/Cancel. |
 
-Constrained-laptop and phone captures for the new C changes were not available
-from the local browser surface in this run; the repository Playwright runner is
-not installed in the clean worktree. Existing UX-W4.5B responsive evidence
-remains separate and is not generalized to these new C states.
+The implementation-run local browser did not provide constrained-laptop/phone
+captures, but PR review subsequently inspected protected Demo Visual QA from
+application-bearing head `1652add981cb8d51ea24495f958273380627eb30`.
+That exact head passed Application Validation, Workflow Map Consistency,
+Database Migration & Invariant Tests (database-unaffected fast path), and Demo
+Visual QA. The protected artifact was inspected directly for Projects at
+desktop/laptop/tablet/phone, Purchase Order/RFQ at desktop/tablet/phone, and
+Project Workspace/Project Financial Control at the available desktop/laptop/
+tablet/phone states. The review found the tall Project Overview attention wall,
+corrected it to compact progressive disclosure, and re-inspected the resulting
+exact-head desktop capture before merge.
 
 ### Bounded width and grammar decisions
 
@@ -286,12 +293,13 @@ remains separate and is not generalized to these new C states.
 
 ### UX-W4.5C disposition
 
-- **UX45A-001:** **RESOLVED for the manually inspected Projects, Expenses, and
-  Cash desktop states**, with automated order regression coverage; constrained
-  laptop/phone visual evidence remains follow-up.
-- **UX45A-005:** **PARTIAL** — Project Workspace/Budget/Cash hierarchy changed;
-  Project Workspace still needs a smaller attention presentation on a later
-  bounded pass.
+- **UX45A-001:** **RESOLVED for the bounded Projects, Expenses, and Cash task-first
+  hierarchy**, with source-order regression coverage plus protected responsive
+  browser evidence on the relevant captured states.
+- **UX45A-005:** **RESOLVED for the bounded W4.5C Project Workspace/Budget/Cash
+  hierarchy** — PR review replaced the oversized Project Overview attention wall
+  with a compact severity summary and on-demand evidence disclosure. Broader
+  app-wide hierarchy certification remains W4.5E.
 - **UX45A-008:** **PARTIAL** — touched modal canvases and worksheet chrome now
   use more of the desktop workspace; no app-wide card/container rewrite was
   attempted.
