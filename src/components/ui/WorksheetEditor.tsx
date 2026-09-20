@@ -476,7 +476,7 @@ export function WorksheetEditor<T>({
       ? cell.column.format(cell.displayValue, cell.context.row)
       : defaultDisplayValue(cell.displayValue, cell.context.row, cell.context.rowIndex, cell.column);
 
-  const renderEditorControl = (cell: CellView) => cell.column.kind === "select" ? (
+  const renderEditorControl = (cell: CellView, describedBy = cell.describedBy) => cell.column.kind === "select" ? (
     <select
       value={editorValue}
       onChange={(event) => setEditorValue(event.currentTarget.value)}
@@ -484,7 +484,7 @@ export function WorksheetEditor<T>({
       onKeyDown={(event) => handleInputKeyDown(event, cell.position)}
       aria-label={`${cell.column.header}, row ${cell.context.rowIndex + 1}`}
       aria-invalid={cell.issue?.severity === "error" || undefined}
-      aria-describedby={cell.describedBy}
+      aria-describedby={describedBy}
       disabled={actionDisabled}
       className="w-full min-w-0 rounded-md border border-indigo-400 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-200 md:min-w-[8rem]"
     >
@@ -500,7 +500,7 @@ export function WorksheetEditor<T>({
       onKeyDown={(event) => handleInputKeyDown(event, cell.position)}
       aria-label={`${cell.column.header}, row ${cell.context.rowIndex + 1}`}
       aria-invalid={cell.issue?.severity === "error" || undefined}
-      aria-describedby={cell.describedBy}
+      aria-describedby={describedBy}
       placeholder={cell.column.placeholder}
       disabled={actionDisabled}
       className="w-full min-w-0 rounded-md border border-indigo-400 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-200 md:min-w-[8rem]"
@@ -564,6 +564,7 @@ export function WorksheetEditor<T>({
                 <tr key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-row-key={currentRowKey} className="border-b border-slate-100">
                   {columns.map((column, columnIndex) => {
                     const cell = getCellView(row, rowIndex, column, columnIndex);
+                    const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-desktop` : undefined;
                     return (
                       <td
                         key={column.key}
@@ -572,7 +573,7 @@ export function WorksheetEditor<T>({
                         aria-colindex={columnIndex + 1}
                         aria-readonly={!cell.editableCell || undefined}
                         aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
-                        aria-describedby={cell.describedBy}
+                        aria-describedby={describedBy}
                         tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
                         data-worksheet-cell={cell.key}
                         data-worksheet-editable={cell.editableCell ? "true" : "false"}
@@ -589,9 +590,9 @@ export function WorksheetEditor<T>({
                         className={`relative whitespace-nowrap px-3 align-top ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${stateClasses[cell.state]} ${cell.readOnlyCell ? "cursor-not-allowed" : ""} ${columnIndex === frozenColumnIndex ? "sticky left-0 z-10" : ""}`}
                         style={{ width: column.width, minWidth: column.minWidth }}
                       >
-                        {cell.isEditing ? renderEditorControl(cell) : <span className="block min-h-5">{renderCellDisplay(cell)}</span>}
-                        {cell.conflict && renderIssue(cell.conflict, cell.describedBy || `${cell.key}-conflict-message`)}
-                        {!cell.conflict && renderIssue(cell.issue, cell.describedBy || `${cell.key}-message`)}
+                        {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : <span className="block min-h-5">{renderCellDisplay(cell)}</span>}
+                        {cell.conflict && renderIssue(cell.conflict, viewDescribedBy || `${cell.key}-conflict-message-desktop`)}
+                        {!cell.conflict && renderIssue(cell.issue, viewDescribedBy || `${cell.key}-message-desktop`)}
                       </td>
                     );
                   })}
@@ -610,6 +611,7 @@ export function WorksheetEditor<T>({
               <div key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-mobile-row-key={currentRowKey} className="space-y-3 p-3">
                 {columns.map((column, columnIndex) => {
                   const cell = getCellView(row, rowIndex, column, columnIndex);
+                  const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-mobile` : undefined;
                   return (
                     <div
                       key={column.key}
@@ -618,7 +620,7 @@ export function WorksheetEditor<T>({
                       aria-label={`${column.header}, row ${rowIndex + 1}`}
                       aria-readonly={!cell.editableCell || undefined}
                       aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
-                      aria-describedby={cell.describedBy}
+                      aria-describedby={describedBy}
                       tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
                       data-worksheet-mobile-field={cell.key}
                       data-worksheet-mobile-identity={columnIndex === (frozenColumnIndex >= 0 ? frozenColumnIndex : 0) ? "true" : "false"}
@@ -639,12 +641,11 @@ export function WorksheetEditor<T>({
                     >
                       <div className="flex min-w-0 items-center justify-between gap-3">
                         <span className="min-w-0 text-[10px] font-black uppercase tracking-wide text-slate-500">{column.header}</span>
-                        {cell.readOnlyCell && <span className="shrink-0 text-[10px] font-semibold text-slate-400" aria-hidden="true">Locked</span>}
                       </div>
                       <div className="mt-1 min-w-0">
-                        {cell.isEditing ? renderEditorControl(cell) : renderMobileDisplay(cell)}
-                        {cell.conflict && renderIssue(cell.conflict, cell.describedBy || `${cell.key}-conflict-message`)}
-                        {!cell.conflict && renderIssue(cell.issue, cell.describedBy || `${cell.key}-message`)}
+                        {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : renderMobileDisplay(cell)}
+                        {cell.conflict && renderIssue(cell.conflict, viewDescribedBy || `${cell.key}-conflict-message-mobile`)}
+                        {!cell.conflict && renderIssue(cell.issue, viewDescribedBy || `${cell.key}-message-mobile`)}
                       </div>
                     </div>
                   );
