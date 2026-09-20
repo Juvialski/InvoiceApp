@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { InvoiceData } from "../src/types.ts";
 import { SupplierInvoiceWorksheet, supplierInvoiceLineSourceIndex } from "../src/components/invoices/SupplierInvoiceWorksheet.tsx";
+import { createDemoInvoices } from "../src/demo/data/invoices.ts";
 
 const workspaceSource = readFileSync(new URL("../src/components/VerificationWorkspace.tsx", import.meta.url), "utf8");
 const reviewSource = readFileSync(new URL("../src/components/SupplierInvoiceReview.tsx", import.meta.url), "utf8");
@@ -153,8 +154,54 @@ test("supplier invoice worksheet makes the shared-draft save and discard scope e
   );
 
   assert.match(html, /All sections share one review draft/);
-  assert.equal((html.match(/Save worksheet edits/g) || []).length, 4);
-  assert.equal((html.match(/Discard all worksheet edits/g) || []).length, 4);
+  assert.equal((html.match(/Save worksheet edits/g) || []).length, 1);
+  assert.equal((html.match(/Discard all worksheet edits/g) || []).length, 1);
+  assert.equal((html.match(/data-testid="supplier-invoice-worksheet-action-bar"/g) || []).length, 1);
+  assert.equal((html.match(/data-testid="supplier-invoice-worksheet-help"/g) || []).length, 1);
+});
+
+test("supplier invoice keeps ordinary source provenance quiet while preserving exceptional markers", () => {
+  const html = renderToStaticMarkup(
+    <SupplierInvoiceWorksheet
+      invoice={invoice({
+        financialFieldStatus: { grandTotal: "MANUAL", subtotal: "CALCULATED" },
+        aiSnapshot: { invoiceNumber: "SI-001", grandTotal: 227.8 },
+      })}
+    />,
+  );
+
+  assert.match(html, /data-provenance="Source evidence" class="sr-only"/);
+  assert.doesNotMatch(html, /data-provenance="Source evidence" class="ml-2/);
+  assert.match(html, /data-provenance="Manually corrected" class="ml-2/);
+  assert.doesNotMatch(html, /data-provenance="Calculated" class="ml-2/);
+  assert.match(html, /data-worksheet-protected="true"/);
+  assert.match(html, /data-worksheet-readonly="true"/);
+});
+
+test("supplier invoice review renders its compact status bar before blocking review details", () => {
+  const actionBarIndex = reviewSource.indexOf('data-testid="supplier-invoice-review-bar"');
+  const worksheetIndex = reviewSource.indexOf("<SupplierInvoiceWorksheet");
+  const blockingIndex = reviewSource.indexOf('data-testid="supplier-invoice-blocking-review"');
+
+  assert.ok(actionBarIndex >= 0, "Supplier Invoice review should expose a compact status bar");
+  assert.ok(worksheetIndex > actionBarIndex, "the extracted worksheet should follow the status bar");
+  assert.ok(blockingIndex > worksheetIndex, "blocking review details should follow extracted data");
+});
+
+test("supplier invoice source evidence precedes extraction status in the review workspace", () => {
+  const sourceIndex = workspaceSource.indexOf('data-testid="supplier-invoice-source-surface"');
+  const extractionIndex = workspaceSource.indexOf('data-testid="supplier-invoice-extraction-status"');
+
+  assert.ok(sourceIndex >= 0, "the preserved source surface should remain in the review workspace");
+  assert.ok(extractionIndex > sourceIndex, "extraction status should follow the source evidence");
+});
+
+test("safe demo Supplier Invoice review includes a deterministic sanitized source image", () => {
+  const { invoices } = createDemoInvoices("2026-09-20");
+  const reviewInvoice = invoices.find((candidate) => candidate.id === "demo-invoice-07");
+
+  assert.equal(reviewInvoice?.fileType, "image/svg+xml");
+  assert.equal(reviewInvoice?.previewUrl, "/demo/supplier-invoice-review.svg");
 });
 
 test("known financial evidence becomes visibly manual when it differs from the immutable AI snapshot", () => {
@@ -202,6 +249,8 @@ test("read-only supplier invoice worksheets expose protected cells while control
 test("demo visual QA pins the source-first worksheet review instead of the old split pane", () => {
   assert.match(demoScenarioSource, /const verifySupplierInvoiceReview/);
   assert.match(demoScenarioSource, /data-testid="supplier-invoice-source-first"/);
+  assert.match(demoScenarioSource, /data-testid="supplier-invoice-source-document"/);
+  assert.match(demoScenarioSource, /data-testid="supplier-invoice-worksheet-action-bar"/);
   assert.match(demoScenarioSource, /supplier-invoice-old-mobile-pane-removed/);
   assert.match(demoScenarioSource, /source-first supplier invoice worksheet review opened/);
 });

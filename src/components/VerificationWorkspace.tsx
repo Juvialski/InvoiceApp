@@ -320,18 +320,18 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
       </div>
     </header>
 
-    {needsReview && <>
-      <div className={`rounded-2xl border px-3.5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${extractionIncomplete ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
-        <div className="flex gap-2.5 min-w-0"><AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${extractionIncomplete ? "text-amber-700" : "text-slate-400"}`} /><div className="min-w-0"><p className={`text-xs font-black ${extractionIncomplete ? "text-amber-950" : "text-slate-800"}`}>{extractionIncomplete ? "Extraction incomplete" : "Extraction quality checked — human review required"}</p><p className="text-[10px] text-slate-600 mt-0.5">{extractionIncomplete ? (quality?.reasons?.slice(0, 2).join(" ") || "Critical fields still need review.") : "Retry is available if you want to re-read the original document."}</p></div></div>
-        <button type="button" onClick={requestRetry} disabled={isRetrying} className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-800 hover:bg-indigo-50 disabled:opacity-60"><RotateCcw className={`w-3.5 h-3.5 ${isRetrying ? "animate-spin" : ""}`} />{isRetrying ? "Retrying…" : "Retry extraction"}</button>
-      </div>
-      {retryConfirmation && <div className="rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3 text-[10px] text-sky-950"><p className="font-black">You have edited this extracted draft.</p><p className="mt-1">Retrying extraction may replace the current extracted draft. Your previous extraction and review history will remain preserved.</p><div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => setRetryConfirmation(false)} className="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 font-bold text-sky-800">Keep current draft</button><button type="button" onClick={() => { setRetryConfirmation(false); void onRetryExtraction(); }} disabled={isRetrying} className="rounded-lg bg-indigo-700 px-2.5 py-1.5 font-bold text-white disabled:opacity-60">Retry and replace draft</button></div></div>}
-    </>}
-
     <div data-testid="supplier-invoice-source-first" className="min-w-0 space-y-3 pb-36 sm:pb-24">
       <section data-testid="supplier-invoice-source-surface" aria-label="Original supplier invoice source" className="min-w-0">
         <SourceComparison invoice={invoice} onRevertField={needsReview ? onRevertField : undefined} />
       </section>
+
+      {needsReview && <>
+        <div data-testid="supplier-invoice-extraction-status" className={`rounded-xl border px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${extractionIncomplete ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
+          <div className="flex gap-2.5 min-w-0"><AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${extractionIncomplete ? "text-amber-700" : "text-slate-400"}`} /><div className="min-w-0"><p className={`text-xs font-black ${extractionIncomplete ? "text-amber-950" : "text-slate-800"}`}>{extractionIncomplete ? "Extraction incomplete" : "Extraction quality checked — human review required"}</p><p className="text-[10px] text-slate-600 mt-0.5">{extractionIncomplete ? (quality?.reasons?.slice(0, 2).join(" ") || "Critical fields still need review.") : "Retry is available if you want to re-read the original document."}</p></div></div>
+          <button type="button" onClick={requestRetry} disabled={isRetrying} className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-800 hover:bg-indigo-50 disabled:opacity-60"><RotateCcw className={`w-3.5 h-3.5 ${isRetrying ? "animate-spin" : ""}`} />{isRetrying ? "Retrying…" : "Retry extraction"}</button>
+        </div>
+        {retryConfirmation && <div className="rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3 text-[10px] text-sky-950"><p className="font-black">You have edited this extracted draft.</p><p className="mt-1">Retrying extraction may replace the current extracted draft. Your previous extraction and review history will remain preserved.</p><div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => setRetryConfirmation(false)} className="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 font-bold text-sky-800">Keep current draft</button><button type="button" onClick={() => { setRetryConfirmation(false); void onRetryExtraction(); }} disabled={isRetrying} className="rounded-lg bg-indigo-700 px-2.5 py-1.5 font-bold text-white disabled:opacity-60">Retry and replace draft</button></div></div>}
+      </>}
 
       <SupplierInvoiceReview
         invoice={invoice}

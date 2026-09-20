@@ -85,8 +85,9 @@ export function createDemoInvoices(anchorDate: string): { invoices: InvoiceData[
 
     invoices.push({
       id,
-      fileName: `${spec.number}.pdf`,
-      fileType: "application/pdf",
+      fileName: spec.id === "07" ? `${spec.number}.svg` : `${spec.number}.pdf`,
+      fileType: spec.id === "07" ? "image/svg+xml" : "application/pdf",
+      previewUrl: spec.id === "07" ? "/demo/supplier-invoice-review.svg" : undefined,
       documentType: "INVOICE",
       invoiceSubtype: "VAT_INVOICE",
       sourceType: "SAMPLE",

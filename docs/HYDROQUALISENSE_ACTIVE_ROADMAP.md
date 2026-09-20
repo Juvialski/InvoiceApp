@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D NEXT / UX-W5 BLOCKED PENDING CLARITY CORRECTION / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E NEXT / UX-W5 BLOCKED PENDING VISUAL CONSISTENCY GATE / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-20**
+Last updated: **2026-09-21**
 
 Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -32,7 +32,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, and UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections are implemented.** UX-W4.5D Supplier Invoice/worksheet clarity is next; UX-W5 operational bulk-data editors remain blocked until the remaining P1/shared-root-cause corrections are complete. App-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, and UX-W4.5D Supplier Invoice/worksheet clarity are implemented for their bounded scopes.** UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification is next; UX-W5 operational bulk-data editors remain blocked until that visual gate is genuinely closed. App-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -139,8 +139,8 @@ section of `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
 UX45A-002 is partial because the safe-demo SMS provider-unconfigured state did
 not reproduce the original long provider workflow. UX45A-003 and UX45A-010
 are resolved for the bounded worksheet consumers. UX45A-006 shared cell-state
-noise is resolved; Supplier Invoice page-specific hierarchy remains UX-W4.5D.
-UX45A-004 remains deliberately deferred.
+noise is resolved; Supplier Invoice page-specific hierarchy was left for
+UX-W4.5D. UX45A-004 was deliberately deferred from this slice.
 
 ## 2026-09-20 UX-W4.5C — task-first hierarchy and bounded visual grammar implemented
 
@@ -178,9 +178,53 @@ root causes are recorded in
 
 UX45A-001 and the bounded UX45A-005 hierarchy target are resolved for W4.5C;
 UX45A-008, UX45A-009, UX45A-013, and UX45A-014 remain partial where they extend
-beyond the touched surfaces; UX45A-004 remains deferred to UX-W4.5D. UX-W4.5E is
-explicitly strengthened as the future **App-Wide Visual Consistency &
+beyond the touched surfaces; UX45A-004 was deferred from W4.5C into the
+subsequent W4.5D slice. UX-W4.5E is explicitly strengthened as the future
+**App-Wide Visual Consistency &
 Professional-Finish Certification** phase. DB validation was not applicable.
+
+## 2026-09-21 UX-W4.5D — Supplier Invoice and worksheet clarity implemented
+
+The bounded UX-W4.5D correction is implemented at application-bearing SHA
+`4d5b158acec8427fd684a64513df05a00fe6ba71`, from base SHA
+`f4177ecd3c40d3baaf6bcdf51806e0d58a5e9534`.
+
+Supplier Invoice review now keeps the populated safe-demo source image first,
+uses a compact review status/action bar, presents extracted values before
+blocking review items, and moves advanced provenance/accounting explanation
+into disclosures. The four extracted worksheet sections share one aggregate
+Save/Discard/Add-line toolbar; ordinary source provenance and calculated
+markers remain machine-readable but visually quiet, while manual corrections
+and unresolved values remain prominent. Canonical Vendor identity, linked
+Expense/payable authority, project allocation, PO matching, intake,
+verification, settlement, permissions, history, and concurrency boundaries are
+unchanged.
+
+The safe-demo review invoice uses the sanitized local image
+`public/demo/supplier-invoice-review.svg`; no provider, Storage, database,
+migration, RLS/RPC, or production change was introduced. The existing Project
+Details, Cost Codes, RFQ, Purchase Order, Client Billing, and Expense worksheet
+surfaces were audited for the same clarity risks and their W4.5B/C contracts
+were preserved without unrelated redesign.
+
+Validation for this implementation:
+
+- focused migrated-worksheet/Supplier Invoice tests: **89/89**;
+- `npm.cmd run test:affected:agent`: **293/293**, database fallback disabled;
+- `npm.cmd run lint`: ESLint and TypeScript passed;
+- `npm.cmd run build`: passed;
+- manual local safe-demo visual inspection at desktop `1920x911` and responsive
+  `652x698` for `/demo/app/review?invoiceId=demo-invoice-07`.
+
+The automated Demo Visual QA command was attempted but this checkout lacks the
+`playwright` package, so no automated browser PASS or promoted screenshot
+artifact is claimed. Docker/Supabase and hosted/provider/production checks were
+not applicable. The durable visual record and exact disposition are in
+`artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
+
+**UX-W4.5E — App-Wide Visual Consistency & Professional-Finish Certification**
+is now the exact next implementation phase. UX-W5 remains blocked until W4.5E
+closes the remaining app-wide visual gate.
 
 ## 2026-09-20 UX-W1 — shared worksheet editing foundation implemented
 

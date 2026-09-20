@@ -1,6 +1,6 @@
 # UX-W4.5A — App-Wide Screenshot Investigation & Visual Triage
 
-Status: **Investigation complete; broad remediation intentionally deferred**
+Status: **Investigation complete; UX-W4.5D bounded correction implemented; app-wide remediation remains deferred to UX-W4.5E**
 Reviewed source SHA: `b279b02730b79cccac5f72ac4c93553d957db07b`
 Repository: `Juvialski/InvoiceApp`
 Reviewed: **2026-09-20**
@@ -324,3 +324,74 @@ CERTIFICATION**. It remains a future app-wide pass covering title hierarchy,
 subtitles, alignment, numeric formatting, action placement, modal/workspace
 sizing, toolbars, spacing, typography, buttons, badges, card treatment,
 progressive disclosure, responsive consistency, and professional finish.
+
+## UX-W4.5D follow-up — Supplier Invoice and worksheet clarity
+
+The bounded UX-W4.5D correction is implemented at application-bearing SHA
+`4d5b158acec8427fd684a64513df05a00fe6ba71`, from base SHA
+`f4177ecd3c40d3baaf6bcdf51806e0d58a5e9534`.
+
+### Scope and implementation evidence
+
+- Supplier Invoice review keeps the preserved source image/PDF above the
+  extracted review flow. The safe-demo review invoice
+  (`/demo/app/review?invoiceId=demo-invoice-07`) now has the deterministic,
+  fictional source image `/demo/supplier-invoice-review.svg`; no Storage,
+  provider, database, or production evidence was introduced.
+- The review status/action bar is compact. Blocking review items now follow the
+  extracted worksheet, while review notes and monetary/provenance diagnostics
+  are collapsed disclosures.
+- The four Supplier Invoice worksheet sections share one page-level
+  Save/Discard/Add-line toolbar. Section headings lead directly to their
+  working grids; ordinary `Source evidence` and `Calculated` markers remain
+  machine-readable but are visually quiet. Manual corrections and unresolved
+  values remain visible.
+- Vendor identity remains a controlled link/create workflow. Supplier Invoice
+  evidence remains separate from authoritative linked Expense payable/cost
+  truth, and no financial, lifecycle, permission, history, concurrency, or
+  provenance authority changed.
+- Project Details, Cost Codes, RFQ, Purchase Order, Client Billing, and Expense
+  worksheet consumers were audited against the same repetition/chrome risks.
+  Their W4.5B/C action, responsive, width, and alignment corrections were
+  preserved; no unrelated redesign was warranted in this bounded slice.
+
+### Visual evidence inspected
+
+| Route/state | Environment | Viewport | Evidence and judgment |
+| --- | --- | --- | --- |
+| `/demo/app/review?invoiceId=demo-invoice-07`, source image and review flow | local safe demo at `http://127.0.0.1:3000`, CUA browser | desktop `1920x911` | **ACCEPTABLE for the bounded correction** — the populated source is visually first, the source scroll region is bounded, and the extracted status/action bar follows the source without repeated section action bars. |
+| `/demo/app/review?invoiceId=demo-invoice-07`, source image and extracted worksheet | same local safe demo, in-app browser | responsive `652x698` | **ACCEPTABLE for the inspected responsive state** — the source is available, worksheet rows use the phone fallback, Save/Discard/Add line remain reachable, and ordinary source provenance is not repeated as visible pills. This is transient live-browser evidence, not a promoted screenshot artifact. |
+| Project Details, Cost Codes, RFQ, Purchase Order, Client Billing, Expense draft | current source plus existing W4.5B/C qualified evidence | relevant existing demo states | **PRESERVED / no new correction required in W4.5D** — existing width, action ownership, alignment, and responsive fallback contracts remain intact; no new page-specific chrome was added. |
+
+The repository Demo Visual QA command was attempted but could not start because
+the checkout does not contain the `playwright` package (`ERR_MODULE_NOT_FOUND`).
+No automated Demo Visual QA PASS is claimed, and no new screenshot artifact was
+promoted. The manual screenshots above were inspected directly; the limitation
+does not invalidate the local application/test/build evidence below but keeps
+protected exact-head browser QA as the visual merge gate.
+
+### Validation and disposition
+
+- Focused worksheet/Supplier Invoice/other migrated-surface tests: **89/89**.
+- `npm.cmd run test:affected:agent`: **293/293**, database fallback disabled.
+- `npm.cmd run lint`: ESLint and TypeScript passed.
+- `npm.cmd run build`: passed. The build emitted the repository's existing
+  Astryx Inter-font notice, chunk-size notices, and CJS `import.meta` warning;
+  generated theme version churn was restored and is not part of this diff.
+- Docker/Supabase, migrations, RLS/RPC, provider, hosted QA, and production
+  validation: **not applicable** to this presentation-only diff.
+- **UX45A-004:** **RESOLVED for Supplier Invoice review** — source-first
+  hierarchy, quiet normal provenance/protection, compact status/actions, and
+  post-worksheet blocking review are implemented.
+- **UX45A-006:** **RESOLVED for the Supplier Invoice page portion**; the shared
+  quiet protected-cell behavior remains as established in W4.5B.
+- **UX45A-007:** **RESOLVED for the touched Supplier Invoice defaults** —
+  technical explanation is disclosed, while decision-relevant exceptions stay
+  prominent.
+- **UX45A-008 / UX45A-009:** **PARTIAL** — app-wide card/container and register
+  closeout remain UX-W4.5E work.
+- **UX45A-012:** **UNCHANGED / DEFERRED** — stale/unavailable detail capture
+  coverage remains a deeper W4.5E workflow/evidence concern.
+
+UX-W4.5E remains the next phase. UX-W5 remains blocked until the app-wide
+visual-consistency and professional-finish gate is genuinely closed.

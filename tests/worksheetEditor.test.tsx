@@ -275,6 +275,20 @@ test("renders a labelled mobile row fallback without duplicating protected-state
   assert.match(html, /data-worksheet-remove-row="row-1"/);
 });
 
+test("can hide the shared worksheet action bar for an aggregate parent toolbar", () => {
+  const html = renderToStaticMarkup(
+    <WorksheetEditor
+      ariaLabel="Aggregate worksheet section"
+      rows={rows}
+      columns={columns}
+      rowKey={(row) => row.id}
+      showActionBar={false}
+    />,
+  );
+
+  assert.doesNotMatch(html, /data-worksheet-action-bar="true"/);
+});
+
 test("keeps mobile validation beside the affected worksheet field", () => {
   const html = renderToStaticMarkup(
     <WorksheetEditor
