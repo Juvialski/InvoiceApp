@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../../types";
-import { ExpenseForm } from "./ExpenseForm";
+import { ExpenseDraftWorksheet, isEditableExpenseDraft } from "./ExpenseDraftWorksheet.tsx";
 import { EmptyState, MetricCard, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 import { useAppPermissions, useWorkspaceDataPending } from "../../app/AppPermissionContext.tsx";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
@@ -50,7 +50,7 @@ interface ExpensesPageProps {
   onFixSupplierInvoice?: (invoice: InvoiceData) => Promise<void> | void;
   onOpenSupplierInvoiceReview?: (invoice: InvoiceData) => void;
   onUploadSupplierInvoice?: () => void;
-  onSave: (expense: Expense) => void;
+  onSave: (expense: Expense) => Promise<void> | void;
   settlementProjections?: ReadonlyMap<string, SupplierInvoiceSettlementProjection>;
   settlementMatches?: readonly SupplierInvoiceSettlementMatch[];
   supplierSettlementToday?: string;
@@ -145,6 +145,9 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [modal, setModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [expenseEditorSaving, setExpenseEditorSaving] = useState(false);
+  const [expenseEditorError, setExpenseEditorError] = useState<string | null>(null);
   const [correctionExpense, setCorrectionExpense] = useState<Expense | null>(null);
   const [correctionPreview, setCorrectionPreview] = useState<FinancialCorrectionPreview | null>(null);
   const [correctionLoading, setCorrectionLoading] = useState(false);
@@ -166,6 +169,42 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   const readyToLinkDocuments = useMemo(() => supplierDocuments.filter((row) => row.state === "READY_TO_LINK"), [supplierDocuments]);
   const unresolvedFxExpenseIds = useMemo(() => unresolvedForeignExpenseIds(expenses, financialFxSnapshots, baseCurrency, invoices), [baseCurrency, expenses, financialFxSnapshots, invoices]);
   const unresolvedFxExpenseSet = useMemo(() => new Set(unresolvedFxExpenseIds), [unresolvedFxExpenseIds]);
+
+  const openNewExpenseEditor = () => {
+    setEditingExpense(null);
+    setExpenseEditorError(null);
+    setModal(true);
+  };
+
+  const openExpenseEditor = (expense: Expense) => {
+    if (!isEditableExpenseDraft(expense)) return;
+    setEditingExpense(expense);
+    setExpenseEditorError(null);
+    setModal(true);
+  };
+
+  const closeExpenseEditor = () => {
+    if (expenseEditorSaving) return;
+    setModal(false);
+    setEditingExpense(null);
+    setExpenseEditorError(null);
+  };
+
+  const saveExpenseDraft = async (expense: Expense) => {
+    setExpenseEditorSaving(true);
+    setExpenseEditorError(null);
+    try {
+      await onSave(expense);
+      setModal(false);
+      setEditingExpense(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not save expense draft.";
+      setExpenseEditorError(message);
+      throw error;
+    } finally {
+      setExpenseEditorSaving(false);
+    }
+  };
 
   const rows = useMemo(() => expenses.filter((expense) => {
     const q = query.toLowerCase().trim();
@@ -284,7 +323,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     : selectedExpenseMissing
       ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5" aria-label="Expense detail recovery" role="alert"><p className="text-sm font-black text-amber-950">Expense unavailable</p><p className="mt-1 break-words text-xs leading-5 text-amber-900">The requested Expense is not available in this company workspace. No correction or payment action was opened.</p><a href={appPathForTab("expenses")} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(appPathForTab("expenses"), true); }} className="mt-3 inline-flex rounded-lg bg-white px-3 py-2 text-xs font-black text-amber-900 shadow-sm">Return to Expenses</a></section>
       : selectedExpense
-        ? <ExpenseDetailPanel expense={selectedExpense} invoice={selectedExpense.supplierInvoiceId ? invoiceMap.get(selectedExpense.supplierInvoiceId) : undefined} purchaseOrder={selectedExpense.purchaseOrderId ? purchaseOrderMap.get(selectedExpense.purchaseOrderId) : undefined} project={selectedExpense.projectId ? projects.find((project) => project.id === selectedExpense.projectId) : undefined} returnPath={expenseReturnPath} canRecordPayments={canRecordPayments} canReversePayments={canReversePayments} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />
+        ? <ExpenseDetailPanel expense={selectedExpense} invoice={selectedExpense.supplierInvoiceId ? invoiceMap.get(selectedExpense.supplierInvoiceId) : undefined} purchaseOrder={selectedExpense.purchaseOrderId ? purchaseOrderMap.get(selectedExpense.purchaseOrderId) : undefined} project={selectedExpense.projectId ? projects.find((project) => project.id === selectedExpense.projectId) : undefined} returnPath={expenseReturnPath} canEdit={canManage && isEditableExpenseDraft(selectedExpense)} onEditDraft={() => openExpenseEditor(selectedExpense)} canRecordPayments={canRecordPayments} canReversePayments={canReversePayments} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />
     : null
     : null;
 
@@ -366,7 +405,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       description="Review and manage expense records here. Linked supplier documents provide supporting context; archive changes visibility, while void changes active financial cost."
       actions={canManage ? <div className="flex flex-wrap gap-2">
         {canUploadSupplierInvoice && onUploadSupplierInvoice && <button type="button" onClick={onUploadSupplierInvoice} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100"><ExternalLink className="h-3.5 w-3.5" /> Upload supplier invoice</button>}
-        <button type="button" onClick={() => setModal(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><Plus className="h-3.5 w-3.5" /> Add expense</button>
+        <button type="button" onClick={openNewExpenseEditor} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><Plus className="h-3.5 w-3.5" /> Add expense</button>
       </div> : canUploadSupplierInvoice && onUploadSupplierInvoice ? <button type="button" onClick={onUploadSupplierInvoice} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100"><ExternalLink className="h-3.5 w-3.5" /> Upload supplier invoice</button> : undefined}
     />
 
@@ -413,7 +452,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
           const phpAmount = expenseAmountForPhp(expense, invoice, financialFxSnapshots);
           const invoicePath = invoice ? appPathForInvoice(invoice.id, appPathForExpense(expense.id)) : undefined;
           const purchaseOrderPath = purchaseOrder ? appPathForPurchaseOrder(purchaseOrder.id, appPathForExpense(expense.id)) : undefined;
-          return <ExpenseRegisterCard key={expense.id} expense={expense} project={project} invoice={invoice} purchaseOrder={purchaseOrder} vendor={vendor} phpAmount={phpAmount} baseCurrency={baseCurrency} canManage={canManage} canManageFx={canManageFx && Boolean(onSaveFinancialFxSnapshot)} onConfirmFx={openFxConfirmation} onReviewCorrection={(item) => void openCorrection(item)} onNavigatePath={onNavigatePath} invoicePath={invoicePath} purchaseOrderPath={purchaseOrderPath} />;
+          return <ExpenseRegisterCard key={expense.id} expense={expense} project={project} invoice={invoice} purchaseOrder={purchaseOrder} vendor={vendor} phpAmount={phpAmount} baseCurrency={baseCurrency} canManage={canManage} canManageFx={canManageFx && Boolean(onSaveFinancialFxSnapshot)} onEditDraft={openExpenseEditor} onConfirmFx={openFxConfirmation} onReviewCorrection={(item) => void openCorrection(item)} onNavigatePath={onNavigatePath} invoicePath={invoicePath} purchaseOrderPath={purchaseOrderPath} />;
         })}
       </div>
       <div className="hidden lg:block">
@@ -428,11 +467,11 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
             const phpAmount = expenseAmountForPhp(expense, invoice, financialFxSnapshots);
             const needsFx = phpAmount.requiresFx;
             if (!canManage) return null;
-            return <div className="flex flex-col items-end gap-1">{needsFx && canManageFx && onSaveFinancialFxSnapshot && <button type="button" onClick={() => openFxConfirmation(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-amber-800 transition hover:bg-amber-50">Confirm FX</button>}<button type="button" aria-label={`Review correction options for ${expense.description}`} onClick={() => void openCorrection(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-amber-800 transition hover:bg-amber-50"><Archive className="h-3 w-3" aria-hidden="true" /> Review correction</button></div>;
+            return <div className="flex flex-col items-end gap-1">{isEditableExpenseDraft(expense) && <button type="button" onClick={() => openExpenseEditor(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-black text-indigo-700 transition hover:bg-indigo-50">Edit draft worksheet</button>}{needsFx && canManageFx && onSaveFinancialFxSnapshot && <button type="button" onClick={() => openFxConfirmation(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-amber-800 transition hover:bg-amber-50">Confirm FX</button>}<button type="button" aria-label={`Review correction options for ${expense.description}`} onClick={() => void openCorrection(expense)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-amber-800 transition hover:bg-amber-50"><Archive className="h-3 w-3" aria-hidden="true" /> Review correction</button></div>;
           }}
         />
       </div>
-    </section> : workspaceDataPending ? <div id="expenses-results" role="status" aria-live="polite" className="p-8 text-center text-xs font-semibold text-slate-500">Loading expenses…</div> : <div id="expenses-results"><EmptyState icon={Receipt} title={expenses.length ? "No expenses match this filter" : supplierDocuments.length ? "No expense records yet" : "No expenses yet"} description={expenses.length ? "Try a different status or search term." : supplierDocuments.length ? `${supplierDocuments.length} supplier document${supplierDocuments.length === 1 ? "" : "s"} still require review or Expense linking.` : canManage ? "Add a direct expense or upload a supplier invoice for review." : "No expense records are available for the current filter."} action={canManage && !expenses.length ? <button type="button" onClick={() => setModal(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"><Plus className="h-3.5 w-3.5" /> Add expense</button> : undefined} /></div>}
+    </section> : workspaceDataPending ? <div id="expenses-results" role="status" aria-live="polite" className="p-8 text-center text-xs font-semibold text-slate-500">Loading expenses…</div> : <div id="expenses-results"><EmptyState icon={Receipt} title={expenses.length ? "No expenses match this filter" : supplierDocuments.length ? "No expense records yet" : "No expenses yet"} description={expenses.length ? "Try a different status or search term." : supplierDocuments.length ? `${supplierDocuments.length} supplier document${supplierDocuments.length === 1 ? "" : "s"} still require review or Expense linking.` : canManage ? "Add a direct expense or upload a supplier invoice for review." : "No expense records are available for the current filter."} action={canManage && !expenses.length ? <button type="button" onClick={openNewExpenseEditor} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"><Plus className="h-3.5 w-3.5" /> Add expense</button> : undefined} /></div>}
 
     {supplierDocuments.length > 0 && <section className="space-y-3" aria-label="Supplier document work">
       <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs font-black text-slate-950">Source document follow-up</p><p className="mt-0.5 text-[10px] text-slate-500">Review and link supplier documents here; the Expense register above remains the payable and cost workspace.</p></div><StatusBadge tone="info">{supplierDocuments.length} source document{supplierDocuments.length === 1 ? "" : "s"}</StatusBadge></div>
@@ -441,7 +480,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       {supplierDocuments.some((row) => row.state === "LINKED") && <SupplierDocumentSection title="Linked supplier source documents" rows={supplierDocuments.filter((row) => row.state === "LINKED")} projects={projects} financialFxSnapshots={financialFxSnapshots} />}
     </section>}
 
-    {canManage && modal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="expense-form-title"><div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"><div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Cost record</p><h2 id="expense-form-title" className="mt-1 text-lg font-black">Add direct expense</h2></div><button type="button" onClick={() => setModal(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close expense form"><X className="h-4 w-4" /></button></div><ExpenseForm projects={projects} costCodes={costCodes} projectId={initialProjectId} onSave={(expense) => { onSave(expense); setModal(false); }} onCancel={() => setModal(false)} /></div></div>}
+    {canManage && modal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="expense-form-title"><div className="flex max-h-[calc(100vh-1rem)] w-full max-w-[95vw] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100vh-2rem)]"><div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 p-4 sm:p-5"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Cost record</p><h2 id="expense-form-title" className="mt-1 truncate text-lg font-black">{editingExpense ? "Edit direct Expense draft" : "Add direct Expense draft"}</h2></div><button type="button" onClick={closeExpenseEditor} disabled={expenseEditorSaving} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-50" aria-label="Close expense worksheet"><X className="h-4 w-4" /></button></div><div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5"><ExpenseDraftWorksheet projects={projects} costCodes={costCodes} expense={editingExpense || undefined} invoice={editingExpense?.supplierInvoiceId ? invoiceMap.get(editingExpense.supplierInvoiceId) : undefined} purchaseOrder={editingExpense?.purchaseOrderId ? purchaseOrderMap.get(editingExpense.purchaseOrderId) : undefined} vendor={editingExpense?.vendorId ? vendorMap.get(editingExpense.vendorId) : undefined} financialFxSnapshots={financialFxSnapshots} baseCurrency={baseCurrency} settlementState={editingExpense ? settlementForExpenseWorkbook(editingExpense, { invoices, settlementProjections, settlementMatches }).settlementState : undefined} initialProjectId={editingExpense ? undefined : initialProjectId} isSaving={expenseEditorSaving} errorMessage={expenseEditorError} onSave={saveExpenseDraft} onCancel={closeExpenseEditor} /></div></div></div>}
     {canManageFx && fxExpense && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="expense-fx-title"><section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Base-currency reporting</p><h2 id="expense-fx-title" className="mt-1 text-lg font-black text-slate-950">Confirm FX rate</h2><p className="mt-1 text-xs text-slate-500">The original transaction remains {money(fxExpense.amount, fxExpense.currency)}. This snapshot is used only for {normalizeFinancialCurrency(baseCurrency)} reporting.</p></div><button type="button" onClick={closeFxConfirmation} disabled={fxBusy} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-50" aria-label="Close FX confirmation"><X className="h-4 w-4" /></button></div><div className="mt-4 space-y-3"><label className="block space-y-1"><span className="field-label">Rate (1 {normalizeFinancialCurrency(fxExpense.currency)} = {normalizeFinancialCurrency(baseCurrency)})</span><input autoFocus type="number" min="0.00000001" step="0.00000001" value={fxRate} onChange={(event) => setFxRate(event.target.value)} className="field-input" placeholder="e.g. 56.25" /></label><label className="block space-y-1"><span className="field-label">Rate date</span><input type="date" value={fxRateDate} onChange={(event) => setFxRateDate(event.target.value)} className="field-input" /></label><label className="block space-y-1"><span className="field-label">Source note (optional)</span><textarea value={fxNote} onChange={(event) => setFxNote(event.target.value)} rows={2} className="field-input resize-y" placeholder="Manual source or approval reference" /></label><div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] leading-4 text-amber-900"><LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" />The confirmed rate and PHP equivalent are immutable transaction evidence. A later rate change will not rewrite this record.</div>{fxError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{fxError}</div>}</div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={closeFxConfirmation} disabled={fxBusy} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">Cancel</button><button type="button" onClick={() => void confirmFx()} disabled={fxBusy} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{fxBusy ? "Confirming…" : "Confirm rate"}</button></div></section></div>}
     {correctionDialog}
   </div>;
@@ -453,6 +492,8 @@ interface ExpenseDetailPanelProps {
   purchaseOrder?: PurchaseOrder;
   project?: Project;
   returnPath?: string;
+  canEdit: boolean;
+  onEditDraft: () => void;
   canRecordPayments: boolean;
   canReversePayments: boolean;
   financialFxSnapshots: readonly FinancialFxSnapshot[];
@@ -479,6 +520,7 @@ interface ExpenseRegisterCardProps {
   baseCurrency: string;
   canManage: boolean;
   canManageFx: boolean;
+  onEditDraft: (expense: Expense) => void;
   onConfirmFx: (expense: Expense) => void;
   onReviewCorrection: (expense: Expense) => void;
   onNavigatePath?: AppNavigate;
@@ -496,6 +538,7 @@ function ExpenseRegisterCard({
   baseCurrency,
   canManage,
   canManageFx,
+  onEditDraft,
   onConfirmFx,
   onReviewCorrection,
   onNavigatePath,
@@ -528,11 +571,11 @@ function ExpenseRegisterCard({
       <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Amount</dt><dd className="mt-0.5 font-black tabular-nums text-slate-950">{phpAmount.baseLabel}{phpAmount.sourceLabel && <span className="ml-1 text-[9px] font-normal text-slate-400">{phpAmount.sourceLabel}</span>}{expense.currency.toUpperCase() !== baseCurrency.toUpperCase() && <span className={`ml-1 text-[9px] ${needsFx ? "font-bold text-amber-700" : "text-emerald-700"}`}>{needsFx ? "FX rate required" : `≈ ${money(phpAmount.baseAmount || 0, baseCurrency)}`}</span>}</dd></div>
     </dl>
 
-    {canManage && <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">{needsFx && canManageFx && <button type="button" onClick={() => onConfirmFx(expense)} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-bold text-amber-800 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1">Confirm FX</button>}<button type="button" onClick={() => onReviewCorrection(expense)} className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 py-2 text-[10px] font-bold text-amber-800 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"><Archive className="h-3 w-3" aria-hidden="true" />Review correction</button></div>}
+    {canManage && <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">{isEditableExpenseDraft(expense) && <button type="button" onClick={() => onEditDraft(expense)} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1">Edit draft worksheet</button>}{needsFx && canManageFx && <button type="button" onClick={() => onConfirmFx(expense)} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-bold text-amber-800 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1">Confirm FX</button>}<button type="button" onClick={() => onReviewCorrection(expense)} className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 py-2 text-[10px] font-bold text-amber-800 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"><Archive className="h-3 w-3" aria-hidden="true" />Review correction</button></div>}
   </article>;
 }
 
-function ExpenseDetailPanel({ expense, invoice, purchaseOrder, project, returnPath, canRecordPayments, canReversePayments, financialFxSnapshots, onNavigatePath }: ExpenseDetailPanelProps) {
+function ExpenseDetailPanel({ expense, invoice, purchaseOrder, project, returnPath, canEdit, onEditDraft, canRecordPayments, canReversePayments, financialFxSnapshots, onNavigatePath }: ExpenseDetailPanelProps) {
   const navigate = (event: React.MouseEvent<HTMLAnchorElement>, path: string) => {
     if (!onNavigatePath) return;
     event.preventDefault();
@@ -550,6 +593,7 @@ function ExpenseDetailPanel({ expense, invoice, purchaseOrder, project, returnPa
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {returnPath && <a href={expenseRouteHref(returnPath, expense.id)} onClick={(event) => navigate(event, returnPath)} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50">Back to previous workspace</a>}
+        {canEdit && <button type="button" onClick={onEditDraft} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-black text-indigo-800 hover:bg-indigo-100">Edit draft worksheet</button>}
         <StatusBadge tone={expenseTone(expense.status)}>{expense.status}</StatusBadge>
       </div>
     </div>

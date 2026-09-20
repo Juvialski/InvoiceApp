@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ-PO + CLIENT BILLING EDITORS IMPLEMENTED / UX-W4 EXPENSES NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / EXCEL FOUNDATIONS THROUGH EXPENSES-SUPPLIER PAYABLES IMPLEMENTED / UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ-PO + CLIENT BILLING + EXPENSE DRAFT EDITORS IMPLEMENTED / UX-W5 SELECTIVE WORKSHEETS NEXT / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-20**
 
@@ -30,7 +30,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and the Client Billing portion of UX-W4 are implemented.** UX-W3 proves the corrected source-first Supplier Invoice review surface, and UX-W4 now proves worksheet editing for RFQ, Purchase Order, and Client Billing draft headers/lines while preserving lifecycle and financial-authority contracts. The exact next bounded slice is **UX-W4 Expenses direct editable draft editing**; later Finance/domain rollouts follow the corrected interaction grammar and app-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** UX-W3 proves the corrected source-first Supplier Invoice review surface, and UX-W4 now covers RFQ, Purchase Order, Client Billing, and direct editable Expense DRAFT worksheet editing while preserving lifecycle and financial-authority contracts. The next selective-workbook candidate is **UX-W5 operational bulk-data editors**; current Wave 4D/provider readiness and the explicit Worker Registration pause remain higher-level sequencing gates. App-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -211,8 +211,43 @@ Local clean replay, full pgTAP (1,647 tests), and both upgrade fixtures pass for
 this branch. Exact-head CI remains the merge gate; no production operation is
 implied.
 
-The exact next bounded selective-workbook slice is **UX-W4 Expenses direct
-editable draft editing**. App-wide Excel-native editing remains unclaimed.
+The bounded UX-W4 Expenses slice is now implemented. The next selective-workbook
+candidate from the approved interaction direction is **UX-W5 operational
+bulk-data editors** (Workers, Attendance, Time Entries, Project Assignments,
+Project Materials/Equipment, and approved master-data slices). App-wide
+Excel-native editing remains unclaimed; Worker Registration remains paused by
+the current product sequence until the Wave 4D gate is genuinely complete and
+explicitly resumed.
+
+## 2026-09-20 UX-W4 — Expenses direct editable draft worksheet implemented
+
+Direct Expense create/edit now uses the shared `WorksheetEditor` foundation
+through `src/components/expenses/ExpenseDraftWorksheet.tsx`. The Expenses
+register remains the browse surface; new direct records and eligible existing
+unlinked DRAFT records open a contained worksheet with date, project, cost code,
+category, description, payee, amount, currency, payment method, reference, and
+notes fields. Project and cost-code references remain domain-backed and are
+validated together.
+
+Expense identity, status/lifecycle, source document and Supplier Invoice
+provenance, Vendor and Purchase Order links, settlement state, base-currency/FX
+presentation, archive/void state, and created/updated metadata are visibly
+protected cells. Supplier-derived records do not expose a direct worksheet save
+or editable monetary/provenance cells. Approval, payment, settlement,
+reconciliation, correction, archive, void, FX confirmation, and source-document
+workflows remain outside the worksheet.
+
+The worksheet commits an active cell before saving, blocks visible validation
+errors, normalizes only supported editable fields, preserves protected values
+from the authoritative current Expense, and calls the existing parent Expense
+save path with its `updated_at` freshness token. The existing Expenses `.xlsx`
+export -> review -> explicit Apply round trip remains unchanged and still uses
+the authoritative callback. This is a UI/application-only slice: no migration,
+Docker/Supabase, provider, hosted-QA, or production operation is included.
+
+The next selective-workbook candidate is **UX-W5 operational bulk-data
+editors**, subject to the current Wave 4D/provider readiness and Worker
+Registration sequencing gates. App-wide Excel-native editing remains unclaimed.
 
 ## Historical application / certification baselines
 
@@ -515,9 +550,10 @@ rows, and unsupported new rows before explicit Apply. Apply revalidates fresh
 state and calls the existing Expense save path with its `updated_at` precondition;
 the supplier invoice remains evidence and confirmed Cash & Banking matches
 remain the settlement authority. No migration or production operation is part
-of this bounded rollout. The next selective workbook slice is UX-W4 Expenses
-direct editable draft editing, followed by later bounded Finance and Cash &
-Banking/reconciliation work.
+of this bounded rollout. Direct editable Expense DRAFT worksheet editing is now
+implemented in the UX-W4 section above. The next selective workbook candidate
+is UX-W5 operational bulk-data editing, followed by later bounded Finance and
+Cash & Banking/reconciliation work.
 
 ## 2026-09-18 Repository & Architecture Professionalization — Slice 5 Wave B
 
