@@ -233,3 +233,86 @@ The interactive captures are local/demo, synthetic, and non-certifying. The
 repository Demo Visual QA command was not claimed as passed because the clean
 worktree lacks its `playwright` dependency; no screenshots were promoted as
 automated persisted artifacts.
+
+## UX-W4.5C follow-up — task-first hierarchy, workspace width, and visual grammar
+
+The steered UX-W4.5C implementation was inspected from the active worktree at
+application revision `597a2de77774e777d56c59ed7a7fe0ac8133d230` using the local
+safe demo at `http://127.0.0.1:3000` in the Codex browser surface. The manually
+inspected desktop viewport was the visible `1280x900` browser surface. These
+captures were interactive visual inspections, not hosted certification, and no
+automated screenshot artifacts were promoted because this worktree does not have
+the repository's Playwright dependency.
+
+### Manual visual evidence inspected
+
+| Surface | Route/state | Viewport | Visual judgment |
+| --- | --- | --- | --- |
+| Projects | `/demo/app/projects`, card portfolio | desktop browser surface | **ACCEPTABLE for the inspected viewport** — title/New Project, compact filters, and the first card row are visible before Portfolio snapshot and Excel tools. |
+| Expenses | `/demo/app/expenses`, register loaded | desktop browser surface | **ACCEPTABLE for the inspected viewport** — Add Expense, register controls, and records precede supplier-document follow-up, summary metrics, and workbook disclosure. |
+| Cash & Banking | `/demo/app/cash`, active account ledger and settlement workspace | desktop browser surface | **ACCEPTABLE for the inspected viewport** — controls/accounts/ledger are above settlement; summary cards are below the working and exception regions. |
+| Project Workspace | `/demo/app/projects/demo-project-warehouse`, Overview | desktop browser surface | **NEEDS CORRECTION / bounded follow-up** — project identity, tabs, context, and one attention region are clear, but the attention region is visually tall and pushes the financial control dashboard below the first viewport. |
+| Budget Control | same project, `Budget Control` tab | desktop browser surface | **NEEDS CORRECTION / bounded follow-up** — the cost-code worksheet follows the compact metrics; the first inspection showed narrow six-column metric cards, corrected in the follow-up to use six columns only at `2xl` widths. |
+| Purchase Order | New Purchase Order draft working canvas | desktop browser surface | **ACCEPTABLE for the inspected viewport** — the editor uses nearly the full useful width, internal worksheet scroll remains bounded to genuinely wide columns, and one footer action bar owns Close/Save/lifecycle actions. |
+| RFQ | New RFQ draft working canvas | desktop browser surface | **ACCEPTABLE for the inspected viewport** — header/vendor/line worksheets use the same wide-canvas treatment and the stable footer owns Save/Cancel. |
+
+Constrained-laptop and phone captures for the new C changes were not available
+from the local browser surface in this run; the repository Playwright runner is
+not installed in the clean worktree. Existing UX-W4.5B responsive evidence
+remains separate and is not generalized to these new C states.
+
+### Bounded width and grammar decisions
+
+- **Type A working canvases widened:** Purchase Order, RFQ, RFQ comparison,
+  goods receipt, subcontract claim, subcontract editor, subcontract variation
+  draft/detail, and supplier quotation now expose a `data-working-canvas` marker
+  and use a roughly `96vw` desktop canvas with workflow-specific sensible caps.
+  The Project Details worksheet is already a `95vw` canvas and is marked as such.
+- **Type C dialogs intentionally kept compact:** nested RFQ comparison selection,
+  Purchase Order cancellation/delete, receipt void, variation rejection/
+  cancellation, and other short reason/confirmation dialogs retain their
+  conventional `max-w-md`-class widths because the decision content is not a
+  working table.
+- **Worksheet grammar:** `WorksheetEditor` now exposes machine-readable
+  `data-worksheet-align` values on headers, desktop cells, and mobile fields,
+  plus a shared action-bar marker. Text defaults left, numeric/currency columns
+  use right alignment, and status columns on Project Details/Cost Codes use
+  centered alignment. Existing protected/read-only semantics remain quiet and
+  machine-readable.
+- **Action grammar:** PO/RFQ draft Save/Close controls are owned by one stable
+  modal footer; duplicate worksheet-level Save/Close controls were removed.
+  Approval, issue, receiving, close, cancellation, matching, and settlement
+  remain separate lifecycle actions.
+
+### UX-W4.5C disposition
+
+- **UX45A-001:** **RESOLVED for the manually inspected Projects, Expenses, and
+  Cash desktop states**, with automated order regression coverage; constrained
+  laptop/phone visual evidence remains follow-up.
+- **UX45A-005:** **PARTIAL** — Project Workspace/Budget/Cash hierarchy changed;
+  Project Workspace still needs a smaller attention presentation on a later
+  bounded pass.
+- **UX45A-008:** **PARTIAL** — touched modal canvases and worksheet chrome now
+  use more of the desktop workspace; no app-wide card/container rewrite was
+  attempted.
+- **UX45A-009:** **PARTIAL** — Expenses/Cash secondary sections now follow the
+  primary task; broader register pagination/coverage remains out of scope.
+- **UX45A-013:** **PARTIAL** — touched worksheet labels, alignment metadata, and
+  action/title treatment were normalized; app-wide typography remains UX-W4.5E.
+- **UX45A-014:** **PARTIAL** — PO/RFQ Save/Close placement is normalized; other
+  workflow families remain for the app-wide consistency phase.
+- **New recurring root cause — WORKSPACE-WIDTH SUITABILITY:** a working canvas
+  with large tables/worksheets must be evaluated against available desktop
+  width; large unused margins plus internal horizontal scrolling indicates a
+  too-narrow workspace.
+- **New recurring root cause — VISUAL-GRAMMAR CONSISTENCY:** equivalent
+  workflows must share title hierarchy, data-type alignment, column sizing,
+  spacing rhythm, and action-bar placement.
+- **UX45A-004:** **DELIBERATELY DEFERRED** — Supplier Invoice hierarchy remains
+  UX-W4.5D.
+
+UX-W4.5E is strengthened as **APP-WIDE VISUAL CONSISTENCY & PROFESSIONAL-FINISH
+CERTIFICATION**. It remains a future app-wide pass covering title hierarchy,
+subtitles, alignment, numeric formatting, action placement, modal/workspace
+sizing, toolbars, spacing, typography, buttons, badges, card treatment,
+progressive disclosure, responsive consistency, and professional finish.

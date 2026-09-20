@@ -199,3 +199,14 @@
 
   Review the complete diff, run the final focused and affected commands again as required by the verification skill, commit documentation/evidence synchronization, push `codex/ux-w4-5c-task-first-hierarchy`, and open a PR into `main`. Do not merge the PR.
 
+## Steer amendment — 2026-09-20
+
+The active user steer extends this same branch/run without resetting the original
+hierarchy work. The bounded final diff also evaluates and corrects Type A
+data-heavy working-canvas width for the listed procurement editors, records
+Type C confirmation dialogs that intentionally remain compact, and applies a
+small visual grammar contract to touched worksheet consumers: data-type
+alignment metadata, consistent title/action treatment, and one stable PO/RFQ
+modal action bar. UX-W4.5D, UX-W4.5E implementation, and UX-W5 remain out of
+scope; W4.5E is strengthened as the later app-wide visual consistency and
+professional-finish certification phase.
