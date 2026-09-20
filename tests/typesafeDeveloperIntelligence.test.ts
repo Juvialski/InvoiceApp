@@ -9,6 +9,12 @@ import {
   type TypeSafeGateway,
 } from "../scripts/developer-intelligence/typesafe/client.ts";
 import { runTypeSafeDoctor } from "../scripts/developer-intelligence/typesafe/doctor.ts";
+import {
+  rerankContextCandidates,
+  type ContextCandidate,
+} from "../scripts/developer-intelligence/typesafe/contextReranker.ts";
+import { triageAffectedTests } from "../scripts/developer-intelligence/typesafe/testTriage.ts";
+import type { ImpactSelectionResult } from "../scripts/test-impact.ts";
 
 function mockGateway(response: unknown, onRequest?: (request: unknown) => void): TypeSafeGateway {
   return {
@@ -117,4 +123,70 @@ test("doctor reports configuration without making a request when live mode is di
   assert.equal(result.liveRequested, false);
   assert.equal(result.live, "not-requested");
   assert.equal(calls, 0);
+});
+
+test("context reranking preserves must-keep candidates and batches bounded judgments", async () => {
+  const candidates: ContextCandidate[] = [
+    { id: "keep", path: "src/keep.ts", summary: "authoritative boundary", mustKeep: true },
+    { id: "relevant", path: "src/relevant.ts", summary: "task-specific implementation" },
+    { id: "irrelevant", path: "src/irrelevant.ts", summary: "unrelated surface" },
+  ];
+  let calls = 0;
+  const result = await rerankContextCandidates({
+    task: "update task-specific implementation",
+    candidates,
+    maxSelected: 2,
+    env: { TYPESAFE_API_KEY: "ts-test-only" },
+    gateway: mockGateway({ answers: { c0: { noul: 0.01 }, c1: { noul: 0.95 }, c2: { noul: 0.05 } } }, () => { calls += 1; }),
+  });
+
+  assert.equal(calls, 1);
+  assert.equal(result.fallback, false);
+  assert.deepEqual(result.selectedCandidates.map((candidate) => candidate.id), ["keep", "relevant"]);
+  assert.equal(result.diagnostic.candidateCount, 3);
+  assert.equal(result.diagnostic.selectedCount, 2);
+});
+
+test("context reranking returns the deterministic candidate set on TypeSafe failure", async () => {
+  const candidates: ContextCandidate[] = [
+    { id: "a", path: "src/a.ts" },
+    { id: "b", path: "src/b.ts" },
+  ];
+  const result = await rerankContextCandidates({
+    task: "synthetic",
+    candidates,
+    maxSelected: 1,
+    env: { TYPESAFE_API_KEY: "ts-test-only" },
+    gateway: { systemOne: async () => { throw new Error("simulated"); } },
+  });
+  assert.equal(result.fallback, true);
+  assert.deepEqual(result.selectedCandidates, candidates);
+  assert.equal(result.diagnostic.fallbackReason, "api-error");
+});
+
+test("test triage never suppresses deterministic affected tests", async () => {
+  const selection: ImpactSelectionResult = {
+    baseSha: "a".repeat(40),
+    headSha: "b".repeat(40),
+    changedFiles: ["src/example.ts"],
+    selectedTests: ["tests/high.test.ts", "tests/low.test.ts"],
+    testReasons: {
+      "tests/high.test.ts": ["direct dependency"],
+      "tests/low.test.ts": ["permanent smoke suite"],
+    },
+    smokeTests: ["tests/low.test.ts"],
+    totalAvailableTests: 2,
+    isFallback: false,
+    isDatabaseAffected: false,
+  };
+  const result = await triageAffectedTests({
+    task: "synthetic test triage",
+    selection,
+    env: { TYPESAFE_API_KEY: "ts-test-only" },
+    gateway: { systemOne: async () => ({ answers: { c0: { score: 2 }, c1: { score: 0 } } }) },
+  });
+  assert.equal(result.advisoryOnly, true);
+  assert.deepEqual(result.requiredTests, selection.selectedTests);
+  assert.deepEqual(result.recommendedTests, ["tests/high.test.ts", "tests/low.test.ts"]);
+  assert.deepEqual(result.groups.background, ["tests/low.test.ts"]);
 });
