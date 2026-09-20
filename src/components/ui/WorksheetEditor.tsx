@@ -573,7 +573,7 @@ export function WorksheetEditor<T>({
                         aria-colindex={columnIndex + 1}
                         aria-readonly={!cell.editableCell || undefined}
                         aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
-                        aria-describedby={describedBy}
+                        aria-describedby={viewDescribedBy}
                         tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
                         data-worksheet-cell={cell.key}
                         data-worksheet-editable={cell.editableCell ? "true" : "false"}
@@ -620,7 +620,7 @@ export function WorksheetEditor<T>({
                       aria-label={`${column.header}, row ${rowIndex + 1}`}
                       aria-readonly={!cell.editableCell || undefined}
                       aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
-                      aria-describedby={describedBy}
+                      aria-describedby={viewDescribedBy}
                       tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
                       data-worksheet-mobile-field={cell.key}
                       data-worksheet-mobile-identity={columnIndex === (frozenColumnIndex >= 0 ? frozenColumnIndex : 0) ? "true" : "false"}
