@@ -309,7 +309,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     {
       key: "categoryPayee",
       header: "Category / payee",
-      value: (expense) => <div><strong className="block text-[10px] text-slate-700">{expense.category}</strong><span className="mt-0.5 block text-[10px] text-slate-500">{expense.payee || expense.referenceNumber || "No payee / reference"}</span></div>,
+      value: (expense) => { const vendor = expense.vendorId ? vendorMap.get(expense.vendorId) : undefined; return <div><strong className="block text-[10px] text-slate-700">{expense.category}</strong><span className="mt-0.5 block text-[10px] text-slate-500">{vendor?.name || expense.payee || expense.referenceNumber || "No payee / reference"}</span></div>; },
       sortValue: (expense) => `${expense.category} ${expense.payee || ""}`,
       editable: (expense) => expense.status === "DRAFT" && !expense.archivedAt && !expense.supplierInvoiceId,
       protected: (expense) => Boolean(expense.supplierInvoiceId || expense.status !== "DRAFT" || expense.archivedAt),
@@ -323,7 +323,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
         const invoicePath = invoice ? appPathForInvoice(invoice.id, appPathForExpense(expense.id)) : undefined;
         const purchaseOrderPath = purchaseOrder ? appPathForPurchaseOrder(purchaseOrder.id, appPathForExpense(expense.id)) : undefined;
         const navigateSource = (event: React.MouseEvent<HTMLAnchorElement>, path: string) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(path); };
-        return <div className="flex flex-col items-start gap-1">{invoicePath ? <a href={expenseRouteHref(invoicePath, invoice!.id)} onClick={(event) => navigateSource(event, invoicePath)} className="max-w-[190px] truncate text-left text-[10px] font-black text-indigo-700 hover:underline">Supplier invoice {invoice!.invoiceNumber || invoice!.id.slice(0, 8)}</a> : <strong className="block truncate text-[10px] text-slate-700">Manual expense</strong>}{purchaseOrderPath ? <a href={expenseRouteHref(purchaseOrderPath, purchaseOrder!.id)} onClick={(event) => navigateSource(event, purchaseOrderPath)} className="max-w-[190px] truncate text-left text-[10px] font-black text-indigo-700 hover:underline">PO {purchaseOrder!.poNumber}</a> : <span className="block truncate text-[10px] text-slate-500">{expense.supplierInvoiceId ? "Source invoice on file" : "No linked source"}</span>}</div>;
+        return <div className="flex flex-col items-start gap-1">{invoicePath ? <a href={expenseRouteHref(invoicePath, invoice!.id)} onClick={(event) => navigateSource(event, invoicePath)} className="max-w-[190px] truncate text-left text-[10px] font-black text-indigo-700 hover:underline">Supplier invoice {invoice!.invoiceNumber || invoice!.id.slice(0, 8)}</a> : <strong className="block truncate text-[10px] text-slate-700">Manual expense</strong>}{purchaseOrderPath ? <a href={expenseRouteHref(purchaseOrderPath, purchaseOrder!.id)} onClick={(event) => navigateSource(event, purchaseOrderPath)} className="max-w-[190px] truncate text-left text-[10px] font-black text-indigo-700 hover:underline">PO {purchaseOrder!.poNumber}</a> : invoice?.sourceMetadata?.subject ? <span className="block max-w-[190px] truncate text-[10px] text-slate-500">From email: {invoice.sourceMetadata.subject}</span> : <span className="block truncate text-[10px] text-slate-500">{expense.supplierInvoiceId ? "Source invoice on file" : "No linked source"}</span>}</div>;
       },
       sortValue: (expense) => expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId)?.invoiceNumber || "" : expense.purchaseOrderId ? purchaseOrderMap.get(expense.purchaseOrderId)?.poNumber || "" : "",
       protected: (expense) => Boolean(expense.supplierInvoiceId || expense.vendorId || expense.purchaseOrderId || expense.receiptSourceDocumentId),
@@ -332,7 +332,12 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     {
       key: "amount",
       header: "Amount",
-      value: (expense) => <span className="font-sans font-bold tabular-nums text-slate-900">{money(expense.amount, expense.currency)}</span>,
+      value: (expense) => {
+        const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined;
+        const phpAmount = expenseAmountForPhp(expense, invoice, financialFxSnapshots);
+        const needsFx = phpAmount.requiresFx;
+        return <div className="text-right font-sans font-bold tabular-nums text-slate-900"><span className="block">{phpAmount.baseLabel}</span>{phpAmount.sourceLabel && <span className="mt-1 block break-words text-[9px] font-normal text-slate-400">{phpAmount.sourceLabel}</span>}{expense.currency.toUpperCase() !== baseCurrency.toUpperCase() && <span className={`mt-1 block text-[9px] ${needsFx ? "font-bold text-amber-700" : "font-normal text-emerald-700"}`}>{needsFx ? "FX rate required" : `≈ ${money(phpAmount.baseAmount || 0, baseCurrency)}`}</span>}</div>;
+      },
       sortValue: (expense) => expense.amount,
       align: "right",
       editable: (expense) => expense.status === "DRAFT" && !expense.archivedAt && !expense.supplierInvoiceId,
@@ -348,7 +353,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     {
       key: "status",
       header: "Status",
-      value: (expense) => <div className="flex flex-wrap gap-1"><StatusBadge tone={expenseTone(expense.status)} icon={expense.status === "APPROVED" || expense.status === "PAID" ? CheckCircle2 : expense.status === "VOID" ? Ban : undefined}>{expense.status}</StatusBadge>{expense.archivedAt && <StatusBadge tone="neutral" icon={Archive}>Archived</StatusBadge>}</div>,
+      value: (expense) => { const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined; const needsFx = expenseAmountForPhp(expense, invoice, financialFxSnapshots).requiresFx; return <div className="flex flex-wrap gap-1"><StatusBadge tone={expenseTone(expense.status)} icon={expense.status === "APPROVED" || expense.status === "PAID" ? CheckCircle2 : expense.status === "VOID" ? Ban : undefined}>{expense.status}</StatusBadge>{expense.archivedAt && <StatusBadge tone="neutral" icon={Archive}>Archived</StatusBadge>}{needsFx && <StatusBadge tone="warning">FX required</StatusBadge>}</div>; },
       sortValue: (expense) => expense.status,
       protected: true,
     },
