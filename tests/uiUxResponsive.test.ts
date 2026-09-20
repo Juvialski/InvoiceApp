@@ -102,6 +102,35 @@ test("Cash & Banking puts transaction and settlement work before secondary summa
   assert.match(cashRoute, /canReverseMatch/);
 });
 
+test("Project Workspace and Budget Control put active work before secondary analysis", () => {
+  const workspace = source("src/components/projects/ProjectWorkspace.tsx");
+  const overview = source("src/components/projects/ProjectOverview.tsx");
+  const budget = source("src/components/projects/ProjectBudgetControlPanel.tsx");
+  const workspaceTabs = workspace.indexOf('aria-label="Project workspace sections"');
+  const activeSurface = workspace.indexOf('data-ux45c="project-workspace-active-surface"');
+  const overviewAttention = overview.indexOf('data-ux45c="project-overview-attention"');
+  const overviewAnalytics = overview.indexOf("Explore cost analytics");
+  const budgetSummary = budget.indexOf('data-ux45c="budget-control-summary"');
+  const budgetWorksheet = budget.indexOf('data-ux45c="budget-control-worksheet"');
+  const budgetAttention = budget.indexOf('data-ux45c="budget-control-attention"');
+
+  assert.ok(workspaceTabs >= 0);
+  assert.ok(activeSurface > workspaceTabs);
+  assert.ok(overviewAttention >= 0);
+  assert.ok(overviewAttention < overviewAnalytics);
+  assert.ok(budgetSummary >= 0);
+  assert.ok(budgetWorksheet > budgetSummary);
+  assert.ok(budgetAttention > budgetWorksheet);
+  for (const label of ["Contract Value", "Approved Cost Budget", "Actual Cost", "Committed Cost", "Remaining Budget"]) {
+    assert.match(overview, new RegExp(label));
+  }
+  for (const label of ["Contract Value", "Approved Project Budget", "Coded Actual Cost", "Uncoded Actual Cost"]) {
+    assert.match(budget, new RegExp(label));
+  }
+  assert.match(budget, /onSaveCostCode/);
+  assert.match(budget, /Mixed Currency|Foreign currency costs detected/);
+});
+
 test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
   const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');

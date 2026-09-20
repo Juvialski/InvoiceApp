@@ -878,6 +878,10 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         </details>
       )}
 
+      <div data-ux45c="project-overview-attention">
+        <ManagementAttentionPanel items={attentionItems} onOpenTab={onOpenTab} />
+      </div>
+
       {/* 3. Financial control scorecard */}
       <section aria-labelledby="project-financial-control-heading" className="space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -1152,7 +1156,6 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           )}
         </Card>
 
-        <ManagementAttentionPanel items={attentionItems} onOpenTab={onOpenTab} />
       </section>
 
       <ProjectEngineeringCoordinationSection summary={engineeringSummary} onOpenTab={onOpenTab} />
