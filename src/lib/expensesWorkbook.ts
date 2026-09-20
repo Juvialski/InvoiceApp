@@ -180,7 +180,7 @@ function equalValue(left: unknown, right: unknown): boolean {
 }
 
 function change(field: string, currentValue: unknown, workbookValue: unknown, exportedValue: unknown, editable: boolean): ExpensesFieldChange | undefined {
-  return equalValue(currentValue, workbookValue) ? undefined : { field, currentValue, workbookValue, exportedValue, editable };
+  return equalValue(exportedValue, workbookValue) ? undefined : { field, currentValue, workbookValue, exportedValue, editable };
 }
 
 function settlementHistoryForExpense(expense: Expense, invoiceId: string | undefined, matches: readonly SupplierInvoiceSettlementMatch[] = []): FinancialSettlementHistoryItem[] {
@@ -608,18 +608,21 @@ function expenseProposal(
     proposed.projectCostCodeId = resolvedCostCode.id;
   }
 
-  const protectedFields: Array<[string, string, unknown, unknown]> = [
-    ["status", "Status", expense.status, text(row.Status).toUpperCase()],
-    ["archivedAt", "Archived", expense.archivedAt ? "ARCHIVED" : "", text(row.Archived)],
-    ["supplierInvoiceId", "Supplier Invoice", current.supplierInvoice, text(row["Supplier Invoice"])],
-    ["vendorId", "Vendor", current.vendor, text(row.Vendor)],
-    ["purchaseOrderId", "Purchase Order", current.purchaseOrder, text(row["Purchase Order"])],
-    ["confirmedPaid", "Confirmed Paid", current.settlement.confirmedPaid, row["Confirmed Paid"]],
-    ["outstanding", "Outstanding", current.settlement.outstanding, row.Outstanding],
-    ["settlementState", "Settlement State", current.settlement.state, text(row["Settlement State"])],
+  const exportedSettlement = exported.settlement && typeof exported.settlement === "object"
+    ? exported.settlement as Record<string, unknown>
+    : {};
+  const protectedFields: Array<[string, string, unknown, unknown, unknown]> = [
+    ["status", "Status", expense.status, text(row.Status).toUpperCase(), exported.status ?? null],
+    ["archivedAt", "Archived", expense.archivedAt ? "ARCHIVED" : "", text(row.Archived), exported.archivedAt ? "ARCHIVED" : ""],
+    ["supplierInvoice", "Supplier Invoice", current.supplierInvoice, text(row["Supplier Invoice"]), exported.supplierInvoice ?? ""],
+    ["vendor", "Vendor", current.vendor, text(row.Vendor), exported.vendor ?? ""],
+    ["purchaseOrder", "Purchase Order", current.purchaseOrder, text(row["Purchase Order"]), exported.purchaseOrder ?? ""],
+    ["confirmedPaid", "Confirmed Paid", current.settlement.confirmedPaid, row["Confirmed Paid"], exportedSettlement.confirmedPaid ?? null],
+    ["outstanding", "Outstanding", current.settlement.outstanding, row.Outstanding, exportedSettlement.outstanding ?? null],
+    ["settlementState", "Settlement State", current.settlement.state, text(row["Settlement State"]), exportedSettlement.state ?? null],
   ];
-  for (const [field, header, currentValue, workbookValue] of protectedFields) {
-    const next = change(field, currentValue, workbookValue, exported[field] ?? null, false);
+  for (const [field, header, currentValue, workbookValue, exportedValue] of protectedFields) {
+    const next = change(field, currentValue, workbookValue, exportedValue, false);
     if (next) protectedChanges.push(next);
   }
 
@@ -689,27 +692,31 @@ function supplierPayableProposal(
   }
   const exported = parseMetadataState(metadata) || {};
   const changes: ExpensesFieldChange[] = [];
-  const invoiceDate = dateValue(row["Invoice Date"]) || null;
-  const dueDate = dateValue(row["Due Date"]) || null;
-  const fields: Array<[string, string, unknown, unknown]> = [
-    ["invoiceNumber", "Invoice Number", currentState.invoiceNumber, row["Invoice Number"]],
-    ["invoiceDate", "Invoice Date", currentState.invoiceDate, invoiceDate],
-    ["dueDate", "Due Date", currentState.dueDate, dueDate],
-    ["vendor", "Vendor", currentState.vendor, row.Vendor],
-    ["currency", "Currency", currentState.currency, row.Currency],
-    ["invoiceTotal", "Invoice Total", currentState.invoiceTotal, row["Invoice Total"]],
-    ["linkedExpenseId", "Linked Expense", currentState.linkedExpenseId, row["Linked Expense"]],
-    ["expenseAmount", "Expense Amount", currentState.expenseAmount, row["Expense Amount"]],
-    ["confirmedPaid", "Confirmed Paid", currentState.confirmedPaid, row["Confirmed Paid"]],
-    ["outstanding", "Outstanding", currentState.outstanding, row.Outstanding],
-    ["paymentState", "Payment State", currentState.paymentState, row["Payment State"]],
-    ["reviewState", "Review State", currentState.reviewState, row["Review State"]],
-    ["invoiceLifecycle", "Invoice Lifecycle", currentState.invoiceLifecycle, row["Invoice Lifecycle"]],
-    ["project", "Project", currentState.project, row.Project],
-    ["authorityConflict", "Authority Conflict", currentState.authorityConflict ? "CONFLICT" : "", row["Authority Conflict"]],
+  const protectedDateValue = (value: unknown) => {
+    if (!text(value)) return null;
+    return dateValue(value) ?? text(value);
+  };
+  const invoiceDate = protectedDateValue(row["Invoice Date"]);
+  const dueDate = protectedDateValue(row["Due Date"]);
+  const fields: Array<[string, string, unknown, unknown, unknown]> = [
+    ["invoiceNumber", "Invoice Number", currentState.invoiceNumber, row["Invoice Number"], exported.invoiceNumber ?? null],
+    ["invoiceDate", "Invoice Date", currentState.invoiceDate, invoiceDate, exported.invoiceDate ?? null],
+    ["dueDate", "Due Date", currentState.dueDate, dueDate, exported.dueDate ?? null],
+    ["vendor", "Vendor", currentState.vendor, row.Vendor, exported.vendor ?? null],
+    ["currency", "Currency", currentState.currency, row.Currency, exported.currency ?? null],
+    ["invoiceTotal", "Invoice Total", currentState.invoiceTotal, row["Invoice Total"], exported.invoiceTotal ?? null],
+    ["linkedExpenseId", "Linked Expense", currentState.linkedExpenseId, row["Linked Expense"], exported.linkedExpenseId ?? null],
+    ["expenseAmount", "Expense Amount", currentState.expenseAmount, row["Expense Amount"], exported.expenseAmount ?? null],
+    ["confirmedPaid", "Confirmed Paid", currentState.confirmedPaid, row["Confirmed Paid"], exported.confirmedPaid ?? null],
+    ["outstanding", "Outstanding", currentState.outstanding, row.Outstanding, exported.outstanding ?? null],
+    ["paymentState", "Payment State", currentState.paymentState, row["Payment State"], exported.paymentState ?? null],
+    ["reviewState", "Review State", currentState.reviewState, row["Review State"], exported.reviewState ?? null],
+    ["invoiceLifecycle", "Invoice Lifecycle", currentState.invoiceLifecycle, row["Invoice Lifecycle"], exported.invoiceLifecycle ?? null],
+    ["project", "Project", currentState.project, row.Project, exported.project ?? null],
+    ["authorityConflict", "Authority Conflict", currentState.authorityConflict ? "CONFLICT" : "", row["Authority Conflict"], exported.authorityConflict ? "CONFLICT" : ""],
   ];
-  for (const [field, header, currentValue, workbookValue] of fields) {
-    const next = change(field, currentValue, workbookValue, exported[field] ?? null, false);
+  for (const [field, header, currentValue, workbookValue, exportedValue] of fields) {
+    const next = change(field, currentValue, workbookValue, exportedValue, false);
     if (next) changes.push(next);
   }
   const appChanged = fingerprintValue(currentState) !== metadata.fingerprint || Boolean(metadata.updatedAt && metadata.updatedAt !== (invoice.updatedAt || ""));
