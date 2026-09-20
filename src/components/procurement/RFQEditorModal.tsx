@@ -50,6 +50,10 @@ function nextRFQLineId() {
   return `draft-rfq-line-${Date.now()}-${rfqLineSequence}`;
 }
 
+export function persistedRFQLineId(id: string): string | undefined {
+  return id.startsWith("draft-rfq-line-") ? undefined : id;
+}
+
 function createEmptyLine(): EditableRFQLine {
   return {
     id: nextRFQLineId(),
@@ -196,8 +200,9 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
         return;
       }
 
+      const persistedId = persistedRFQLineId(line.id);
       preparedLines.push({
-        id: line.id,
+        ...(persistedId ? { id: persistedId } : {}),
         lineNumber: i + 1,
         description: desc,
         quantity: qty,
@@ -529,13 +534,15 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
-              >
-                {isSubmitting ? "Saving..." : isEditing ? "Update RFQ" : "Create RFQ"}
-              </button>
+              {isDraft && (
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition"
+                >
+                  {isSubmitting ? "Saving..." : isEditing ? "Update RFQ" : "Create RFQ"}
+                </button>
+              )}
             </div>
           </div>
         </form>
