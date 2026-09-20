@@ -8,7 +8,6 @@ import {
   getWorksheetCellId,
   getWorksheetColumnValue,
   WorksheetEditor,
-  type WorksheetCellContext,
   type WorksheetColumn,
 } from "../ui/WorksheetEditor.tsx";
 
@@ -84,9 +83,12 @@ function provenanceFor(invoice: InvoiceData, path: string, value: unknown): Prov
   if (status === "MANUAL") return "Manually corrected";
   if (status === "CALCULATED") return "Calculated";
   if (status === "UNKNOWN") return "Unresolved";
-  if (status === "KNOWN") return "Source evidence";
 
   const snapshotValue = valueAt(invoice.aiSnapshot, path);
+  if (status === "KNOWN") {
+    if (invoice.aiSnapshot && snapshotValue !== undefined && !sameValue(snapshotValue, value)) return "Manually corrected";
+    return "Source evidence";
+  }
   if (!invoice.aiSnapshot || snapshotValue === undefined) return undefined;
   return sameValue(snapshotValue, value) ? "Source evidence" : "Manually corrected";
 }
@@ -137,10 +139,14 @@ function lineCellRenderer(
   invoice: InvoiceData,
   options?: readonly { value: string; label: string }[],
 ) {
-  return (value: unknown, row: LineItem, context: WorksheetCellContext<LineItem>) => <span className="inline-flex min-w-0 flex-wrap items-center gap-y-1">
-    <span>{formatCellValue(value, kind, invoice.currency, options)}</span>
-    {provenanceBadge(provenanceFor(invoice, `items.${lineStatusIndex(invoice, row, context.rowIndex)}.${field}`, value))}
-  </span>;
+  return (value: unknown, row: LineItem) => {
+    const sourceIndex = supplierInvoiceLineSourceIndex(invoice, row);
+    const provenance = sourceIndex === undefined ? undefined : provenanceFor(invoice, `items.${sourceIndex}.${field}`, value);
+    return <span className="inline-flex min-w-0 flex-wrap items-center gap-y-1">
+      <span>{formatCellValue(value, kind, invoice.currency, options)}</span>
+      {provenanceBadge(provenance)}
+    </span>;
+  };
 }
 
 function normalizeValue(kind: WorksheetColumn<InvoiceData>["kind"], value: unknown) {
@@ -217,8 +223,11 @@ function lineColumn({
   frozen?: boolean;
   options?: readonly { value: string; label: string }[];
 }): WorksheetColumn<LineItem> {
-  const calculated = (row: LineItem, rowIndex: number) => invoice.financialFieldStatus?.[`items.${lineStatusIndex(invoice, row, rowIndex)}.${key}`] === "CALCULATED";
-  const protectedCell = (row: LineItem, rowIndex: number) => readOnly || calculated(row, rowIndex);
+  const calculated = (row: LineItem) => {
+    const sourceIndex = supplierInvoiceLineSourceIndex(invoice, row);
+    return sourceIndex !== undefined && invoice.financialFieldStatus?.[`items.${sourceIndex}.${key}`] === "CALCULATED";
+  };
+  const protectedCell = (row: LineItem) => readOnly || calculated(row);
   return {
     key,
     header,
@@ -265,9 +274,9 @@ function newLineItem(invoiceId: string): LineItem {
   };
 }
 
-function lineStatusIndex(invoice: InvoiceData, row: LineItem, fallbackIndex: number) {
+export function supplierInvoiceLineSourceIndex(invoice: InvoiceData, row: LineItem): number | undefined {
   const originalIndex = Array.isArray(invoice.items) ? invoice.items.findIndex((candidate) => candidate.id === row.id) : -1;
-  return originalIndex >= 0 ? originalIndex : fallbackIndex;
+  return originalIndex >= 0 ? originalIndex : undefined;
 }
 
 function normalizedInvoice(invoice: InvoiceData): InvoiceData {
@@ -399,7 +408,7 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
   return <section data-testid="supplier-invoice-extracted-worksheet" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-3">
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-[10px] leading-4 text-slate-600">
       <p className="font-black uppercase tracking-[0.12em] text-slate-700">Extracted data worksheet</p>
-      <p className="mt-1">Correct preserved source evidence here and save deliberately. Cells marked calculated, protected, or unresolved keep their current accounting meaning; the canonical Vendor relationship remains a separate confirmed workflow.</p>
+      <p className="mt-1">Correct preserved source evidence here and save deliberately. All sections share one review draft: saving from any section saves all current worksheet edits, while discarding from any section resets the full worksheet draft. Cells marked calculated, protected, or unresolved keep their current accounting meaning; the canonical Vendor relationship remains a separate confirmed workflow.</p>
       <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Worksheet provenance legend">
         <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800">Source evidence</span>
         <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-bold text-indigo-800">Manually corrected</span>
@@ -419,8 +428,8 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         onSave={!readOnly && onUpdateInvoice ? (rows) => { if (rows[0]) commitInvoice(rows[0]); } : undefined}
         onCancel={!readOnly ? () => updateDraftInvoice(normalizedInvoice(invoice)) : undefined}
         disabled={readOnly}
-        saveLabel="Save header"
-        cancelLabel="Discard header edits"
+        saveLabel="Save worksheet edits"
+        cancelLabel="Discard all worksheet edits"
         density="comfortable"
       />
     </WorksheetSection>
@@ -436,8 +445,8 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         onSave={!readOnly && onUpdateInvoice ? (rows) => { if (rows[0]) commitInvoice(rows[0]); } : undefined}
         onCancel={!readOnly ? () => updateDraftInvoice(normalizedInvoice(invoice)) : undefined}
         disabled={readOnly}
-        saveLabel="Save vendor evidence"
-        cancelLabel="Discard vendor edits"
+        saveLabel="Save worksheet edits"
+        cancelLabel="Discard all worksheet edits"
         density="comfortable"
       />
       <p data-testid="supplier-invoice-canonical-vendor-boundary" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold leading-4 text-amber-900">Canonical Vendor ID and master-data ownership are protected from ordinary worksheet editing. Confirm a deliberate link or create action in the controlled Vendor workflow below.</p>
@@ -458,8 +467,8 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         onSave={!readOnly && onUpdateInvoice ? (rows) => commitInvoice({ ...draftInvoiceRef.current, items: [...rows] }) : undefined}
         onCancel={!readOnly ? () => updateDraftInvoice(normalizedInvoice(invoice)) : undefined}
         disabled={readOnly}
-        saveLabel="Save line items"
-        cancelLabel="Discard line edits"
+        saveLabel="Save worksheet edits"
+        cancelLabel="Discard all worksheet edits"
         emptyState="No line items extracted. Add a row only when the source supports it."
         density="compact"
       />
@@ -476,8 +485,8 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         onSave={!readOnly && onUpdateInvoice ? (rows) => { if (rows[0]) commitInvoice(rows[0]); } : undefined}
         onCancel={!readOnly ? () => updateDraftInvoice(normalizedInvoice(invoice)) : undefined}
         disabled={readOnly}
-        saveLabel="Save monetary facts"
-        cancelLabel="Discard total edits"
+        saveLabel="Save worksheet edits"
+        cancelLabel="Discard all worksheet edits"
         density="compact"
       />
     </WorksheetSection>

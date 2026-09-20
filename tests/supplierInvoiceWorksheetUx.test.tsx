@@ -4,7 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { InvoiceData } from "../src/types.ts";
-import { SupplierInvoiceWorksheet } from "../src/components/invoices/SupplierInvoiceWorksheet.tsx";
+import { SupplierInvoiceWorksheet, supplierInvoiceLineSourceIndex } from "../src/components/invoices/SupplierInvoiceWorksheet.tsx";
 
 const workspaceSource = readFileSync(new URL("../src/components/VerificationWorkspace.tsx", import.meta.url), "utf8");
 const reviewSource = readFileSync(new URL("../src/components/SupplierInvoiceReview.tsx", import.meta.url), "utf8");
@@ -145,6 +145,46 @@ test("supplier invoice worksheet preserves row identity and protects calculated 
   assert.match(reviewSource, /SupplierInvoiceWorksheet/);
   assert.match(reviewSource, /Canonical Vendor/);
   assert.match(reviewSource, /SupplierInvoiceExpenseSurface/);
+});
+
+test("supplier invoice worksheet makes the shared-draft save and discard scope explicit", () => {
+  const html = renderToStaticMarkup(
+    <SupplierInvoiceWorksheet invoice={invoice()} onUpdateInvoice={() => undefined} />,
+  );
+
+  assert.match(html, /All sections share one review draft/);
+  assert.equal((html.match(/Save worksheet edits/g) || []).length, 4);
+  assert.equal((html.match(/Discard all worksheet edits/g) || []).length, 4);
+});
+
+test("known financial evidence becomes visibly manual when it differs from the immutable AI snapshot", () => {
+  const source = invoice({
+    grandTotal: 250,
+    financialFieldStatus: { grandTotal: "KNOWN" },
+    aiSnapshot: { grandTotal: 227.8 },
+  });
+  const html = renderToStaticMarkup(<SupplierInvoiceWorksheet invoice={source} />);
+  const cellStart = html.indexOf('data-worksheet-cell="worksheet-invoice:grandTotal"');
+  const cellEnd = html.indexOf("</td>", cellStart);
+  assert.ok(cellStart >= 0 && cellEnd > cellStart);
+  const grandTotalCell = html.slice(cellStart, cellEnd);
+  assert.match(grandTotalCell, /data-provenance="Manually corrected"/);
+});
+
+test("new line rows never inherit calculated protection from a different original line", () => {
+  const source = invoice({
+    items: [
+      { id: "line-1", description: "Original A", quantity: 1, unitPrice: 10, total: 10 },
+      { id: "line-2", description: "Original B", quantity: 1, unitPrice: 20, total: 20 },
+    ],
+    financialFieldStatus: { "items.1.total": "CALCULATED" },
+  });
+
+  assert.equal(supplierInvoiceLineSourceIndex(source, source.items[1]!), 1);
+  assert.equal(
+    supplierInvoiceLineSourceIndex(source, { ...source.items[1]!, id: "line-new" }),
+    undefined,
+  );
 });
 
 test("read-only supplier invoice worksheets expose protected cells while controlled workflows remain separate", () => {
