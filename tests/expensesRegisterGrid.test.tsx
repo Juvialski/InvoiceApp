@@ -20,6 +20,13 @@ test("Expense grid marks direct draft edits as editable and linked settlement/so
   assert.match(pageSource, /protected:\s*\(expense\).*settlement/s);
 });
 
+test("Expense grid preserves FX, vendor, and email-source context from the previous register", () => {
+  assert.match(pageSource, /FX rate required/);
+  assert.match(pageSource, /FX required/);
+  assert.match(pageSource, /vendorMap\.get\(expense\.vendorId\)/);
+  assert.match(pageSource, /sourceMetadata\?\.subject/);
+});
+
 test("Expense workbook integration preserves the existing route and financial action callbacks", () => {
   assert.match(pageSource, /onReviewCorrection/);
   assert.match(pageSource, /onConfirmFx/);
