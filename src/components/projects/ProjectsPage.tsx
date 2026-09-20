@@ -299,49 +299,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => { setFormError(""); setEditing(blankProject()); }} /> : undefined}
       />
 
-      <details aria-label="Excel import/export" className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 [&::-webkit-details-marker]:hidden">
-          <span>Excel import/export</span>
-          <span className="text-[11px] font-semibold text-slate-500">Optional workbook tools · review before Apply</span>
-        </summary>
-        <div className="border-t border-slate-100 p-3">
-          <ProjectsWorkbookPanel
-            projects={projects}
-            costCodes={costCodes}
-            companyId={companyId}
-            canManage={canManage}
-            onRefreshProjects={onRefreshProjects}
-            onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup || (async () => { throw new Error("Project workbook Apply is not configured."); })}
-          />
-        </div>
-      </details>
-
       {isHydrating && (
         <div role="status" aria-live="polite" className="animate-pulse rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold text-slate-600">
           Loading projects…
         </div>
-      )}
-
-      {unclassifiedProjectCount > 0 && (
-        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-          <p><strong>{unclassifiedProjectCount} project{unclassifiedProjectCount === 1 ? " is" : "s are"} unclassified.</strong> An authorized project manager must confirm VAT or Non-VAT before the project is used for client billing context.</p>
-        </div>
-      )}
-
-      {!costDataComplete && !workspaceDataPending && (
-        <Card className="border-dashed border-amber-200 bg-amber-50/70 p-4" elevation="low">
-          <div className="flex items-start gap-3">
-            <ShieldAlert className="h-5 w-5 shrink-0 text-amber-700" />
-            <div className="min-w-0 text-xs">
-              <strong className="block font-bold text-amber-950">Some project cost metrics are unavailable</strong>
-              <p className="mt-0.5 text-amber-900">
-                Required cost sources are unavailable for this role: {hiddenCostSources.join(", ")}. Cost values are marked
-                unavailable in the portfolio rather than shown as zero; contract and commercial source records remain separate.
-              </p>
-            </div>
-          </div>
-        </Card>
       )}
 
       <ProjectPortfolioRegisterSection
@@ -382,6 +343,45 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         onEditProject={(project) => { setFormError(""); setEditing(project); }}
         onOpenLifecycle={openLifecycle}
       />
+
+      {unclassifiedProjectCount > 0 && (
+        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <p><strong>{unclassifiedProjectCount} project{unclassifiedProjectCount === 1 ? " is" : "s are"} unclassified.</strong> An authorized project manager must confirm VAT or Non-VAT before the project is used for client billing context.</p>
+        </div>
+      )}
+
+      {!costDataComplete && !workspaceDataPending && (
+        <Card className="border-dashed border-amber-200 bg-amber-50/70 p-4" elevation="low">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="h-5 w-5 shrink-0 text-amber-700" />
+            <div className="min-w-0 text-xs">
+              <strong className="block font-bold text-amber-950">Some project cost metrics are unavailable</strong>
+              <p className="mt-0.5 text-amber-900">
+                Required cost sources are unavailable for this role: {hiddenCostSources.join(", ")}. Cost values are marked
+                unavailable in the portfolio rather than shown as zero; contract and commercial source records remain separate.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <details aria-label="Excel import/export" data-ux45c="projects-workbook" className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 [&::-webkit-details-marker]:hidden">
+          <span>Excel import/export</span>
+          <span className="text-[11px] font-semibold text-slate-500">Optional workbook tools · review before Apply</span>
+        </summary>
+        <div className="border-t border-slate-100 p-3">
+          <ProjectsWorkbookPanel
+            projects={projects}
+            costCodes={costCodes}
+            companyId={companyId}
+            canManage={canManage}
+            onRefreshProjects={onRefreshProjects}
+            onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup || (async () => { throw new Error("Project workbook Apply is not configured."); })}
+          />
+        </div>
+      </details>
 
       {canManage && editing && (
         <ProjectDetailsWorksheet

@@ -43,6 +43,24 @@ test("remaining workspaces keep secondary framing behind the working surface", (
   assert.ok(equipment.indexOf("Search Equipment") < equipment.indexOf("Assignment authority is separate"));
 });
 
+test("Projects keeps the card/list working surface before secondary analysis and workbook tools", () => {
+  const projectsPage = source("src/components/projects/ProjectsPage.tsx");
+  const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
+  const toolbar = projectRegister.indexOf('data-ux45c="projects-primary-toolbar"');
+  const workingSurface = projectRegister.indexOf('data-ux45c="projects-primary-work"');
+  const secondaryAnalysis = projectRegister.indexOf('data-ux45c="projects-secondary-analysis"');
+  const workbook = projectsPage.indexOf('data-ux45c="projects-workbook"');
+  const register = projectsPage.indexOf("<ProjectPortfolioRegisterSection");
+
+  assert.ok(toolbar >= 0);
+  assert.ok(workingSurface > toolbar);
+  assert.ok(secondaryAnalysis > workingSurface);
+  assert.ok(workbook > register);
+  assert.match(projectRegister, /Compact List/);
+  assert.match(projectRegister, /Open project workspace for/);
+  assert.match(projectsPage, /onApplyProjectWorkbookGroup/);
+});
+
 test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
   const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');
