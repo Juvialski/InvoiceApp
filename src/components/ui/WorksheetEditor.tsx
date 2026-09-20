@@ -377,8 +377,9 @@ export function WorksheetEditor<T>({
       return;
     }
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(event.key)) {
-      event.preventDefault();
       const next = getNextWorksheetCell(position, event.key as WorksheetNavigationKey, draftRows.length, columns.length, event.shiftKey);
+      if (!next && event.key === "Tab") return;
+      event.preventDefault();
       if (next) setActiveCell(next);
     }
   };
@@ -390,6 +391,13 @@ export function WorksheetEditor<T>({
       return;
     }
     if (event.key === "Enter" || event.key === "Tab") {
+      if (event.key === "Tab") {
+        const next = getNextWorksheetCell(position, "Tab", draftRows.length, columns.length, event.shiftKey);
+        if (!next) {
+          commitEditing();
+          return;
+        }
+      }
       event.preventDefault();
       commitEditing(event.key as WorksheetNavigationKey, event.shiftKey);
     }
