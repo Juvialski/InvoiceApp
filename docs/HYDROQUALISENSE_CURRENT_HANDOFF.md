@@ -595,11 +595,11 @@ event, audit, and collection boundaries remain authoritative.
 
 Focused worksheet/domain/source tests and TypeScript validation pass locally.
 Local clean replay, full pgTAP (1,647 tests), and both upgrade fixtures pass for
-this branch. The repository migration wrapper and affected selector still report
-one unrelated existing R4 `Tax treatment *` static expectation against the
-unchanged Projects source; that baseline failure is not represented as green.
-Local browser QA was not run because the Playwright QA dependency/server harness
-was unavailable; exact-head protected Demo Visual QA remains the browser gate.
+this branch. PR review corrected the stale R4 tax-field source assertion to follow
+the implemented Project Details worksheet rather than the retired inline Projects
+form. Local browser QA was not run because the Playwright QA dependency/server
+harness was unavailable; exact-head protected CI and Demo Visual QA remain the
+merge gates.
 No production mutation is authorized. The exact next bounded selective-workbook
 slice is **UX-W4 Expenses direct editable draft editing**.
 
