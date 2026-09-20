@@ -193,7 +193,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       projectCostCompleteness={projectCostCompleteness}
       workspaceDataPending={workspaceDataPending}
     >
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      <div data-app-shell="true" className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
         <DeploymentEnvironmentBanner />
         <Header
           activeTab={activeTab}
@@ -213,10 +213,12 @@ export const AppShell: React.FC<AppShellProps> = ({
         />
 
         <main
+          data-app-shell-main="true"
           data-workspace-state={workspaceLoading ? "loading" : "ready"}
-          className={`min-w-0 flex-1 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-8 2xl:px-10 transition-[margin] duration-200 ${
+          className={`min-w-0 flex-1 overflow-x-hidden px-4 py-5 scroll-pt-20 sm:px-6 lg:px-8 2xl:px-10 transition-[margin] duration-200 ${
             isSidebarCollapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
           }`}
+          style={{ scrollPaddingTop: "4.5rem" }}
         >
           {remoteInvoiceUpdate && selectedInvoiceId === remoteInvoiceUpdate.invoiceId && (
             <div

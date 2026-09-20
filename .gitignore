@@ -13,3 +13,4 @@ deployment/inventory.local.json
 .qa-e2e/
 .cache/repository-intelligence/
 .worktrees/
+.superpowers/

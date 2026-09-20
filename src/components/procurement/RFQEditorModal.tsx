@@ -406,13 +406,13 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-900/60 p-2 backdrop-blur-sm sm:p-4">
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative flex flex-col w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="relative flex min-h-0 w-full max-w-4xl flex-col max-h-[calc(100dvh-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150 sm:max-h-[calc(100dvh-2rem)]"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">
@@ -440,7 +440,7 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-y-auto">
+        <form data-dialog-scroll-container="rfq-editor" onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           <div className="space-y-6 p-6">
             {/* Error Message */}
             {errorMessage && (
