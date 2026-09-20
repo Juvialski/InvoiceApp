@@ -405,43 +405,67 @@ function ManagementAttentionPanel({
   onOpenTab?: (tab: ProjectOverviewTab) => void;
   title?: string;
 }) {
+  const criticalCount = items.filter((item) => item.tone === "danger").length;
+  const warningCount = items.filter((item) => item.tone === "warning").length;
+  const infoCount = items.filter((item) => item.tone === "info").length;
+
   return (
     <Card className="p-4 shadow-sm sm:p-5" elevation="low" aria-label={title}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-black">{title}</h3>
-          <p className="mt-1 text-[10px] text-slate-500">Deterministic signals with authoritative evidence, source domain, and a project-scoped drilldown.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-black">{title}</h3>
+            {items.length > 0 && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-900">
+                {items.length} signal{items.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[10px] text-slate-500">Exceptions stay visible here; expand only when you need the evidence and project-scoped drilldown.</p>
         </div>
         <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
       </div>
       {items.length ? (
-        <div className="mt-4 space-y-2" role="list" aria-label="Project management attention signals">
-          {items.map((item) => {
-            const body = (
-              <>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <strong className="text-xs font-bold">{item.title}</strong>
-                    <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide">{item.severity}</span>
+        <details data-management-attention-details="true" className="mt-3 rounded-xl border border-amber-200 bg-amber-50/30">
+          <summary
+            aria-label="Review management attention signals"
+            className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-xs font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 [&::-webkit-details-marker]:hidden"
+          >
+            <span>Review attention signals</span>
+            <span className="flex flex-wrap items-center gap-1.5" aria-label="Attention severity summary">
+              {criticalCount > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-rose-800">{criticalCount} critical</span>}
+              {warningCount > 0 && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-900">{warningCount} warning</span>}
+              {infoCount > 0 && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-indigo-800">{infoCount} info</span>}
+            </span>
+          </summary>
+          <div className="space-y-2 border-t border-amber-100 p-3" role="list" aria-label="Project management attention signals">
+            {items.map((item) => {
+              const body = (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <strong className="text-xs font-bold">{item.title}</strong>
+                      <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide">{item.severity}</span>
+                    </div>
+                    <span className="mt-1 block text-[10px] leading-4 opacity-90">{item.explanation}</span>
+                    <span className="mt-2 block text-[9px] leading-4 opacity-80"><strong>Evidence:</strong> {item.evidence}</span>
+                    <span className="block text-[9px] leading-4 opacity-80"><strong>Source:</strong> {item.source} · {item.category}</span>
+                    {item.date && <span className="block text-[9px] leading-4 opacity-80"><strong>Date:</strong> {item.date}</span>}
+                    {item.metric && <span className="block text-[9px] leading-4 opacity-80"><strong>{item.metric.label}:</strong> {String(item.metric.value)}{item.metric.currency && item.metric.currency !== "%" ? ` ${item.metric.currency}` : item.metric.currency === "%" ? "%" : ""}</span>}
                   </div>
-                  <span className="mt-1 block text-[10px] leading-4 opacity-90">{item.explanation}</span>
-                  <span className="mt-2 block text-[9px] leading-4 opacity-80"><strong>Evidence:</strong> {item.evidence}</span>
-                  <span className="block text-[9px] leading-4 opacity-80"><strong>Source:</strong> {item.source} · {item.category}</span>
-                  {item.date && <span className="block text-[9px] leading-4 opacity-80"><strong>Date:</strong> {item.date}</span>}
-                  {item.metric && <span className="block text-[9px] leading-4 opacity-80"><strong>{item.metric.label}:</strong> {String(item.metric.value)}{item.metric.currency && item.metric.currency !== "%" ? ` ${item.metric.currency}` : item.metric.currency === "%" ? "%" : ""}</span>}
-                </div>
-                {item.tab && onOpenTab && <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />}
-              </>
-            );
-            return item.tab && onOpenTab ? (
-              <button key={item.id} type="button" role="listitem" onClick={() => onOpenTab(item.tab as ProjectOverviewTab)} aria-label={`${item.title}. Open ${item.tab}.`} className={`flex w-full items-start justify-between gap-3 rounded-xl border p-3 text-left transition ${attentionItemTone(item.tone)} focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500`}>
-                {body}
-              </button>
-            ) : <div key={item.id} role="listitem" className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-left ${attentionItemTone(item.tone)}`}>{body}</div>;
-          })}
-        </div>
+                  {item.tab && onOpenTab && <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />}
+                </>
+              );
+              return item.tab && onOpenTab ? (
+                <button key={item.id} type="button" role="listitem" onClick={() => onOpenTab(item.tab as ProjectOverviewTab)} aria-label={`${item.title}. Open ${item.tab}.`} className={`flex w-full items-start justify-between gap-3 rounded-xl border p-3 text-left transition ${attentionItemTone(item.tone)} focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500`}>
+                  {body}
+                </button>
+              ) : <div key={item.id} role="listitem" className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-left ${attentionItemTone(item.tone)}`}>{body}</div>;
+            })}
+          </div>
+        </details>
       ) : (
-        <p className="mt-4 flex items-center gap-1.5 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-800"><CheckCircle2 className="h-4 w-4" aria-hidden="true" />No current management attention signals are available for this project.</p>
+        <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-800"><CheckCircle2 className="h-4 w-4" aria-hidden="true" />No current management attention signals are available for this project.</p>
       )}
     </Card>
   );
