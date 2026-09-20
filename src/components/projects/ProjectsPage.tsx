@@ -45,6 +45,7 @@ import {
 } from "../../utils/projectManagementViewModel.ts";
 import { createProjectDraft } from "../../utils/projectDraft.ts";
 import { ProjectPortfolioRegisterSection } from "./ProjectPortfolioRegisterSection.tsx";
+import { ProjectDetailsWorksheet } from "./ProjectDetailsWorksheet.tsx";
 import { ProjectsWorkbookPanel, type ProjectsWorkbookRecords } from "./ProjectsWorkbookPanel.tsx";
 import type { ProjectsApplyGroup } from "../../lib/projectsWorkbook.ts";
 
@@ -207,23 +208,26 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     [projectViews],
   );
 
-  const save = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!canManage || !editing?.projectCode.trim() || !editing.projectName.trim()) return;
-    if (!isClassifiedProjectTaxTreatment(editing.taxTreatment)) {
+  const saveProject = async (candidate: Project): Promise<boolean> => {
+    if (!canManage || !candidate.projectCode.trim() || !candidate.projectName.trim()) {
+      setFormError("Project Code and Project Name are required.");
+      return false;
+    }
+    if (!isClassifiedProjectTaxTreatment(candidate.taxTreatment)) {
       setFormError("Choose VAT or Non-VAT before saving. Existing unclassified projects require an authorized confirmation.");
-      return;
+      return false;
     }
     setFormError("");
-    onSaveProject({
-      ...editing,
-      projectCode: editing.projectCode.trim(),
-      projectName: editing.projectName.trim(),
-      currency: (editing.currency || "PHP").toUpperCase(),
-      contractValue: Math.max(0, Number(editing.contractValue) || 0),
-      projectBudget: Math.max(0, Number(editing.projectBudget) || 0),
+    await onSaveProject({
+      ...candidate,
+      projectCode: candidate.projectCode.trim(),
+      projectName: candidate.projectName.trim(),
+      currency: (candidate.currency || "PHP").toUpperCase(),
+      contractValue: Math.max(0, Number(candidate.contractValue) || 0),
+      projectBudget: Math.max(0, Number(candidate.projectBudget) || 0),
     });
     setEditing(null);
+    return true;
   };
 
   const openLifecycle = async (project: Project) => {
@@ -248,9 +252,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     setLifecycleReason("");
   };
 
-  const projectCodeInputRef = useRef<HTMLInputElement>(null);
   const lifecycleCloseButtonRef = useRef<HTMLButtonElement>(null);
-  const editingDialogRef = useDialogFocus({ open: Boolean(editing), onClose: () => setEditing(null), initialFocusRef: projectCodeInputRef });
   const lifecycleDialogRef = useDialogFocus({ open: Boolean(lifecycleProject), onClose: () => { if (!lifecycleLoading) closeLifecycle(); }, initialFocusRef: lifecycleCloseButtonRef });
 
   useEffect(() => {
@@ -377,220 +379,18 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           setAttentionCategoryFilter("ALL");
         }}
         onOpenProject={onOpenProject}
-        onEditProject={setEditing}
+        onEditProject={(project) => { setFormError(""); setEditing(project); }}
         onOpenLifecycle={openLifecycle}
       />
 
-      {/* Editing Dialog Modal */}
       {canManage && editing && (
-        <div
-          ref={editingDialogRef}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="project-dialog-title"
-        >
-          <form
-            onSubmit={save}
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl space-y-4"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Project Register</p>
-                <h2 id="project-dialog-title" className="text-lg font-black text-slate-950">
-                  {editing.id && editing.projectCode.trim() ? `Edit ${editing.projectCode}` : "Create New Project"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditing(null)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Close project modal"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Project Code *</label>
-                <input
-                  ref={projectCodeInputRef}
-                  required
-                  value={editing.projectCode}
-                  onChange={(e) => setEditing({ ...editing, projectCode: e.target.value })}
-                  placeholder="e.g. PRJ-2026-001"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Currency *</label>
-                <input
-                  required
-                  value={editing.currency}
-                  onChange={(e) => setEditing({ ...editing, currency: e.target.value.toUpperCase() })}
-                  placeholder="PHP"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700" htmlFor="project-tax-treatment">Tax treatment *</label>
-                <select
-                  id="project-tax-treatment"
-                  required
-                  value={editing.taxTreatment === "VAT" || editing.taxTreatment === "NON_VAT" ? editing.taxTreatment : ""}
-                  onChange={(e) => { setFormError(""); setEditing({ ...editing, taxTreatment: e.target.value as Project["taxTreatment"] }); }}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                >
-                  <option value="">Choose…</option>
-                  <option value="VAT">VAT</option>
-                  <option value="NON_VAT">Non-VAT</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-700">Project Name *</label>
-              <input
-                required
-                value={editing.projectName}
-                onChange={(e) => setEditing({ ...editing, projectName: e.target.value })}
-                placeholder="e.g. Water Treatment Plant Upgrade"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-              />
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Contract Value (Awarded)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editing.contractValue ?? ""}
-                  onChange={(e) => setEditing({ ...editing, contractValue: Number(e.target.value) || 0 })}
-                  placeholder="0.00"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Approved Cost Budget</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editing.projectBudget ?? ""}
-                  onChange={(e) => setEditing({ ...editing, projectBudget: Number(e.target.value) || 0 })}
-                  placeholder="0.00"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-            </div>
-
-            {formError && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{formError}</div>}
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Client Name</label>
-                <input
-                  value={editing.clientName || ""}
-                  onChange={(e) => setEditing({ ...editing, clientName: e.target.value })}
-                  placeholder="e.g. Metro Water District"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Project Manager</label>
-                <input
-                  value={editing.projectManager || ""}
-                  onChange={(e) => setEditing({ ...editing, projectManager: e.target.value })}
-                  placeholder="e.g. Engr. Santos"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-            </div>
-
-            <details open={Boolean(editing.billingContactName || editing.billingEmail || editing.billingAddress)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <summary className="cursor-pointer list-none text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">Billing details <span className="ml-1 text-[10px] font-semibold text-slate-500">optional</span></summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Billing Contact</label>
-                <input
-                  value={editing.billingContactName || ""}
-                  onChange={(e) => setEditing({ ...editing, billingContactName: e.target.value })}
-                  placeholder="e.g. Maria Santos"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Billing Email</label>
-                <input
-                  type="email"
-                  value={editing.billingEmail || ""}
-                  onChange={(e) => setEditing({ ...editing, billingEmail: e.target.value })}
-                  placeholder="billing@example.com"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-700">Billing Address</label>
-                <textarea
-                  value={editing.billingAddress || ""}
-                  onChange={(e) => setEditing({ ...editing, billingAddress: e.target.value })}
-                  rows={2}
-                  placeholder="Client billing address"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-              </div>
-            </details>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Location / City</label>
-                <input
-                  value={editing.location || ""}
-                  onChange={(e) => setEditing({ ...editing, location: e.target.value })}
-                  placeholder="e.g. Quezon City"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-700">Status</label>
-                <select
-                  value={editing.status}
-                  onChange={(e) => setEditing({ ...editing, status: e.target.value as ProjectStatus })}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                >
-                  {PROJECT_STATUSES.map((st) => (
-                    <option key={st} value={st}>
-                      {st.replaceAll("_", " ")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <details open={Boolean(editing.description || editing.notes)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <summary className="cursor-pointer list-none text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">Operational notes <span className="ml-1 text-[10px] font-semibold text-slate-500">optional</span></summary>
-              <div className="mt-3">
-              <label className="block text-[10px] font-bold text-slate-700">Operational Notes / Scope</label>
-              <textarea
-                value={editing.description || editing.notes || ""}
-                onChange={(e) => setEditing({ ...editing, description: e.target.value, notes: e.target.value })}
-                rows={2}
-                placeholder="Scope description or operational context..."
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-              />
-              </div>
-            </details>
-
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-              <Button variant="secondary" type="button" label="Cancel" onClick={() => setEditing(null)} />
-              <Button variant="primary" type="submit" label="Save project" />
-            </div>
-          </form>
-        </div>
+        <ProjectDetailsWorksheet
+          project={editing}
+          projectStatuses={PROJECT_STATUSES}
+          errorMessage={formError}
+          onClose={() => setEditing(null)}
+          onSave={saveProject}
+        />
       )}
 
       {/* Lifecycle Action Modal */}

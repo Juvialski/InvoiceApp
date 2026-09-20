@@ -8,6 +8,7 @@ const projectRegisterSectionPath = new URL(
   import.meta.url,
 );
 const operationsGridPath = new URL("../src/components/ui/OperationsGrid.tsx", import.meta.url);
+const projectDetailsWorksheetPath = new URL("../src/components/projects/ProjectDetailsWorksheet.tsx", import.meta.url);
 
 function readIfPresent(path: URL): string {
   return existsSync(path) ? readFileSync(path, "utf8") : "";
@@ -17,9 +18,11 @@ test("projects portfolio and register presentation has explicit architectural bo
   const projectsPage = readIfPresent(projectsPagePath);
   const projectRegisterSection = readIfPresent(projectRegisterSectionPath);
   const operationsGrid = readIfPresent(operationsGridPath);
+  const projectDetailsWorksheet = readIfPresent(projectDetailsWorksheetPath);
 
   assert.ok(projectsPage, "ProjectsPage.tsx must exist");
   assert.ok(projectRegisterSection, "ProjectPortfolioRegisterSection.tsx must exist");
+  assert.ok(projectDetailsWorksheet, "ProjectDetailsWorksheet.tsx must exist");
 
   // 1. ProjectsPage imports and renders the new register section
   assert.match(
@@ -40,8 +43,14 @@ test("projects portfolio and register presentation has explicit architectural bo
 
   // 3. Project editing remains in the parent
   assert.match(projectsPage, /const\s+\[editing,\s*setEditing\]\s*=\s*useState/);
-  assert.match(projectsPage, /const\s+save\s*=\s*\(event:\s*React\.FormEvent\)\s*=>/);
-  assert.match(projectsPage, /role="dialog"[\s\S]*?aria-labelledby="project-dialog-title"/);
+  assert.match(projectsPage, /ProjectDetailsWorksheet/);
+  assert.match(projectsPage, /isClassifiedProjectTaxTreatment/);
+  assert.doesNotMatch(projectsPage, /project-dialog-title/);
+  assert.match(projectDetailsWorksheet, /WorksheetEditor/);
+  assert.match(projectDetailsWorksheet, /Project Code/);
+  assert.match(projectDetailsWorksheet, /Project Name/);
+  assert.match(projectDetailsWorksheet, /Tax Treatment/);
+  assert.match(projectDetailsWorksheet, /Status/);
 
   // 4. Lifecycle orchestration remains in the parent
   assert.match(projectsPage, /const\s+openLifecycle\s*=/);
