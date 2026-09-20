@@ -168,7 +168,7 @@ export function ClientBillingDraftWorksheet({
 
   const handleSave = async () => {
     const activeElement = typeof document !== "undefined" ? document.activeElement : null;
-    if (activeElement instanceof HTMLElement && worksheetRootRef.current?.contains(activeElement) && activeElement.matches("input, select")) {
+    if (typeof HTMLElement !== "undefined" && activeElement instanceof HTMLElement && worksheetRootRef.current?.contains(activeElement) && activeElement.matches("input, select")) {
       activeElement.blur();
     }
     await new Promise<void>((resolve) => {
