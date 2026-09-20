@@ -86,6 +86,9 @@ test("Client Billing draft editing is extracted to one aggregate worksheet surfa
   assert.match(worksheetSource, /data-worksheet-scroll-container/);
   assert.match(worksheetSource, /Submit|Issue Client Invoice|Void issued billing|Record Collection/);
   assert.match(worksheetSource, /clientBillingLinesForPersistence/);
+  assert.match(worksheetSource, /activeElement\.blur\(\)/);
+  assert.match(worksheetSource, /data-worksheet-state="error"/);
+  assert.match(worksheetSource, /Resolve the highlighted worksheet validation errors before saving/);
 
   const html = renderToStaticMarkup(
     <ClientBillingDraftWorksheet
