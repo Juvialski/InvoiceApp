@@ -61,6 +61,27 @@ test("Projects keeps the card/list working surface before secondary analysis and
   assert.match(projectsPage, /onApplyProjectWorkbookGroup/);
 });
 
+test("Expenses keeps the register before detail, supporting context, and workbook tools", () => {
+  const expenses = source("src/components/expenses/ExpensesPage.tsx");
+  const controls = expenses.indexOf('data-ux45c="expenses-primary-controls"');
+  const register = expenses.indexOf('data-ux45c="expenses-primary-register"');
+  const detail = expenses.indexOf('data-ux45c="expenses-selected-detail"');
+  const supporting = expenses.indexOf('data-ux45c="expenses-supporting-context"');
+  const workbook = expenses.indexOf('data-ux45c="expenses-workbook"');
+
+  assert.ok(controls >= 0);
+  assert.ok(register > controls);
+  assert.ok(detail > register);
+  assert.ok(supporting > detail);
+  assert.ok(workbook > supporting);
+  assert.match(expenses, /Add expense/);
+  assert.match(expenses, /Edit draft worksheet/);
+  assert.match(expenses, /FinancialSettlementCard/);
+  assert.match(expenses, /onOpenSupplierInvoiceReview/);
+  assert.match(expenses, /onReviewCorrection/);
+  assert.match(expenses, /Confirm FX/);
+});
+
 test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
   const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');
