@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Archive,
   ArrowUpDown,
@@ -187,127 +187,69 @@ export function ProjectRegisterCard({
 }: ProjectRegisterCardProps) {
   const project = view.project;
   const hasAttention = view.attentionFlags.length > 0;
-  const topAttention = topProjectAttentionSignal(view);
 
   return (
-    <Card key={project.id} data-project-id={project.id} className="min-w-0 w-full p-4 shadow-sm space-y-3" elevation="low">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <span className="text-[10px] font-black uppercase tracking-wide text-indigo-600">
-            {project.projectCode}
-          </span>
-          <h3 className="truncate text-sm font-black text-slate-950">
-            {project.projectName}
-          </h3>
-          <p className="truncate text-[10px] text-slate-500">
-            {project.clientName || "No client set"} {project.location ? `· ${project.location}` : ""}
-          </p>
+    <Card key={project.id} data-project-id={project.id} className="min-w-0 w-full overflow-hidden shadow-sm" elevation="low">
+      <button
+        type="button"
+        onClick={() => onOpenProject(project)}
+        aria-label={`Open project workspace for ${project.projectName || project.projectCode}`}
+        className="group block w-full space-y-3 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-black uppercase tracking-wide text-indigo-600">{project.projectCode}</span>
+            <h3 className="mt-1 truncate text-lg font-black leading-tight text-slate-950 group-hover:text-indigo-700 sm:text-xl">{project.projectName || "Unnamed project"}</h3>
+            <p className="mt-1 truncate text-[11px] text-slate-500">Client: {project.clientName || "No client set"}</p>
+            <p className="truncate text-[11px] text-slate-500">Location: {project.location || project.siteAddress || "Not set"}</p>
+          </div>
+          <StatusBadge tone={statusTone(project.status)}>{project.status.replaceAll("_", " ")}</StatusBadge>
         </div>
-        <div className="flex items-center gap-1.5">
-          <StatusBadge tone={statusTone(project.status)}>
-            {project.status.replaceAll("_", " ")}
-          </StatusBadge>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
-        <span><span className="font-semibold text-slate-600">Manager:</span> {project.projectManager || "Not assigned"}</span>
-        <span className="font-black uppercase tracking-wide text-slate-700">{view.currency}</span>
-        <StatusBadge tone={project.taxTreatment === "UNCLASSIFIED" || !project.taxTreatment ? "warning" : "info"}>{projectTaxTreatmentLabel(project.taxTreatment)}</StatusBadge>
-      </div>
 
-      {/* Attention Badges */}
-      {hasAttention && (
-        <div className="flex flex-wrap gap-1.5">
-          {view.attentionFlags.map((item) => (
-            <span
-              key={item.id}
-              className={`rounded border px-2 py-0.5 text-[9px] font-bold ${attentionTone(item.tone)}`}
-            >
-              {item.label}
-            </span>
-          ))}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
+          <span><span className="font-semibold text-slate-600">Manager:</span> {project.projectManager || "Not assigned"}</span>
+          <span className="font-black uppercase tracking-wide text-slate-700">{view.currency}</span>
+          <StatusBadge tone={project.taxTreatment === "UNCLASSIFIED" || !project.taxTreatment ? "warning" : "info"}>{projectTaxTreatmentLabel(project.taxTreatment)}</StatusBadge>
         </div>
-      )}
-      {topAttention && <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] leading-4 text-slate-600"><span className="font-black text-slate-700">Top reason:</span> {topAttention.title}</p>}
 
-      {/* Keep the core control position visible; commercial detail is progressively disclosed. */}
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs">
-        <div>
-          <span className="text-[10px] text-slate-500">Contract Value</span>
-          <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.contractValue} currency={view.currency} /></p>
-        </div>
-        <div>
-          <span className="text-[10px] text-slate-500">Budget</span>
-          <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.approvedCostBudget} currency={view.currency} /></p>
-        </div>
-        <div>
-          <span className="text-[10px] text-slate-500">Actual</span>
-          <p className="font-bold tabular-nums text-indigo-700"><FinancialValue metric={view.financialTruth.actualCost} currency={view.currency} /></p>
-        </div>
-        <div>
-          <span className="text-[10px] text-slate-500">Committed</span>
-          <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.committedCost} currency={view.currency} /></p>
-        </div>
-      </div>
+        {hasAttention && (
+          <div className="flex flex-wrap gap-1.5" aria-label="Project attention indicators">
+            {view.attentionFlags.slice(0, 2).map((item) => (
+              <span key={item.id} className={`rounded border px-2 py-0.5 text-[9px] font-bold ${attentionTone(item.tone)}`}>
+                {item.label}
+              </span>
+            ))}
+          </div>
+        )}
 
-      <details className="rounded-xl border border-slate-100 bg-white px-3 py-2">
-        <summary className="cursor-pointer list-none text-[10px] font-bold text-slate-600 [&::-webkit-details-marker]:hidden">Commercial totals <span className="font-semibold text-slate-400">· billed, collected, receivables</span></summary>
-        <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-2 text-xs">
-        <div>
-          <span className="text-[10px] text-slate-500">Billed</span>
-          <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.billed} currency={view.currency} /></p>
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs">
+          <div><span className="text-[10px] text-slate-500">Contract Value</span><p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.contractValue} currency={view.currency} /></p></div>
+          <div><span className="text-[10px] text-slate-500">Approved Project Budget</span><p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.approvedCostBudget} currency={view.currency} /></p></div>
+          <div><span className="text-[10px] text-slate-500">Actual Cost</span><p className="font-bold tabular-nums text-indigo-700"><FinancialValue metric={view.financialTruth.actualCost} currency={view.currency} /></p></div>
+          <div><span className="text-[10px] text-slate-500">Committed Cost</span><p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.committedCost} currency={view.currency} /></p></div>
         </div>
-        <div>
-          <span className="text-[10px] text-slate-500">Collected</span>
-          <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.collected} currency={view.currency} /></p>
-        </div>
-        <div>
-          <span className="text-[10px] text-slate-500">Outstanding</span>
-          <p className="font-bold tabular-nums text-amber-800"><FinancialValue metric={view.financialTruth.outstandingReceivables} currency={view.currency} /></p>
-        </div>
-        <div>
-          <span className="text-[10px] text-slate-500">Remaining to Bill</span>
-          <p className="font-bold tabular-nums text-emerald-700"><FinancialValue metric={view.financialTruth.remainingToBill} currency={view.currency} /></p>
-        </div>
-        </div>
-      </details>
 
-      {/* Work Package Summary Line */}
-      {view.activeCostCodesCount > 0 && (
-        <div className="flex flex-wrap justify-between gap-1 text-[10px] text-slate-600 px-1">
-          <span>{view.activeCostCodesCount} active work packages ({money(view.allocatedCostCodeBudget, view.currency)} allocated)</span>
-          {view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && (
-            <span className="font-semibold text-amber-700">Uncoded: {money(view.uncodedActualCost, view.currency)}</span>
-          )}
-        </div>
-      )}
+        {view.activeCostCodesCount > 0 && (
+          <div className="flex flex-wrap justify-between gap-1 px-1 text-[10px] text-slate-600">
+            <span>{view.activeCostCodesCount} active work packages ({money(view.allocatedCostCodeBudget, view.currency)} allocated)</span>
+            {view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && <span className="font-semibold text-amber-700">Uncoded: {money(view.uncodedActualCost, view.currency)}</span>}
+          </div>
+        )}
+      </button>
 
-      {/* Action Bar */}
-      <div className="flex min-w-0 flex-col gap-2 border-t border-slate-100 pt-2.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-wrap gap-1">
-          {canManage && (
-            <Button
-              variant="secondary"
-              label="Edit"
-              icon={<Pencil className="h-3.5 w-3.5" />}
-              onClick={() => onEditProject(project)}
-            />
-          )}
-          {canManage && (
-            <Button
-              variant="secondary"
-              label={project.status === "ARCHIVED" ? "Reactivate" : "Lifecycle"}
-              icon={project.status === "ARCHIVED" ? <RotateCcw className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-              onClick={() => onOpenLifecycle(project)}
-            />
-          )}
-        </div>
-        <Button
-          variant="primary"
-          label="Open Project →"
-          className="w-full sm:w-auto"
-          onClick={() => onOpenProject(project)}
-        />
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-slate-100 p-3">
+        {canManage && <Button variant="secondary" label="Edit project details" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => onEditProject(project)} />}
+        {canManage && (
+          <details className="relative ml-auto">
+            <summary className="cursor-pointer list-none rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 [&::-webkit-details-marker]:hidden">More actions</summary>
+            <div className="absolute right-0 z-20 mt-1 min-w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+              <button type="button" onClick={() => onOpenLifecycle(project)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                {project.status === "ARCHIVED" ? <RotateCcw className="h-3.5 w-3.5 text-emerald-600" /> : <Archive className="h-3.5 w-3.5 text-slate-500" />}
+                {project.status === "ARCHIVED" ? "Reactivate project" : "Project lifecycle"}
+              </button>
+            </div>
+          </details>
+        )}
       </div>
     </Card>
   );
@@ -321,7 +263,7 @@ function ProjectPortfolioOperationsGrid({
   onOpenLifecycle,
 }: Pick<ProjectPortfolioRegisterSectionProps, "displayedViews" | "canManage" | "onOpenProject" | "onEditProject" | "onOpenLifecycle">) {
   return (
-    <div className="hidden lg:block" aria-label="Projects table">
+    <div className="min-w-0" aria-label="Projects table">
       <OperationsGrid
         ariaLabel="Projects table"
         rows={displayedViews}
@@ -440,6 +382,8 @@ export function ProjectPortfolioRegisterSection({
   onEditProject,
   onOpenLifecycle,
 }: ProjectPortfolioRegisterSectionProps) {
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+
   return (
     <>
       {/* Top Portfolio Management Summary: one compact decision surface. */}
@@ -686,30 +630,27 @@ export function ProjectPortfolioRegisterSection({
         )}
       </Card>
 
-      {/* Main Content Area: Responsive Hybrid (Desktop Table + Mobile Cards) */}
+      <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black text-slate-900">Projects</p>
+          <p className="text-[11px] text-slate-500">Open a project card for its workspace, or switch to a dense list for high-volume scanning.</p>
+        </div>
+        <div role="group" aria-label="Project portfolio view" className="inline-flex shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <button type="button" aria-pressed={viewMode === "cards"} onClick={() => setViewMode("cards")} className={`rounded-md px-3 py-1.5 text-xs font-black ${viewMode === "cards" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Cards</button>
+          <button type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")} className={`rounded-md px-3 py-1.5 text-xs font-black ${viewMode === "list" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Compact List</button>
+        </div>
+      </div>
+
+      {/* Main Content Area: visual cards by default, compact register on request */}
       {displayedViews.length ? (
         <div id="projects-results" className="space-y-4">
-          <ProjectPortfolioOperationsGrid
-            displayedViews={displayedViews}
-            canManage={canManage}
-            onOpenProject={onOpenProject}
-            onEditProject={onEditProject}
-            onOpenLifecycle={onOpenLifecycle}
-          />
-
-          {/* Mobile / Tablet Responsive Cards View */}
-          <div className="grid gap-3.5 lg:hidden" aria-label="Projects list cards">
-            {displayedViews.map((view) => (
-              <ProjectRegisterCard
-                key={view.project.id}
-                view={view}
-                canManage={canManage}
-                onOpenProject={onOpenProject}
-                onEditProject={onEditProject}
-                onOpenLifecycle={onOpenLifecycle}
-              />
-            ))}
-          </div>
+          {viewMode === "list" ? (
+            <ProjectPortfolioOperationsGrid displayedViews={displayedViews} canManage={canManage} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Projects list cards">
+              {displayedViews.map((view) => <ProjectRegisterCard key={view.project.id} view={view} canManage={canManage} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />)}
+            </div>
+          )}
         </div>
       ) : (
         <Card className="p-8 text-center text-xs text-slate-500" elevation="low">

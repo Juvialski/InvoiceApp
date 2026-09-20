@@ -297,14 +297,22 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => { setFormError(""); setEditing(blankProject()); }} /> : undefined}
       />
 
-      <ProjectsWorkbookPanel
-        projects={projects}
-        costCodes={costCodes}
-        companyId={companyId}
-        canManage={canManage}
-        onRefreshProjects={onRefreshProjects}
-        onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup || (async () => { throw new Error("Project workbook Apply is not configured."); })}
-      />
+      <details aria-label="Excel import/export" className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 [&::-webkit-details-marker]:hidden">
+          <span>Excel import/export</span>
+          <span className="text-[11px] font-semibold text-slate-500">Optional workbook tools · review before Apply</span>
+        </summary>
+        <div className="border-t border-slate-100 p-3">
+          <ProjectsWorkbookPanel
+            projects={projects}
+            costCodes={costCodes}
+            companyId={companyId}
+            canManage={canManage}
+            onRefreshProjects={onRefreshProjects}
+            onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup || (async () => { throw new Error("Project workbook Apply is not configured."); })}
+          />
+        </div>
+      </details>
 
       {isHydrating && (
         <div role="status" aria-live="polite" className="animate-pulse rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold text-slate-600">

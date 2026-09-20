@@ -92,7 +92,7 @@ test("ProjectsPage passes financial data completeness to project management view
   assert.match(projectsPageSource, /financialDataComplete: costDataComplete/);
 });
 
-test("ProjectsPage enforces portfolio summary, responsive desktop table and mobile cards", () => {
+test("ProjectsPage keeps a visual card portfolio and optional compact register", () => {
   // Check Portfolio Summary structure
   assert.match(projectsSurfaceSource, /(?:<details|<section) aria-label="Portfolio Management Summary"/);
   assert.match(projectsPageSource, /buildPortfolioManagementSummary\(projectViews\)/);
@@ -105,15 +105,27 @@ test("ProjectsPage enforces portfolio summary, responsive desktop table and mobi
   assert.match(projectsPageSource, /sortField/);
   assert.match(projectsPageSource, /sortDirection/);
 
-  // Check Desktop Table and Mobile Cards Hybrid
-  assert.match(projectsSurfaceSource, /hidden lg:block/);
-  assert.match(projectsSurfaceSource, /grid gap-3\.5 lg:hidden/);
+  // Cards are the default portfolio; the existing register remains optional.
+  assert.match(projectRegisterSectionSource, /useState<"cards"\s*\|\s*"list">\("cards"\)/);
+  assert.match(projectRegisterSectionSource, /Compact List/);
+  assert.match(projectRegisterSectionSource, /grid grid-cols-1/);
   assert.match(projectsSurfaceSource, /aria-label="Projects table"/);
   assert.match(projectsSurfaceSource, /aria-label="Projects list cards"/);
   assert.match(projectRegisterSectionSource, /OperationsGrid/);
   assert.match(projectRegisterSectionSource, /protected:\s*true/);
   assert.match(operationsGridSource, /data-field-protected/);
   assert.match(operationsGridSource, /sticky/);
+});
+
+test("Projects portfolio defaults to cards and keeps compact list as an accessible secondary view", () => {
+  assert.match(projectRegisterSectionSource, /useState<"cards"\s*\|\s*"list">\("cards"\)/);
+  assert.match(projectRegisterSectionSource, /aria-pressed/);
+  assert.match(projectRegisterSectionSource, /Cards/);
+  assert.match(projectRegisterSectionSource, /Compact List/);
+  assert.match(projectRegisterSectionSource, /Edit project details/);
+  assert.match(projectRegisterSectionSource, /Open project workspace/i);
+  assert.match(projectRegisterSectionSource, /grid-cols-1/);
+  assert.match(projectRegisterSectionSource, /More actions/);
 });
 
 test("ProjectsPage exposes the required portfolio financial columns and deterministic controls", () => {
