@@ -15,6 +15,11 @@ import {
 } from "../scripts/developer-intelligence/typesafe/contextReranker.ts";
 import { triageAffectedTests } from "../scripts/developer-intelligence/typesafe/testTriage.ts";
 import type { ImpactSelectionResult } from "../scripts/test-impact.ts";
+import {
+  classifyCiFailure,
+  deterministicCiFailureCategory,
+} from "../scripts/developer-intelligence/typesafe/ciTriage.ts";
+import { checkCompletionEvidence } from "../scripts/developer-intelligence/typesafe/completionCheck.ts";
 
 function mockGateway(response: unknown, onRequest?: (request: unknown) => void): TypeSafeGateway {
   return {
@@ -189,4 +194,52 @@ test("test triage never suppresses deterministic affected tests", async () => {
   assert.deepEqual(result.requiredTests, selection.selectedTests);
   assert.deepEqual(result.recommendedTests, ["tests/high.test.ts", "tests/low.test.ts"]);
   assert.deepEqual(result.groups.background, ["tests/low.test.ts"]);
+});
+
+test("CI triage uses a closed deterministic category set when live judgment is unavailable", async () => {
+  assert.equal(deterministicCiFailureCategory("eslint reported no-unused-vars"), "lint");
+  assert.equal(deterministicCiFailureCategory("Playwright locator timed out"), "browser");
+  assert.equal(deterministicCiFailureCategory("supabase migration failed with RLS error"), "migration/database");
+  const result = await classifyCiFailure({ excerpt: "eslint reported no-unused-vars", env: {} });
+  assert.equal(result.category, "lint");
+  assert.equal(result.fallback, true);
+  assert.equal(result.advisoryOnly, true);
+});
+
+test("CI triage rejects secret-bearing excerpts before any live call", async () => {
+  let calls = 0;
+  const result = await classifyCiFailure({
+    excerpt: "DATABASE_URL=postgres://user:secret@host/db",
+    env: { TYPESAFE_API_KEY: "ts-test-only" },
+    gateway: mockGateway({}, () => { calls += 1; }),
+  });
+  assert.equal(result.category, "unknown");
+  assert.equal(result.diagnostic.fallbackReason, "sanitizer-rejected");
+  assert.equal(calls, 0);
+});
+
+test("CI triage accepts a validated live category without exposing raw response data", async () => {
+  const result = await classifyCiFailure({
+    excerpt: "Synthetic browser failure",
+    env: { TYPESAFE_API_KEY: "ts-test-only" },
+    gateway: mockGateway({ answers: { category: { choice: "browser", confidence: 0.9 } } }),
+  });
+  assert.equal(result.category, "browser");
+  assert.equal(result.fallback, false);
+});
+
+test("completion evidence check remains advisory and reports missing documentation", async () => {
+  const result = await checkCompletionEvidence({
+    taskScope: "TypeSafe developer tooling",
+    changedFileCategories: ["developer-tooling"],
+    validation: { tests: "passed", lint: "passed" },
+    declaredEvidence: ["implementation", "tests"],
+    expectedEvidence: ["implementation", "tests", "documentation"],
+    env: { TYPESAFE_API_KEY: "ts-test-only" },
+    gateway: mockGateway({ answers: { c0: { noul: 1 }, c1: { noul: 1 }, c2: { noul: 0 } } }),
+  });
+  assert.equal(result.advisoryOnly, true);
+  assert.equal(result.mergeDecision, "not-provided");
+  assert.deepEqual(result.missingEvidence, ["documentation"]);
+  assert.equal(result.fallback, false);
 });
