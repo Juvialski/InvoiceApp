@@ -278,6 +278,47 @@ test("fails closed for stale state, hidden identity tampering, bad references, a
   assert.equal(proposalFor(buildExpensesImportReview(setExpenseCells(exportedBytes(), { Amount: -1 }, 0), context()), DIRECT_EXPENSE_ID).status, "INVALID");
 });
 
+test("classifies app-only Expense changes without inventing workbook edits", () => {
+  const bytes = exportedBytes();
+
+  const editedInApp = changedDirectExpense();
+  const editedReview = buildExpensesImportReview(bytes, context({
+    expenses: [editedInApp, ...records().expenses.slice(1)],
+  }));
+  const editedProposal = proposalFor(editedReview, DIRECT_EXPENSE_ID);
+  assert.equal(editedProposal.status, "APP_ONLY_CHANGE");
+  assert.equal(editedProposal.canApply, false);
+  assert.equal(editedProposal.changes.length, 0);
+
+  const lifecycleChangedInApp = expense({ status: "APPROVED", updatedAt: "2026-09-22T00:00:00.000Z" });
+  const lifecycleReview = buildExpensesImportReview(bytes, context({
+    expenses: [lifecycleChangedInApp, ...records().expenses.slice(1)],
+  }));
+  const lifecycleProposal = proposalFor(lifecycleReview, DIRECT_EXPENSE_ID);
+  assert.equal(lifecycleProposal.status, "APP_ONLY_CHANGE");
+  assert.equal(lifecycleProposal.canApply, false);
+  assert.equal(lifecycleProposal.changes.length, 0);
+});
+
+test("classifies app-only supplier settlement changes without protected-field false positives", () => {
+  const bytes = exportedBytes();
+  const changedProjection = supplierProjection();
+  changedProjection.settlement = {
+    ...changedProjection.settlement,
+    reconciledCashPaid: 500,
+    effectiveSettled: 500,
+    outstanding: 1500,
+    settlementState: "PARTIALLY_PAID",
+  };
+  const review = buildExpensesImportReview(bytes, context({
+    settlementProjections: new Map([[SUPPLIER_INVOICE_ID, changedProjection]]),
+  }));
+  const proposal = supplierProposalFor(review, SUPPLIER_INVOICE_ID);
+  assert.equal(proposal.status, "APP_ONLY_CHANGE");
+  assert.equal(proposal.canApply, false);
+  assert.equal(proposal.changes.length, 0);
+});
+
 test("rejects workbook reassignment to an archived project", () => {
   const archivedProject = { ...project(PROJECT_TWO_ID, "PRJ-002", "South Plant"), status: "ARCHIVED" as const };
   const bytes = setExpenseCells(exportedBytes(), { Project: "PRJ-002" }, 0);
