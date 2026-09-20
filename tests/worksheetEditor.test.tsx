@@ -111,6 +111,16 @@ test("pastes a rectangular TSV matrix across existing rows and columns", () => {
   assert.equal(result.changes.length, 4);
 });
 
+test("ignores the terminal row delimiter emitted by spreadsheet clipboard copy", () => {
+  const result = applyWorksheetPaste(rows, columns, (row) => row.id, 0, 0, "Cement\t250\r\n");
+  assert.equal(result.rows[0].name, "Cement");
+  assert.equal(result.rows[0].amount, 250);
+  assert.equal(result.rows[1].name, "Steel");
+  assert.equal(result.rows[1].amount, 200);
+  assert.equal(result.changes.length, 2);
+  assert.equal(result.rejected.length, 0);
+});
+
 test("reports invalid pasted values without corrupting the original cell", () => {
   const result = applyWorksheetPaste(rows, columns, (row) => row.id, 0, 1, "not-a-number");
   assert.equal(result.rows[0].amount, 100);
