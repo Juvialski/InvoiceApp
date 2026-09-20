@@ -119,7 +119,8 @@ function provenanceBadge(label: ProvenanceLabel | undefined) {
       : label === "Unresolved"
         ? "bg-amber-100 text-amber-900"
         : "bg-emerald-100 text-emerald-800";
-  return <span data-provenance={label} className={`ml-2 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-black ${tone}`}>{label}</span>;
+  const visible = label === "Manually corrected" || label === "Unresolved";
+  return <span data-provenance={label} className={visible ? `ml-2 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-black ${tone}` : "sr-only"}>{label}</span>;
 }
 
 function invoiceCellRenderer(
@@ -283,12 +284,9 @@ function normalizedInvoice(invoice: InvoiceData): InvoiceData {
   return Array.isArray(invoice.items) ? invoice : { ...invoice, items: [] };
 }
 
-function WorksheetSection({ testId, title, description, children }: { testId: string; title: string; description: string; children: React.ReactNode }) {
-  return <section data-testid={testId} className="min-w-0 space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-    <div>
-      <h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-700">{title}</h3>
-      <p className="mt-1 text-[10px] leading-4 text-slate-500">{description}</p>
-    </div>
+function WorksheetSection({ testId, title, children }: { testId: string; title: string; children: React.ReactNode }) {
+  return <section data-testid={testId} className="min-w-0 space-y-2">
+    <h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-700">{title}</h3>
     {children}
   </section>;
 }
@@ -296,6 +294,8 @@ function WorksheetSection({ testId, title, description, children }: { testId: st
 export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateInvoice }: SupplierInvoiceWorksheetProps) {
   const [draftInvoice, setDraftInvoice] = useState(() => normalizedInvoice(invoice));
   const draftInvoiceRef = useRef(draftInvoice);
+  const worksheetRootRef = useRef<HTMLElement | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const nextInvoice = normalizedInvoice(invoice);
@@ -306,11 +306,6 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
   const updateDraftInvoice = (next: InvoiceData) => {
     draftInvoiceRef.current = next;
     setDraftInvoice(next);
-  };
-
-  const commitInvoice = (next: InvoiceData) => {
-    updateDraftInvoice(next);
-    onUpdateInvoice?.(next);
   };
 
   const headerColumns = useMemo<readonly WorksheetColumn<InvoiceData>[]>(() => [
@@ -405,19 +400,63 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
   const handleLineRowsChange = (rows: readonly LineItem[]) => updateDraftInvoice({ ...draftInvoiceRef.current, items: [...rows] });
   const handleTotalRowsChange = (rows: readonly InvoiceData[]) => { if (rows[0]) updateDraftInvoice(rows[0]); };
 
-  return <section data-testid="supplier-invoice-extracted-worksheet" data-worksheet-responsive-surface="supplier-invoice" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-3">
-    <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-[10px] leading-4 text-slate-600">
-      <p className="font-black uppercase tracking-[0.12em] text-slate-700">Extracted data worksheet</p>
-      <p className="mt-1">Correct preserved source evidence here and save deliberately. All sections share one review draft: saving from any section saves all current worksheet edits, while discarding from any section resets the full worksheet draft. Cells marked calculated, protected, or unresolved keep their current accounting meaning; the canonical Vendor relationship remains a separate confirmed workflow.</p>
-      <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Worksheet provenance legend">
-        <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800">Source evidence</span>
-        <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-bold text-indigo-800">Manually corrected</span>
-        <span className="rounded-full bg-slate-200 px-2 py-0.5 font-bold text-slate-700">Calculated / protected</span>
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-900">Unresolved</span>
+  const handleSave = () => {
+    if (readOnly || !onUpdateInvoice) return;
+    const activeElement = typeof document !== "undefined" ? document.activeElement : null;
+    if (typeof HTMLElement !== "undefined" && activeElement instanceof HTMLElement && worksheetRootRef.current?.contains(activeElement) && activeElement.matches("input, select")) {
+      activeElement.blur();
+    }
+    const finish = () => {
+      if (worksheetRootRef.current?.querySelector('[data-worksheet-state="error"]')) {
+        setSaveError("Resolve the highlighted worksheet validation errors before saving.");
+        return;
+      }
+      setSaveError(null);
+      onUpdateInvoice(draftInvoiceRef.current);
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(finish);
+    else finish();
+  };
+
+  const handleCancel = () => {
+    setSaveError(null);
+    updateDraftInvoice(normalizedInvoice(invoice));
+  };
+
+  const handleAddLine = () => {
+    if (readOnly) return;
+    updateDraftInvoice({ ...draftInvoiceRef.current, items: [...(draftInvoiceRef.current.items || []), newLineItem(invoice.id)] });
+  };
+
+  return <section ref={worksheetRootRef} data-testid="supplier-invoice-extracted-worksheet" data-worksheet-responsive-surface="supplier-invoice" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-4">
+    <div data-testid="supplier-invoice-worksheet-action-bar" className="flex min-w-0 flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        <h2 className="text-sm font-black text-slate-950">Extracted invoice data</h2>
+        <p className="mt-1 text-[10px] leading-4 text-slate-500">Review the extracted fields below. Source evidence is preserved; only permitted corrections are editable.</p>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {!readOnly && <button type="button" data-worksheet-add-row="true" onClick={handleAddLine} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Add line</button>}
+        {!readOnly && onUpdateInvoice && <>
+          <button type="button" onClick={handleCancel} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Discard all worksheet edits</button>
+          <button type="button" onClick={handleSave} className="inline-flex min-h-9 items-center rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-black text-indigo-700 hover:bg-indigo-50">Save worksheet edits</button>
+        </>}
       </div>
     </div>
+    {saveError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-800">{saveError}</p>}
+    <details data-testid="supplier-invoice-worksheet-help" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600">
+      <summary className="cursor-pointer font-bold text-slate-700">How this review works</summary>
+      <div className="mt-2 space-y-2">
+        <p>All sections share one review draft. Save once after reviewing the permitted extracted fields; discarding resets the full worksheet draft. Calculated and protected values keep their accounting meaning, and canonical Vendor identity remains a separate confirmed workflow.</p>
+        <div className="flex flex-wrap gap-1.5" aria-label="Worksheet state legend">
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-bold text-indigo-800">Manually corrected</span>
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-900">Unresolved</span>
+          <span className="rounded-full bg-slate-200 px-2 py-0.5 font-bold text-slate-700">Calculated / protected</span>
+          <span className="px-1 text-slate-500">Source evidence is the normal state.</span>
+        </div>
+      </div>
+    </details>
 
-    <WorksheetSection testId="supplier-invoice-header-worksheet" title="Invoice Header" description="Editable extracted header and human-confirmed posting context. Currency is kept as an explicit ISO-style source fact.">
+    <WorksheetSection testId="supplier-invoice-header-worksheet" title="Invoice Header">
       <WorksheetEditor
         ariaLabel="Supplier invoice header worksheet"
         rows={[draftInvoice]}
@@ -425,16 +464,13 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         rowKey={(row) => row.id}
         onRowsChange={handleHeaderRowsChange}
         dirtyCells={headerDirtyCells}
-        onSave={!readOnly && onUpdateInvoice ? (rows) => { if (rows[0]) commitInvoice(rows[0]); } : undefined}
-        onCancel={!readOnly ? () => updateDraftInvoice(normalizedInvoice(invoice)) : undefined}
+        showActionBar={false}
         disabled={readOnly}
-        saveLabel="Save worksheet edits"
-        cancelLabel="Discard all worksheet edits"
         density="comfortable"
       />
     </WorksheetSection>
 
-    <WorksheetSection testId="supplier-invoice-vendor-worksheet" title="Vendor Evidence" description="These cells preserve what the supplier invoice says. Canonical Vendor search, link, and creation are intentionally not worksheet cells.">
+    <WorksheetSection testId="supplier-invoice-vendor-worksheet" title="Vendor Evidence">
       <WorksheetEditor
         ariaLabel="Supplier invoice vendor evidence worksheet"
         rows={[draftInvoice]}
@@ -442,17 +478,17 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         rowKey={(row) => row.id}
         onRowsChange={handleVendorRowsChange}
         dirtyCells={vendorDirtyCells}
-        onSave={!readOnly && onUpdateInvoice ? (rows) => { if (rows[0]) commitInvoice(rows[0]); } : undefined}
-        onCancel={!readOnly ? () => updateDraftInvoice(normalizedInvoice(invoice)) : undefined}
+        showActionBar={false}
         disabled={readOnly}
-        saveLabel="Save worksheet edits"
-        cancelLabel="Discard all worksheet edits"
         density="comfortable"
       />
-      <p data-testid="supplier-invoice-canonical-vendor-boundary" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold leading-4 text-amber-900">Canonical Vendor ID and master-data ownership are protected from ordinary worksheet editing. Confirm a deliberate link or create action in the controlled Vendor workflow below.</p>
+      <details data-testid="supplier-invoice-canonical-vendor-boundary" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600">
+        <summary className="cursor-pointer font-bold text-slate-700">Vendor identity controls</summary>
+        <p className="mt-2">Canonical Vendor ID and master-data ownership are protected from ordinary worksheet editing. Confirm a deliberate link or create action in the controlled Vendor workflow below.</p>
+      </details>
     </WorksheetSection>
 
-    <WorksheetSection testId="supplier-invoice-line-items-worksheet" title="Line Items" description="Line rows keep stable IDs. Add or remove rows only changes the review draft; source monetary facts are not recalculated silently.">
+    <WorksheetSection testId="supplier-invoice-line-items-worksheet" title="Line Items">
       <WorksheetEditor
         ariaLabel="Supplier invoice line items worksheet"
         rows={draftItems}
@@ -460,21 +496,16 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         rowKey={(row) => row.id}
         onRowsChange={handleLineRowsChange}
         dirtyCells={lineDirtyCells}
-        onAddRow={readOnly ? undefined : () => newLineItem(invoice.id)}
-        canAddRow={!readOnly}
         onRemoveRow={readOnly ? undefined : () => undefined}
         canRemoveRow={!readOnly}
-        onSave={!readOnly && onUpdateInvoice ? (rows) => commitInvoice({ ...draftInvoiceRef.current, items: [...rows] }) : undefined}
-        onCancel={!readOnly ? () => updateDraftInvoice(normalizedInvoice(invoice)) : undefined}
+        showActionBar={false}
         disabled={readOnly}
-        saveLabel="Save worksheet edits"
-        cancelLabel="Discard all worksheet edits"
         emptyState="No line items extracted. Add a row only when the source supports it."
         density="compact"
       />
     </WorksheetSection>
 
-    <WorksheetSection testId="supplier-invoice-totals-worksheet" title="Totals / Monetary Facts" description="Source-stated amounts remain evidence. Calculated values are visibly protected, and monetary-basis classifications stay explicit.">
+    <WorksheetSection testId="supplier-invoice-totals-worksheet" title="Totals / Monetary Facts">
       <WorksheetEditor
         ariaLabel="Supplier invoice totals and monetary facts worksheet"
         rows={[draftInvoice]}
@@ -482,11 +513,8 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         rowKey={(row) => row.id}
         onRowsChange={handleTotalRowsChange}
         dirtyCells={totalDirtyCells}
-        onSave={!readOnly && onUpdateInvoice ? (rows) => { if (rows[0]) commitInvoice(rows[0]); } : undefined}
-        onCancel={!readOnly ? () => updateDraftInvoice(normalizedInvoice(invoice)) : undefined}
+        showActionBar={false}
         disabled={readOnly}
-        saveLabel="Save worksheet edits"
-        cancelLabel="Discard all worksheet edits"
         density="compact"
       />
     </WorksheetSection>

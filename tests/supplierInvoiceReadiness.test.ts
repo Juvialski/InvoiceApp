@@ -172,8 +172,8 @@ test("the UI presents readiness reasons, exposes Expense posting facts, and rout
   assert.match(reviewSource, /Create &amp; Link Vendor/);
   assert.match(reviewSource, /Link this Vendor/);
   assert.match(reviewSource, /Confirm description/);
-  assert.match(reviewSource, /Blocking actions required/);
-  assert.match(reviewSource, /Advisories and review notes/);
+  assert.match(reviewSource, /Blocking review items/);
+  assert.match(reviewSource, /Review notes/);
   assert.match(reviewSource, /Editing correction/);
   assert.match(reviewSource, /Invoice actions/);
   assert.match(readinessSource, /Select or create a canonical Vendor/);

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600" role="img" aria-labelledby="title description">
+  <title id="title">Fictional supplier invoice ASSC-2026-219</title>
+  <desc id="description">A sanitized demo supplier invoice source image for HydroQualiSense visual review.</desc>
+  <rect width="1200" height="1600" fill="#f8fafc"/>
+  <rect x="70" y="70" width="1060" height="1460" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="3"/>
+  <rect x="70" y="70" width="1060" height="190" rx="16" fill="#0f3d5e"/>
+  <rect x="70" y="220" width="1060" height="40" fill="#0f3d5e"/>
+  <text x="120" y="135" fill="#ffffff" font-family="Arial, sans-serif" font-size="28" font-weight="700">AXIS STRUCTURAL SERVICES CORP.</text>
+  <text x="120" y="178" fill="#cfe8f5" font-family="Arial, sans-serif" font-size="20">Fictional supplier source document · Demo evidence only</text>
+  <text x="1080" y="145" text-anchor="end" fill="#ffffff" font-family="Arial, sans-serif" font-size="42" font-weight="700">INVOICE</text>
+  <text x="1080" y="187" text-anchor="end" fill="#cfe8f5" font-family="Arial, sans-serif" font-size="20">ASSC-2026-219</text>
+
+  <text x="120" y="330" fill="#64748b" font-family="Arial, sans-serif" font-size="17" font-weight="700">BILL TO</text>
+  <text x="120" y="365" fill="#0f172a" font-family="Arial, sans-serif" font-size="23" font-weight="700">Hydroqualisense Solutions Corp.</text>
+  <text x="120" y="400" fill="#475569" font-family="Arial, sans-serif" font-size="18">Warehouse Expansion Project</text>
+  <text x="770" y="330" fill="#64748b" font-family="Arial, sans-serif" font-size="17" font-weight="700">INVOICE DATE</text>
+  <text x="770" y="365" fill="#0f172a" font-family="Arial, sans-serif" font-size="22">12 September 2026</text>
+  <text x="770" y="415" fill="#64748b" font-family="Arial, sans-serif" font-size="17" font-weight="700">PAYMENT TERMS</text>
+  <text x="770" y="450" fill="#0f172a" font-family="Arial, sans-serif" font-size="22">Net 30</text>
+
+  <line x1="120" y1="500" x2="1080" y2="500" stroke="#cbd5e1" stroke-width="2"/>
+  <rect x="120" y="535" width="960" height="62" fill="#e2e8f0"/>
+  <text x="145" y="575" fill="#334155" font-family="Arial, sans-serif" font-size="17" font-weight="700">DESCRIPTION</text>
+  <text x="740" y="575" text-anchor="end" fill="#334155" font-family="Arial, sans-serif" font-size="17" font-weight="700">QTY</text>
+  <text x="900" y="575" text-anchor="end" fill="#334155" font-family="Arial, sans-serif" font-size="17" font-weight="700">UNIT PRICE</text>
+  <text x="1050" y="575" text-anchor="end" fill="#334155" font-family="Arial, sans-serif" font-size="17" font-weight="700">AMOUNT</text>
+
+  <text x="145" y="660" fill="#0f172a" font-family="Arial, sans-serif" font-size="21">Steel framing erection progress claim — north bay</text>
+  <text x="740" y="660" text-anchor="end" fill="#0f172a" font-family="Arial, sans-serif" font-size="21">1 lot</text>
+  <text x="900" y="660" text-anchor="end" fill="#0f172a" font-family="Arial, sans-serif" font-size="21">₱1,129,034.49</text>
+  <text x="1050" y="660" text-anchor="end" fill="#0f172a" font-family="Arial, sans-serif" font-size="21">₱1,129,034.49</text>
+  <line x1="120" y1="705" x2="1080" y2="705" stroke="#e2e8f0" stroke-width="2"/>
+  <text x="145" y="770" fill="#64748b" font-family="Arial, sans-serif" font-size="18">Reference: demo-project-warehouse</text>
+  <text x="145" y="810" fill="#64748b" font-family="Arial, sans-serif" font-size="18">Tax registration: VAT · Currency: PHP</text>
+
+  <line x1="710" y1="900" x2="1080" y2="900" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="740" y="955" fill="#64748b" font-family="Arial, sans-serif" font-size="18">Subtotal</text>
+  <text x="1050" y="955" text-anchor="end" fill="#0f172a" font-family="Arial, sans-serif" font-size="21">₱1,129,034.49</text>
+  <text x="740" y="1005" fill="#64748b" font-family="Arial, sans-serif" font-size="18">VAT 12%</text>
+  <text x="1050" y="1005" text-anchor="end" fill="#0f172a" font-family="Arial, sans-serif" font-size="21">₱135,484.14</text>
+  <line x1="710" y1="1045" x2="1080" y2="1045" stroke="#0f3d5e" stroke-width="3"/>
+  <text x="740" y="1110" fill="#0f3d5e" font-family="Arial, sans-serif" font-size="22" font-weight="700">TOTAL</text>
+  <text x="1050" y="1110" text-anchor="end" fill="#0f3d5e" font-family="Arial, sans-serif" font-size="28" font-weight="700">₱1,264,518.63</text>
+
+  <rect x="120" y="1240" width="960" height="120" rx="10" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="150" y="1285" fill="#1e3a8a" font-family="Arial, sans-serif" font-size="18" font-weight="700">SOURCE NOTE</text>
+  <text x="150" y="1325" fill="#1e40af" font-family="Arial, sans-serif" font-size="17">Fictional sample retained for safe-demo source-first review.</text>
+  <text x="600" y="1470" text-anchor="middle" fill="#94a3b8" font-family="Arial, sans-serif" font-size="16" letter-spacing="2">HYDROQUALISENSE · SANITIZED DEMO EVIDENCE</text>
+</svg>

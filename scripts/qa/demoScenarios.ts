@@ -110,7 +110,9 @@ const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
   await waitForVisible(page, '[data-testid="supplier-invoice-source-first"]');
   const sourceFirst = await page.locator('[data-testid="supplier-invoice-source-first"]').count();
   const sourceSurface = await page.locator('[data-testid="supplier-invoice-source-surface"]').count();
+  const sourceDocument = await page.locator('[data-testid="supplier-invoice-source-document"][data-source-state="available"]').count();
   const extractedWorksheet = await page.locator('[data-testid="supplier-invoice-extracted-worksheet"]').count();
+  const worksheetActionBar = await page.locator('[data-testid="supplier-invoice-worksheet-action-bar"]').count();
   const headerWorksheet = await page.locator('[data-testid="supplier-invoice-header-worksheet"]').count();
   const lineWorksheet = await page.locator('[data-testid="supplier-invoice-line-items-worksheet"]').count();
   const totalsWorksheet = await page.locator('[data-testid="supplier-invoice-totals-worksheet"]').count();
@@ -120,7 +122,9 @@ const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
   return [
     { id: "supplier-invoice-source-first-visible", passed: sourceFirst === 1, details: `source-first review surfaces: ${sourceFirst}` },
     { id: "supplier-invoice-source-surface-visible", passed: sourceSurface === 1, details: `preserved source surfaces: ${sourceSurface}` },
+    { id: "supplier-invoice-source-document-visible", passed: sourceDocument === 1, details: `available source documents: ${sourceDocument}` },
     { id: "supplier-invoice-extracted-worksheet-visible", passed: extractedWorksheet === 1, details: `extracted worksheets: ${extractedWorksheet}` },
+    { id: "supplier-invoice-worksheet-action-bar-visible", passed: worksheetActionBar === 1, details: `aggregate worksheet action bars: ${worksheetActionBar}` },
     { id: "supplier-invoice-header-worksheet-visible", passed: headerWorksheet === 1, details: `header worksheets: ${headerWorksheet}` },
     { id: "supplier-invoice-line-worksheet-visible", passed: lineWorksheet === 1, details: `line-item worksheets: ${lineWorksheet}` },
     { id: "supplier-invoice-totals-worksheet-visible", passed: totalsWorksheet === 1, details: `totals worksheets: ${totalsWorksheet}` },

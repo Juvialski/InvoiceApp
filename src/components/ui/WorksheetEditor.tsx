@@ -44,6 +44,7 @@ export interface WorksheetEditorProps<T> {
   canRemoveRow?: boolean | ((row: T, rowIndex: number) => boolean);
   toolbar?: React.ReactNode;
   actions?: React.ReactNode;
+  showActionBar?: boolean;
   onSave?: (rows: readonly T[]) => void | Promise<void>;
   onApply?: (rows: readonly T[]) => void | Promise<void>;
   onCancel?: () => void;
@@ -132,6 +133,7 @@ export function WorksheetEditor<T>({
   canRemoveRow = Boolean(onRemoveRow),
   toolbar,
   actions,
+  showActionBar = true,
   onSave,
   onApply,
   onCancel,
@@ -521,7 +523,7 @@ export function WorksheetEditor<T>({
 
   return (
     <section data-worksheet-editor="true" data-worksheet-dirty={rootDirty} className={`min-w-0 rounded-xl border border-slate-200 bg-white ${className}`} aria-label={ariaLabel}>
-      <div data-worksheet-action-bar="true" className="flex min-w-0 flex-col gap-3 border-b border-slate-200 bg-slate-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+      {showActionBar && <div data-worksheet-action-bar="true" className="flex min-w-0 flex-col gap-3 border-b border-slate-200 bg-slate-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="sr-only">{ariaLabel}</span>
           {isDirty && <span data-worksheet-unsaved="true" className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black text-amber-900">Unsaved changes</span>}
@@ -535,7 +537,7 @@ export function WorksheetEditor<T>({
           {onApply && <button type="button" onClick={() => requestAction("apply", onApply)} disabled={actionDisabled} className="inline-flex min-h-9 items-center rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-black text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">{applyLabel}</button>}
           {onAddRow && <button type="button" data-worksheet-add-row="true" onClick={handleAddRow} disabled={actionDisabled || !canAddRow} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Add row</button>}
         </div>
-      </div>
+      </div>}
       <div data-worksheet-scroll-container="true" className="min-w-0 max-h-none overflow-x-hidden overflow-y-visible overscroll-contain md:max-h-[min(70vh,52rem)] md:overflow-x-auto md:overflow-y-auto">
         <div data-worksheet-desktop-grid="true" className="hidden md:block">
         <table role="grid" aria-label={ariaLabel} aria-rowcount={draftRows.length + 1} className="min-w-full border-collapse text-left text-xs">
