@@ -2,7 +2,7 @@
 
 ## Qualification
 
-- Source revision: `fb939cda2d3d361212b9acdf9f8464a491fe822e`
+- Source revision: `5011d137829cceef70cee6d8dcb96157aae02a39`
 - Environment: local `tsx server.ts` safe demo at `http://127.0.0.1:3000/demo`
 - Data: synthetic, session-local demo fixtures only; no authenticated tenant, provider, or production data
 - Browser: Codex in-app browser interactive capture with CSS viewport emulation at approximately `390x844` and `1440x900`

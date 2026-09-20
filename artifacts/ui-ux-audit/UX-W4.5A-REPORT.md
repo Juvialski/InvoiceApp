@@ -184,7 +184,7 @@ bounded correction slices are documented. No broad UI remediation was made.
 ## UX-W4.5B follow-up — shared responsive shell and worksheet foundations
 
 The bounded UX-W4.5B implementation was validated against source revision
-`fb939cda2d3d361212b9acdf9f8464a491fe822e` in the local synthetic safe demo.
+`5011d137829cceef70cee6d8dcb96157aae02a39` in the local synthetic safe demo.
 The targeted visual record is
 `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`.
 
