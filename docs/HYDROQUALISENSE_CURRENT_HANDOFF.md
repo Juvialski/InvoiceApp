@@ -98,18 +98,23 @@ workbook Apply contracts.
   modal footer; approval, issue, receiving, close, cancellation, matching, and
   settlement remain separate.
 
-Integrated changed-surface focused validation passed **120/120**; affected
-application selection passed **486/486** with database fallback disabled; ESLint,
-TypeScript, and production build passed with only existing local build advisories.
-Manual safe-demo inspection covered desktop Projects, Expenses, Cash & Banking,
-Project Workspace/Budget, Purchase Order, and RFQ at the visible 1280x900 local
-browser surface. Playwright was unavailable, so automated Demo Visual QA and
-new C-state constrained-laptop/phone screenshots are not claimed. Evidence and
-finding disposition are recorded in `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
+Integrated changed-surface focused validation passed **120/120**. PR review
+advanced the application-bearing head to
+`1652add981cb8d51ea24495f958273380627eb30`; exact-head Application Validation
+selected and passed **486/486** affected application tests with database fallback
+disabled and passed lint/typecheck/build. Exact-head Workflow Map Consistency,
+the database-unaffected migration/invariant gate, and protected Demo Visual QA
+also passed. The protected screenshot artifact was inspected directly. Review
+found and fixed one remaining visual blocker: the Project Overview Management
+Attention wall was too tall and buried financial controls, so it now presents a
+compact severity summary with evidence/drilldowns disclosed on demand. Projects
+remains card-first and PO/RFQ keep the wide working-canvas treatment across the
+captured responsive states. Evidence and disposition are recorded in
+`artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
 
-UX45A-001 is resolved for the inspected register states; UX45A-005, UX45A-008,
-UX45A-009, UX45A-013, and UX45A-014 are partial for bounded touched surfaces;
-UX45A-004 remains deferred to UX-W4.5D. UX-W4.5E is now explicitly the future
+UX45A-001 and the bounded UX45A-005 hierarchy target are resolved for W4.5C;
+UX45A-008, UX45A-009, UX45A-013, and UX45A-014 remain partial where they extend
+beyond touched surfaces; UX45A-004 remains deferred to UX-W4.5D. UX-W4.5E is now explicitly the future
 **App-Wide Visual Consistency & Professional-Finish Certification** phase.
 
 ### Earlier UI/UX and hosted-certification reference
