@@ -458,7 +458,16 @@ export function ProjectCostCodesWorksheet({
         columns={columns}
         rowKey={(row) => row.id}
         onRowsChange={handleRowsChange}
-        onCellChange={({ row, column }) => markDirty(row.id, getWorksheetCellId(row.id, column.key))}
+        onCellChange={({ row, column }) => {
+          const cellKey = getWorksheetCellId(row.id, column.key);
+          markDirty(row.id, cellKey);
+          setCellIssues((current) => {
+            if (!current[cellKey]) return current;
+            const next = { ...current };
+            delete next[cellKey];
+            return next;
+          });
+        }}
         cellIssues={cellIssues}
         dirtyCells={dirtyCellKeys}
         onAddRow={handleAddRow}

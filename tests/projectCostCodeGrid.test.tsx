@@ -33,6 +33,8 @@ test("project cost-code maintenance uses WorksheetEditor with protected financia
   assert.match(worksheetSource, /onReactivateCostCode/);
   assert.match(worksheetSource, /data-cost-code-save-plan/);
   assert.match(worksheetSource, /dirtyCells=\{dirtyCellKeys\}/);
+  const onCellChangeSource = worksheetSource.slice(worksheetSource.indexOf("onCellChange="), worksheetSource.indexOf("onCellChange=") + 500);
+  assert.match(onCellChangeSource, /setCellIssues/);
   assert.doesNotMatch(worksheetSource, /onRemoveRow/);
 });
 
