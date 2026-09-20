@@ -113,6 +113,7 @@ test("shared shell and worksheet dialogs contain long mobile scrolling", () => {
 
   assert.match(shell, /data-app-shell="true"/);
   assert.match(shell, /data-app-shell-main="true"/);
+  assert.match(shell, /root\.style\.scrollPaddingTop/);
   assert.match(header, /data-app-shell-header="true"/);
   assert.match(dialogFocus, /document\.body\.style\.overflow\s*=\s*"hidden"/);
   assert.match(dialogFocus, /data-dialog-scroll-locked/);

@@ -1,4 +1,4 @@
-import React, { useState, type ReactNode } from "react";
+import React, { useEffect, useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 import { Header, type AppTab } from "../components/Header";
 import { CompanySwitcher } from "../components/access/AccessStates.tsx";
@@ -180,6 +180,16 @@ export const AppShell: React.FC<AppShellProps> = ({
       return next;
     });
   };
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const root = document.documentElement;
+    const previousScrollPaddingTop = root.style.scrollPaddingTop;
+    root.style.scrollPaddingTop = "4.5rem";
+    return () => {
+      root.style.scrollPaddingTop = previousScrollPaddingTop;
+    };
+  }, []);
 
   const workspacePresentation = workspacePresentationState({
     initialLoadPending: workspaceLoading,
