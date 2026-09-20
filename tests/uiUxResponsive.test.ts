@@ -126,6 +126,30 @@ test("shared shell and worksheet dialogs contain long mobile scrolling", () => {
   assert.match(purchaseOrder, /data-dialog-scroll-container="purchase-order-editor"/);
 });
 
+test("representative worksheet consumers expose stable responsive surfaces and keep authority in parents", () => {
+  const projectDetails = source("src/components/projects/ProjectDetailsWorksheet.tsx");
+  const costCodes = source("src/components/projects/ProjectCostCodesWorksheet.tsx");
+  const clientBilling = source("src/components/projects/ClientBillingDraftWorksheet.tsx");
+  const expense = source("src/components/expenses/ExpenseDraftWorksheet.tsx");
+  const rfq = source("src/components/procurement/RFQEditorModal.tsx");
+  const purchaseOrder = source("src/components/procurement/PurchaseOrderEditorModal.tsx");
+  const supplierInvoice = source("src/components/invoices/SupplierInvoiceWorksheet.tsx");
+
+  assert.match(projectDetails, /data-worksheet-responsive-surface="project-details"/);
+  assert.match(projectDetails, /onSave=\{handleSave\}/);
+  assert.match(costCodes, /data-worksheet-responsive-surface="cost-codes"/);
+  assert.match(costCodes, /onSave=\{canManageProject \? handleSave : undefined\}/);
+  assert.match(clientBilling, /data-worksheet-responsive-surface="client-billing"/);
+  assert.match(clientBilling, /data-testid="client-billing-save-draft"/);
+  assert.match(expense, /data-worksheet-responsive-surface="expense-draft"/);
+  assert.match(expense, /onSave=\{editable \? handleSave : undefined\}/);
+  assert.match(rfq, /data-worksheet-responsive-surface="rfq-draft"/);
+  assert.match(purchaseOrder, /data-worksheet-responsive-surface="purchase-order-draft"/);
+  assert.match(supplierInvoice, /data-worksheet-responsive-surface="supplier-invoice"/);
+  assert.match(supplierInvoice, /protectedWhen:/);
+  assert.match(supplierInvoice, /onSave=\{!readOnly && onUpdateInvoice \?/);
+});
+
 test("desktop Projects filters reserve readable space for project search", () => {
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
   assert.match(projectRegister, /<div className="relative xl:col-span-2">[\s\S]*aria-label="Search projects"/);

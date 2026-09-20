@@ -441,7 +441,7 @@ export function ExpenseDraftWorksheet({
   };
 
   return (
-    <section ref={worksheetRootRef} data-testid="expense-draft-worksheet" aria-labelledby="expense-draft-worksheet-title" className="min-w-0 space-y-4">
+    <section ref={worksheetRootRef} data-testid="expense-draft-worksheet" data-worksheet-responsive-surface="expense-draft" aria-labelledby="expense-draft-worksheet-title" className="min-w-0 space-y-4">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Direct Expense draft</p>

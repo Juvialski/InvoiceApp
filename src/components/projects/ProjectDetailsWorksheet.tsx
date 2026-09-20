@@ -181,7 +181,7 @@ export function ProjectDetailsWorksheet({
   };
 
   return (
-    <div ref={dialogRef} data-project-details-worksheet="true" className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="project-details-worksheet-title">
+    <div ref={dialogRef} data-project-details-worksheet="true" data-worksheet-responsive-surface="project-details" className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="project-details-worksheet-title">
       <section className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[95vw] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4 sm:p-5">
           <div className="min-w-0">

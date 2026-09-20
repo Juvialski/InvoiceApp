@@ -218,7 +218,7 @@ export function ClientBillingDraftWorksheet({
   };
 
   return (
-    <section ref={worksheetRootRef} data-testid="client-billing-draft-worksheet" aria-labelledby="client-billing-draft-worksheet-title" className="min-w-0 space-y-4">
+    <section ref={worksheetRootRef} data-testid="client-billing-draft-worksheet" data-worksheet-responsive-surface="client-billing" aria-labelledby="client-billing-draft-worksheet-title" className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Client invoice draft</p>

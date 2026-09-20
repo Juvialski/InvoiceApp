@@ -704,7 +704,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
             </div>
           )}
 
-          <section data-testid="purchase-order-draft-worksheet" aria-label="Purchase order draft worksheet" className="min-w-0 space-y-4">
+          <section data-testid="purchase-order-draft-worksheet" data-worksheet-responsive-surface="purchase-order-draft" aria-label="Purchase order draft worksheet" className="min-w-0 space-y-4">
             <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
               <p className="font-black uppercase tracking-[0.12em]">Purchase Order draft worksheet</p>
               <p className="mt-1">Edit safe draft header and line fields here. Calculated amounts, received quantities, approval, issue, receiving, close, cancellation, matching, and settlement remain protected or purpose-built workflows.</p>

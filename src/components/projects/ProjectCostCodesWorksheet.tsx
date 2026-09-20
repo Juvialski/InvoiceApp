@@ -449,7 +449,7 @@ export function ProjectCostCodesWorksheet({
   };
 
   return (
-    <section data-cost-code-save-plan="true" aria-label="Project cost code worksheet" className="space-y-3">
+    <section data-cost-code-save-plan="true" data-worksheet-responsive-surface="cost-codes" aria-label="Project cost code worksheet" className="space-y-3">
       {(saveError || saveMessage) && <p role={saveError ? "alert" : "status"} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${saveError ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{saveError || saveMessage}</p>}
       <WorksheetEditor
         key={editorRevision}

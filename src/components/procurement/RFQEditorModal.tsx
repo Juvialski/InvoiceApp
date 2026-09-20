@@ -453,7 +453,7 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
               </div>
             )}
 
-            <section data-testid="rfq-draft-worksheet" aria-label="RFQ draft worksheet" className="min-w-0 space-y-4">
+            <section data-testid="rfq-draft-worksheet" data-worksheet-responsive-surface="rfq-draft" aria-label="RFQ draft worksheet" className="min-w-0 space-y-4">
               <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
                 <p className="font-black uppercase tracking-[0.12em]">RFQ draft worksheet</p>
                 <p className="mt-1">Edit safe RFQ header values and repeated line fields here. Comparison, quotation selection, issue, cancellation, and other lifecycle actions remain outside this worksheet.</p>
