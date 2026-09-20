@@ -75,6 +75,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Browse and review supplier invoices, preserve source documents, and record authorized full or partial supplier payments directly from the invoice while the linked Expense remains authoritative.",
     details: [
       "Review supplier identity, invoice facts, project allocations, purchase-order matching, duplicate signals, and source history before confirmation.",
+      "Correct permitted extracted header, supplier-evidence, line-item, and monetary facts beneath the preserved source document while canonical links and verification remain controlled.",
       "Verified supplier evidence links to the expense record that owns the payable and cost, without creating a second cost record.",
       "Use Change Status to record a full or partial payment against the linked Expense, including inline Cash/Bank account setup when permitted.",
       "Payment status is derived from confirmed linked-Expense settlement evidence; the verification-created Expense may remain DRAFT and confirmed payment evidence does not change that lifecycle. Cash & Banking remains available for deeper reconciliation, history, and corrections.",

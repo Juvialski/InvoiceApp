@@ -106,6 +106,29 @@ const verifySupplierInvoiceNavigation: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[data-testid="supplier-invoice-source-first"]');
+  const sourceFirst = await page.locator('[data-testid="supplier-invoice-source-first"]').count();
+  const sourceSurface = await page.locator('[data-testid="supplier-invoice-source-surface"]').count();
+  const extractedWorksheet = await page.locator('[data-testid="supplier-invoice-extracted-worksheet"]').count();
+  const headerWorksheet = await page.locator('[data-testid="supplier-invoice-header-worksheet"]').count();
+  const lineWorksheet = await page.locator('[data-testid="supplier-invoice-line-items-worksheet"]').count();
+  const totalsWorksheet = await page.locator('[data-testid="supplier-invoice-totals-worksheet"]').count();
+  const worksheetEditors = await page.locator('[data-worksheet-editor="true"]').count();
+  const detailsToggle = await page.getByRole("button", { name: "Details", exact: true }).count();
+  const sourceToggle = await page.getByRole("button", { name: "Source", exact: true }).count();
+  return [
+    { id: "supplier-invoice-source-first-visible", passed: sourceFirst === 1, details: `source-first review surfaces: ${sourceFirst}` },
+    { id: "supplier-invoice-source-surface-visible", passed: sourceSurface === 1, details: `preserved source surfaces: ${sourceSurface}` },
+    { id: "supplier-invoice-extracted-worksheet-visible", passed: extractedWorksheet === 1, details: `extracted worksheets: ${extractedWorksheet}` },
+    { id: "supplier-invoice-header-worksheet-visible", passed: headerWorksheet === 1, details: `header worksheets: ${headerWorksheet}` },
+    { id: "supplier-invoice-line-worksheet-visible", passed: lineWorksheet === 1, details: `line-item worksheets: ${lineWorksheet}` },
+    { id: "supplier-invoice-totals-worksheet-visible", passed: totalsWorksheet === 1, details: `totals worksheets: ${totalsWorksheet}` },
+    { id: "supplier-invoice-four-worksheet-editors-visible", passed: worksheetEditors === 4, details: `worksheet editors: ${worksheetEditors}` },
+    { id: "supplier-invoice-old-mobile-pane-removed", passed: detailsToggle === 0 && sourceToggle === 0, details: `legacy Details/Source toggles: ${detailsToggle}/${sourceToggle}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyStaleSupplierInvoiceRecovery: QaScenarioAction = async (page) => {
   const title = await page.getByRole("heading", { name: "Supplier invoice unavailable", exact: true }).count();
   const action = await page.getByRole("button", { name: "Return to Supplier Invoices", exact: true }).count();
@@ -603,7 +626,9 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "invoices", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-01", interactionState: "invoice detail opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "inline supplier payment modal opened", viewport: QA_VIEWPORTS.desktop, action: verifySupplierPayableBridge }),
   defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "inline supplier payment modal opened", viewport: QA_VIEWPORTS.mobile, action: verifySupplierPayableBridge }),
-  defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "invoice review opened", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "invoice review opened", viewport: QA_VIEWPORTS.desktop, action: verifySupplierInvoiceReview }),
+  defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "source-first supplier invoice worksheet review opened", viewport: QA_VIEWPORTS.tablet, action: verifySupplierInvoiceReview }),
+  defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "source-first supplier invoice worksheet review opened", viewport: QA_VIEWPORTS.mobile, action: verifySupplierInvoiceReview }),
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor directory rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorsScreen }),
   defineQaScenario({ feature: "payroll", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "payroll", route: route("payroll-run", "/payroll?runId=:runId"), path: "/demo/app/payroll?runId=demo-payroll-run-9", interactionState: "payroll run opened", viewport: QA_VIEWPORTS.desktop }),

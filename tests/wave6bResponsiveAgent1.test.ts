@@ -73,6 +73,7 @@ test("Wave 6B Agent 1 gives compact controls accessible names", () => {
   assert.match(verification, /aria-label=\{`Allocation \$\{index \+ 1\} project`\}/);
   assert.match(verification, /aria-label=\{`Allocation \$\{index \+ 1\} value`\}/);
   assert.match(verification, /aria-label=\{`Allocation \$\{index \+ 1\} type`\}/);
-  assert.match(verification, /aria-pressed=\{mobilePane === "details"\}/);
-  assert.match(verification, /aria-pressed=\{mobilePane === "source"\}/);
+  assert.match(verification, /data-testid="supplier-invoice-source-first"/);
+  assert.match(verification, /data-testid="supplier-invoice-source-surface"/);
+  assert.doesNotMatch(verification, /mobilePane/);
 });
