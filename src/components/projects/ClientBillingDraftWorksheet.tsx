@@ -112,6 +112,7 @@ export function ClientBillingDraftWorksheet({
   onSave,
   onCancel,
 }: ClientBillingDraftWorksheetProps) {
+  const worksheetRootRef = useRef<HTMLElement | null>(null);
   const lineSequence = useRef(0);
   const nextWorksheetId = () => `draft-client-billing-line-${lineSequence.current++}`;
   const [details, setDetails] = useState<BillingDetailsWorksheetRow>(() => detailsFromBilling(project, billing, initialBillingNumber));
@@ -166,6 +167,19 @@ export function ClientBillingDraftWorksheet({
   };
 
   const handleSave = async () => {
+    const activeElement = typeof document !== "undefined" ? document.activeElement : null;
+    if (activeElement instanceof HTMLElement && worksheetRootRef.current?.contains(activeElement) && activeElement.matches("input, select")) {
+      activeElement.blur();
+    }
+    await new Promise<void>((resolve) => {
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
+      else setTimeout(resolve, 0);
+    });
+    if (worksheetRootRef.current?.querySelector('[data-worksheet-state="error"]')) {
+      setLocalError("Resolve the highlighted worksheet validation errors before saving.");
+      return;
+    }
+
     const currentDetails = detailsRef.current;
     const lines = clientBillingLinesForPersistence(lineRowsRef.current).map((line) => ({
       description: line.description.trim(),
@@ -204,7 +218,7 @@ export function ClientBillingDraftWorksheet({
   };
 
   return (
-    <section data-testid="client-billing-draft-worksheet" aria-labelledby="client-billing-draft-worksheet-title" className="min-w-0 space-y-4">
+    <section ref={worksheetRootRef} data-testid="client-billing-draft-worksheet" aria-labelledby="client-billing-draft-worksheet-title" className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Client invoice draft</p>
