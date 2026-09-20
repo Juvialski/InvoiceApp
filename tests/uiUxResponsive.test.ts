@@ -118,6 +118,8 @@ test("Project Workspace and Budget Control put active work before secondary anal
   assert.ok(activeSurface > workspaceTabs);
   assert.ok(overviewAttention >= 0);
   assert.ok(overviewAttention < overviewAnalytics);
+  assert.match(overview, /data-management-attention-details="true"/);
+  assert.doesNotMatch(overview, /data-management-attention-details="true"[^>]*\sopen(?:=|\s|>)/);
   assert.ok(budgetSummary >= 0);
   assert.ok(budgetWorksheet > budgetSummary);
   assert.ok(budgetAttention > budgetWorksheet);
