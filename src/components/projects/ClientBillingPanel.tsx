@@ -15,7 +15,6 @@ import {
   RotateCcw,
   Send,
   ShieldCheck,
-  Trash2,
 } from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
@@ -48,6 +47,7 @@ import { confirmedTargetMatchedAmount, type CashBankingWorkspaceData, type Finan
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import { appPathForEmailWorkspace, appPathForProject } from "../../utils/appRouting.ts";
 import { ClientCollectionSettlementPanel } from "./ClientCollectionSettlementPanel.tsx";
+import { ClientBillingDraftWorksheet } from "./ClientBillingDraftWorksheet.tsx";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { DocumentPreviewModal } from "../DocumentPreviewModal.tsx";
 import { buildClientInvoiceDocumentSnapshot } from "../../lib/documentGeneration.ts";
@@ -135,34 +135,6 @@ function nextCollectionNumber(project: Project, count: number) {
   return `COL-${project.projectCode || "PROJECT"}-${String(count + 1).padStart(3, "0")}`.toUpperCase();
 }
 
-function emptyLine(): ClientBillingLineInput {
-  return { description: "", amount: 0 };
-}
-
-function formFromBilling(billing: ClientBilling): { input: ClientBillingInput; lines: ClientBillingLineInput[] } {
-  return {
-    input: {
-      id: billing.id,
-      projectId: billing.projectId,
-      billingNumber: billing.billingNumber,
-      billingDate: billing.billingDate,
-      dueDate: billing.dueDate,
-      paymentTerms: billing.paymentTerms,
-      periodStart: billing.periodStart,
-      periodEnd: billing.periodEnd,
-      clientNameSnapshot: billing.clientNameSnapshot,
-      clientReferenceSnapshot: billing.clientReferenceSnapshot,
-      billingContactName: billing.billingContactName,
-      billingEmail: billing.billingEmail,
-      billingAddress: billing.billingAddress,
-      currency: billing.currency,
-      taxTreatment: billing.taxTreatment,
-      notes: billing.notes,
-    },
-    lines: billing.lines.map((line) => ({ description: line.description, amount: line.amount, notes: line.notes })),
-  };
-}
-
 export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   project,
   initialBillingId,
@@ -192,22 +164,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   const projectEvents = useMemo(() => events.filter((event) => projectBillings.some((billing) => billing.id === event.billingId)), [events, projectBillings]);
   const billingSummary = useMemo(() => calculateClientBillingSummary(project, projectBillings), [project, projectBillings]);
   const [selectedBillingId, setSelectedBillingId] = useState<string | null>(initialBillingId || projectBillings[0]?.id || null);
-  const [editingBilling, setEditingBilling] = useState(false);
-  const [billingForm, setBillingForm] = useState<ClientBillingInput>(() => ({
-    projectId: project.id,
-    billingNumber: nextBillingNumber(project, projectBillings.length),
-    billingDate: today(),
-    dueDate: undefined,
-    paymentTerms: "",
-    clientNameSnapshot: project.clientName,
-    clientReferenceSnapshot: project.clientReference,
-    billingContactName: project.billingContactName,
-    billingEmail: project.billingEmail,
-    billingAddress: project.billingAddress,
-    currency: project.currency,
-    taxTreatment: project.taxTreatment,
-  }));
-  const [billingLines, setBillingLines] = useState<ClientBillingLineInput[]>([emptyLine()]);
+  const [billingEditor, setBillingEditor] = useState<{ mode: "create" } | { mode: "edit"; billing: ClientBilling } | null>(null);
 
   // Collections state
   const projectCollections = useMemo(() => collections.filter((c) => c.projectId === project.id), [collections, project.id]);
@@ -272,46 +229,25 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   // Billing Actions
   const startCreateBilling = () => {
     setError(null);
-    setBillingForm({
-      projectId: project.id,
-      billingNumber: nextBillingNumber(project, projectBillings.length),
-      billingDate: today(),
-      dueDate: undefined,
-      paymentTerms: "",
-      clientNameSnapshot: project.clientName,
-      clientReferenceSnapshot: project.clientReference,
-      billingContactName: project.billingContactName,
-      billingEmail: project.billingEmail,
-      billingAddress: project.billingAddress,
-      currency: project.currency,
-      taxTreatment: project.taxTreatment,
-    });
-    setBillingLines([emptyLine()]);
-    setEditingBilling(true);
+    setBillingEditor({ mode: "create" });
     setSelectedBillingId(null);
   };
 
   const startEditBilling = (billing: ClientBilling) => {
-    const next = formFromBilling(billing);
     setError(null);
-    setBillingForm(next.input);
-    setBillingLines(next.lines.length ? next.lines : [emptyLine()]);
+    setBillingEditor({ mode: "edit", billing });
     setSelectedBillingId(billing.id);
-    setEditingBilling(true);
   };
 
-  const saveDraftBilling = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!billingForm.billingNumber?.trim()) { setError("Billing number is required."); return; }
-    if (!billingLines.length || billingLines.some((line) => !line.description.trim())) { setError("Every billing line needs a description."); return; }
-    if (billingLines.some((line) => !Number.isFinite(Number(line.amount)) || Number(line.amount) < 0)) { setError("Billing line amounts must be zero or greater."); return; }
+  const saveDraftBilling = async (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => {
     setBusy(true);
     setError(null);
     try {
-      await onSave({ ...billingForm, projectId: project.id, currency: project.currency, taxTreatment: project.taxTreatment }, billingLines.map((line) => ({ ...line, description: line.description.trim(), amount: Number(line.amount) || 0 })));
-      setEditingBilling(false);
+      await onSave(input, lines);
+      setBillingEditor(null);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
+      throw nextError;
     } finally {
       setBusy(false);
     }
@@ -475,62 +411,17 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   };
 
   // Editor views
-  if (editingBilling) {
+  if (billingEditor) {
     return (
-      <section aria-labelledby="client-billing-editor-heading" className="space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Client invoice</p>
-            <h2 id="client-billing-editor-heading" className="mt-1 text-xl font-black text-slate-950">{billingForm.id ? "Edit client invoice draft" : "Create client invoice draft"}</h2>
-            <p className="mt-1 text-xs text-slate-500">Revenue-side project history only. Saving a draft does not issue an invoice, change project cost, or create cash activity.</p>
-          </div>
-          <Button variant="secondary" label="Cancel" onClick={() => setEditingBilling(false)} />
-        </div>
-        <form onSubmit={saveDraftBilling} className="space-y-4">
-          <Card className="p-5 shadow-sm" elevation="low">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="space-y-1"><span className="field-label">Invoice number</span><input className="field-input" value={billingForm.billingNumber || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingNumber: event.target.value }))} required /></label>
-              <label className="space-y-1"><span className="field-label">Invoice date</span><input className="field-input" type="date" value={billingForm.billingDate || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingDate: event.target.value }))} required /></label>
-              <label className="space-y-1"><span className="field-label">Due date</span><input className="field-input" type="date" value={billingForm.dueDate || ""} onChange={(event) => setBillingForm((current) => ({ ...current, dueDate: event.target.value || undefined }))} /></label>
-              <label className="space-y-1"><span className="field-label">Payment terms</span><input className="field-input" value={billingForm.paymentTerms || ""} onChange={(event) => setBillingForm((current) => ({ ...current, paymentTerms: event.target.value || undefined }))} placeholder="e.g. Due on receipt" /></label>
-              <label className="space-y-1"><span className="field-label">Period start</span><input className="field-input" type="date" value={billingForm.periodStart || ""} onChange={(event) => setBillingForm((current) => ({ ...current, periodStart: event.target.value || undefined }))} /></label>
-              <label className="space-y-1"><span className="field-label">Period end</span><input className="field-input" type="date" value={billingForm.periodEnd || ""} onChange={(event) => setBillingForm((current) => ({ ...current, periodEnd: event.target.value || undefined }))} /></label>
-              <label className="space-y-1 sm:col-span-2"><span className="field-label">Client snapshot</span><input className="field-input bg-slate-50" value={billingForm.clientNameSnapshot || ""} onChange={(event) => setBillingForm((current) => ({ ...current, clientNameSnapshot: event.target.value }))} placeholder={project.clientName || "Client not set"} /></label>
-              <label className="space-y-1 sm:col-span-2"><span className="field-label">Client reference</span><input className="field-input" value={billingForm.clientReferenceSnapshot || ""} onChange={(event) => setBillingForm((current) => ({ ...current, clientReferenceSnapshot: event.target.value || undefined }))} /></label>
-              <label className="space-y-1"><span className="field-label">Project tax treatment</span><input className="field-input bg-slate-50 text-slate-600" value={projectTaxTreatmentLabel(project.taxTreatment)} readOnly aria-describedby="client-invoice-tax-note" /></label>
-              <label className="space-y-1"><span className="field-label">Billing contact</span><input className="field-input" value={billingForm.billingContactName || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingContactName: event.target.value || undefined }))} placeholder={project.billingContactName || "Contact name"} /></label>
-              <label className="space-y-1"><span className="field-label">Billing email</span><input type="email" className="field-input" value={billingForm.billingEmail || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingEmail: event.target.value || undefined }))} placeholder={project.billingEmail || "billing@example.com"} /></label>
-              <label className="space-y-1 sm:col-span-4"><span className="field-label">Billing address</span><textarea className="field-input min-h-16" value={billingForm.billingAddress || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingAddress: event.target.value || undefined }))} placeholder={project.billingAddress || project.siteAddress || "Client billing address"} /></label>
-              <label className="space-y-1 sm:col-span-4"><span className="field-label">Notes</span><textarea className="field-input min-h-20" value={billingForm.notes || ""} onChange={(event) => setBillingForm((current) => ({ ...current, notes: event.target.value || undefined }))} /></label>
-            </div>
-            <p id="client-invoice-tax-note" className="mt-3 text-[10px] leading-4 text-slate-500">Inherited from the project. This records VAT vs Non-VAT context only; no VAT rate or inclusive/exclusive treatment is inferred.</p>
-          </Card>
-          <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
-              <div><h3 className="text-sm font-black">Billing lines</h3><p className="mt-1 text-[10px] text-slate-500">Line values are the source of the billing total.</p></div>
-              <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700" onClick={() => setBillingLines((current) => [...current, emptyLine()])}><Plus className="h-3.5 w-3.5" /> Add line</button>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {billingLines.map((line, index) => (
-                <div key={index} className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_170px_40px] sm:items-end">
-                  <label className="space-y-1"><span className="field-label">Description {index + 1}</span><input className="field-input" value={line.description} onChange={(event) => setBillingLines((current) => current.map((candidate, lineIndex) => lineIndex === index ? { ...candidate, description: event.target.value } : candidate))} required /></label>
-                  <label className="space-y-1"><span className="field-label">Amount ({project.currency})</span><input className="field-input text-right" type="number" min="0" step="0.01" value={line.amount} onChange={(event) => setBillingLines((current) => current.map((candidate, lineIndex) => lineIndex === index ? { ...candidate, amount: Number(event.target.value) || 0 } : candidate))} required /></label>
-                  <button type="button" aria-label={`Remove billing line ${index + 1}`} className="inline-flex h-10 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40" disabled={billingLines.length === 1} onClick={() => setBillingLines((current) => current.filter((_, lineIndex) => lineIndex !== index))}><Trash2 className="h-4 w-4" /></button>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-4">
-              <span className="text-xs font-bold text-slate-600">Current billing total</span>
-              <span className="text-lg font-black tabular-nums text-slate-950">{money(clientBillingTotal({ lines: billingLines.map((line) => ({ amount: Number(line.amount) || 0 })) }), project.currency)}</span>
-            </div>
-          </Card>
-          {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{error}</div>}
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button variant="secondary" label="Cancel" onClick={() => setEditingBilling(false)} />
-            <button type="submit" disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"><FilePlus2 className="h-3.5 w-3.5" />{busy ? "Saving…" : "Save draft"}</button>
-          </div>
-        </form>
-      </section>
+      <ClientBillingDraftWorksheet
+        project={project}
+        billing={billingEditor.mode === "edit" ? billingEditor.billing : undefined}
+        initialBillingNumber={billingEditor.mode === "create" ? nextBillingNumber(project, projectBillings.length) : undefined}
+        isSaving={busy}
+        errorMessage={error}
+        onSave={saveDraftBilling}
+        onCancel={() => { setBillingEditor(null); setError(null); }}
+      />
     );
   }
 

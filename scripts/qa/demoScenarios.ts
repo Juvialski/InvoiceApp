@@ -217,6 +217,30 @@ const verifyClientReceivableLifecycle: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyClientBillingDraftWorksheet: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Client Invoices & Collections");
+  await page.getByRole("button", { name: "Edit draft", exact: true }).first().click();
+  await waitForVisible(page, '[data-testid="client-billing-draft-worksheet"]');
+  const worksheet = await page.locator('[data-testid="client-billing-draft-worksheet"]').count();
+  const editors = await page.locator('[data-testid="client-billing-draft-worksheet"] [data-worksheet-editor="true"]').count();
+  const addRow = await page.locator('[data-testid="client-billing-draft-worksheet"] [data-worksheet-add-row="true"]').count();
+  const protectedCells = await page.locator('[data-testid="client-billing-draft-worksheet"] [data-worksheet-protected="true"]').count();
+  const save = await page.getByRole("button", { name: "Save draft", exact: true }).count();
+  const submit = await page.getByRole("button", { name: "Submit", exact: true }).count();
+  const issue = await page.getByRole("button", { name: "Issue Client Invoice", exact: true }).count();
+  const collection = await page.getByRole("button", { name: "Record Collection", exact: true }).count();
+  await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+  return [
+    { id: "client-billing-draft-worksheet-visible", passed: worksheet === 1, details: `Client Billing draft worksheet surfaces: ${worksheet}` },
+    { id: "client-billing-draft-worksheet-editors-visible", passed: editors === 2, details: `Client Billing worksheet editors: ${editors}` },
+    { id: "client-billing-draft-worksheet-add-row-visible", passed: addRow === 1, details: `Client Billing Add row controls: ${addRow}` },
+    { id: "client-billing-draft-protected-cells-visible", passed: protectedCells > 0, details: `Client Billing protected cells: ${protectedCells}` },
+    { id: "client-billing-draft-single-save-visible", passed: save === 1, details: `Client Billing Save draft controls: ${save}` },
+    { id: "client-billing-draft-lifecycle-outside-worksheet", passed: submit === 0 && issue === 0, details: `worksheet lifecycle buttons: submit=${submit}, issue=${issue}` },
+    { id: "client-billing-draft-collections-outside-worksheet", passed: collection === 0, details: `worksheet collection buttons: ${collection}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyPurchaseOrderDocumentDeliverySurface: QaScenarioAction = async (page) => {
   const preview = page.getByRole("button", { name: "Preview", exact: true }).first();
   const previewCount = await page.getByRole("button", { name: "Preview", exact: true }).count();
@@ -675,6 +699,9 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "supplier-payables", route: route("cash", "/cash?fromTargetType=:fromTargetType&fromTargetId=:fromTargetId&returnTo=:returnTo"), path: "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02&returnTo=%2Fexpenses%3FexpenseId%3Ddemo-expense-supplier-bm-02", interactionState: "Cash Expense target and return context opened", viewport: QA_VIEWPORTS.mobile, action: verifyCashExpenseTarget }),
   defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "client invoice collection lifecycle verified", viewport: QA_VIEWPORTS.desktop, action: verifyClientReceivableLifecycle }),
   defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "client invoice collection lifecycle verified", viewport: QA_VIEWPORTS.mobile, action: verifyClientReceivableLifecycle }),
+  defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-drainage/billing?billingId=demo-client-billing-drainage-02", interactionState: "Client Billing draft worksheet editing verified", viewport: QA_VIEWPORTS.desktop, action: verifyClientBillingDraftWorksheet }),
+  defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-drainage/billing?billingId=demo-client-billing-drainage-02", interactionState: "Client Billing draft worksheet editing verified", viewport: QA_VIEWPORTS.tablet, action: verifyClientBillingDraftWorksheet }),
+  defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-drainage/billing?billingId=demo-client-billing-drainage-02", interactionState: "Client Billing draft worksheet editing verified", viewport: QA_VIEWPORTS.mobile, action: verifyClientBillingDraftWorksheet }),
   defineQaScenario({ feature: "document-delivery", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "Client Invoice delivery preview and disconnected history verified", viewport: QA_VIEWPORTS.desktop, action: verifyClientInvoiceDocumentDeliverySurface }),
   defineQaScenario({ feature: "document-delivery", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "Client Invoice delivery preview and disconnected history verified", viewport: QA_VIEWPORTS.mobile, action: verifyClientInvoiceDocumentDeliverySurface }),
   defineQaScenario({ feature: "reports", route: route("reports", "/reports"), path: "/demo/app/reports", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),

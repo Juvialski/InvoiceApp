@@ -10,7 +10,7 @@ import { buildDashboardViewData } from "../src/utils/dashboardViewModel.ts";
 import type { ClientBilling, Expense, FinancialFxSnapshot, InvoiceData, Project } from "../src/types.ts";
 
 const migration = readFileSync(new URL("../supabase/migrations/20260906041647_r4_fx_tax_and_payroll_safety.sql", import.meta.url), "utf8");
-const projectSource = readFileSync(new URL("../src/components/projects/ProjectsPage.tsx", import.meta.url), "utf8");
+const projectSource = readFileSync(new URL("../src/components/projects/ProjectDetailsWorksheet.tsx", import.meta.url), "utf8");
 const billingSource = readFileSync(new URL("../src/components/projects/ClientBillingPanel.tsx", import.meta.url), "utf8");
 
 const profile = { legalName: "HydroQualiSense", defaultTerms: "Due on receipt" };
@@ -77,7 +77,7 @@ test("R4 FX and tax contracts are explicit and guarded", () => {
   assert.match(migration, /tax_treatment/);
   assert.match(migration, /taxTreatment/);
   assert.match(migration, /require_project_tax_treatment_on_insert/);
-  assert.match(projectSource, /Tax treatment \*/);
+  assert.match(projectSource, /Tax Treatment/);
   assert.match(projectSource, /Choose VAT or Non-VAT before saving/);
   assert.match(billingSource, /Project tax treatment/);
   assert.match(billingSource, /Confirm the project VAT or Non-VAT classification before issuing/);

@@ -82,6 +82,15 @@ test("Procurement draft worksheets keep dense editing contained inside responsiv
   assert.match(purchaseOrderEditor, /className="min-w-0 space-y-4"/);
 });
 
+test("Client Billing draft worksheet keeps spreadsheet density inside contained surfaces", () => {
+  const clientBilling = source("src/components/projects/ClientBillingDraftWorksheet.tsx");
+  assert.match(clientBilling, /data-testid="client-billing-draft-worksheet"/);
+  assert.match(clientBilling, /data-worksheet-scroll-container="client-billing-details"/);
+  assert.match(clientBilling, /data-worksheet-scroll-container="client-billing-lines"/);
+  assert.match(clientBilling, /ariaLabel="Client Billing lines worksheet"/);
+  assert.match(clientBilling, /className="min-w-0 space-y-4"/);
+});
+
 test("desktop Projects filters reserve readable space for project search", () => {
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
   assert.match(projectRegister, /<div className="relative xl:col-span-2">[\s\S]*aria-label="Search projects"/);
