@@ -126,11 +126,13 @@ UX45A-006, and UX45A-010 without changing domain authority or persistence.
   evidence markers for targeted QA.
 
 Focused and affected application validation passed for the implementation
-head; TypeScript, ESLint, and the production build passed. Interactive local
-safe-demo visual inspection covered phone and desktop representative states;
-the repository Demo Visual QA runner was not claimed as passed because this
-clean worktree lacked its Playwright dependency. DB validation was not
-applicable. The qualified visual record and exact disposition are in
+work. Interactive local safe-demo visual inspection covered phone and desktop
+representative states at the qualified capture SHA. PR review advanced the
+application-bearing head to `85efe8f951b96df0c20dd6ffd4869f0b083c2343` with quiet mobile read-only
+presentation, unique responsive issue-description IDs, and hidden-control focus
+filtering. The local Demo Visual QA runner was unavailable because that clean
+worktree lacked Playwright; protected exact-head application/browser CI remains
+the merge gate. DB validation was not applicable. The qualified visual record and exact disposition are in
 `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md` and the follow-up
 section of `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
 
