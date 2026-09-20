@@ -82,6 +82,26 @@ test("Expenses keeps the register before detail, supporting context, and workboo
   assert.match(expenses, /Confirm FX/);
 });
 
+test("Cash & Banking puts transaction and settlement work before secondary summaries", () => {
+  const cashPage = source("src/components/CashBankingPage.tsx");
+  const cashRoute = source("src/app/routes/CashBankingRoute.tsx");
+  const controls = cashPage.indexOf('data-ux45c="cash-account-controls"');
+  const transactions = cashPage.indexOf('data-ux45c="cash-primary-transactions"');
+  const settlement = cashPage.indexOf('data-ux45c="cash-settlement-working"');
+  const summary = cashPage.indexOf('data-ux45c="cash-secondary-summary"');
+
+  assert.ok(controls >= 0);
+  assert.ok(transactions > controls);
+  assert.ok(settlement > transactions);
+  assert.ok(summary > settlement);
+  assert.match(cashPage, /primarySettlementWorkspace\?: React\.ReactNode/);
+  assert.equal((cashRoute.match(/<CashSettlementAllocationWorkspace/g) || []).length, 1);
+  assert.match(cashRoute, /primarySettlementWorkspace=\{<CashSettlementAllocationWorkspace/);
+  assert.match(cashRoute, /onSaveMatchBatch/);
+  assert.match(cashRoute, /onReverseMatch/);
+  assert.match(cashRoute, /canReverseMatch/);
+});
+
 test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
   const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');
