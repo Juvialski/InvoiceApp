@@ -63,7 +63,7 @@ export function ManagedDocumentUploadView({ companyId, projects, demoMode = fals
       {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</div>}
       {step === "FORM" ? (
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="md:col-span-2"><span className="field-label">File</span><input type="file" className="field-input" onChange={(event) => setFile(event.target.files?.[0] || null)} accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.xlsm,.csv,.txt" /></label>
+          <label className="md:col-span-2"><span className="field-label">File</span><input type="file" className="field-input" onChange={(event) => setFile(event.target.files?.[0] || null)} accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.csv,.txt" /></label>
           <label><span className="field-label">Title</span><input className="field-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Warranty Certificate · Cebu project" /></label>
           <label><span className="field-label">Document type</span><select className="field-input" value={category} onChange={(event) => setCategory(event.target.value as typeof category)}>{CATEGORY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           <label><span className="field-label">Project (optional)</span><select className="field-input" value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">No project link</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.projectCode} · {project.projectName}</option>)}</select></label>
