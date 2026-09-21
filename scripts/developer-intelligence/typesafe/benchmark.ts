@@ -114,7 +114,13 @@ export async function runTypesafeBenchmark(options: {
     task: fixture.task,
     candidates: fixture.candidates.map((item, candidateIndex) => {
       const questionId = `f${fixtureIndex}c${candidateIndex}`;
-      questions[questionId] = noul("Is this synthetic benchmark candidate relevant to its task?", { true: null, false: null });
+      questions[questionId] = noul(
+        `For the task in \`fixtures[${fixtureIndex}].task\`, should \`fixtures[${fixtureIndex}].candidates[${candidateIndex}]\` be retained because it is likely needed to understand, implement, validate, or safely review that task?`,
+        {
+          true: "Retain it: it directly contributes implementation context, validation/tests, a required contract or invariant, or a dependency needed for safe review.",
+          false: "Omit it: it is unrelated or only loosely topical and can be removed without losing task-critical implementation, validation, contract, or review context.",
+        },
+      );
       return { questionId, id: item.id, path: item.path, summary: item.summary, ...(item.mustKeep ? { mustKeep: true } : {}) };
     }),
   }));
