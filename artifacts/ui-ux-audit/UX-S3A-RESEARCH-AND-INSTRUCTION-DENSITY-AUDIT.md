@@ -1,18 +1,24 @@
 # UX-S3A — Comparative UI Research + Instruction-Density / Workflow-Clarity Audit
 
-Status: BASELINE RESEARCH COMPLETE — S3A2 JEV-BROWSER COMPARATIVE VALIDATION REQUIRED BEFORE S3B
+Status: BASELINE + S3A2 VALIDATION COMPLETE — S3B READY WITH RECORDED LIMITATIONS
 Reviewed source SHA: 567013c8f0b851468cc8d0c4bbe1eb11d3fdf6cf
-Branch: codex/ux-s3a-comparative-audit
+S3A2 validation SHA: 4e00c1375c278394dd8db567732dd7ec56990022
+Branch: codex/ux-s3a2-jev-browser-validation
 Reviewed: 2026-09-21
 Repository: Juvialski/InvoiceApp
 
 This is a research/evidence deliverable. It does not implement the Help Center, contextual-help components, visible-copy simplification, or workflow changes.
 
-## Continuation qualification
+Sections 1–13 preserve the original UX-S3A baseline evidence and its recorded
+limitations. Section 14 is the current UX-S3A2 validation and readiness result.
+
+## Continuation qualification (S3A baseline history)
 
 This report is a useful first comparative/help-surface and HydroQualiSense audit baseline, but it does **not** close the intended deep interactive comparative investigation. During review, the user observed only Raken being opened in the visible Chrome session. The report's other comparator findings remain qualified public help/documentation observations, and the current Jev integration did not control the browser.
 
-Before UX-S3B implementation, run **UX-S3A2 — Jev-browser comparative validation**:
+At the S3A baseline checkpoint, UX-S3B was not yet authorized and the intended
+follow-up was **UX-S3A2 — Jev-browser comparative validation**. That follow-up
+is now recorded in Section 14 below:
 
 - evaluate an existing Jev browser integration against Codex's browser/Chrome workflow rather than building a new browser system first;
 - use the actual comparative research task as the benchmark;
@@ -22,15 +28,17 @@ Before UX-S3B implementation, run **UX-S3A2 — Jev-browser comparative validati
 - keep all external activity read-only and independently verified by Codex;
 - preserve the current HydroQualiSense route audit as baseline evidence rather than repeating it without cause.
 
-UX-S3B is therefore **provisionally bounded but not yet authorized as the next implementation phase**. S3A2 must close the research-validation gap first.
+At the baseline checkpoint, UX-S3B was therefore **provisionally bounded but
+not yet authorized**. Section 14 records how S3A2 closed the research gap for
+the accessible public boundary and made the bounded S3B foundation ready.
 
 ## Evidence boundary
 
 | Evidence | Qualification |
 | --- | --- |
-| Current repository | Exact synchronized source SHA above; no application, test, migration, package, or runtime files were changed for this report. |
+| Current repository | S3A baseline source SHA `567013c8f0b851468cc8d0c4bbe1eb11d3fdf6cf`; S3A2 validation SHA `4e00c1375c278394dd8db567732dd7ec56990022`; no application, test, migration, package, or runtime files were changed. |
 | HydroQualiSense live inspection | Local Vite/Express safe demo at http://127.0.0.1:3000, synthetic repository fixtures only, browser-only demo mode, no authenticated company data, provider calls, database writes, or production operations. |
-| Live viewport | CUA browser screenshots and accessibility trees were inspected at approximately 1280x720 on 2026-09-21. Screenshots were transient session evidence and were not promoted as durable image artifacts. |
+| Live viewport | S3A baseline CUA browser screenshots and accessibility trees were inspected at approximately 1280x720 on 2026-09-21. S3A2 used the separate `1280x900` CUA viewport described in Section 14. Screenshots were transient session evidence and were not promoted as durable image artifacts. |
 | Existing visual baseline | artifacts/ui-ux-audit/UX-W4.5A-REPORT.md and promoted ux-w4-5a / ux-w4-5e evidence were used as prior visual context. Those captures identify their own earlier source SHAs and are not silently presented as exact-current-SHA certification. |
 | Browser research | Public, read-only help/documentation surfaces for Procore, Autodesk Construction Cloud/Autodesk Build, Buildertrend, Fieldwire, and Raken. No account login, form submission, external mutation, download, or proprietary asset capture was performed. |
 | Jev | Existing repository TypeSafe client only; sanitized structured metadata, no cookies, credentials, customer records, raw browser state, or secrets. Jev was advisory and Codex independently verified the inspected pages and made the final classifications. |
@@ -461,7 +469,7 @@ This is a prioritized evidence backlog, not an implementation started in S3A.
    preserve entered work, expose the next safe action, and do not imply a
   completed mutation when the server did not confirm it.
 
-## 11. Jev efficiency ledger
+## 11. S3A baseline Jev efficiency ledger
 
 Jev used the existing repository TypeSafe client with sanitized observation
 metadata. It did not control the browser, receive cookies/authentication state,
@@ -542,3 +550,191 @@ or a missing-state limitation.
 - Roadmap/handoff consistency? The same PR updates both documents to mark S3A
   complete and S3B as the exact next implementation boundary; no Settings
   capability status is changed.
+
+---
+
+## 14. UX-S3A2 — Jev-Browser Comparative Validation
+
+Status: **VALIDATION COMPLETE — S3B HELP CENTER / CONTEXTUAL-HELP FOUNDATION READY WITH LIMITATIONS**
+
+This section validates the S3A baseline; it does not replace or silently
+rewrite the earlier observations. The S3A2 run used the exact synchronized
+repository SHA `4e00c1375c278394dd8db567732dd7ec56990022` on branch
+`codex/ux-s3a2-jev-browser-validation`. No InvoiceApp runtime, package,
+application, database, provider, production, or customer-facing feature files
+were changed by the research run.
+
+S3A2 environment: Windows Codex desktop, the existing Codex CUA in-app
+browser, public HTTPS pages only, accessibility-tree observations plus
+transient screenshots rendered at the tool’s `1280x900` viewport. No screenshot
+or browser trace was promoted into the repository. Each route/state below is
+identified by its public URL and was independently checked by Codex.
+
+### 14.1 Jev browser integration evaluated
+
+Primary candidate: [`wy-coliney/jev-browser-use`](https://github.com/wy-coliney/jev-browser-use).
+
+| Item | Result |
+| --- | --- |
+| Community source/version | Repository `main` at commit `f14b60e0ae1ee90cd73eb6650e30a666a84c021a`; plugin manifest version `0.1.0`; MIT; independent community integration, not an official OpenAI or TypeSafe product. |
+| Source reviewed before installation | `INSTALL.md`, `SKILL.md`, `bridge.mjs`, provider-configuration reference, installer source, README, and plugin manifest. |
+| Installation mode | Temporary source checkout followed by `node scripts/install.mjs --no-config`; runtime Skill files were installed outside InvoiceApp at the source-documented `~/.agents/skills/jev-browser-use` location. The installed `bridge.mjs` SHA-256 matched the reviewed source. |
+| Provider/configuration | TypeSafe `jev-latest` was used through an ephemeral local dotenv path synthesized from the already-present process environment. No persistent Jev provider configuration, API key, cookie, browser profile, trace, or credential file was added to this repository. |
+| Browser connection | The bridge used the existing Codex Computer Use in-app browser (`cua_repl`, browser id `1`, `iab` tabs). It did not install a driver or create a second browser connection. |
+| Data sent to Jev | Public comparator accessibility text, bounded task goal, action history, and observed safe controls only. Jev did not receive screenshots, cookies, credentials, customer data, private HydroQualiSense records, or browser session secrets. |
+| Responsibility split | Jev selected among observed links/clicks; Codex chose the research goal, supplied no free-form text, inspected screenshots, handled visual/semantic interpretation, and independently verified final URLs/headings. Jev `DONE` was never treated as proof. |
+| Current-run compatibility | **Compatible for bounded navigation when the bridge is imported directly.** The existing CUA tab was reachable and the bridge executed safe navigation actions against public pages. |
+| Native Skill limitation | The upstream installer says native Skill discovery requires a new Codex task/restart. This current task therefore tested the bridge directly after runtime installation; native post-restart Skill discovery was not claimed or tested. |
+| InvoiceApp impact | No `package.json`, lockfile, runtime dependency, application bundle, global Codex instruction, or repository configuration was changed. |
+
+The source’s design matches the required authority split: accessibility-state
+navigation/click/scroll decisions stay bounded, text entry and visual judgment
+remain with Codex, and outcomes return for independent verification. The bridge
+also exposes clear handback states such as `needs_verification`, stale-state
+retry, `no_progress`, and `step_limit`. Its documented limits remain relevant:
+it is not a screenshot-recognition system and does not cover arbitrary frames,
+canvas controls, uploads, native selects, drag-and-drop, or every keyboard
+widget.
+
+Secondary candidate: [`browser-use/jev-ultrafast`](https://github.com/browser-use/jev-ultrafast)
+at `main` commit `1231850a0bf1a0c0341fe408ef1668dbbfdfac46`. Its README/source
+were reviewed as a fallback/reference. It is a separate Python/`uv` project
+using Browser Harness and its own local inspector, rather than a drop-in bridge
+to this task’s existing Codex CUA tab. The primary integration was compatible
+enough for the bounded benchmark, so the fallback was not installed and no
+workflow migration or custom adapter was justified.
+
+### 14.2 Matched browser benchmark
+
+The benchmark compared ordinary Codex CUA navigation with Jev-assisted
+navigation on the same public, read-only help-center tasks. Elapsed time is
+wall-clock time measured in the CUA session and includes page waits. It is a
+small two-task sample, not a performance claim.
+
+| Task | Ordinary Codex/CUA | Jev-assisted run | Independent verification | Result |
+| --- | --- | --- | --- | --- |
+| A — Raken: Help Center → `Using Your Dashboard` → `How to Use the Raken Dashboard` | 2 clicks; 2,569 ms; direct Codex final state check. | 4 Jev decisions; 2 executed clicks; 1,649 ms of Jev API time; 4,472 ms loop; 2 stale-state decisions; no Codex mid-task takeover; returned `step_limit` after the final low-confidence `DONE`/state transition. | Fresh state showed the expected article URL, `How to Use the Raken Dashboard` heading, and `Quick Answer`. | **Verified success.** |
+| B — Fieldwire: Knowledge Base → `Getting Started` → `Getting started with Fieldwire!` | 2 clicks; 2,596 ms; direct Codex final state check. | 5 Jev decisions; 2 executed clicks; 1,842 ms of Jev API time; 3,781 ms loop; 2 stale-state decisions around `DONE`; no Codex mid-task takeover; returned `needs_verification`. | Fresh state showed the expected article URL, title, and `On this page` navigation. | **Verified success.** |
+
+The Jev model returned by the bridge was `jev-1.13.0` for every recorded
+decision. The bridge did not expose input/output token counts, so token usage
+and API cost are recorded as **not exposed**, not estimated. Across the two
+matched tasks, Jev executed the same five navigation clicks that Codex executed
+directly, completed both tasks after Codex verification, and did not reduce
+wall-clock time in this tiny sample. Its useful effect was reducing Codex’s
+per-click decision turns for repetitive navigation; its cost was decision/API
+latency and stale-state handback. No general speedup claim is supported.
+
+#### Diagnostic hierarchy task — Procore
+
+An additional exploratory task tested a deeper list: Procore Support → Process
+Guides → `General Contractor Financial Management User Guide`.
+
+- Ordinary CUA opened Process Guides and exposed the exact financial-guide URL.
+  Clicking the long-list entry did not navigate in the observed state, so Codex
+  used the exact URL already exposed by the visible link for direct inspection.
+- Jev executed the Process Guides navigation, then repeatedly selected the
+  financial-guide entry while the page state remained stale; it returned
+  `step_limit` after one executed click and three stale-state decisions. The
+  final state did visibly contain the target link, but the guide itself was not
+  opened by Jev.
+- This is a useful limitation finding, not a failed product conclusion: long
+  dynamic result lists and changing accessibility snapshots can require Codex
+  handback or direct navigation from an already verified URL.
+
+### 14.3 Comparator surfaces actually inspected
+
+All five mandatory comparator families were directly opened in the CUA browser
+or inspected through the public source page named below. Evidence is public and
+read-only. No authenticated product workspace, private tenant, or live
+customer record was used.
+
+| Comparator | Direct surfaces and observable evidence | Transferable interpretation | Boundary |
+| --- | --- | --- | --- |
+| Procore | [Support](https://v2.support.procore.com/), [Process Guides](https://v2.support.procore.com/process-guides/), and [General Contractor Financial Management User Guide](https://v2.support.procore.com/process-guides/general-contractor-financial-management-user-guide/). Support has compact global navigation, search, Product Manuals, Process Guides, Video Library, Courses, Release Notes, and Community. Process Guides exposes breadcrumbs, a `Refine Results` sidebar, search, and a long list of workflow-named guides. The financial guide uses a left section navigation and a task-oriented overview covering WBS, budget, contracts, commitments, change management, invoicing, and direct costs. | Separate reference/manual and process-guide paths; use workflow nouns, breadcrumbs, search/filter, and section navigation before long procedural detail. | No authenticated register/editor/mobile workflow was available. The guide hierarchy is not evidence of Procore’s hidden product UI. |
+| Autodesk Construction Cloud / Autodesk Build | [Forma Data Management Help](https://help.autodesk.com/view/DOCS/ENU/) rendered with a product bar, keyword search, compact Help Home/sign-in/language controls, and a collapsible left topic tree including Getting Started and Administration. [Build Help](https://help.autodesk.com/view/BUILD/ENU/) exposed the Forma Build header and search but remained on a loading spinner/blank body in this environment. | A compact product identity/search shell and expandable topic tree can keep orientation visible without a large instructional wall. | Build’s body was not usable in this environment; no ACC/Build app or responsive behavior is inferred. |
+| Buildertrend | [Help Articles](https://buildertrend.com/help-articles/) exposed a concise title and category map with article counts for Financial Management, Project Management, Mobile, Payment Processing, Reporting, Setup Customization, and other product topics. The [Financial Management category](https://buildertrend.com/article-category/financial-management/) opened and showed a category heading, but a cookie overlay partially occluded the first viewport and AX text was sparse. | Category cards/counts make topic location predictable; financial and mobile help are first-class categories rather than prose on every operational page. | No authenticated Buildertrend workspace, register, editor, or mobile workflow was inspected; cookie overlay reduced visual coverage. |
+| Fieldwire | [Knowledge Base](https://help.fieldwire.com/hc/en-us) visibly leads with a large search field and Common topics such as Account & Projects, Plans, Tasks, Reports, Photos, Forms, Files, RFIs, Submittals, Change Orders, and Budget. [Getting Started](https://help.fieldwire.com/hc/en-us/categories/12291567843355-Getting-Started) exposes article groups and troubleshooting. [Getting started with Fieldwire](https://help.fieldwire.com/hc/en-us/articles/360016524971-Getting-started-with-Fieldwire) has breadcrumbs, an `On this page` table of contents with nine task sections, overview, first-login, project creation, dashboard/settings, user-management, plans, tasks, help, and more-information sections. | Search-first help, workflow/topic taxonomy, breadcrumbs, and a bounded article TOC move onboarding out of a permanent application banner while keeping each step linkable. | No authenticated Fieldwire project dashboard, task editor, plan viewer, or mobile app was inspected. |
+| Raken | [Help Center](https://help.rakenapp.com/), [Using Your Dashboard](https://help.rakenapp.com/en/collections/19725847-using-your-dashboard), and [How to Use the Raken Dashboard](https://help.rakenapp.com/en/articles/14465496-how-to-use-the-raken-dashboard). The Help Center uses article search, Getting Started, and work-vocabulary collections. The dashboard article uses breadcrumbs, a short purpose statement, `Quick Answer`, Dashboard Sections, a Dashboard on Mobile section, Troubleshooting & FAQ, Technical Specifications, and Related Articles. | Put a concise answer and task path before extended explanation; keep mobile/role/plan limits explicit where relevant and provide related/deep-linked recovery paths. | No authenticated Raken dashboard, daily-report editor, or mobile workflow was inspected. |
+
+### 14.4 Validation of material S3A conclusions
+
+| S3A conclusion | S3A2 status | Evidence-based change |
+| --- | --- | --- |
+| A dedicated Help Center is preferable to permanent instructional panels. | **STRENGTHENED** | All usable comparator surfaces led with search, task categories, workflow guides, or article collections. Procore separated manuals from process guides; Fieldwire and Raken separated Getting Started from ongoing topics. |
+| Major pages should expose one route-aware Help action. | **STRENGTHENED** | Breadcrumbs, article TOCs, topic collections, and workflow guide URLs make deep-linkable help useful. The exact authenticated product-page action was not directly observable, so this remains a HydroQualiSense design recommendation rather than a claim of universal comparator behavior. |
+| Brief secondary explanation belongs in accessible contextual help rather than long normal-state paragraphs. | **REFINED** | Public evidence strongly supports moving detailed education to articles and process guides. It does not by itself prove a specific tooltip implementation. S3B should use a combination: accessible click/tap popovers for short field/section explanations plus a page Help action/deep link for articles. |
+| The first useful viewport should be task-first. | **STRENGTHENED** | Search and task categories were visually prominent on Fieldwire, Raken, and Procore. Autodesk’s usable Forma page led with product identity/search and topic navigation; Buildertrend led with a concise title/category map. This supports keeping HydroQualiSense task/data/actions ahead of optional teaching. |
+| Help should be search/task-oriented, not organized around internal component names. | **CONFIRMED** | The observed labels used Project, Dashboard, Budget, RFIs, Submittals, Documents, Financial Management, Mobile, and similar user vocabulary. |
+| Browse and edit/review/approval should remain separate. | **STILL_UNVERIFIED** | The public surfaces supplied procedural and navigation evidence but no authenticated HydroQualiSense/comparator register or editor state. Preserve this as a product evidence gap for later workflow/browser certification, not as permission to redesign it in S3A2. |
+| Progressive disclosure reduces instructional burden. | **STRENGTHENED** | Process-guide filters, category maps, article TOCs, Related Articles, and separate Getting Started/Reference paths provide observable disclosure patterns. The recommendation remains to preserve critical state inline and disclose education contextually. |
+| Action-density reduction is a valid cross-product direction. | **REFINED** | The help surfaces themselves demonstrate compact search/category/action grammar, but no authenticated product action bar or table density was available. Apply this as a HydroQualiSense hypothesis to validate route-by-route, not as a proven comparator product metric. |
+
+The deeper run therefore closes the original S3A2 question for the accessible
+public research boundary: it is no longer based on a single visible comparator
+or only on help-center homepages. It does **not** close the separate question of
+authenticated product UI, live register/editor behavior, or mobile app behavior;
+those remain explicitly unverified.
+
+### 14.5 Final S3B readiness decision
+
+1. **Is the Help Center direction still supported?** Yes. It is supported and
+   strengthened by all five comparator families’ public information
+   architecture, with Procore/Fieldwire/Raken providing the clearest direct
+   process/article evidence.
+2. **Is a consistent page-level Help action supported?** Yes, as a
+   HydroQualiSense foundation decision. Use route/topic deep links and the
+   observed workflow vocabulary; do not claim every comparator exposes the same
+   action inside its authenticated product.
+3. **Should contextual help use tooltips, popovers, drawers, or a combination?**
+   Use a combination: accessible click/tap popovers for brief secondary
+   field/section/column explanations, a predictable page Help action for the
+   relevant Help Center topic, and a drawer or article route when the content is
+   longer than a short explanation. Hover may enhance but must never be the only
+   trigger.
+4. **What must remain permanently visible?** The current task and working data;
+   entity/project identity; primary actions; current status; blocking validation;
+   stale/conflict/unresolved/provider/permission warnings; required input
+   constraints that are not obvious; financial, lifecycle, provenance, and
+   confirmation consequences at the decision point; and the next safe action
+   after an error or completion. Detailed procedure, concepts, examples, and
+   rare troubleshooting belong behind Help.
+5. **Which HydroQualiSense page families should be handled first?** Start with
+   the shared PageHeader/SectionHeader and route/topic registry, then the P1
+   mixed-stage surfaces from S3A: Supplier Invoice review, Cash settlement/
+   reconciliation, Procurement RFQ/PO/workbook review, and Payroll. Follow with
+   Client Billing/Collections, Expenses, Documents/Email continuation, and
+   the worksheet/register action grammar while preserving the S3A deeper-review
+   items for evidence-led follow-up.
+6. **Does S3B remain one coherent implementation phase?** Yes. A static
+   repository-backed Help Center, topic registry, route-aware Help action,
+   accessible contextual-help primitive, deep links, and route/topic tests form
+   one coherent developer-owned foundation. Broad visible-copy simplification
+   remains S3C and workflow redesign remains S3D.
+7. **Are research gaps serious enough to block S3B?** No hard blocker remains
+   for the bounded S3B foundation. The known gaps are important limitations:
+   authenticated comparator product UI, live browse/edit/table behavior,
+   mobile/tablet product workflows, populated roles/RFI/Submittal states, and
+   responsive HydroQualiSense verification. S3B must record those boundaries
+   and must not claim product parity or complete S3C/S3D.
+
+**Final decision:** UX-S3B is **ready to begin as the bounded Help
+Center/contextual-help foundation**. The decision is based on direct public
+surface evidence plus a working, independently verified Jev browser benchmark;
+it is not a visual, hosted, authenticated, provider, or production certification.
+
+### 14.6 Jev efficiency and fallback ledger
+
+| Checkpoint | Requests/decisions | Diagnostics | Use and limitation |
+| --- | ---: | --- | --- |
+| Deterministic `agent:context` start checkpoint | 0 Jev requests after 1 CLI attempt | Failed closed before candidate generation: unsupported `developer-tooling` workflow domain; no candidates selected. | Deterministic named documents/source evidence remained authoritative; no invented RI candidates. |
+| Jev browser Task A — Raken | 4 decisions; 2 executed actions | Model `jev-1.13.0`; 1,649 ms aggregate Jev API time; 4,472 ms loop; 2 stale-state decisions; no transport/provider failure; token counts not exposed by bridge. | Final state independently verified; Jev returned `step_limit` rather than a trusted pass. |
+| Jev browser Task B — Fieldwire | 5 decisions; 2 executed actions | Model `jev-1.13.0`; 1,842 ms aggregate Jev API time; 3,781 ms loop; 2 stale-state decisions; no transport/provider failure; token counts not exposed by bridge. | Final state independently verified; Jev returned `needs_verification`. |
+| Jev diagnostic Task C — Procore | 4 decisions; 1 executed action | Model `jev-1.13.0`; 1,520 ms aggregate Jev API time; 2,134 ms loop; 3 stale-state decisions; no transport/provider failure; token counts not exposed by bridge. | Exposed a long dynamic-list limitation; Codex retained authority and used the observed direct URL for inspection. |
+| Existing InvoiceApp TypeSafe completion checkpoint | 1 live request; 712 ms; model `jev-1.13.0`; 503 input / 38 output tokens; serialized payload 930 chars; fallback `false`; expected/present evidence 2/2. | Advisory `mergeDecision: not-provided`; `unresolvedUncertainty=true` because one validation string was descriptive rather than exactly `passed`. | Deterministic diff/evidence review resolves the flag; no merge or readiness decision was delegated to Jev. |
+
+The browser benchmark is intentionally not a cost or speed certification. It
+supports a narrower conclusion: `jev-browser-use` is useful for bounded,
+action-heavy public navigation through the existing CUA connection, but it does
+not remove the need for Codex visual verification, and dynamic/stale
+accessibility state can make direct navigation or a handback necessary.

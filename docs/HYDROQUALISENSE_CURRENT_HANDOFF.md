@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A BASELINE COMPLETE / UX-S3A2 JEV-BROWSER VALIDATION NEXT / UX-S3B PROVISIONAL / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B READY NEXT / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-21**
 Repository: `Juvialski/InvoiceApp`
 
@@ -30,7 +30,7 @@ The later approved interaction correction is `docs/superpowers/specs/2026-09-20-
 
 The governing correction contract is `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`. The user-provided Projects and Supplier Invoice screenshots were examples only; the completed UX-W4.5A report visually inspected the broader safe-demo product across desktop, constrained laptop, tablet, and phone before broad remediation begins.
 
-### UX-S3A — baseline research and instruction-density audit complete; S3A2 next
+### UX-S3A + UX-S3A2 — baseline research and Jev-browser validation complete; S3B ready
 
 UX-S3A produced a baseline at exact source SHA
 `567013c8f0b851468cc8d0c4bbe1eb11d3fdf6cf`. The durable evidence report is
@@ -44,11 +44,24 @@ database, provider, or production change was made.
 
 Review identified a remaining research gap: the intended deep multi-product
 interactive Chrome investigation was not demonstrated, and the existing Jev
-client could not operate the browser. The exact next phase is **UX-S3A2 —
-Jev-browser comparative validation**. It must evaluate an existing Jev browser
-integration using the actual research workload and validate/refine the S3A
-findings before S3B implementation. Current safe-demo evidence remains local
-synthetic evidence, not authenticated or hosted certification.
+client had not operated the browser. UX-S3A2 closed that gap for the accessible
+public boundary on validation SHA
+`4e00c1375c278394dd8db567732dd7ec56990022`. The community
+`jev-browser-use` bridge operated through the existing Codex CUA in-app browser;
+Raken and Fieldwire matched tasks both reached their target pages after
+independent Codex verification, and Procore, Autodesk, Buildertrend, Fieldwire,
+and Raken public surfaces were directly inspected with limitations recorded.
+The matched benchmark was deliberately small and showed stale-state handbacks;
+it does not establish a general Jev speedup. Current HydroQualiSense evidence
+remains local safe-demo evidence, and comparator evidence remains public
+help/documentation evidence rather than authenticated or hosted certification.
+
+UX-S3B is now ready as the bounded Help Center/contextual-help foundation. It
+must use static repository-backed topics, route/topic deep links, a consistent
+page-level Help action, accessible click/tap popovers for brief explanations,
+and visible task-critical state. It must not claim authenticated comparator
+parity, browse/edit certification, responsive product certification, or S3C/S3D
+completion.
 
 ### UX-W4.5B — shared responsive shell and worksheet foundations
 
@@ -1351,7 +1364,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
 4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ/PO + Client Billing + Expenses IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, Purchase Order draft editing, Client Billing draft editing, and direct Expense DRAFT editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
 5. **UX-W4.5A through UX-W4.5E, UX-W5A, UX-W5B, and UX-W5C are implemented for their recorded scopes.** The durable visual evidence and authority limitations remain as documented; remaining UX-W5 workforce slices require separate bounded handoffs and remain subject to the Worker Registration/Wave 4D sequencing gate.
-6. **UX-S3A baseline comparative research and instruction-density audit is complete; UX-S3A2 Jev-browser comparative validation is exact next before S3B.** Preserve the current report as baseline evidence, evaluate an existing Jev browser integration on the real comparator workload, deepen/verify the interactive comparator findings, and only then authorize the provisional UX-S3B Help Center/contextual-help boundary.
+6. **UX-S3A baseline comparative research, instruction-density audit, and UX-S3A2 Jev-browser comparative validation are complete for the recorded public research boundary; UX-S3B is ready and exact next.** Preserve the current report and its S3A baseline section. Implement only the bounded static Help Center/contextual-help foundation in S3B; retain authenticated product UI, browse/edit, mobile/tablet, and populated deeper-state gaps as later evidence/workflow review rather than claiming parity.
 7. **Jev Workflow Intelligence v2A research/design is complete for this handoff.** The durable report records read-only X research, official/community source review, 48 controlled sanitized Jev requests, representative historical replay, and the prioritized v2B design. This remains developer tooling, not a product dependency or merge authority.
 8. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this handoff.** The shared request/diagnostic layer, deterministic seeding, budget-aware chunking, context integration, broad test triage, and deterministic must-keep/required-test unions are complete. Remaining v2B adjacency, requirement/evidence, replay, routing-advice, and other experimental work requires a later bounded handoff.
 9. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist; it remains separate from the completed v2B foundation and bounded UX-W5C product work.
@@ -1378,7 +1391,7 @@ These phases are not cancelled. Preserve their historical contracts and backlog 
 
 ### Exact next implementation program
 
-The next implementation program is **UI Simplification Round 3 + workflow hardening**, continuing with **UX-S3A2 — Jev-browser comparative validation** before UX-S3B Help Center/contextual-help implementation. Read:
+The next implementation program is **UI Simplification Round 3 + workflow hardening**, continuing with **UX-S3B — Help Center/contextual-help foundation**. UX-S3A2 is complete for the recorded public research boundary. Read:
 
 The UX-S3A baseline report is `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md`. It is documentation/evidence only; no S3B implementation was started. Preserve it and validate/refine it rather than restarting the internal HydroQualiSense audit from zero.
 
@@ -1391,9 +1404,9 @@ The UX-S3A baseline report is `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUC
 - `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`;
 - `docs/superpowers/specs/2026-09-21-ui-simplification-contextual-help-research.md`.
 
-UX-S3A baseline research/evidence is complete. It used public help/documentation observations for Procore, Autodesk Construction Cloud/Autodesk Build, Buildertrend, Fieldwire, and Raken, plus a current local safe-demo route/state audit. It recorded patterns rather than copying branded/proprietary layouts. A compatible Jev browser integration was not available, so Jev was used through the existing sanitized TypeSafe client for comparator, route-copy, and root-cause judgments.
+UX-S3A baseline research/evidence is complete. It used public help/documentation observations for Procore, Autodesk Construction Cloud/Autodesk Build, Buildertrend, Fieldwire, and Raken, plus a current local safe-demo route/state audit. It recorded patterns rather than copying branded/proprietary layouts. At that baseline checkpoint, a compatible Jev browser integration had not been demonstrated, so Jev was used through the existing sanitized TypeSafe client for comparator, route-copy, and root-cause judgments. UX-S3A2 then evaluated `wy-coliney/jev-browser-use` plugin `0.1.0` at source commit `f14b60e0ae1ee90cd73eb6650e30a666a84c021a` through the existing CUA in-app browser, independently verified 2/2 matched Raken/Fieldwire tasks, and recorded stale-state/long-list limitations. `browser-use/jev-ultrafast` was reviewed at `1231850a0bf1a0c0341fe408ef1668dbbfdfac46` but not installed.
 
-UX-S3A2 must now test an existing Jev browser integration with the actual research task. Prefer evaluation/integration of an existing tool over inventing a new browser system. Keep Codex responsible for research strategy, semantic/visual interpretation, text entry, sensitive decisions, and final verification. All external browsing must remain read-only.
+The S3A2 responsibility split remains the standing rule: prefer an existing browser integration over inventing a new browser system; keep Codex responsible for research strategy, semantic/visual interpretation, text entry, sensitive decisions, and final verification; and keep all external browsing read-only.
 
 The internal audit must inspect representative HydroQualiSense routes/states and classify always-visible explanatory text as:
 
@@ -1405,15 +1418,60 @@ The internal audit must inspect representative HydroQualiSense routes/states and
 
 Do not put essential instructions only behind hover. Tooltips/popovers must be keyboard accessible and have click/tap behavior for touch devices.
 
-UX-S3A produced the baseline research/audit report and provisional implementation recommendations. No broad UI remediation was performed. Proceed through:
+UX-S3A produced the baseline research/audit report and UX-S3A2 validated/refined it. No broad UI remediation was performed. Proceed through:
 
-`UX-S3A2 Jev-browser comparative validation -> UX-S3B Help Center/contextual-help foundation -> UX-S3C visible-copy simplification -> UX-S3D workflow-friction hardening -> UX-S3E accessibility/responsive/visual certification`.
+`UX-S3A2 Jev-browser comparative validation (complete) -> UX-S3B Help Center/contextual-help foundation -> UX-S3C visible-copy simplification -> UX-S3D workflow-friction hardening -> UX-S3E accessibility/responsive/visual certification`.
 
 Parallel hardening may continue for existing capabilities: provider/readiness certification, authenticated HSC/render certification, reliability/recovery, security/data-integrity, concurrency, performance, exact-SHA QA/release evidence, and bounded Jev/Repository Intelligence efficiency improvements.
 
 Efficiency rules remain strict: synchronize current `main` first, record the SHA once, use one bounded context packet when useful, zero subagents by default with hard maximum two, focused -> affected validation, no ritual full suite, and exact final-diff review. Codex does not merge its own PR.
 
 No production mutation is authorized by this handoff.
+
+## 2026-09-21 UX-S3A2 Jev-browser comparative validation completion
+
+The S3A2 evidence is appended to
+`artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md` under
+the clearly separated `UX-S3A2 — Jev-Browser Comparative Validation` section.
+
+Completion facts:
+
+- Base/validation SHA: `4e00c1375c278394dd8db567732dd7ec56990022`.
+- Branch: `codex/ux-s3a2-jev-browser-validation`.
+- Primary integration: `wy-coliney/jev-browser-use` plugin `0.1.0`, source
+  commit `f14b60e0ae1ee90cd73eb6650e30a666a84c021a`, runtime-only installation
+  outside InvoiceApp, direct bridge import through the existing CUA in-app
+  browser.
+- Matched public benchmark: Raken and Fieldwire both reached their target
+  article pages after independent Codex verification; Jev returned
+  `step_limit`/`needs_verification` rather than being treated as a success
+  oracle. Procore’s dynamic process-guide list exposed a stale-state limitation.
+- Mandatory comparator coverage: Procore, Autodesk Construction Cloud/Build,
+  Buildertrend, Fieldwire, and Raken were directly inspected through public
+  read-only help/documentation surfaces. The report separates observation from
+  interpretation and records inaccessible/loading/authenticated UI limits.
+- Secondary `browser-use/jev-ultrafast` was source-reviewed at commit
+  `1231850a0bf1a0c0341fe408ef1668dbbfdfac46` and not installed because the
+  primary bridge was compatible enough for the bounded task.
+- Decision: S3B is ready as one coherent static Help Center/contextual-help
+  foundation. It should use accessible click/tap popovers plus route/topic
+  Help deep links, keep task-critical state visible, and leave broad copy
+  simplification/workflow redesign to S3C/S3D.
+- Completion/evidence checkpoint: one live sanitized TypeSafe completion
+  request succeeded with model `jev-1.13.0`, 712 ms, 503 input / 38 output
+  tokens, 930 serialized characters, fallback `false`, and documentation /
+  browser evidence present `2/2`. Jev returned `mergeDecision:
+  not-provided`; it flagged `unresolvedUncertainty=true` because one validation
+  value was descriptive rather than exactly `passed`. Deterministic diff and
+  evidence review remains authoritative.
+- Limitations: no authenticated comparator workspace, live register/editor,
+  mobile app, hosted QA, provider, database, or production certification was
+  performed or claimed. The browser bridge did not expose token counts.
+
+No custom adapter, InvoiceApp dependency, credential, browser profile, raw
+trace, or external account mutation was introduced. This remains a
+documentation/developer-tooling research handoff; Worker Registration and all
+other deferred net-new product domains remain paused.
 
 ## 2026-09-21 Jev Workflow Intelligence v2A completion
 
