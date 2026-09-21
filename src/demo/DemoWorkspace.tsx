@@ -558,20 +558,26 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   };
 
   const addDemoVendor = async (input: Partial<Vendor> & { name: string }): Promise<Vendor> => {
+    const existing = input.id ? (data.vendors || []).find((candidate) => candidate.id === input.id) : undefined;
+    const timestamp = demoTimestamp(data.anchorDate, 15, 30);
     const saved: Vendor = {
-      id: globalThis.crypto?.randomUUID?.() || `demo-vendor-${Date.now()}`,
+      id: existing?.id || input.id || globalThis.crypto?.randomUUID?.() || `demo-vendor-${Date.now()}`,
       companyId: DEMO_COMPANY_ID,
       name: input.name.trim(),
       normalizedName: input.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
-      email: input.email || null,
-      phone: input.phone || null,
-      taxId: input.taxId || null,
-      address: input.address || null,
-      defaultCurrency: input.defaultCurrency || "PHP",
-      defaultCategory: input.defaultCategory || null,
-      active: true,
-      createdAt: demoTimestamp(data.anchorDate, 15, 30),
-      updatedAt: demoTimestamp(data.anchorDate, 15, 30),
+      email: input.email !== undefined ? input.email || null : existing?.email || null,
+      phone: input.phone !== undefined ? input.phone || null : existing?.phone || null,
+      taxId: input.taxId !== undefined ? input.taxId || null : existing?.taxId || null,
+      address: input.address !== undefined ? input.address || null : existing?.address || null,
+      defaultCurrency: input.defaultCurrency || existing?.defaultCurrency || "PHP",
+      defaultCategory: input.defaultCategory !== undefined ? input.defaultCategory || null : existing?.defaultCategory || null,
+      active: existing?.active ?? true,
+      archivedAt: existing?.archivedAt || null,
+      deactivatedAt: existing?.deactivatedAt || null,
+      deactivatedByUserId: existing?.deactivatedByUserId || null,
+      deactivationReason: existing?.deactivationReason || null,
+      createdAt: existing?.createdAt || timestamp,
+      updatedAt: timestamp,
     };
     dispatch({ type: "SAVE_VENDOR", value: saved });
     return saved;

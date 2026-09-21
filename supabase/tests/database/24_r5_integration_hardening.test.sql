@@ -95,6 +95,17 @@ select is((select count(*) from r5_vendor_rpc), 1::bigint, 'human-confirmed Vend
 select lives_ok($$select public.create_or_update_vendor(jsonb_build_object('name', 'R5 RPC Vendor', 'taxId', '222-333-444-000', 'email', 'rpc@r5.test'))$$, 'repeated Vendor creation is idempotent');
 select is((select count(*) from public.vendors where company_id = (select company_id from r5_ids) and name = 'R5 RPC Vendor'), 1::bigint, 'repeated Vendor creation produces one canonical row');
 select throws_ok($$select public.create_or_update_vendor(jsonb_build_object('name', 'Different Legal Name', 'taxId', '222-333-444-000'))$$, '23514', null, 'conflicting authoritative Vendor identifiers do not silently merge');
+select throws_ok($$select public.create_or_update_vendor(jsonb_build_object(
+  'id', (select vendor_id::text from r5_vendor_rpc),
+  'name', 'R5 RPC Vendor Stale Edit',
+  'expectedUpdatedAt', (select (updated_at - interval '1 second')::text from public.vendors where id = (select vendor_id from r5_vendor_rpc))
+))$$, '40001', null, 'stale Vendor worksheet edits fail closed inside the authoritative RPC');
+select is((select name from public.vendors where id = (select vendor_id from r5_vendor_rpc)), 'R5 RPC Vendor', 'stale Vendor edit does not change canonical data');
+select lives_ok($$select public.create_or_update_vendor(jsonb_build_object(
+  'id', (select vendor_id::text from r5_vendor_rpc),
+  'name', 'R5 RPC Vendor Updated',
+  'expectedUpdatedAt', (select updated_at::text from public.vendors where id = (select vendor_id from r5_vendor_rpc))
+))$$, 'current Vendor version permits an authoritative worksheet update');
 select lives_ok($$select public.deactivate_vendor((select vendor_id from r5_vendor_rpc), 'R5 no longer used')$$, 'Vendor deactivation RPC is available');
 
 insert into public.source_documents (id, user_id, company_id, source_type, filename, mime_type, file_size, storage_path, sha256, processing_status)

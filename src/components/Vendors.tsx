@@ -1,13 +1,16 @@
 import React, { useMemo, useState } from "react";
-import { AlertTriangle, Building2, Search } from "lucide-react";
+import { AlertTriangle, Building2, Pencil, Search, Settings2 } from "lucide-react";
 import type { InvoiceData, Vendor } from "../types";
+import type { VendorSaveInput } from "../lib/vendors.ts";
 import { formatDate, formatMoney } from "../utils/invoiceLogic";
 import { EmptyState, PageHeader, StatusBadge } from "./ui/OperationsUI";
+import { VendorMasterWorksheetModal } from "./VendorMasterWorksheet.tsx";
 
 interface VendorsProps {
   invoices: InvoiceData[];
   vendors: Vendor[];
   canManage?: boolean;
+  onSaveVendor?: (vendor: VendorSaveInput) => Promise<Vendor>;
   onDeactivateVendor?: (vendorId: string, reason: string) => Promise<void>;
   onReactivateVendor?: (vendorId: string) => Promise<void>;
 }
@@ -26,8 +29,9 @@ function invoiceVendorId(invoice: InvoiceData) {
   return invoice.vendor?.vendorId || invoice.entityResolution?.matchedEntityId || "";
 }
 
-export const Vendors: React.FC<VendorsProps> = ({ invoices, vendors: canonicalVendors, canManage = false, onDeactivateVendor, onReactivateVendor }) => {
+export const Vendors: React.FC<VendorsProps> = ({ invoices, vendors: canonicalVendors, canManage = false, onSaveVendor, onDeactivateVendor, onReactivateVendor }) => {
   const [query, setQuery] = useState("");
+  const [worksheet, setWorksheet] = useState<{ createNew: boolean; initialVendorId?: string } | null>(null);
   const vendors = useMemo<VendorSummary[]>(() => {
     const byId = new Map<string, VendorSummary>(
       canonicalVendors.map((vendor) => [
@@ -78,9 +82,10 @@ export const Vendors: React.FC<VendorsProps> = ({ invoices, vendors: canonicalVe
 
   return <div className="space-y-5">
     <PageHeader
-      eyebrow="Canonical supplier master"
+      eyebrow="Supplier master"
       title="Vendors"
-      description="Company-scoped Vendor records are the identity consumed by RFQ, quotation, PO, Expense, and supplier-document workflows. Extracted supplier text remains evidence until resolved."
+      description="Browse canonical supplier records. Extracted supplier text remains evidence until a reviewer confirms the identity."
+      actions={canManage && onSaveVendor ? <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setWorksheet({ createNew: false })} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><Settings2 className="h-3.5 w-3.5" />Manage Vendors</button><button type="button" onClick={() => setWorksheet({ createNew: true })} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50"><Building2 className="h-3.5 w-3.5" />Add Vendor</button></div> : undefined}
     />
     <label className="flex max-w-xl items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
       <Search aria-hidden="true" className="h-4 w-4 text-slate-400" />
@@ -88,11 +93,11 @@ export const Vendors: React.FC<VendorsProps> = ({ invoices, vendors: canonicalVe
       <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search canonical Vendor, TIN, contact, status…" className="w-full text-xs outline-none placeholder:text-slate-400" />
     </label>
     {unresolvedEvidenceCount > 0 && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900" role="status"><strong>{unresolvedEvidenceCount}</strong> supplier document{unresolvedEvidenceCount === 1 ? "" : "s"} still has unresolved supplier evidence. It is intentionally not shown as a canonical Vendor until a reviewer confirms the identity.</p>}
-    {vendors.length ? <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Canonical Vendor directory table">
+    {vendors.length ? <section data-vendor-directory="true" className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Canonical Vendor directory table">
       <div className="ops-scrollbar overflow-auto">
         <table className="ops-table min-w-[980px] w-full text-left text-xs">
           <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-            <tr><th className="px-4 py-3">Vendor</th><th className="px-4 py-3">Contact / location</th><th className="px-4 py-3">State</th><th className="px-4 py-3 text-right">Linked invoices</th><th className="px-4 py-3">Currency totals</th><th className="px-4 py-3">Latest</th><th className="px-4 py-3">Review</th></tr>
+            <tr><th className="px-4 py-3">Vendor</th><th className="px-4 py-3">Contact / location</th><th className="px-4 py-3">State</th><th className="px-4 py-3 text-right">Linked invoices</th><th className="px-4 py-3">Currency totals</th><th className="px-4 py-3">Latest</th><th className="px-4 py-3">Review</th>{canManage && onSaveVendor && <th className="px-4 py-3">Actions</th>}</tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {vendors.map((summary) => {
@@ -105,11 +110,13 @@ export const Vendors: React.FC<VendorsProps> = ({ invoices, vendors: canonicalVe
                 <td className="max-w-[220px] px-4 py-3"><div className="space-y-1">{Object.entries(summary.currencies).length ? Object.entries(summary.currencies).map(([currency, total]) => <div key={currency} className="flex items-center justify-between gap-3 text-[10px]"><span className="font-bold text-slate-600">{currency}</span><span className="font-sans font-bold tabular-nums">{formatMoney(total, currency)}</span></div>) : <span className="text-[10px] text-slate-400">No complete linked totals</span>}{summary.unresolvedAmountCount > 0 && <span className="block text-[10px] text-amber-700">{summary.unresolvedAmountCount} unresolved amount/currency</span>}</div></td>
                 <td className="px-4 py-3 text-[10px] font-semibold text-slate-600">{formatDate(summary.latest, "short")}</td>
                 <td className="px-4 py-3">{summary.issues ? <StatusBadge tone="warning" icon={AlertTriangle}>{summary.issues} issue{summary.issues === 1 ? "" : "s"}</StatusBadge> : <StatusBadge tone="success">Clear</StatusBadge>}</td>
+                {canManage && onSaveVendor && <td className="px-4 py-3"><button type="button" aria-label={`Edit ${vendor.name}`} onClick={() => setWorksheet({ createNew: false, initialVendorId: vendor.id })} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-50"><Pencil className="h-3 w-3" />Edit</button></td>}
               </tr>;
             })}
           </tbody>
         </table>
       </div>
     </section> : <EmptyState icon={Building2} title={canonicalVendors.length ? "No Vendors match this search" : "No canonical Vendors yet"} description={canonicalVendors.length ? "Try a different Vendor, TIN, contact, or state filter." : invoices.length ? "Supplier evidence exists, but no identity has been human-confirmed into the canonical Vendor master." : "Create a Vendor through an authorized procurement or supplier-review workflow."} />}
+    {worksheet && onSaveVendor && <VendorMasterWorksheetModal vendors={canonicalVendors} canManage={canManage} initialVendorId={worksheet.initialVendorId} createNew={worksheet.createNew} onClose={() => setWorksheet(null)} onSave={onSaveVendor} />}
   </div>;
 };

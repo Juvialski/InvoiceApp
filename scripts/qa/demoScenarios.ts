@@ -459,7 +459,40 @@ function assertHeading(name: string | RegExp, assertionId: string): QaScenarioAc
 }
 
 const verifyExtractorScreen = assertHeading("Extract invoice documents", "invoice-extractor-visible");
-const verifyVendorsScreen = assertHeading("Vendors", "vendor-directory-visible");
+const verifyVendorsScreen: QaScenarioAction = async (page) => {
+  const heading = await page.getByRole("heading", { name: "Vendors", exact: true }).count();
+  const directory = await page.locator('[data-vendor-directory="true"]').count();
+  const manage = await page.getByRole("button", { name: "Manage Vendors", exact: true }).count();
+  const rows = await page.locator('[data-vendor-directory="true"] tbody tr').count();
+  return [
+    { id: "vendor-directory-visible", passed: heading === 1, details: `Vendor headings: ${heading}` },
+    { id: "vendor-directory-browse-surface-visible", passed: directory === 1 && rows > 0, details: `directory surfaces: ${directory}; rows: ${rows}` },
+    { id: "vendor-directory-maintenance-action-visible", passed: manage === 1, details: `Manage Vendors controls: ${manage}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyVendorMasterWorksheet: QaScenarioAction = async (page) => {
+  await page.getByRole("button", { name: "Manage Vendors", exact: true }).click();
+  await page.locator('[data-testid="vendor-master-worksheet"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editor = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-editor="true"]').count();
+  const editableNames = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-cell$=":name"][data-worksheet-editable="true"]').count();
+  const protectedState = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-cell$=":active"][data-worksheet-protected="true"]').count();
+  const addRow = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-add-row="true"]').count();
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const stagedRows = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-row-key]').count();
+  await page.getByRole("button", { name: "Save Vendors", exact: true }).click();
+  await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-state="error"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const validationErrors = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-state="error"]').count();
+  const mobileFallback = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-mobile-fallback="true"]').count();
+  return [
+    { id: "vendor-master-worksheet-visible", passed: editor === 1, details: `Vendor worksheet editors: ${editor}` },
+    { id: "vendor-master-safe-name-editable", passed: editableNames > 0, details: `editable Vendor-name cells: ${editableNames}` },
+    { id: "vendor-master-lifecycle-protected", passed: protectedState > 0, details: `protected Vendor state cells: ${protectedState}` },
+    { id: "vendor-master-add-row-visible", passed: addRow === 1 && stagedRows > 1, details: `Add row controls: ${addRow}; staged rows: ${stagedRows}` },
+    { id: "vendor-master-validation-visible", passed: validationErrors > 0, details: `validation error cells: ${validationErrors}` },
+    { id: "vendor-master-mobile-fallback-visible", passed: mobileFallback === 1, details: `mobile fallbacks: ${mobileFallback}` },
+  ] satisfies readonly QaAssertion[];
+};
 
 const verifyWarehouseInventoryScreen: QaScenarioAction = async (page) => {
   const headingCount = await page.getByRole("heading", { name: "Warehouse Inventory", exact: true }).count();
@@ -864,6 +897,8 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "source-first supplier invoice worksheet review opened", viewport: QA_VIEWPORTS.tablet, action: verifySupplierInvoiceReview }),
   defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "source-first supplier invoice worksheet review opened", viewport: QA_VIEWPORTS.mobile, action: verifySupplierInvoiceReview }),
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor directory rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorsScreen }),
+  defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor master worksheet maintenance rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorMasterWorksheet }),
+  defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor master worksheet maintenance rendered", viewport: QA_VIEWPORTS.mobile, action: verifyVendorMasterWorksheet }),
   defineQaScenario({ feature: "payroll", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "payroll", route: route("payroll-run", "/payroll?runId=:runId"), path: "/demo/app/payroll?runId=demo-payroll-run-9", interactionState: "payroll run opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "expenses", route: route("expenses", "/expenses"), path: "/demo/app/expenses", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),

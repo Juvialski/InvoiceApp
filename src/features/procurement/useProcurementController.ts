@@ -475,7 +475,7 @@ export function useProcurementController({
         if (!remoteWorkspaceConfigured) writeVendorsToLocal(next);
         return next;
       });
-      onSuccess(`Vendor "${saved.name}" created.`);
+      onSuccess(`Vendor "${saved.name}" ${vendor.id ? "saved" : "created"}.`);
       return saved;
     } catch (error) {
       onError(error, "Could not create vendor.");
