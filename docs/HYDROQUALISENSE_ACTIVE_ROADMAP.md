@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E IMPLEMENTED / UX-W5A PROJECT MATERIALS & EQUIPMENT IMPLEMENTED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E IMPLEMENTED / UX-W5A PROJECT MATERIALS & EQUIPMENT IMPLEMENTED / UX-W5B WAREHOUSE ITEM & EQUIPMENT MASTERS IMPLEMENTED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-21**
 
@@ -32,7 +32,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment worksheet register editing is implemented for its bounded scope; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment worksheet register editing and UX-W5B Warehouse Item Master + Canonical Equipment Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -294,8 +294,8 @@ normalizes and validates inputs, and saves dirty rows sequentially through the
 existing `onSaveMaterial` / `onSaveEquipment` callbacks. Failed rows remain
 staged and visible; no parallel persistence or bulk transaction was introduced.
 No migration, RLS/RPC, inventory, procurement, provider, or production contract
-changed in this UI/application-only slice. Remaining UX-W5 domains are not
-started; Worker Registration remains paused.
+changed in this UI/application-only slice. Remaining UX-W5 domains outside the
+implemented W5A/W5B slices are not started; Worker Registration remains paused.
 
 Final validation for this implementation passed the focused worksheet/editor/
 demo group **52/52**, `npm.cmd run test:affected:agent` **544/544** with
@@ -305,6 +305,52 @@ desktop `1440x1000`, constrained laptop `1366x768`, tablet `768x1024`, and phone
 `390x844`, including browse, material create/edit/validation, and equipment
 create/edit/protected-identity states. Full database/Supabase validation was not
 applicable; no Workflow Map source/generated contract changed.
+
+## 2026-09-21 UX-W5B — Warehouse Item Master + Canonical Equipment Master worksheet maintenance
+
+The bounded UX-W5B slice replaces the conventional canonical Warehouse Item and
+Equipment add/edit forms with shared `WorksheetEditor` master-data maintenance.
+Warehouse and Equipment browse/register pages remain the primary visual surfaces;
+movement, receipt, issue/return, assignment, transfer, return, lifecycle,
+observation, and history actions remain purpose-built outside the worksheet.
+
+Warehouse editable cells are item name/description, item/reference code,
+category, and stock unit only for new items or existing items without movement
+or project-usage history. Existing status, on-hand, movement totals/counts,
+movement provenance, receipt linkage, and protected stock units remain read-only.
+Equipment editable cells are asset/reference, name, type/category, ownership/
+source, provider/vendor, and notes. Lifecycle status, current state, current
+Project, active assignment, assignment start, assignment history, and all
+assignment/lifecycle actions remain protected. Existing lifecycle status is
+carried through ordinary metadata saves so maintenance, out-of-service, and
+retired assets cannot be reset.
+
+Both worksheets support staged multi-row setup, keyboard/paste behavior, dirty
+state, draft-only row removal, validation, explicit Save/Cancel, phone fallback,
+and sequential authoritative callback saves with failed-row retention. The
+shared draft/save helper is reused without adding a second grid system. No
+migration, RLS/RPC, trigger, inventory movement, equipment assignment,
+provider, or production contract changed.
+
+Focused worksheet/editor coverage passed **43/43**; the focused inventory/
+Equipment/domain group passed **53/55** with the two runtime DB tests skipped
+because their explicit runtime environment flags were not enabled. The final
+deterministic affected selector passed **476/476** with database fallback
+disabled; ESLint/TypeScript and the production build passed. Workflow Map
+consistency passed. Demo Visual QA against the production build passed **85/85
+interaction scenarios**, **104 screenshots**, and zero console errors, page
+errors, failed requests, or overflow failures. The lead agent inspected the
+W5B screenshots at desktop `1440x1000`, constrained laptop `1366x768`, tablet
+`768x1024`, and phone `390x844`; local/demo evidence remains non-hosted and
+non-production certification.
+
+Jev context ran against the clean baseline with **0 deterministic candidates /
+0 selected**, fallback `false`; the live response did not return model/token/
+latency fields. Jev test triage retained all **75/75** required tests and fell
+back with `sanitizer-rejected`; deterministic affected selection remains
+authoritative. Remaining UX-W5 work requires a new bounded handoff; Vendor
+master, workforce domains, Worker Registration, and other out-of-scope slices
+were not started.
 
 ## 2026-09-20 UX-W1 — shared worksheet editing foundation implemented
 

@@ -164,6 +164,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
       "Receive stock, issue material to a project, record returns, and review movement history.",
       "Project material requirements and field observations remain visible alongside stock without replacing movement history.",
       "Open the authoritative Procurement receipt from a warehouse movement when persisted source metadata is available.",
+      "Maintain safe canonical item name, code, category, and eligible stock-unit metadata in a worksheet while status, balances, movement history, and stock actions remain protected or purpose-built.",
     ],
     sortOrder: 90,
   },
@@ -175,6 +176,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Maintain a company equipment register with current lifecycle state and auditable project assignment, transfer, and return history.",
     details: [
       "Equipment identity and formal assignment remain separate from daily site observations.",
+      "Maintain safe canonical asset reference, name, type, source, provider, and notes in a worksheet while lifecycle, current state, assignment, transfer, return, and history remain deliberate workflows.",
     ],
     sortOrder: 100,
   },

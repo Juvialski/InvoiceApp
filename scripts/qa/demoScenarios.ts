@@ -489,6 +489,39 @@ const verifyWarehouseInventoryScreen: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyWarehouseItemWorksheetCreate: QaScenarioAction = async (page) => {
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
+  await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editor = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-editor="true"]').count();
+  const addRow = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-add-row="true"]').count();
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
+  const stagedRows = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-row-key]').count();
+  await page.getByRole("button", { name: "Save items", exact: true }).click();
+  await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-state="error"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const errors = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-state="error"]').count();
+  const mobileFallback = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-mobile-fallback="true"]').count();
+  return [
+    { id: "warehouse-item-worksheet-create-visible", passed: editor === 1, details: `Warehouse item worksheet editors: ${editor}` } satisfies QaAssertion,
+    { id: "warehouse-item-worksheet-add-row-visible", passed: addRow === 1 && stagedRows > 1, details: `add-row controls: ${addRow}; staged rows: ${stagedRows}` } satisfies QaAssertion,
+    { id: "warehouse-item-worksheet-validation-visible", passed: errors > 0, details: `validation error cells: ${errors}` } satisfies QaAssertion,
+    { id: "warehouse-item-worksheet-mobile-fallback-visible", passed: mobileFallback === 1, details: `mobile fallbacks: ${mobileFallback}` } satisfies QaAssertion,
+  ];
+};
+
+const verifyWarehouseItemWorksheetEdit: QaScenarioAction = async (page) => {
+  await page.getByRole("button", { name: "Edit", exact: true }).first().click();
+  await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editableNames = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-cell$=":itemName"][data-worksheet-editable="true"]').count();
+  const protectedBalances = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-cell$=":onHandQuantity"][data-worksheet-protected="true"]').count();
+  const protectedMovements = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-cell$=":movementCount"][data-worksheet-protected="true"]').count();
+  const protectedStatuses = await page.locator('[data-worksheet-responsive-surface="warehouse-item-master"] [data-worksheet-cell$=":status"][data-worksheet-protected="true"]').count();
+  return [
+    { id: "warehouse-item-worksheet-edit-visible", passed: editableNames > 0, details: `editable item-name cells: ${editableNames}` } satisfies QaAssertion,
+    { id: "warehouse-item-worksheet-protected-balance-visible", passed: protectedBalances > 0 && protectedMovements > 0, details: `protected balance cells: ${protectedBalances}; movement cells: ${protectedMovements}` } satisfies QaAssertion,
+    { id: "warehouse-item-worksheet-status-protected", passed: protectedStatuses > 0, details: `protected status cells: ${protectedStatuses}` } satisfies QaAssertion,
+  ];
+};
+
 const verifyEquipmentRegistryScreen: QaScenarioAction = async (page) => {
   const headingCount = await page.getByRole("heading", { name: "Equipment Registry", exact: true }).count();
   const registryCount = await page.locator('[data-domain="equipment-registry"]').count();
@@ -500,6 +533,37 @@ const verifyEquipmentRegistryScreen: QaScenarioAction = async (page) => {
     { id: "equipment-authority-boundary-visible", passed: authorityCount === 1, details: `authority banners: ${authorityCount}` },
     { id: "equipment-history-actions-visible", passed: historyButtons > 0, details: `history controls: ${historyButtons}` },
   ] satisfies readonly QaAssertion[];
+};
+
+const verifyCanonicalEquipmentWorksheetCreate: QaScenarioAction = async (page) => {
+  await page.getByRole("button", { name: "Add Equipment", exact: true }).click();
+  await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editor = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-editor="true"]').count();
+  const addRow = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-add-row="true"]').count();
+  const protectedLifecycle = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-cell$=":lifecycleStatus"][data-worksheet-protected="true"]').count();
+  const protectedAssignments = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-cell$=":currentState"][data-worksheet-protected="true"]').count();
+  const mobileFallback = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-mobile-fallback="true"]').count();
+  return [
+    { id: "canonical-equipment-worksheet-create-visible", passed: editor === 1, details: `Equipment worksheet editors: ${editor}` } satisfies QaAssertion,
+    { id: "canonical-equipment-worksheet-add-row-visible", passed: addRow === 1, details: `add-row controls: ${addRow}` } satisfies QaAssertion,
+    { id: "canonical-equipment-worksheet-lifecycle-protected", passed: protectedLifecycle > 0, details: `protected lifecycle cells: ${protectedLifecycle}` } satisfies QaAssertion,
+    { id: "canonical-equipment-worksheet-state-protected", passed: protectedAssignments > 0, details: `protected current-state cells: ${protectedAssignments}` } satisfies QaAssertion,
+    { id: "canonical-equipment-worksheet-mobile-fallback-visible", passed: mobileFallback === 1, details: `mobile fallbacks: ${mobileFallback}` } satisfies QaAssertion,
+  ];
+};
+
+const verifyCanonicalEquipmentWorksheetEdit: QaScenarioAction = async (page) => {
+  await page.getByRole("button", { name: "Edit", exact: true }).first().click();
+  await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editableNames = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-cell$=":equipmentName"][data-worksheet-editable="true"]').count();
+  const protectedLifecycle = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-cell$=":lifecycleStatus"][data-worksheet-protected="true"]').count();
+  const protectedProjects = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-cell$=":currentProjectId"][data-worksheet-protected="true"]').count();
+  const protectedAssignmentIds = await page.locator('[data-worksheet-responsive-surface="canonical-equipment-master"] [data-worksheet-cell$=":currentAssignmentId"][data-worksheet-protected="true"]').count();
+  return [
+    { id: "canonical-equipment-worksheet-edit-visible", passed: editableNames > 0, details: `editable equipment-name cells: ${editableNames}` } satisfies QaAssertion,
+    { id: "canonical-equipment-worksheet-lifecycle-stays-protected", passed: protectedLifecycle > 0, details: `protected lifecycle cells: ${protectedLifecycle}` } satisfies QaAssertion,
+    { id: "canonical-equipment-worksheet-assignment-stays-protected", passed: protectedProjects > 0 && protectedAssignmentIds > 0, details: `protected project cells: ${protectedProjects}; assignment cells: ${protectedAssignmentIds}` } satisfies QaAssertion,
+  ];
 };
 
 const verifyPortfolioDashboard: QaScenarioAction = async (page) => {
@@ -734,7 +798,13 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "document-delivery", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "Purchase Order delivery preview and disconnected history verified", viewport: QA_VIEWPORTS.mobile, action: verifyPurchaseOrderDocumentDeliverySurface }),
   defineQaScenario({ feature: "warehouse-inventory", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "warehouse ledger rendered", viewport: QA_VIEWPORTS.desktop, action: verifyWarehouseInventoryScreen }),
   defineQaScenario({ feature: "warehouse-inventory", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "warehouse source continuation verified", viewport: QA_VIEWPORTS.mobile, action: verifyWarehouseInventoryScreen }),
+  defineQaScenario({ feature: "warehouse-item-master", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "Warehouse item create worksheet and validation verified", viewport: QA_VIEWPORTS.desktop, action: verifyWarehouseItemWorksheetCreate }),
+  defineQaScenario({ feature: "warehouse-item-master", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "Warehouse item edit worksheet verified", viewport: QA_VIEWPORTS.laptop, action: verifyWarehouseItemWorksheetEdit }),
+  defineQaScenario({ feature: "warehouse-item-master", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "Warehouse item phone worksheet verified", viewport: QA_VIEWPORTS.mobile, action: verifyWarehouseItemWorksheetEdit }),
   defineQaScenario({ feature: "equipment-registry", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "Equipment Registry rendered", viewport: QA_VIEWPORTS.desktop, action: verifyEquipmentRegistryScreen }),
+  defineQaScenario({ feature: "equipment-master", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "Equipment create worksheet verified", viewport: QA_VIEWPORTS.tablet, action: verifyCanonicalEquipmentWorksheetCreate }),
+  defineQaScenario({ feature: "equipment-master", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "Equipment edit worksheet verified", viewport: QA_VIEWPORTS.desktop, action: verifyCanonicalEquipmentWorksheetEdit }),
+  defineQaScenario({ feature: "equipment-master", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "Equipment phone worksheet verified", viewport: QA_VIEWPORTS.mobile, action: verifyCanonicalEquipmentWorksheetEdit }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: "/demo/app/projects", interactionState: "project selected", viewport: QA_VIEWPORTS.desktop, action: openProjectFromDirectory }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "attention and engineering drilldowns verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectAttentionAndEngineering }),
   defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "materials and equipment browse rendered", viewport: QA_VIEWPORTS.desktop, action: verifyMaterialsEquipmentBrowse }),
