@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 NEXT / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-21**
 
@@ -28,6 +28,41 @@ UX-W4.5A visual triage report: `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
+
+## 2026-09-21 hardening-first reprioritization and UI Simplification Round 3
+
+The user has explicitly paused net-new product feature development in order to improve the quality of the existing application before expanding scope.
+
+### Archived / deferred feature-expansion backlog
+
+Preserve these phases for later, but do not select them as the next implementation work unless the user explicitly resumes feature expansion:
+
+- Worker Registration;
+- Site Attendance and new workforce attendance capability;
+- Face Recognition Attendance;
+- remaining UX-W5 workforce/product editors when they introduce new domain capability;
+- Finance UX-W6 feature expansion;
+- typed custom fields / Add Column product architecture;
+- broader Wide Documents artifact aggregation and optional handover-package grouping;
+- other net-new product domains or feature families.
+
+These phases are **archived/deferred, not cancelled**.
+
+### Active hardening tracks
+
+The active program is now:
+
+1. **UX-S3A — Comparative UI research + app-wide instruction-density audit.** Use Codex with read-only browser/Chrome research into successful comparable products, especially Procore, Autodesk Construction Cloud, Buildertrend, Fieldwire, and Raken. Compare navigation, page hierarchy, action density, view/edit states, tables, help systems, onboarding, empty/error states, and responsive patterns against HydroQualiSense. Audit every major HydroQualiSense route and classify visible explanatory copy as Keep / Shorten / Contextual Help / Help Center / Remove. Produce a durable research report before broad implementation.
+2. **UX-S3B — Help Center + contextual-help foundation.** Introduce a dedicated in-app Help area, route/topic deep links, a consistent page-level Help action, accessible tooltips/popovers for brief secondary explanations, and click/tap equivalents for touch. Task-critical instructions must remain visible; detailed education moves out of the working canvas.
+3. **UX-S3C — App-wide visible-copy simplification.** Remove obvious/redundant instructional prose, shorten page/section chrome, collapse optional explanation, reduce nested instructional cards, and make the current task/data/actions dominate the first useful viewport.
+4. **UX-S3D — Workflow-friction hardening.** Audit multi-step workflows for duplicate actions, unnecessary confirmation, unclear state transitions, inconsistent action placement, weak defaults, preventable navigation, and recoverability. Improve existing workflows without adding new business domains.
+5. **UX-S3E — Accessibility, responsive, and visual closeout.** Re-run app-wide route/state evidence at desktop, constrained laptop, tablet, and phone; verify keyboard/focus/contextual-help behavior and close the highest-impact clutter/friction findings.
+6. **Application hardening in parallel.** Continue reliability, recovery, validation, concurrency, security/data-integrity, performance, provider/readiness certification, authenticated document/render certification, and exact-SHA release evidence when their prerequisites exist.
+7. **Developer-efficiency hardening.** Jev/Repository Intelligence work may continue when it improves context selection, review, evidence, or implementation efficiency without expanding customer-facing product scope.
+
+Canonical design/research contract: `docs/superpowers/specs/2026-09-21-ui-simplification-contextual-help-research.md`.
+
+This override supersedes older wording that names workforce expansion, Finance UX-W6, custom fields, broad Documents expansion, or other net-new feature work as the next implementation phase.
 
 ## Current priority sequence
 
