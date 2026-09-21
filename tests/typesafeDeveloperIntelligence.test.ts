@@ -163,16 +163,22 @@ test("context reranking preserves must-keep candidates and batches bounded judgm
     { id: "irrelevant", path: "src/irrelevant.ts", summary: "unrelated surface" },
   ];
   let calls = 0;
+  let capturedRequest: unknown;
   const result = await rerankContextCandidates({
     task: "update task-specific implementation",
     candidates,
     maxSelected: 2,
     env: { TYPESAFE_API_KEY: "ts-test-only" },
     live: true,
-    gateway: mockGateway({ answers: { c0: { noul: 0.01 }, c1: { noul: 0.95 }, c2: { noul: 0.05 } } }, () => { calls += 1; }),
+    gateway: mockGateway(
+      { answers: { c0: { noul: 0.01 }, c1: { noul: 0.95 }, c2: { noul: 0.05 } } },
+      (request) => { calls += 1; capturedRequest = request; },
+    ),
   });
 
   assert.equal(calls, 1);
+  assert.match(JSON.stringify(capturedRequest), /candidates\[1\]/);
+  assert.match(JSON.stringify(capturedRequest), /understand, implement, validate, or safely review/);
   assert.equal(result.fallback, false);
   assert.deepEqual(result.selectedCandidates.map((candidate) => candidate.id), ["keep", "relevant"]);
   assert.equal(result.diagnostic.candidateCount, 3);
@@ -212,13 +218,19 @@ test("test triage never suppresses deterministic affected tests", async () => {
     isFallback: false,
     isDatabaseAffected: false,
   };
+  let capturedRequest: unknown;
   const result = await triageAffectedTests({
     task: "synthetic test triage",
     selection,
     env: { TYPESAFE_API_KEY: "ts-test-only" },
     live: true,
-    gateway: { systemOne: async () => ({ answers: { c0: { score: 2 }, c1: { score: 0 } } }) },
+    gateway: mockGateway(
+      { answers: { c0: { score: 2 }, c1: { score: 0 } } },
+      (request) => { capturedRequest = request; },
+    ),
   });
+  assert.match(JSON.stringify(capturedRequest), /tests\[0\]/);
+  assert.match(JSON.stringify(capturedRequest), /directly exercises the changed behavior/);
   assert.equal(result.advisoryOnly, true);
   assert.deepEqual(result.requiredTests, selection.selectedTests);
   assert.deepEqual(result.recommendedTests, ["tests/high.test.ts", "tests/low.test.ts"]);
