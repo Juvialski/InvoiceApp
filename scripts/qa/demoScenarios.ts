@@ -561,6 +561,78 @@ const verifyProjectAttentionAndEngineering: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyMaterialsEquipmentBrowse: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Materials & Equipment");
+  const surface = await page.locator('[data-phase3b="materials-equipment"]').count();
+  const materialRows = await page.locator('[data-phase3b="materials-equipment"] [class*="border-b"]').count();
+  const receiptsBoundary = await page.locator("text=Formal receipts remain authoritative").count();
+  return [
+    { id: "materials-equipment-browse-surface-visible", passed: surface === 1, details: `materials/equipment surfaces: ${surface}` } satisfies QaAssertion,
+    { id: "materials-equipment-browse-rows-visible", passed: materialRows > 0, details: `browse row regions: ${materialRows}` } satisfies QaAssertion,
+    { id: "materials-equipment-receipt-boundary-visible", passed: receiptsBoundary > 0, details: `receipt boundary labels: ${receiptsBoundary}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyMaterialWorksheetCreate: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Materials & Equipment");
+  await page.getByRole("button", { name: "Add material", exact: true }).click();
+  await page.locator('[data-worksheet-responsive-surface="project-materials"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editor = await page.locator('[data-worksheet-responsive-surface="project-materials"] [data-worksheet-editor="true"]').count();
+  const addRow = await page.locator('[data-worksheet-responsive-surface="project-materials"] [data-worksheet-add-row="true"]').count();
+  const mobileFallback = await page.locator('[data-worksheet-responsive-surface="project-materials"] [data-worksheet-mobile-fallback="true"]').count();
+  return [
+    { id: "material-worksheet-create-visible", passed: editor === 1, details: `material worksheet editors: ${editor}` } satisfies QaAssertion,
+    { id: "material-worksheet-add-row-visible", passed: addRow === 1, details: `material add-row controls: ${addRow}` } satisfies QaAssertion,
+    { id: "material-worksheet-mobile-fallback-visible", passed: mobileFallback === 1, details: `material mobile fallbacks: ${mobileFallback}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyMaterialWorksheetValidation: QaScenarioAction = async (page) => {
+  await verifyMaterialWorksheetCreate(page);
+  await page.getByRole("button", { name: "Save materials", exact: true }).click();
+  await page.locator('[data-worksheet-responsive-surface="project-materials"] [data-worksheet-state="error"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const errors = await page.locator('[data-worksheet-responsive-surface="project-materials"] [data-worksheet-state="error"]').count();
+  return [{ id: "material-worksheet-validation-visible", passed: errors > 0, details: `material worksheet error cells: ${errors}` } satisfies QaAssertion];
+};
+
+const verifyMaterialWorksheetEdit: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Materials & Equipment");
+  await page.locator('[data-phase3b="materials-equipment"] button:has-text("Edit")').first().click();
+  await page.locator('[data-worksheet-responsive-surface="project-materials"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editableNames = await page.locator('[data-worksheet-responsive-surface="project-materials"] [data-worksheet-cell$=":materialName"][data-worksheet-editable="true"]').count();
+  const boundaryText = await page.locator("text=PO receiving and warehouse on-hand remain protected").count();
+  return [
+    { id: "material-worksheet-edit-visible", passed: editableNames > 0, details: `editable material-name cells: ${editableNames}` } satisfies QaAssertion,
+    { id: "material-worksheet-protected-boundary-visible", passed: boundaryText > 0, details: `protected boundary notes: ${boundaryText}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyEquipmentWorksheetCreate: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Materials & Equipment");
+  await page.getByRole("button", { name: "Equipment", exact: true }).first().click();
+  await page.getByRole("button", { name: "Add equipment", exact: true }).click();
+  await page.locator('[data-worksheet-responsive-surface="project-equipment"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editor = await page.locator('[data-worksheet-responsive-surface="project-equipment"] [data-worksheet-editor="true"]').count();
+  const canonicalIdentity = await page.locator('[data-worksheet-responsive-surface="project-equipment"] [data-worksheet-cell$=":canonicalEquipmentId"][data-worksheet-protected="true"]').count();
+  return [
+    { id: "equipment-worksheet-create-visible", passed: editor === 1, details: `equipment worksheet editors: ${editor}` } satisfies QaAssertion,
+    { id: "equipment-canonical-identity-protected", passed: canonicalIdentity > 0, details: `canonical identity cells: ${canonicalIdentity}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyEquipmentWorksheetEdit: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Materials & Equipment");
+  await page.getByRole("button", { name: "Equipment", exact: true }).first().click();
+  await page.locator('[data-phase3b="materials-equipment"] button:has-text("Edit")').first().click();
+  await page.locator('[data-worksheet-responsive-surface="project-equipment"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editableDates = await page.locator('[data-worksheet-responsive-surface="project-equipment"] [data-worksheet-cell$=":assignmentStart"][data-worksheet-editable="true"]').count();
+  const mobileFallback = await page.locator('[data-worksheet-responsive-surface="project-equipment"] [data-worksheet-mobile-fallback="true"]').count();
+  return [
+    { id: "equipment-worksheet-edit-visible", passed: editableDates > 0, details: `editable project-start cells: ${editableDates}` } satisfies QaAssertion,
+    { id: "equipment-worksheet-mobile-fallback-visible", passed: mobileFallback === 1, details: `equipment mobile fallbacks: ${mobileFallback}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyProcurementSubcontractParity: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: /^Subcontracts/ }).first().click();
   await page.locator("text=Total Subcontracts").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
@@ -665,6 +737,15 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "equipment-registry", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "Equipment Registry rendered", viewport: QA_VIEWPORTS.desktop, action: verifyEquipmentRegistryScreen }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: "/demo/app/projects", interactionState: "project selected", viewport: QA_VIEWPORTS.desktop, action: openProjectFromDirectory }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "attention and engineering drilldowns verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectAttentionAndEngineering }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "materials and equipment browse rendered", viewport: QA_VIEWPORTS.desktop, action: verifyMaterialsEquipmentBrowse }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "materials and equipment browse rendered", viewport: QA_VIEWPORTS.laptop, action: verifyMaterialsEquipmentBrowse }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "materials and equipment browse rendered", viewport: QA_VIEWPORTS.tablet, action: verifyMaterialsEquipmentBrowse }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "materials and equipment browse rendered", viewport: QA_VIEWPORTS.mobile, action: verifyMaterialsEquipmentBrowse }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "material worksheet create rendered", viewport: QA_VIEWPORTS.desktop, action: verifyMaterialWorksheetCreate }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "material worksheet validation rendered", viewport: QA_VIEWPORTS.desktop, action: verifyMaterialWorksheetValidation }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "material worksheet edit rendered", viewport: QA_VIEWPORTS.laptop, action: verifyMaterialWorksheetEdit }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "equipment worksheet create rendered", viewport: QA_VIEWPORTS.tablet, action: verifyEquipmentWorksheetCreate }),
+  defineQaScenario({ feature: "project-materials-equipment", route: route("project-materials-equipment", "/projects/:projectId/materials-equipment"), path: `${PROJECT_ROOT}/materials-equipment`, interactionState: "equipment worksheet edit rendered", viewport: QA_VIEWPORTS.mobile, action: verifyEquipmentWorksheetEdit }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectFinancialControlDashboard }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.laptop, action: verifyProjectFinancialControlDashboard }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.tablet, action: verifyProjectFinancialControlDashboard }),

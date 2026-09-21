@@ -50,6 +50,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     details: [
       "Create and manage project records, managers, status, location, contract value, and approved budget.",
       "Browse projects as visual cards or a compact list, edit project details in a structured worksheet, and maintain project cost codes with clear protected financial context.",
+      "Edit safe Project Material and Project Equipment register metadata in a spreadsheet-familiar worksheet while procurement receipts, warehouse movements/on-hand, canonical equipment identity/assignment, site observations, and lifecycle actions remain protected or purpose-built.",
       "Open project workspaces for budget control, cost codes, supplier documents, expenses, payroll, materials, equipment, engineering, billing, collections, and project reports.",
     ],
     sortOrder: 10,

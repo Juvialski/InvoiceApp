@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E IMPLEMENTED / UX-W5 UNBLOCKED FROM VISUAL GATE / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E IMPLEMENTED / UX-W5A PROJECT MATERIALS & EQUIPMENT IMPLEMENTED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-21**
 
@@ -32,7 +32,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5 operational bulk-data editors are now unblocked from the visual gate and require their own bounded implementation handoff. App-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment worksheet register editing is implemented for its bounded scope; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -60,9 +60,10 @@ and 764 output tokens, and had zero fallback. The exact misses were
 
 Automatic filtering remains non-authoritative. Any local use must preserve the
 full deterministic candidate/test authority and treat Jev as advisory only. The
-UX-W4.5E visual gate is now closed for its recorded scope; UX-W5 remains the
-next selective-workbook implementation candidate, subject to its own bounded
-handoff and the separate product/provider sequencing gates.
+UX-W4.5E visual gate is now closed for its recorded scope; UX-W5A Project
+Materials & Project Equipment is implemented for its bounded scope, while
+remaining UX-W5 slices require their own bounded handoffs and the separate
+product/provider sequencing gates.
 
 ## 2026-09-20 selective workbook editing UX correction
 
@@ -256,6 +257,43 @@ final safe-demo visual validation are recorded in
 `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5 is now
 **unblocked from the visual gate**; no UX-W5 code was started in this phase.
 The safe-demo dataset does not currently certify populated RFI/Submittal detail layouts; that P2 evidence gap remains recorded without reopening the P0/P1/shared-root visual gate.
+
+## 2026-09-21 UX-W5A — Project Materials & Project Equipment worksheet register editing
+
+The bounded UX-W5A slice replaces the conventional Project Material and Project
+Equipment add/edit forms with the shared `WorksheetEditor` interaction only at
+the explicit create/edit boundary. The existing Materials & Equipment browse,
+summary, reconciliation, procurement, warehouse, site-evidence, and canonical
+Equipment context remains the normal register surface.
+
+Project Material worksheet cells cover material name/description,
+reference/code, category, planned quantity, unit, permitted warehouse-item
+link, project cost code, permitted PO-line link, register status, and notes.
+Project Equipment worksheet cells cover asset/reference, equipment name,
+type/category, source, provider/vendor, project-register start/end dates,
+register status, and notes. Stable IDs, company/project ownership, warehouse
+on-hand and movement truth, PO receiving quantities, site observations,
+reconciliation, canonical Equipment Registry identity, assignment/transfer/
+return, lifecycle, history, and other derived/source facts remain protected or
+outside ordinary cells.
+
+The worksheet stages dirty/new rows, supports keyboard navigation and bounded
+paste through the shared editor, permits removal only for unsaved draft rows,
+normalizes and validates inputs, and saves dirty rows sequentially through the
+existing `onSaveMaterial` / `onSaveEquipment` callbacks. Failed rows remain
+staged and visible; no parallel persistence or bulk transaction was introduced.
+No migration, RLS/RPC, inventory, procurement, provider, or production contract
+changed in this UI/application-only slice. Remaining UX-W5 domains are not
+started; Worker Registration remains paused.
+
+Final validation for this implementation passed the focused worksheet/editor/
+demo group **52/52**, `npm.cmd run test:affected:agent` **544/544** with
+database fallback disabled, ESLint/TypeScript, and the production build. Targeted
+local Playwright captures were inspected for the Materials & Equipment route at
+desktop `1440x1000`, constrained laptop `1366x768`, tablet `768x1024`, and phone
+`390x844`, including browse, material create/edit/validation, and equipment
+create/edit/protected-identity states. Full database/Supabase validation was not
+applicable; no Workflow Map source/generated contract changed.
 
 ## 2026-09-20 UX-W1 — shared worksheet editing foundation implemented
 
