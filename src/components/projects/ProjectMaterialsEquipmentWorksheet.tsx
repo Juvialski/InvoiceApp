@@ -29,6 +29,7 @@ import type {
 } from "../../lib/materialsEquipment.ts";
 import {
   newWorksheetDraftId,
+  retainWorksheetDraftRowsAfterSave,
   saveWorksheetRowsSequentially,
   type WorksheetPlanIssue,
 } from "../ui/worksheetDraftState.ts";
@@ -260,6 +261,11 @@ function useDraftWorksheetRows<T extends DraftWorksheetRow>(
     dirtyRowKeysRef.current = nextRowKeys;
     setDirtyRowKeys(nextRowKeys);
     setDirtyCellKeys((current) => new Set([...current].filter((key) => [...rowKeys].some((rowKey) => key.startsWith(`${rowKey}:`)))));
+    const nextDraftRows = retainWorksheetDraftRowsAfterSave(draftRowsRef.current, nextRowKeys);
+    if (nextDraftRows.length !== draftRowsRef.current.length) {
+      draftRowsRef.current = nextDraftRows;
+      setDraftRows(nextDraftRows);
+    }
   }, []);
 
   const addRow = useCallback(() => {
