@@ -10,7 +10,7 @@ import {
   type DocumentStorageProvider,
 } from "../../lib/storage/index.ts";
 import { calculateSha256Hex } from "../../lib/storage/dedup.ts";
-import { sanitizeStorageFileName } from "../../lib/storage/keys.ts";
+import { buildManagedDocumentStoragePath, sanitizeStorageFileName } from "../../lib/storage/keys.ts";
 import { decodeBase64Payload } from "../../lib/fileSecurity.ts";
 import { companyAiProviderError, withCompanyAiRuntime } from "../ai/companyAiRuntime.ts";
 import { claimAiRequest, releaseAiRequest } from "../ai/aiRequestBudget.ts";
@@ -22,6 +22,7 @@ import {
   type StoragePermissionKey,
 } from "../storage/storageRouter.ts";
 import { getStorageServerAuthorityStatus, getStorageServerServiceRoleClient, type StorageServerAuthorityStatus } from "../storage/storageCompensation.ts";
+import { MANAGED_DOCUMENTS_BUCKET } from "../managedDocuments/managedDocumentRouter.ts";
 import type { FinancialDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import {
   getDocumentTemplateFields,
@@ -1036,9 +1037,13 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
   });
 
   router.post("/managed-generate", async (req: Request, res: Response) => {
+    let auth: StorageAuthContext | null = null;
+    let generatedProvider: DocumentStorageProvider | null = null;
+    let generatedBucket = "";
+    let generatedPath = "";
     try {
       const sourceContext = String(req.body?.sourceContext || "PROJECT").trim().toUpperCase() as DocumentTemplateSourceContext;
-      const auth = await authorizer(req, permissionForSourceContext(sourceContext));
+      auth = await authorizer(req, permissionForSourceContext(sourceContext));
       const typeKey = requestedDocumentType(req.body?.typeKey || req.body?.documentType);
       const definitionResult = await auth.supabase.from("document_template_type_definitions").select("*").eq("company_id", auth.companyId).eq("type_key", typeKey).maybeSingle();
       if (definitionResult.error || !definitionResult.data) throw new StorageApiError(404, "DOCUMENT_TYPE_NOT_FOUND", "The company document type was not found in this deployment.");
@@ -1053,12 +1058,68 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const context = await buildManagedTemplateRenderContext(auth, options, definition, req.body?.sourceId, validatedInput.input);
       const merged = mergeDocumentTemplate(templateBytes, version.sourceFilename || "template.docx", context, version.bindings, definition);
       const filePrefix = definition.outputFileNamePrefix || definition.displayName.replace(/[^A-Za-z0-9_-]+/g, "_");
+      const managedDocumentId = randomUUID();
+      const managedVersionId = randomUUID();
+      const fileName = sanitizeStorageFileName(`${filePrefix || "Document"}.docx`);
+      generatedPath = buildManagedDocumentStoragePath(auth.companyId, managedDocumentId, managedVersionId, fileName);
+      const artifactSha256 = await calculateSha256Hex(merged);
+      generatedProvider = primaryProvider(auth, options);
+      const writer = serverWriteProvider(options, generatedProvider);
+      generatedBucket = generatedProvider.id === "s3" ? "" : MANAGED_DOCUMENTS_BUCKET;
+      const put = await writer.putObject({
+        companyId: auth.companyId,
+        ...(generatedBucket ? { bucket: generatedBucket } : {}),
+        key: generatedPath,
+        bytes: merged,
+        contentType: DOCX_MIME_TYPE,
+        sha256: artifactSha256,
+        customMetadata: { sha256: artifactSha256, artifactType: "DOCX" },
+        upsert: false,
+      });
+      generatedBucket = put.ref.bucket || generatedBucket;
+      const sourceDomain = sourceContext === "PURCHASE_ORDER"
+        ? "PURCHASE_ORDER"
+        : sourceContext === "CLIENT_INVOICE"
+          ? "CLIENT_INVOICE"
+          : sourceContext === "PROJECT" ? "PROJECT" : "DOCUMENT_TEMPLATE";
+      const registrationClient = serverSupabase(options);
+      const { error: registrationError } = await registrationClient.rpc("server_register_generated_document_artifact", {
+        p_payload: {
+          companyId: auth.companyId,
+          documentId: managedDocumentId,
+          versionId: managedVersionId,
+          title: definition.displayName,
+          description: `Generated from the active ${definition.displayName} template.`,
+          category: "GENERATED_DOCUMENT",
+          origin: "GENERATED_DOCUMENT",
+          ...(sourceContext === "PROJECT" && req.body?.sourceId ? { projectId: req.body.sourceId } : {}),
+          sourceDomain,
+          sourceType: definition.key,
+          ...(req.body?.sourceId ? { sourceRecordId: req.body.sourceId, sourceRecordReference: req.body.sourceId } : {}),
+          artifactType: "DOCX",
+          templateVersionId: version.id,
+          templateContentSha256: version.contentSha256,
+          fileName,
+          mimeType: DOCX_MIME_TYPE,
+          sizeBytes: merged.byteLength,
+          storageProvider: generatedProvider.id,
+          storageBucket: generatedBucket,
+          storagePath: generatedPath,
+          sha256: artifactSha256,
+        },
+        p_actor_user_id: auth.user.id,
+      });
+      if (registrationError) throw new StorageApiError(503, "ARTIFACT_INDEX_FAILED", "The generated document was stored, but its retained history could not be recorded safely.");
       res.setHeader("Content-Type", DOCX_MIME_TYPE);
-      res.setHeader("Content-Disposition", `attachment; filename="${sanitizeStorageFileName(filePrefix || "Document")}.docx"`);
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
       res.setHeader("X-Document-Template-Version-Id", version.id);
       res.setHeader("X-Document-Template-Sha256", version.contentSha256);
+      res.setHeader("X-Document-Artifact-Sha256", artifactSha256);
+      res.setHeader("X-Managed-Document-Id", managedDocumentId);
+      res.setHeader("X-Managed-Version-Id", managedVersionId);
       return res.send(Buffer.from(merged));
     } catch (error: any) {
+      if (auth && generatedProvider && generatedPath) await cleanupObject(auth, options, generatedProvider, generatedBucket, generatedPath);
       const status = error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 422 : 503;
       return res.status(status).json(apiErrorPayload(error, "The company document could not be generated safely."));
     }

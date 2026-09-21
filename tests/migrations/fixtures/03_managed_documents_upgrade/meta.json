@@ -1,0 +1,6 @@
+{
+  "id": "03_managed_documents_upgrade",
+  "name": "Managed Documents Additive Upgrade Path",
+  "description": "Verifies the managed-document/version/artifact foundation applies after the current Wave 4D migration boundary without requiring or rewriting historical document rows.",
+  "boundaryMigration": "20260915135236_brevo_email_delivery.sql"
+}

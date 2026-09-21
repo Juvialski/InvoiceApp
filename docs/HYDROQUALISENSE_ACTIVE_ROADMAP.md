@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-21**
 
@@ -38,7 +38,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 5. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this run.** Shared preflight/diagnostic primitives, deterministic clean-baseline task seeding, budget-aware ordered chunking, context reranking, broad test triage, and deterministic must-keep/required-test unions are now integrated. Remaining v2B experimental slices stay deferred; Jev remains advisory-only and no application/runtime Jev or automatic model/subagent routing was added.
 6. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed opportunistically whenever safe credentials/device/runtime exist without displacing the bounded UX-W5 slices.
 7. **UX-W5C Vendor Master worksheet maintenance is implemented.** Remaining UX-W5 product slices stay queued and bounded; Workers, Attendance, Time Entries, and Project Assignments remain subject to the workforce/Worker Registration sequencing gate. Jev work is not a product dependency.
-8. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
+8. **Wide Documents managed standalone files, immutable versions, general upload, retained artifact registration, and Documents detail are implemented for the recorded scope.** Remaining broad artifact aggregation, authenticated HSC/render certification, and optional handover packaging remain separately bounded; **Worker Registration** stays paused until Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 9. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
 
 Release/readiness certification remains a parallel track and should run when its exact prerequisites exist. A structural merge never implies hosted certification or production authorization.
@@ -725,7 +725,7 @@ Real authenticated Local-QA AI-template evidence is now obtained separately from
 
 The broad Local-QA route matrix still requires separate harness cleanup/reconciliation because its long sweep recorded unrelated route/session failures; the isolated authenticated AI/template workflow itself passed. No uncontrolled email/SMS send and no production mutation occurred.
 
-UI/UX Round 2 and the Document Template AI corrective phase are complete foundations on the current merged baseline. The user has now explicitly reprioritized the current implementation run to Email/SMS Reliability & UX Completion; the remaining Wide Documents managed slices are deferred. Worker Registration remains paused.
+UI/UX Round 2 and the Document Template AI corrective phase are complete foundations on the current merged baseline. At the earlier 2026-09-14 checkpoint the user had reprioritized the implementation run to Email/SMS Reliability & UX Completion and the remaining Wide Documents managed slices were deferred. The managed standalone/version/artifact foundation is now recorded in the 2026-09-21 section above; Worker Registration remains paused.
 
 ## 2026-09-13 Document Template AI corrective phase
 
@@ -785,6 +785,59 @@ Slice 1 is implemented on the merged baseline as the application Document Center
 The durable contract is recorded in `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` and the implementation design/plan are recorded in `docs/superpowers/specs/2026-09-14-unified-document-center-design.md` and `docs/superpowers/plans/2026-09-14-unified-document-center-slice1.md`.
 
 The Slice 2 implementation proves that template-first generation through the supplied HSC Purchase Order, Checklist, and Warranty fixtures is driven by dynamic company-defined types. The HSC files remain exact acceptance fixtures; they are not hardcoded document-type registrations. Final authenticated Local-QA and render certification remains part of that phase’s readiness evidence.
+
+## 2026-09-21 Wide Documents — managed Documents + retained artifacts foundation implemented
+
+Starting from synchronized `main` SHA
+`288847309ddadf66d4d6d644f445ba04afa0ee97`, the bounded foundation adds
+company-scoped standalone managed-document identity, immutable file/version
+history, a private `company-managed-documents` Storage contract, narrow
+`documents.read`/`documents.manage` permissions, and guarded server RPCs for
+create/version/archive operations. Optional project links use same-company
+composite foreign keys; stale archive/version races fail closed with
+`EXPECTED_VERSION_MISMATCH`/SQLSTATE `40001`; ordinary clients cannot rewrite
+version rows or delete history.
+
+The retained artifact index is provenance-only. It records the source domain,
+source type/record reference, artifact type, immutable managed version, and
+template hash/version when available. Existing issued Purchase Order and Client
+Invoice generation remains authoritative through `document_generation_evidence`
+and delivery history; an after-insert registration hook makes those generated
+DOCX/PDF outputs discoverable without copying their financial or lifecycle
+truth. Dynamic company-template generation also retains a managed artifact and
+returns its managed identity through response headers while preserving the
+existing binary download contract.
+
+The Documents workspace now has managed/artifact browse rows, review-before-
+commit standalone upload, detail/version history, authorized short-lived
+retrieval, and deliberate new-version/archive actions. Deterministic safe-demo
+fixtures cover a two-version Warranty Certificate and a generated Purchase
+Order artifact. The interaction remains document-oriented; no universal grid,
+custom-field platform, financial authority, or broad generator migration was
+introduced.
+
+Validation evidence for this phase: static migration checks **117/117**;
+historical upgrade fixtures **3/3**; managed runtime RLS/RPC/concurrency and
+artifact-registration test **1/1**; focused managed/UI/router/client/storage
+tests pass; deterministic affected selection **801/802 pass, 0 fail, 1 skip**
+from **128/362** files with database fallback disabled; ESLint/TypeScript,
+production build, and Workflow Map consistency pass. Manual local safe-demo
+inspection covered desktop and phone Documents browse/detail/upload-review
+states. Automated Demo Visual QA was not run because this clean worktree lacks
+the QA-only `playwright` package. Hosted QA, provider certification, and
+production validation remain unclaimed.
+
+Jev remained advisory: clean context was deterministic **0/0** with
+`no-candidates`; live test triage retained **135/135** required tests in **3**
+requests (`jev-1.13.0`, **17,292 / 2,007** tokens, **2,529 ms**,
+`fallback=false`); live completion used **1** request over **5** categories
+(`jev-1.13.0`, **707 / 89** tokens, **919 ms**, `fallback=false`) and preserved
+uncertainty for the unavailable automated/hosted browser evidence.
+
+Remaining Wide Documents work is broader artifact aggregation, authenticated
+HSC/render certification, and optional handover-package grouping. Worker
+Registration, Attendance, Finance UX-W6, custom fields, provider certification,
+and production promotion remain out of scope.
 
 Current pre-merge evidence: the focused dynamic template/Create suite passes 68/68; lint, production build, Workflow Map consistency, and demo browser QA pass (82/82). Authenticated Local-QA passes its 59/59 route/responsive matrix, while its legacy template functional checks still target the former Settings mount and record 7/9 functional workflows. Dynamic HSC authenticated certification is not claimed because the new migration was not promoted to the QA target; local Docker is unavailable for replay/pgTAP/upgrade validation, and the bundled LibreOffice DOCX renderer is unavailable for visual conversion.
 
@@ -1021,7 +1074,7 @@ This sequence preserves the product/release dependency order established through
    - PhilSMS remains the optional hosted Philippine fallback;
    - keep SMS truthful as unavailable/unverified until controlled provider-backed runtime QA exists.
 
-4. **Wide Documents Phase remaining managed slices — DEFERRED** by explicit reprioritization.
+4. **Wide Documents Phase managed foundation — IMPLEMENTED for the recorded scope;** broader artifact aggregation and authenticated HSC/render certification remain separately bounded.
 
 5. **Worker Registration — PAUSED** until broader Wave 4D is genuinely complete and the user explicitly resumes it.
 

@@ -3,6 +3,7 @@ import type { EngineeringDocumentsWorkspaceData } from "./engineeringDocuments.t
 import type { FinancialImportBatch } from "./cashBanking.ts";
 import { buildClientInvoiceDocumentSnapshot, buildPurchaseOrderDocumentSnapshot, type FinancialDocumentSnapshot } from "./documentGeneration.ts";
 import type { CompanyDocumentProfile } from "./companyDocumentProfile.ts";
+import type { ManagedDocumentSummary } from "./managedDocuments.ts";
 import type {
   Expense,
   InvoiceData,
@@ -10,7 +11,7 @@ import type {
   PurchaseOrder,
   Vendor,
 } from "../types.ts";
-import { appPathForExpense, appPathForInvoice, appPathForProject, appPathForPurchaseOrder, appPathForTab } from "../utils/appRouting.ts";
+import { appPathForExpense, appPathForInvoice, appPathForManagedDocument, appPathForProject, appPathForPurchaseOrder, appPathForTab } from "../utils/appRouting.ts";
 
 export type DocumentRegisterKind =
   | "PURCHASE_ORDER"
@@ -18,9 +19,11 @@ export type DocumentRegisterKind =
   | "SUPPLIER_INVOICE"
   | "EXPENSE_RECEIPT"
   | "BANK_STATEMENT"
-  | "ENGINEERING_DOCUMENT";
+  | "ENGINEERING_DOCUMENT"
+  | "MANAGED_DOCUMENT"
+  | "GENERATED_ARTIFACT";
 
-export type DocumentRegisterOrigin = "SOURCE" | "ISSUED" | "ENGINEERING";
+export type DocumentRegisterOrigin = "SOURCE" | "ISSUED" | "ENGINEERING" | "MANAGED" | "GENERATED";
 
 export interface DocumentRegisterEntry {
   readonly id: string;
@@ -40,6 +43,11 @@ export interface DocumentRegisterEntry {
   readonly documentId?: string;
   readonly artifactName?: string;
   readonly sourceDocumentId?: string;
+  readonly managedDocumentId?: string;
+  readonly managedVersionId?: string;
+  readonly artifactId?: string;
+  readonly mimeType?: string;
+  readonly versionNumber?: number;
   readonly emailEligible: boolean;
   readonly searchableText: string;
 }
@@ -62,6 +70,7 @@ export interface DocumentRegisterInput {
   readonly projects?: readonly Project[];
   readonly vendors?: readonly Vendor[];
   readonly engineering?: EngineeringDocumentsWorkspaceData;
+  readonly managedDocuments?: readonly ManagedDocumentSummary[];
   readonly visibility: DocumentRegisterVisibility;
   readonly returnPath?: string;
 }
@@ -251,6 +260,31 @@ export function buildDocumentRegister(input: DocumentRegisterInput): readonly Do
         emailEligible: false,
       }));
     }
+  }
+
+  for (const managed of input.managedDocuments || []) {
+    const artifact = managed.artifact;
+    const isArtifact = Boolean(artifact) || managed.origin === "GENERATED_ARTIFACT";
+    rows.push(entry({
+      id: `${isArtifact ? "artifact" : "managed"}:${managed.id}`,
+      kind: isArtifact ? "GENERATED_ARTIFACT" : "MANAGED_DOCUMENT",
+      title: managed.title,
+      subtitle: [managed.description, managed.projectId ? projectById.get(managed.projectId) && projectLabel(projectById.get(managed.projectId)) : undefined, managed.currentFileName].filter(Boolean).join(" · ") || "Standalone company document",
+      module: "Documents",
+      origin: isArtifact ? "GENERATED" : "MANAGED",
+      status: managed.status,
+      date: managed.updatedAt || managed.createdAt,
+      ...(managed.projectId && projectById.has(managed.projectId) ? { projectId: managed.projectId, projectLabel: projectLabel(projectById.get(managed.projectId)) } : {}),
+      ...(artifact?.sourceRecordReference ? { counterparty: artifact.sourceRecordReference } : {}),
+      ownerPath: appPathForManagedDocument(managed.id),
+      managedDocumentId: managed.id,
+      ...(managed.currentVersionId ? { managedVersionId: managed.currentVersionId } : {}),
+      ...(artifact ? { artifactId: artifact.id } : {}),
+      ...(managed.currentMimeType ? { mimeType: managed.currentMimeType } : {}),
+      ...(managed.currentVersionNumber ? { versionNumber: managed.currentVersionNumber } : {}),
+      artifactName: managed.currentFileName,
+      emailEligible: false,
+    }));
   }
 
   return rows.sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")) || left.title.localeCompare(right.title));

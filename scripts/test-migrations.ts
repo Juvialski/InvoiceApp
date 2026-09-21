@@ -34,6 +34,7 @@ async function main() {
     path.join(ROOT, "tests", "coreHardeningWave5FinancialIntegrity.test.ts"),
     path.join(ROOT, "tests", "databaseBackupMigration.test.ts"),
     path.join(ROOT, "tests", "clientProgressBillingMigration.test.ts"),
+    path.join(ROOT, "tests", "managedDocumentsMigration.test.ts"),
     path.join(ROOT, "tests", "r4CurrencyAndTax.test.ts"),
     path.join(ROOT, "tests", "r4SupplierExpenseBridge.test.ts"),
     path.join(ROOT, "tests", "r4PayrollVoidHistory.test.ts"),

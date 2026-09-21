@@ -40,6 +40,7 @@ export type DocumentWorkspaceView = "library" | "create" | "templates";
 
 export interface DocumentWorkspaceContext {
   readonly view: DocumentWorkspaceView;
+  readonly managedId?: string;
 }
 
 export interface EmailWorkspaceContext {
@@ -181,7 +182,8 @@ export function appPathForTab(tab: AppTab) {
 export function documentWorkspaceContextFromSearch(search: string): DocumentWorkspaceContext {
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   const view = query.get("view");
-  return { view: view === "create" || view === "templates" ? view : "library" };
+  const managedId = query.get("managedId")?.trim() || undefined;
+  return { view: view === "create" || view === "templates" ? view : "library", ...(managedId ? { managedId } : {}) };
 }
 
 export function appPathForDocumentsWorkspace(view: DocumentWorkspaceView = "library") {
@@ -189,6 +191,12 @@ export function appPathForDocumentsWorkspace(view: DocumentWorkspaceView = "libr
   if (view !== "library") setRouteQueryValue(query, "documents", "view", view, true);
   const suffix = query.toString();
   return `${appPathForTab("documents")}${suffix ? `?${suffix}` : ""}`;
+}
+
+export function appPathForManagedDocument(documentId: string) {
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "documents", "managedId", documentId, true);
+  return `${appPathForTab("documents")}?${query.toString()}`;
 }
 
 export function appPathForEmailWorkspace(

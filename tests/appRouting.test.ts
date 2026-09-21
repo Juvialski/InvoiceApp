@@ -17,6 +17,7 @@ import {
   appPathForReviewInvoice,
   appPathForEmailWorkspace,
   appPathForDocumentsWorkspace,
+  appPathForManagedDocument,
   appPathForTab,
   appTabForLocation,
   isKnownWorkspaceLocation,
@@ -43,6 +44,11 @@ test("Documents workspace view links default safely to Library", () => {
   assert.equal(appPathForDocumentsWorkspace(), "/documents");
   assert.equal(appPathForDocumentsWorkspace("create"), "/documents?view=create");
   assert.equal(appPathForDocumentsWorkspace("templates"), "/documents?view=templates");
+});
+
+test("Documents managed-document deep links preserve the selected document without changing the default view", () => {
+  assert.deepEqual(documentWorkspaceContextFromSearch("?managedId=managed-123"), { view: "library", managedId: "managed-123" });
+  assert.equal(appPathForManagedDocument("managed-123"), "/documents?managedId=managed-123");
 });
 
 test("parses project and project-subview deep links", () => {

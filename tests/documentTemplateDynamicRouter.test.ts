@@ -187,7 +187,11 @@ test("managed generation uses a dynamic type, typed input, and the pinned templa
   app.use("/api/document-templates", createDocumentTemplateRouter({
     authorizer: async (): Promise<StorageAuthContext> => ({ accessToken: "synthetic-token", companyId, user: { id: userId } as any, supabase: authSupabase }),
     providerSupplier: () => storage,
-    serverSupabaseSupplier: () => ({ from: (table: string) => table === "company_document_profiles" ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { legal_name: "Synthetic Company" }, error: null }) }) }) } : authSupabase.from(table) } as any),
+    primaryProviderSupplier: () => storage,
+    serverSupabaseSupplier: () => ({
+      rpc: async (name: string) => name === "server_register_generated_document_artifact" ? { data: { ok: true }, error: null } : { data: null, error: null },
+      from: (table: string) => table === "company_document_profiles" ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { legal_name: "Synthetic Company" }, error: null }) }) }) } : authSupabase.from(table),
+    } as any),
   }));
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -199,6 +203,8 @@ test("managed generation uses a dynamic type, typed input, and the pinned templa
       body: JSON.stringify({ typeKey: "inspection-report", sourceContext: "GENERAL", templateVersionId: versionId, inputs: { fields: { "custom.issue_date": "2026-09-14" }, repeats: {} } }),
     });
     if (response.status !== 200) throw new Error(await response.text());
+    assert.match(response.headers.get("X-Managed-Document-Id") || "", /^[0-9a-f-]{36}$/i);
+    assert.match(response.headers.get("X-Managed-Version-Id") || "", /^[0-9a-f-]{36}$/i);
     const generated = new Uint8Array(await response.arrayBuffer());
     const generatedZip = new PizZip(generated);
     const generatedXml = generatedZip.file("word/document.xml")?.asText() || "";

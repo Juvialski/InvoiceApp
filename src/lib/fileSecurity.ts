@@ -1,6 +1,7 @@
 export const MAX_INVOICE_SOURCE_BYTES = 10 * 1024 * 1024;
 export const MAX_SOURCE_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_PAYROLL_IMPORT_BYTES = 15 * 1024 * 1024;
+export const MAX_MANAGED_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_EXTRACTION_TEXT_CHARS = 200_000;
 
 const SAFE_STORAGE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
@@ -95,6 +96,68 @@ export function validateInvoiceDocumentBytes(bytes: Uint8Array, mimeType: string
     || (expected === "webp" && ext && ext !== "webp")) {
     throw new Error("Invoice source filename extension does not match its declared file type.");
   }
+}
+
+/**
+ * Validate general Documents uploads against the repository's existing safe
+ * binary/text conventions. Managed Documents are not an arbitrary file drop:
+ * active web/XML content is rejected and the declared MIME/extension/signature
+ * must agree before private Storage is touched.
+ */
+export function validateManagedDocumentBytes(bytes: Uint8Array, mimeType: string | undefined, fileName: string | undefined) {
+  assertNonEmptyWithinLimit(bytes, MAX_MANAGED_DOCUMENT_BYTES, "Managed document");
+  const mime = normalizedMime(mimeType);
+  const ext = extension(fileName);
+  const leadingText = new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, Math.min(bytes.byteLength, 512))).trimStart().toLowerCase();
+  if (/^(?:<!doctype\s+html|<html(?:\s|>)|<svg(?:\s|>)|<\?xml|<script(?:\s|>))/.test(leadingText)) {
+    throw new Error("Active HTML, SVG, or XML content is not accepted as a managed document.");
+  }
+
+  const signature = startsWithBytes(bytes, PDF) ? "pdf"
+    : startsWithBytes(bytes, JPEG) ? "jpeg"
+      : startsWithBytes(bytes, PNG) ? "png"
+        : isWebp(bytes) ? "webp"
+          : startsWithBytes(bytes, ZIP) ? "zip"
+            : "text";
+
+  if (signature === "pdf") {
+    if (mime !== "application/pdf" || (ext && ext !== "pdf")) throw new Error("Managed PDF files must match application/pdf and a .pdf filename.");
+    return;
+  }
+  if (signature === "jpeg") {
+    if (!["image/jpeg", "image/jpg"].includes(mime) || (ext && !["jpg", "jpeg"].includes(ext))) throw new Error("Managed JPEG files must match their declared image type and filename.");
+    return;
+  }
+  if (signature === "png") {
+    if (mime !== "image/png" || (ext && ext !== "png")) throw new Error("Managed PNG files must match image/png and a .png filename.");
+    return;
+  }
+  if (signature === "webp") {
+    if (mime !== "image/webp" || (ext && ext !== "webp")) throw new Error("Managed WebP files must match image/webp and a .webp filename.");
+    return;
+  }
+  if (signature === "zip") {
+    const officeType = ext === "docx"
+      ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      : ext === "xlsx"
+        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : ext === "xlsm"
+          ? "application/vnd.ms-excel.sheet.macroenabled.12"
+          : "";
+    if (!officeType || mime !== officeType) throw new Error("Managed Office files must be DOCX, XLSX, or XLSM with a matching MIME type.");
+    return;
+  }
+
+  if (["txt", "csv"].includes(ext)) {
+    const sample = new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, Math.min(bytes.byteLength, 64 * 1024)));
+    if (sample.includes("\u0000")) throw new Error("Managed text files cannot contain binary data.");
+    const allowedTextMime = ext === "csv"
+      ? ["text/csv", "text/plain", "application/csv", "application/vnd.ms-excel"]
+      : ["text/plain"];
+    if (!allowedTextMime.includes(mime)) throw new Error("Managed text files must use a supported text MIME type.");
+    return;
+  }
+  throw new Error("Managed documents must be PDF, JPEG, PNG, WebP, DOCX, XLSX, XLSM, CSV, or TXT files.");
 }
 
 export function validateBankStatementBytes(bytes: Uint8Array, fileName: string, mimeType?: string) {

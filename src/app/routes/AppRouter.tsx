@@ -109,6 +109,7 @@ import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCo
 import type { FinancialFxSnapshotInput } from "../../lib/financialFx.ts";
 import { appRouteTargetForLocation } from "../../utils/appRouteTarget.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
+import type { ManagedDocumentDetail, ManagedDocumentSummary } from "../../lib/managedDocuments.ts";
 
 import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
 
@@ -177,6 +178,8 @@ export interface AppRouterProps {
   laborSource?: ProjectLaborSource;
   projectFormSeed?: Project | null;
   companyId?: string;
+  managedDocuments?: readonly ManagedDocumentSummary[];
+  managedDocumentDetails?: readonly ManagedDocumentDetail[];
   attentionToday?: string;
   engineeringDocumentsCanRead?: boolean;
   engineeringDocumentsCanCreate?: boolean;
@@ -530,6 +533,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   laborSource,
   projectFormSeed,
   companyId,
+  managedDocuments,
+  managedDocumentDetails,
   attentionToday,
   engineeringDocumentsCanRead = false,
   engineeringDocumentsCanCreate = false,
@@ -970,6 +975,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         vendors={vendors}
         cashData={cashData}
         engineeringDocumentsData={engineeringDocumentsData}
+        companyId={companyId}
+        managedDocuments={managedDocuments}
+        managedDocumentDetails={managedDocumentDetails}
+        managedDocumentId={documentWorkspaceContextFromSearch(route.search).managedId}
         onNavigatePath={onNavigatePath}
       />,
     );
