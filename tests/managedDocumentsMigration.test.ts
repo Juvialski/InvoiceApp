@@ -24,6 +24,8 @@ test("managed document migration keeps permissions, RLS, and private Storage bou
   assert.match(migration, /company-managed-documents/i);
   assert.match(migration, /revoke all on table public\.managed_documents, public\.managed_document_versions, public\.document_artifact_registrations from public, anon, authenticated/i);
   assert.match(migration, /create policy "company managed documents read" on storage\.objects/i);
+  assert.match(migration, /private\.can_read_managed_storage_object\(name\)/i);
+  assert.doesNotMatch(migration, /has_company_permission\(private\.storage_company_id\(name\), 'documents\.read'\)/i);
   assert.doesNotMatch(migration, /create policy "company managed documents insert" on storage\.objects\s+for insert/i);
 });
 
