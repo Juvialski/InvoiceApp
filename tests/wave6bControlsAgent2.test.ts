@@ -5,7 +5,7 @@ import test from "node:test";
 const attendance = readFileSync(new URL("../src/components/payroll/AttendanceWorkspace.tsx", import.meta.url), "utf8");
 const advancedPayroll = readFileSync(new URL("../src/components/payroll/PayrollAdvancedTools.tsx", import.meta.url), "utf8");
 const expenseForm = readFileSync(new URL("../src/components/expenses/ExpenseForm.tsx", import.meta.url), "utf8");
-const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");
+const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");\nconst correctionDialog = readFileSync(new URL("../src/components/financial/FinancialCorrectionDialog.tsx", import.meta.url), "utf8");
 const accessManagement = readFileSync(new URL("../src/components/access/DeploymentAccessManagement.tsx", import.meta.url), "utf8");
 
 test("attendance controls expose names and stay read-only for locked payroll periods", () => {
