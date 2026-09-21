@@ -18,7 +18,10 @@ import {
   canonicalEquipmentWorksheetRow,
   CanonicalEquipmentWorksheetModal,
 } from "../src/components/equipment/CanonicalEquipmentWorksheet.tsx";
-import { saveWorksheetRowsSequentially } from "../src/components/ui/worksheetDraftState.ts";
+import {
+  retainWorksheetDraftRowsAfterSave,
+  saveWorksheetRowsSequentially,
+} from "../src/components/ui/worksheetDraftState.ts";
 
 const inventoryItem: InventoryItem = {
   id: "item-1",
@@ -217,4 +220,20 @@ test("master-data worksheet sequential saves retain failed rows and continue lat
   assert.deepEqual(calls, ["item-1:first", "equipment-1:second", "item-2:third"]);
   assert.deepEqual(result.savedRowKeys, ["item-1", "item-2"]);
   assert.deepEqual(result.failures, [{ rowKey: "equipment-1", message: "equipment failed" }]);
+});
+
+
+test("partial-save reconciliation drops successful new draft placeholders and retains failed new rows", () => {
+  const rows = [
+    { id: "existing-1" },
+    { id: "draft-saved", isNew: true },
+    { id: "draft-failed", isNew: true },
+  ];
+
+  const reconciled = retainWorksheetDraftRowsAfterSave(rows, new Set(["draft-failed"]));
+
+  assert.deepEqual(reconciled, [
+    { id: "existing-1" },
+    { id: "draft-failed", isNew: true },
+  ]);
 });

@@ -34,6 +34,13 @@ export function worksheetPlanIssuesToCellIssues(
   return cellIssues;
 }
 
+export function retainWorksheetDraftRowsAfterSave<T extends WorksheetDraftRow>(
+  rows: readonly T[],
+  remainingDirtyRowKeys: ReadonlySet<string>,
+): readonly T[] {
+  return rows.filter((row) => !row.isNew || remainingDirtyRowKeys.has(row.id));
+}
+
 export async function saveWorksheetRowsSequentially<TInput>(
   entries: readonly { rowKey: string; input: TInput }[],
   save: (entry: { rowKey: string; input: TInput }) => Promise<void>,
@@ -112,6 +119,11 @@ export function useWorksheetDraftRows<T extends WorksheetDraftRow>(
     dirtyRowKeysRef.current = nextRowKeys;
     setDirtyRowKeys(nextRowKeys);
     setDirtyCellKeys((current) => new Set([...current].filter((key) => [...rowKeys].some((rowKey) => key.startsWith(`${rowKey}:`)))));
+    const nextDraftRows = retainWorksheetDraftRowsAfterSave(draftRowsRef.current, nextRowKeys);
+    if (nextDraftRows.length !== draftRowsRef.current.length) {
+      draftRowsRef.current = nextDraftRows;
+      setDraftRows(nextDraftRows);
+    }
   }, []);
 
   const addRow = useCallback(() => {
