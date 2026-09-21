@@ -218,7 +218,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $managed_storage$
   select exists (
     select 1
     from public.managed_document_versions v
@@ -227,7 +227,7 @@ as $
       and v.storage_path = p_name
       and private.can_read_managed_document(v.company_id, v.document_id)
   );
-$;
+$managed_storage$;
 
 revoke execute on function private.document_artifact_read_permission(text) from public, anon;
 revoke execute on function private.can_read_document_artifact(uuid, text) from public, anon;
