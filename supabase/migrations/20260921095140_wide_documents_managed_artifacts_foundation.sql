@@ -686,10 +686,20 @@ begin
   if v_source_domain = 'GENERAL' and not private.has_company_permission(v_company_id, 'company.settings.read') then
     raise exception 'General generated artifacts require company settings read permission' using errcode = '42501';
   end if;
-  if v_source_record_id is not null and v_source_domain = 'PROJECT' and not exists (
-    select 1 from public.projects p where p.company_id = v_company_id and p.id = v_source_record_id
-  ) then
-    raise exception 'Generated artifact project source is outside the company' using errcode = '42501';
+  if v_source_record_id is not null then
+    if v_source_domain = 'PROJECT' and not exists (
+      select 1 from public.projects p where p.company_id = v_company_id and p.id = v_source_record_id
+    ) then
+      raise exception 'Generated artifact project source is outside the company' using errcode = '42501';
+    elsif v_source_domain = 'PURCHASE_ORDER' and not exists (
+      select 1 from public.purchase_orders po where po.company_id = v_company_id and po.id = v_source_record_id
+    ) then
+      raise exception 'Generated artifact purchase order source is outside the company' using errcode = '42501';
+    elsif v_source_domain = 'CLIENT_INVOICE' and not exists (
+      select 1 from public.client_billings cb where cb.company_id = v_company_id and cb.id = v_source_record_id
+    ) then
+      raise exception 'Generated artifact client invoice source is outside the company' using errcode = '42501';
+    end if;
   end if;
   if v_path is distinct from format('companies/%s/managed-documents/%s/versions/%s/%s', v_company_id, v_document_id, v_version_id, v_filename) then
     raise exception 'Generated artifact storage path is invalid' using errcode = '22023';
