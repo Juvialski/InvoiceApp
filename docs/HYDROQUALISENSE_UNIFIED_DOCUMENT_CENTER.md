@@ -139,4 +139,14 @@ The following remain unfinished and must not be represented as available merely 
 
 ## Validation truth
 
-Slice 1 and Slice 2 evidence remains valid. The managed foundation’s focused migration, Storage, router, client, workspace, and dynamic-generation tests pass; clean migration replay/upgrade fixtures and the managed runtime RLS/RPC/concurrency test pass locally. The final affected selector selected 128/362 files and passed 801/802 tests with one skip and zero failures; lint/typecheck/build and Workflow Map consistency pass. Manual local safe-demo inspection covered desktop and phone Documents browse/detail/upload-review states. The automated Demo Visual QA runner was not available in this worktree because the QA-only `playwright` package is not installed. Hosted QA, provider certification, and production validation remain unclaimed.
+Slice 1 and Slice 2 evidence remains valid. Final review of the managed
+foundation strengthened the authority boundary so private Storage reads delegate
+to managed metadata/source-domain authorization, Purchase Order and Client
+Invoice provenance must resolve to same-company source records, macro-enabled
+XLSM uploads are rejected, and managed-object keys must match the exact canonical
+shape. The protected PR merge gate covers clean migration replay, pgTAP,
+historical upgrade fixtures, the dedicated managed runtime
+RLS/RPC/stale-write/concurrency test, focused and affected application tests,
+lint/typecheck/build, Workflow Map consistency, and hosted Demo Visual QA with
+managed detail/version-history and generated-artifact read-only provenance
+evidence. Provider certification and production validation remain unclaimed.
