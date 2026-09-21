@@ -189,7 +189,7 @@ async function readRows(auth: StorageAuthContext, documentId: string) {
   if (!documentResult.data) throw new StorageApiError(404, "DOCUMENT_NOT_FOUND", "The managed document was not found in this company.");
   const versionsResult = await auth.supabase
     .from("managed_document_versions")
-    .select("id,document_id,version_number,source_origin,original_filename,mime_type,size_bytes,sha256,template_version_id,uploaded_by_user_id,created_at,storage_provider,storage_bucket,storage_path")
+    .select("id,document_id,version_number,source_origin,original_filename,mime_type,size_bytes,sha256,template_version_id,uploaded_by_user_id,created_at")
     .eq("company_id", auth.companyId)
     .eq("document_id", documentId)
     .order("version_number", { ascending: false });
@@ -273,8 +273,18 @@ export function createManagedDocumentRouter(options: ManagedDocumentRouterOption
       const version = rows.versions.find((candidate) => String(candidate.id) === versionId);
       if (!version) throw new StorageApiError(404, "VERSION_NOT_FOUND", "The managed document version was not found in this company.");
       const serviceClient = privilegedClient(auth, options);
-      const provider = providerForRow(version, auth, options, serviceClient);
-      const url = await provider.getSignedUrl({ companyId: auth.companyId, bucket: String(version.storage_bucket || ""), key: String(version.storage_path || "") }, { expiresInSeconds: 300, disposition: req.query.download === "1" ? "attachment" : "inline", downloadFilename: String(version.original_filename || "document") });
+      const storageVersionResult = await serviceClient
+        .from("managed_document_versions")
+        .select("id,company_id,document_id,original_filename,storage_provider,storage_bucket,storage_path")
+        .eq("company_id", auth.companyId)
+        .eq("document_id", documentId)
+        .eq("id", versionId)
+        .maybeSingle();
+      if (storageVersionResult.error) throw new StorageApiError(503, "DATABASE_ERROR", "Managed document Storage metadata is temporarily unavailable.");
+      if (!storageVersionResult.data) throw new StorageApiError(404, "VERSION_NOT_FOUND", "The managed document version was not found in this company.");
+      const storageVersion = record(storageVersionResult.data);
+      const provider = providerForRow(storageVersion, auth, options, serviceClient);
+      const url = await provider.getSignedUrl({ companyId: auth.companyId, bucket: String(storageVersion.storage_bucket || ""), key: String(storageVersion.storage_path || "") }, { expiresInSeconds: 300, disposition: req.query.download === "1" ? "attachment" : "inline", downloadFilename: String(version.original_filename || "document") });
       return res.json({ success: true, data: { url } });
     } catch (error: any) {
       return res.status(apiStatus(error)).json(apiErrorPayload(error, "The managed document version could not be opened safely."));
