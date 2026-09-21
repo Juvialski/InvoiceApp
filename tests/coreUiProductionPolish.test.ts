@@ -28,13 +28,21 @@ test("core operations pages expose intentional hierarchy and empty/loading state
   assert.match(expenses, /role="status" aria-live="polite"/);
 });
 
-test("core operations result tables remain keyboard- and screen-reader-scannable", () => {
-  for (const page of [projectRegister, invoices, expenses]) {
-    assert.match(page, /<caption className="sr-only">/);
-    assert.match(page, /scope="col"/);
-    assert.match(page, /focus-visible:ring-2/);
-  }
+test("core operations result surfaces remain keyboard- and screen-reader-scannable", () => {
+  assert.match(projectRegister, /aria-label="Projects list cards"/);
+  assert.match(projectRegister, /aria-label="Projects table"/);
+  assert.match(projectRegister, /Open project workspace for/);
+  assert.match(projectRegister, /focus-visible:ring-2/);
+
+  assert.match(invoices, /<caption className="sr-only">/);
+  assert.match(invoices, /scope="col"/);
+  assert.match(invoices, /focus-visible:ring-2/);
   assert.match(invoices, /aria-pressed={selected}/);
+
+  assert.match(expenses, /aria-label="Expense register"/);
+  assert.match(expenses, /aria-label="Expense register cards"/);
+  assert.match(expenses, /focus-visible:ring-2/);
+
   assert.match(cash, /aria-pressed={selectedAccount\?\.id === summary\.account\.id}/);
 });
 
