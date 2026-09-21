@@ -48,6 +48,7 @@ test("Documents workspace view links default safely to Library", () => {
 
 test("Documents managed-document deep links preserve the selected document without changing the default view", () => {
   assert.deepEqual(documentWorkspaceContextFromSearch("?managedId=managed-123"), { view: "library", managedId: "managed-123" });
+  assert.deepEqual(documentWorkspaceContextFromSearch("?view=templates&managedId=managed-123"), { view: "library", managedId: "managed-123" });
   assert.equal(appPathForManagedDocument("managed-123"), "/documents?managedId=managed-123");
 });
 
