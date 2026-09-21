@@ -92,7 +92,7 @@ select throws_ok(
     (select admin_user from managed_storage_ids)
   )$,
   '42501',
-  null,
+  'Generated artifact purchase order source is outside the company',
   'generated Purchase Order artifacts cannot point at a missing or foreign source record'
 );
 
@@ -123,7 +123,7 @@ select throws_ok(
     (select admin_user from managed_storage_ids)
   )$,
   '42501',
-  null,
+  'Generated artifact client invoice source is outside the company',
   'generated Client Invoice artifacts cannot point at a missing or foreign source record'
 );
 reset role;
