@@ -4,6 +4,7 @@ import {
   invokeTypeSafe,
   type TypeSafeGateway,
 } from "./client.ts";
+import { markTypeSafeFallback } from "./diagnostics.ts";
 import type { TypeSafeDiagnostic } from "./contracts.ts";
 import { sanitizeTypeSafePayload } from "./sanitize.ts";
 
@@ -74,13 +75,13 @@ export async function classifyCiFailure(options: CiFailureTriageOptions): Promis
   };
   const response = await invokeTypeSafe<{ readonly answers?: { readonly category?: { readonly choice?: unknown; readonly confidence?: unknown } } }>(
     { state: { task: options.task || "Classify a CI failure", command: options.command || "", excerpt: boundedExcerpt }, questions },
-    { gateway: options.gateway, env: options.env, live: options.live, timeoutMs: options.timeoutMs, candidateCount: 1 },
+    { gateway: options.gateway, env: options.env, live: options.live, timeoutMs: options.timeoutMs, checkpoint: "ci-triage", itemKind: "evidence", candidateCount: 1, liveResultUsed: true },
   );
   if (!response.ok) return fallbackResult(category, response.diagnostic);
   const answer = response.value.answers?.category;
   const selected = answer?.choice;
   if (typeof selected !== "string" || !(CI_FAILURE_CATEGORIES as readonly string[]).includes(selected)) {
-    return fallbackResult(category, { ...response.diagnostic, fallbackReason: "invalid-response" });
+    return fallbackResult(category, markTypeSafeFallback(response.diagnostic, "invalid-response"));
   }
   return {
     advisoryOnly: true,

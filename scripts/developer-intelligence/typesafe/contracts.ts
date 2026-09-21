@@ -20,19 +20,74 @@ export interface TypeSafeGateway {
 export type TypeSafeFallbackReason =
   | "live-disabled"
   | "missing-api-key"
+  | "preflight-rejected"
   | "sanitizer-rejected"
   | "timeout"
   | "api-error"
-  | "invalid-response";
+  | "invalid-response"
+  | "no-candidates";
+
+export type TypeSafeDiagnosticOutcome =
+  | "preflight-rejected"
+  | "sanitizer-rejected"
+  | "provider-failure"
+  | "success"
+  | "deterministic-fallback";
+
+export type TypeSafeFallbackCategory = "preflight" | "sanitizer" | "provider" | "mixed" | "none";
+
+export type TypeSafeItemKind = "candidate" | "test" | "evidence" | "request";
 
 export interface TypeSafeDiagnostic {
   readonly durationMs: number;
+  readonly checkpoint?: string;
+  readonly itemKind?: TypeSafeItemKind;
+  readonly requestCount?: number;
   readonly candidateCount?: number;
+  readonly testCount?: number;
+  readonly chunkIndex?: number;
+  readonly chunkCount?: number;
+  readonly serializedChars?: number;
+  readonly outcome?: TypeSafeDiagnosticOutcome;
+  readonly fallback?: boolean;
   readonly selectedCount?: number;
+  readonly recommendedCount?: number;
+  readonly deterministicProtectedUnionCount?: number;
+  readonly liveResultUsed?: boolean;
+  readonly fallbackCategory?: TypeSafeFallbackCategory;
+  readonly sanitizerRejected?: boolean;
+  readonly preflightReason?: string;
+  readonly transportAliasCount?: number;
   readonly fallbackReason?: TypeSafeFallbackReason;
   readonly model?: string;
   readonly inputTokens?: number;
   readonly outputTokens?: number;
+}
+
+/**
+ * A sanitized, durable-shaped record for later Jev effectiveness analysis.
+ * It intentionally contains only counts, statuses, model/usage metadata, and
+ * timing; request state and provider error text never belong here.
+ */
+export interface TypeSafeEffectivenessRecord {
+  readonly checkpoint: string;
+  readonly requestCount: number;
+  readonly candidateCount?: number;
+  readonly testCount?: number;
+  readonly chunkIndex?: number;
+  readonly chunkCount?: number;
+  readonly serializedChars?: number;
+  readonly model?: string;
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly latencyMs: number;
+  readonly fallback: boolean;
+  readonly fallbackCategory: TypeSafeFallbackCategory;
+  readonly sanitizerRejected: boolean;
+  readonly selectedCount?: number;
+  readonly recommendedCount?: number;
+  readonly deterministicProtectedUnionCount: number;
+  readonly liveResultUsed: boolean;
 }
 
 export interface TypeSafeCallSuccess<T> {
@@ -53,8 +108,17 @@ export interface TypeSafeInvokeOptions {
   readonly gateway?: TypeSafeGateway;
   readonly timeoutMs?: number;
   readonly live?: boolean;
+  readonly payloadBudgetChars?: number;
+  readonly checkpoint?: string;
+  readonly itemKind?: TypeSafeItemKind;
+  readonly chunkIndex?: number;
+  readonly chunkCount?: number;
+  readonly deterministicProtectedUnionCount?: number;
+  readonly liveResultUsed?: boolean;
   readonly candidateCount?: number;
+  readonly testCount?: number;
   readonly selectedCount?: number;
+  readonly recommendedCount?: number;
 }
 
 export type TypeSafeDoctorLiveStatus = "not-requested" | "succeeded" | "unavailable" | "failed";

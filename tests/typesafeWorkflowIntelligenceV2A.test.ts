@@ -35,7 +35,7 @@ test("synthetic context fixture reports full must-keep retention without Jev", (
   assert.ok(metrics.reductionPercent > 60);
 });
 
-test("current context reranker preserves every candidate when the set exceeds 64", async () => {
+test("context reranker chunks candidate sets beyond the former 64-candidate guard", async () => {
   const fixture = buildSyntheticContextCandidates({ count: 65, mustKeepCount: 3, relevantCount: 5 });
   const result = await rerankContextCandidates({
     task: fixture.task,
@@ -45,10 +45,11 @@ test("current context reranker preserves every candidate when the set exceeds 64
   });
 
   assert.equal(result.fallback, true);
-  assert.equal(result.diagnostic.fallbackReason, "sanitizer-rejected");
+  assert.equal(result.diagnostic.fallbackReason, "missing-api-key");
   assert.deepEqual(result.selectedCandidates, fixture.candidates);
   assert.equal(result.diagnostic.candidateCount, 65);
   assert.equal(result.diagnostic.selectedCount, 65);
+  assert.ok((result.diagnostic.chunkCount || 0) > 1);
 });
 
 test("sanitizer rejects an oversized synthetic test-triage payload", () => {
@@ -72,7 +73,7 @@ test("test triage retains every required test when Jev is unavailable", async ()
   });
 
   assert.equal(result.fallback, true);
-  assert.equal(result.diagnostic.fallbackReason, "sanitizer-rejected");
+  assert.equal(result.diagnostic.fallbackReason, "missing-api-key");
   assert.deepEqual(result.requiredTests, selection.selectedTests);
   assert.deepEqual(result.recommendedTests, selection.selectedTests);
   assert.equal(result.diagnostic.candidateCount, 75);
