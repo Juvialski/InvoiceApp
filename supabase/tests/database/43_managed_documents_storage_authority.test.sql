@@ -40,7 +40,7 @@ on conflict (singleton) do update set company_id = excluded.company_id;
 set local role service_role;
 select set_config('request.jwt.claim.role', 'service_role', true);
 select lives_ok(
-  $$select public.server_register_generated_document_artifact(
+  $select public.server_register_generated_document_artifact(
     jsonb_build_object(
       'companyId', (select company_id from managed_storage_ids),
       'documentId', (select document_id from managed_storage_ids),
@@ -61,8 +61,70 @@ select lives_ok(
       'sha256', repeat('a', 64)
     ),
     (select admin_user from managed_storage_ids)
-  )$$,
+  )$,
   'trusted server can register a template-scoped managed artifact for an authorized admin'
+);
+
+select throws_ok(
+  $select public.server_register_generated_document_artifact(
+    jsonb_build_object(
+      'companyId', (select company_id from managed_storage_ids),
+      'documentId', 'bbbbbbbb-0000-4000-8000-000000004311',
+      'versionId', 'cccccccc-0000-4000-8000-000000004311',
+      'title', 'Invalid Purchase Order artifact',
+      'category', 'GENERATED_ARTIFACT',
+      'origin', 'GENERATED_ARTIFACT',
+      'sourceDomain', 'PURCHASE_ORDER',
+      'sourceType', 'PURCHASE_ORDER',
+      'sourceRecordId', 'dddddddd-0000-4000-8000-000000004311',
+      'artifactType', 'PDF',
+      'fileName', 'missing-po.pdf',
+      'mimeType', 'application/pdf',
+      'sizeBytes', 128,
+      'storageProvider', 'supabase',
+      'storageBucket', 'company-managed-documents',
+      'storagePath', format(
+        'companies/%s/managed-documents/bbbbbbbb-0000-4000-8000-000000004311/versions/cccccccc-0000-4000-8000-000000004311/missing-po.pdf',
+        (select company_id from managed_storage_ids)
+      ),
+      'sha256', repeat('b', 64)
+    ),
+    (select admin_user from managed_storage_ids)
+  )$,
+  '42501',
+  null,
+  'generated Purchase Order artifacts cannot point at a missing or foreign source record'
+);
+
+select throws_ok(
+  $select public.server_register_generated_document_artifact(
+    jsonb_build_object(
+      'companyId', (select company_id from managed_storage_ids),
+      'documentId', 'bbbbbbbb-0000-4000-8000-000000004312',
+      'versionId', 'cccccccc-0000-4000-8000-000000004312',
+      'title', 'Invalid Client Invoice artifact',
+      'category', 'GENERATED_ARTIFACT',
+      'origin', 'GENERATED_ARTIFACT',
+      'sourceDomain', 'CLIENT_INVOICE',
+      'sourceType', 'CLIENT_INVOICE',
+      'sourceRecordId', 'dddddddd-0000-4000-8000-000000004312',
+      'artifactType', 'PDF',
+      'fileName', 'missing-client-invoice.pdf',
+      'mimeType', 'application/pdf',
+      'sizeBytes', 128,
+      'storageProvider', 'supabase',
+      'storageBucket', 'company-managed-documents',
+      'storagePath', format(
+        'companies/%s/managed-documents/bbbbbbbb-0000-4000-8000-000000004312/versions/cccccccc-0000-4000-8000-000000004312/missing-client-invoice.pdf',
+        (select company_id from managed_storage_ids)
+      ),
+      'sha256', repeat('c', 64)
+    ),
+    (select admin_user from managed_storage_ids)
+  )$,
+  '42501',
+  null,
+  'generated Client Invoice artifacts cannot point at a missing or foreign source record'
 );
 reset role;
 
