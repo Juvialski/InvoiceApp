@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5B IMPLEMENTED FOR RECORDED SCOPES / JEV WORKFLOW INTELLIGENCE V2A RESEARCH COMPLETE / V2B NOT STARTED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5B IMPLEMENTED FOR RECORDED SCOPES / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-21**
 
@@ -34,8 +34,8 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
 3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment worksheet register editing and UX-W5B Warehouse Item Master + Canonical Equipment Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
-4. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is complete for this implementation run.** The durable report records read-only authenticated X research, official/community source review, 48 controlled live Jev requests over sanitized metadata, historical calibration, and a prioritized v2B design. v2B implementation is not started and Jev remains advisory only; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
-5. **Jev Workflow Intelligence v2B — payload-safe workflow integration — is the next explicitly reprioritized developer-tooling run.** Start with payload-safe request primitives and diagnostics, deterministic clean-baseline task seeding, budget-aware chunking, and deterministic must-keep/required-test unions. Keep Jev advisory-only; do not add application/runtime Jev or automatic model/subagent routing in this first slice.
+4. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is complete for this implementation run.** The durable report records read-only authenticated X research, official/community source review, 48 controlled live Jev requests over sanitized metadata, historical calibration, and a prioritized v2B design. Jev remains advisory only; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
+5. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this run.** Shared preflight/diagnostic primitives, deterministic clean-baseline task seeding, budget-aware ordered chunking, context reranking, broad test triage, and deterministic must-keep/required-test unions are now integrated. Remaining v2B experimental slices stay deferred; Jev remains advisory-only and no application/runtime Jev or automatic model/subagent routing was added.
 6. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed opportunistically whenever safe credentials/device/runtime exist without displacing the explicitly reprioritized v2B tooling run.
 7. **Remaining UX-W5 product slices stay queued and bounded.** Resume them only after the v2B slice or another explicit user reprioritization; Jev work is not a product dependency.
 8. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
@@ -82,6 +82,51 @@ research/calibration is complete; the next explicit run is Jev Workflow
 Intelligence v2B — payload-safe workflow integration. Remaining UX-W5 slices
 stay queued and still require bounded handoffs and existing product/provider
 gates.
+
+## 2026-09-21 Jev Workflow Intelligence v2B — payload-safe foundation implemented
+
+The first v2B implementation slice is complete on feature branch
+`codex/jev-workflow-intelligence-v2b`, starting from synchronized `main`
+`94fc6a181edbf6162d7aa2f498e06802caaf2b53`. It remains developer-only and
+advisory; no application/runtime, database, provider, customer-data, merge,
+model-routing, or subagent authority changed.
+
+Implemented foundations:
+
+- exact serialized-payload preflight, question-key validation, safe neutral
+  aliasing for semantic authority false positives, and unchanged 20,000-character
+  sanitizer enforcement;
+- normalized preflight, sanitizer, provider, success, fallback, chunk, usage,
+  and sanitized effectiveness-ledger diagnostics;
+- deterministic task seeding from explicit selectors, changed files, tracked
+  developer-tooling scopes, and RI metadata, with truthful `no-candidates`
+  fallback;
+- reusable ordered serialized-budget chunking with local fail-open chunk
+  fallback and duplicate-free coverage;
+- multi-axis context judgments (relevance, boundary, validation, review risk)
+  with raw axes retained and deterministic must-keep union;
+- broad test triage chunking that keeps every deterministic required test and
+  exposes Jev only as advisory ordering.
+
+Stable-head live evidence used sanitized metadata only: context seeding/reranking
+processed **28 candidates in 3 requests**, selected **14** with **14**
+deterministic protected candidates, `jev-1.13.0`, **13,200 / 2,008** input /
+output tokens, **2,041 ms**, `fallback=false`, and fresh RI status. The
+synthetic 75-test case retained **75/75** required tests in **2** requests;
+the earlier real affected set retained **11/11** in one request. Additional
+working-tree synthetic 75-test evidence was successful with **2 requests**,
+**9,173 / 1,113** tokens, **1,802 ms**, and no fallback.
+
+Focused v2A/developer-intelligence tests pass **42/42**; TypeScript and focused
+ESLint pass. The final affected runner passed **93/93** selected tests from
+**11/355** deterministic files with database fallback disabled; full lint
+exited **0**. The final live completion/evidence call fell back on a provider
+API error after **653 ms**, while deterministic evidence found implementation,
+tests, and documentation present with no unresolved uncertainty; it provided
+no merge decision. Remaining v2B work includes later adjacency,
+requirement/evidence, replay, routing-advice, and other experimental slices;
+no automatic test skipping, merge/release/production decision, model downgrade,
+or subagent authorization is present.
 
 ## 2026-09-20 selective workbook editing UX correction
 
