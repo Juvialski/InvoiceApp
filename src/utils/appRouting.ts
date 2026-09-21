@@ -183,7 +183,7 @@ export function documentWorkspaceContextFromSearch(search: string): DocumentWork
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   const view = query.get("view");
   const managedId = query.get("managedId")?.trim() || undefined;
-  return { view: view === "create" || view === "templates" ? view : "library", ...(managedId ? { managedId } : {}) };
+  return { view: managedId ? "library" : view === "create" || view === "templates" ? view : "library", ...(managedId ? { managedId } : {}) };
 }
 
 export function appPathForDocumentsWorkspace(view: DocumentWorkspaceView = "library") {
