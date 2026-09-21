@@ -27,14 +27,17 @@ import type {
   ProjectEquipmentSaveInput,
   ProjectMaterialSaveInput,
 } from "../../lib/materialsEquipment.ts";
+import {
+  newWorksheetDraftId,
+  saveWorksheetRowsSequentially,
+  type WorksheetPlanIssue,
+} from "../ui/worksheetDraftState.ts";
+
+export type { WorksheetPlanIssue } from "../ui/worksheetDraftState.ts";
+export { saveWorksheetRowsSequentially } from "../ui/worksheetDraftState.ts";
 
 export type ProjectMaterialWorksheetRow = ProjectMaterial & { isNew?: boolean };
 export type ProjectEquipmentWorksheetRow = ProjectEquipment & { isNew?: boolean };
-
-export interface WorksheetPlanIssue {
-  columnKey: string;
-  message: string;
-}
 
 export interface WorksheetSavePlan<TInput> {
   valid: boolean;
@@ -157,41 +160,9 @@ export function buildProjectEquipmentSavePlan(
   return { valid: Object.keys(issues).length === 0, entries, issues };
 }
 
-export interface WorksheetSaveFailure {
-  rowKey: string;
-  message: string;
-}
-
-export async function saveWorksheetRowsSequentially<TInput>(
-  entries: readonly { rowKey: string; input: TInput }[],
-  save: (entry: { rowKey: string; input: TInput }) => Promise<void>,
-): Promise<{ savedRowKeys: readonly string[]; failures: readonly WorksheetSaveFailure[] }> {
-  const savedRowKeys: string[] = [];
-  const failures: WorksheetSaveFailure[] = [];
-  for (const entry of entries) {
-    try {
-      await save(entry);
-      savedRowKeys.push(entry.rowKey);
-    } catch (error) {
-      failures.push({
-        rowKey: entry.rowKey,
-        message: error instanceof Error ? error.message : "The row could not be saved.",
-      });
-    }
-  }
-  return { savedRowKeys, failures };
-}
-
-let draftRowSequence = 0;
-
-function newDraftId(kind: "material" | "equipment"): string {
-  draftRowSequence += 1;
-  return `draft-${kind}-${Date.now()}-${draftRowSequence}`;
-}
-
 function newMaterialWorksheetRow(projectId: string): ProjectMaterialWorksheetRow {
   return {
-    id: newDraftId("material"),
+    id: newWorksheetDraftId("material"),
     projectId,
     inventoryItemId: null,
     materialName: "",
@@ -210,7 +181,7 @@ function newMaterialWorksheetRow(projectId: string): ProjectMaterialWorksheetRow
 
 function newEquipmentWorksheetRow(projectId: string): ProjectEquipmentWorksheetRow {
   return {
-    id: newDraftId("equipment"),
+    id: newWorksheetDraftId("equipment"),
     projectId,
     canonicalEquipmentId: null,
     assetReference: null,

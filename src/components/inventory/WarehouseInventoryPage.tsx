@@ -31,6 +31,7 @@ import { DisclosureSection, PageHeader, StatusBadge, type StatusTone } from "../
 import { useWorkspaceDataPending } from "../../app/AppPermissionContext.tsx";
 import { appPathForPurchaseOrderReceipt, appPathForWarehouseMovement } from "../../utils/appRouting.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
+import { WarehouseItemWorksheetModal } from "./WarehouseItemWorksheet.tsx";
 
 const inputClass = "mt-1 w-full min-h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";
 const labelClass = "block text-[11px] font-black uppercase tracking-[0.08em] text-slate-500";
@@ -140,51 +141,6 @@ function ModalShell({ title, eyebrow = "Warehouse Inventory", children, onClose,
         <div className="pt-4">{children}</div>
       </section>
     </div>
-  );
-}
-
-function ItemFormModal({ item, onClose, onSave }: { item?: InventoryItem; onClose: () => void; onSave: (input: InventoryItemSaveInput) => Promise<InventoryItem | void> }) {
-  const [form, setForm] = useState<InventoryItemSaveInput>(() => ({
-    id: item?.id,
-    itemName: item?.itemName || "",
-    itemCode: item?.itemCode || "",
-    category: item?.category || "",
-    stockUnit: item?.stockUnit || "pcs",
-    status: item?.status || "ACTIVE",
-  }));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const update = <K extends keyof InventoryItemSaveInput>(key: K, value: InventoryItemSaveInput[K]) => setForm((current) => ({ ...current, [key]: value }));
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      if (!form.itemName.trim()) throw new Error("Item name is required.");
-      if (!form.stockUnit.trim()) throw new Error("A canonical stock unit is required.");
-      await onSave({ ...form, itemName: form.itemName.trim(), stockUnit: form.stockUnit.trim().toLowerCase() });
-      onClose();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The inventory item could not be saved.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <ModalShell title={`${item ? "Edit" : "Add"} canonical inventory item`} onClose={onClose} busy={busy}>
-      <form onSubmit={(event) => void submit(event)} className="space-y-4">
-        {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold leading-5 text-rose-800">{error}</div>}
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs leading-5 text-indigo-950">The item master identifies physical stock held by the company. It is separate from project requirements, procurement receipts, and valuation.</div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="sm:col-span-2"><span className={labelClass}>Canonical item name / description</span><input required className={inputClass} value={form.itemName} onChange={(event) => update("itemName", event.target.value)} placeholder="Ready-mix concrete 28 MPa" /></label>
-          <label><span className={labelClass}>Item / reference code</span><input className={inputClass} value={form.itemCode || ""} onChange={(event) => update("itemCode", event.target.value)} placeholder="INV-CON-028" /></label>
-          <label><span className={labelClass}>Category</span><input className={inputClass} value={form.category || ""} onChange={(event) => update("category", event.target.value)} placeholder="Concrete" /></label>
-          <label><span className={labelClass}>Authoritative stock unit</span><input required className={inputClass} value={form.stockUnit} onChange={(event) => update("stockUnit", event.target.value)} placeholder="cu.m" /></label>
-          <label><span className={labelClass}>Lifecycle status</span><select className={inputClass} value={form.status || "ACTIVE"} onChange={(event) => update("status", event.target.value as InventoryItem["status"])}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
-        </div>
-        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"><button type="button" disabled={busy} onClick={onClose} className="min-h-11 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700">Cancel</button><button type="submit" disabled={busy} className="min-h-11 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50">{busy ? "Saving…" : "Save item"}</button></div>
-      </form>
-    </ModalShell>
   );
 }
 
@@ -459,7 +415,7 @@ export const WarehouseInventoryPage: React.FC<WarehouseInventoryPageProps> = ({
         <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">On-hand</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.onHandQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Opening</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.openingQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Received</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.receivedQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Issued / returned</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.issuedQuantity || 0)} / {quantity(selectedBalance?.returnedQuantity || 0)}</p></div></div><div className="flex flex-wrap gap-2">{canManage && <><button type="button" onClick={() => openMovement("RECEIPT", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-800"><Truck className="h-3.5 w-3.5" />Receive stock</button><button type="button" onClick={() => openMovement("PROJECT_ISSUE", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-amber-200 px-3 py-2 text-xs font-black text-amber-800"><ArrowUpFromLine className="h-3.5 w-3.5" />Issue to project</button><button type="button" onClick={() => openMovement("PROJECT_RETURN", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-cyan-200 px-3 py-2 text-xs font-black text-cyan-800"><Undo2 className="h-3.5 w-3.5" />Return from project</button><button type="button" onClick={() => setItemModal({ item: selectedItem })} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700"><Edit3 className="h-3.5 w-3.5" />Edit item</button></>}</div><div className="overflow-hidden rounded-xl border border-slate-200"><div className="hidden grid-cols-[150px_110px_120px_minmax(220px,1fr)_minmax(180px,1fr)_110px] gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2.5 text-[10px] font-black uppercase tracking-wide text-slate-500 md:grid"><span>Date</span><span>Movement</span><span>Quantity</span><span>Project / source</span><span>Reason / reference</span><span /></div>{selectedMovements.length ? selectedMovements.map((movement) => { const project = movement.projectId ? projectById.get(movement.projectId) : undefined; const canReverse = canManage && movement.movementType !== "REVERSAL" && !reversedMovementIds.has(movement.id) && Boolean(onReverseMovement); return <div key={movement.id} className="grid gap-2 border-b border-slate-100 px-3 py-3 last:border-b-0 md:grid-cols-[150px_110px_120px_minmax(220px,1fr)_minmax(180px,1fr)_110px] md:items-center"><div className="text-xs font-bold text-slate-700">{movement.effectiveDate}<span className="mt-1 block text-[10px] text-slate-400">{movement.createdAt ? new Date(movement.createdAt).toLocaleString() : "Recorded time unavailable"}</span></div><div><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-black ${movement.movementType === "REVERSAL" ? "border-amber-200 bg-amber-50 text-amber-800" : movement.direction === "IN" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{movementLabel(movement.movementType)}</span>{movement.movementType === "REVERSAL" && <span className="mt-1 block text-[10px] text-slate-500">Compensating history</span>}</div><div className={`text-sm font-black tabular-nums ${movement.direction === "IN" ? "text-emerald-700" : "text-rose-700"}`}>{movement.direction === "IN" ? "+" : "−"}{quantity(movement.quantity)} {movement.stockUnitSnapshot}</div><div className="text-xs text-slate-700"><MovementSourceCell movement={movement} project={project} onOpenProject={onOpenProject} onNavigatePath={onNavigatePath} />{movement.requiresReconciliation && <span className="mt-1 flex items-center gap-1 text-[10px] font-black text-amber-700"><AlertTriangle className="h-3 w-3" />PO receipt voided · review</span>}</div><div className="text-xs text-slate-700"><p>{movement.reason}</p>{movement.reference && <p className="mt-1 text-[10px] text-slate-500">Ref: {movement.reference}</p>}{movement.createdByUserId && <p className="mt-1 text-[10px] text-slate-400">Actor recorded</p>}</div><div className="flex justify-start md:justify-end">{canReverse ? <button type="button" onClick={() => setReverseMovement(movement)} className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1.5 text-[10px] font-black text-amber-800"><RotateCcw className="h-3 w-3" />Reverse</button> : movement.movementType !== "REVERSAL" && reversedMovementIds.has(movement.id) ? <span className="text-[10px] font-bold text-slate-400">Reversed</span> : null}</div></div>; }) : <div className="p-8 text-center text-xs text-slate-500">No movement history for this item yet.</div>}</div></div>
       </ModalShell>}
 
-      {itemModal && onSaveItem && <ItemFormModal item={itemModal.item} onClose={() => setItemModal(null)} onSave={onSaveItem} />}
+      {itemModal && onSaveItem && <WarehouseItemWorksheetModal items={items} balances={balances} movements={movements} projectMaterials={projectMaterials} canManage={canManage} initialItemId={itemModal.item?.id} createNew={!itemModal.item} onClose={() => setItemModal(null)} onSave={onSaveItem} />}
       {movementModal && <MovementFormModal action={movementModal.action} initialItemId={movementModal.itemId} initialReceiptId={movementModal.receiptId} items={items} balances={balances} projects={projects} projectMaterials={projectMaterials} receiptOptions={receiptOptions} canReadProjects={canReadProjects} canReadProcurement={canReadProcurement} onClose={() => setMovementModal(null)} onSubmit={saveMovement} />}
       {reverseMovement && onReverseMovement && <ReverseMovementModal movement={reverseMovement} onClose={() => setReverseMovement(null)} onSubmit={async (movementId, reason, idempotencyKey) => { await onReverseMovement(movementId, reason, idempotencyKey); }} />}
     </section>

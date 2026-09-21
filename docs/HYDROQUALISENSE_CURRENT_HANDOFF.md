@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E IMPLEMENTED / UX-W5 UNBLOCKED FROM VISUAL GATE / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E IMPLEMENTED / UX-W5A PROJECT MATERIALS & EQUIPMENT IMPLEMENTED / UX-W5B WAREHOUSE ITEM & EQUIPMENT MASTERS IMPLEMENTED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-21**
 Repository: `Juvialski/InvoiceApp`
 
@@ -26,7 +26,7 @@ credentials/device/runtime.
 
 The Excel-Native Operations workbook/authority contract is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the original shared foundation, the bounded Procurement pilot, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented; app-wide Excel capability remains unclaimed.
 
-The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, and UX-W4.5D Supplier Invoice/worksheet clarity are implemented. UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; the final disposition and evidence are recorded in the report and `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5 is now unblocked from the visual gate and remains a separate bounded implementation phase.
+The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, and UX-W4.5D Supplier Invoice/worksheet clarity are implemented. UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; the final disposition and evidence are recorded in the report and `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5A Project Materials & Project Equipment and UX-W5B Warehouse Item Master + Canonical Equipment Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 work requires separate bounded handoffs.
 
 The governing correction contract is `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`. The user-provided Projects and Supplier Invoice screenshots were examples only; the completed UX-W4.5A report visually inspected the broader safe-demo product across desktop, constrained laptop, tablet, and phone before broad remediation begins.
 
@@ -211,8 +211,8 @@ sequential dirty-row saves through the existing `onSaveMaterial` and
 `onSaveEquipment` callbacks. A failed row remains staged and visible; no
 parallel persistence or bulk transaction was introduced. This is a
 UI/application-only change with no migration, RLS/RPC, inventory, procurement,
-provider, or production contract change. Remaining UX-W5 domains are not
-started and Worker Registration remains paused.
+provider, or production contract change. Remaining UX-W5 domains outside W5A
+and W5B are not started and Worker Registration remains paused.
 
 Final validation passed the focused worksheet/editor/demo group **52/52**,
 `npm.cmd run test:affected:agent` **544/544** with database fallback disabled,
@@ -224,6 +224,52 @@ equipment create/edit, phone fallback, and protected canonical-identity state.
 The full database/Supabase ladder was not applicable because no database
 contract changed; no Workflow Map source/generated contract changed. Local/demo
 browser evidence remains non-hosted and non-production certification.
+
+### UX-W5B — Warehouse Item Master + Canonical Equipment Master worksheet maintenance
+
+UX-W5B is implemented for the bounded Warehouse Item + canonical Equipment
+master-data slice. Warehouse and Equipment browse/register pages remain the
+normal visual surfaces; explicit movement, receipt, issue/return, assignment,
+transfer, return, lifecycle, observation, and history workflows remain outside
+ordinary worksheet cells.
+
+Warehouse editable cells are item name/description, item/reference code,
+category, and stock unit only for new items or existing items without movement
+or project-usage history. Existing status, on-hand, movement totals/counts,
+movement provenance, receipt linkage, and protected stock units are read-only.
+Equipment editable cells are asset/reference, name, type/category, ownership/
+source, provider/vendor, and notes. Lifecycle status, current state, current
+Project, active assignment, assignment start, assignment history, and all
+assignment/lifecycle actions remain protected. Existing lifecycle status is
+carried through ordinary metadata saves, preserving MAINTENANCE,
+OUT_OF_SERVICE, RETIRED, and other existing state values.
+
+Both worksheets use the shared `WorksheetEditor` with staged multi-row setup,
+keyboard and bounded paste behavior, dirty state, draft-only row removal,
+validation, explicit Save/Cancel, phone fallback, and sequential authoritative
+callback saves with failed-row retention. A narrow draft/save helper is shared
+with the existing W5A worksheet family. No migration, RLS/RPC, trigger,
+inventory movement, equipment assignment, provider, or production contract
+changed.
+
+Focused worksheet/editor coverage passed **43/43**; the focused inventory/
+Equipment/domain group passed **53/55** with two explicit runtime DB tests
+skipped because their runtime environment flags were not enabled. The final
+deterministic affected selector passed **476/476** with database fallback
+disabled; ESLint/TypeScript and the production build passed. Workflow Map
+consistency passed. Production-build Demo Visual QA passed **85/85
+interaction scenarios**, **104 screenshots**, and zero console errors, page
+errors, failed requests, or overflow failures across desktop `1440x1000`,
+constrained laptop `1366x768`, tablet `768x1024`, and phone `390x844`.
+Local/demo evidence remains non-hosted and non-production certification.
+
+The single Jev context checkpoint had **0 deterministic candidates / 0 selected**
+with fallback `false`; the live response did not return model/token/latency
+fields. Jev test triage retained all **75/75** required tests and fell back with
+`sanitizer-rejected`; deterministic affected selection remains authoritative.
+Vendor master, workforce domains, Worker Registration, and other out-of-scope
+UX-W5 slices were not started. The next implementation must be a newly bounded
+UX-W5 handoff; Worker Registration remains paused.
 
 ### Earlier UI/UX and hosted-certification reference
 
