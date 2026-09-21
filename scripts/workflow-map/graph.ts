@@ -668,7 +668,7 @@ const nodes: readonly WorkflowNode[] = [
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/appRouting.ts", "src/app/routes/ProjectsRoute.tsx", "src/components/engineering/ProjectRfis.tsx"],
     testRefs: ["tests/appRouting.test.ts", "tests/assistantActionPolicy.test.ts"],
-    qaScenarioIds: ["rfis--rfi-detail--rfi-detail-opened--desktop-1440"],
+    qaScenarioIds: ["rfis--rfi-detail--missing-record-recovery-rendered--desktop-1440"],
   }),
   node({
     id: "route-project-submittals",
@@ -694,7 +694,7 @@ const nodes: readonly WorkflowNode[] = [
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/appRouting.ts", "src/app/routes/ProjectsRoute.tsx", "src/components/engineering/ProjectSubmittals.tsx"],
     testRefs: ["tests/appRouting.test.ts", "tests/assistantActionPolicy.test.ts"],
-    qaScenarioIds: ["submittals--submittal-detail--submittal-detail-and-round-opened--desktop-1440"],
+    qaScenarioIds: ["submittals--submittal-detail--missing-record-recovery-rendered--desktop-1440"],
   }),
   node({
     id: "route-project-site-logs",
@@ -1320,7 +1320,7 @@ const nodes: readonly WorkflowNode[] = [
     testRefs: ["tests/assistantActionPolicy.test.ts", "tests/migrationInvariants.test.ts"],
     permissionKeys: ["engineering.rfis.read", "engineering.rfis.respond", "engineering.rfis.manage"],
     invariantIds: ["formal-engineering-history-is-preserved", "engineering-revision-lineage-is-immutable"],
-    qaScenarioIds: ["rfis--rfi-detail--rfi-detail-opened--desktop-1440"],
+    qaScenarioIds: ["rfis--rfi-detail--missing-record-recovery-rendered--desktop-1440"],
   }),
   node({
     id: "rfi-record",
@@ -1446,7 +1446,7 @@ const nodes: readonly WorkflowNode[] = [
     testRefs: ["tests/assistantActionPolicy.test.ts", "tests/migrationInvariants.test.ts"],
     permissionKeys: ["engineering.submittals.read", "engineering.submittals.review", "engineering.submittals.manage"],
     invariantIds: ["formal-engineering-history-is-preserved", "engineering-revision-lineage-is-immutable"],
-    qaScenarioIds: ["submittals--submittal-detail--submittal-detail-and-round-opened--desktop-1440"],
+    qaScenarioIds: ["submittals--submittal-detail--missing-record-recovery-rendered--desktop-1440"],
   }),
   node({
     id: "submittal-record",
