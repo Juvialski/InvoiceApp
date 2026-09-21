@@ -101,12 +101,29 @@ select throws_ok($$select public.create_or_update_vendor(jsonb_build_object(
   'expectedUpdatedAt', (select (updated_at - interval '1 second')::text from public.vendors where id = (select vendor_id from r5_vendor_rpc))
 ))$$, '40001', null, 'stale Vendor worksheet edits fail closed inside the authoritative RPC');
 select is((select name from public.vendors where id = (select vendor_id from r5_vendor_rpc)), 'R5 RPC Vendor', 'stale Vendor edit does not change canonical data');
-select lives_ok($$select public.create_or_update_vendor(jsonb_build_object(
+select lives_ok($select public.create_or_update_vendor(jsonb_build_object(
   'id', (select vendor_id::text from r5_vendor_rpc),
   'name', 'R5 RPC Vendor Updated',
+  'email', 'updated@r5.test',
+  'phone', '+63 917 555 0100',
+  'address', 'Updated Vendor Address',
+  'defaultCategory', 'Materials',
   'expectedUpdatedAt', (select updated_at::text from public.vendors where id = (select vendor_id from r5_vendor_rpc))
-))$$, 'current Vendor version permits an authoritative worksheet update');
-select lives_ok($$select public.deactivate_vendor((select vendor_id from r5_vendor_rpc), 'R5 no longer used')$$, 'Vendor deactivation RPC is available');
+))$, 'current Vendor version permits an authoritative worksheet update');
+select lives_ok($select public.create_or_update_vendor(jsonb_build_object(
+  'id', (select vendor_id::text from r5_vendor_rpc),
+  'name', 'R5 RPC Vendor Updated',
+  'email', null,
+  'phone', '',
+  'address', null,
+  'defaultCategory', '',
+  'expectedUpdatedAt', (select updated_at::text from public.vendors where id = (select vendor_id from r5_vendor_rpc))
+))$, 'explicit Vendor worksheet clears are applied through the authoritative RPC');
+select is((select email from public.vendors where id = (select vendor_id from r5_vendor_rpc)), null::text, 'explicit Vendor email clear persists');
+select is((select phone from public.vendors where id = (select vendor_id from r5_vendor_rpc)), null::text, 'explicit Vendor phone clear persists');
+select is((select address from public.vendors where id = (select vendor_id from r5_vendor_rpc)), null::text, 'explicit Vendor address clear persists');
+select is((select default_category from public.vendors where id = (select vendor_id from r5_vendor_rpc)), null::text, 'explicit Vendor category clear persists');
+select lives_ok($select public.deactivate_vendor((select vendor_id from r5_vendor_rpc), 'R5 no longer used')$, 'Vendor deactivation RPC is available');
 
 insert into public.source_documents (id, user_id, company_id, source_type, filename, mime_type, file_size, storage_path, sha256, processing_status)
 values ((select source_document_id from r5_ids), (select user_one from r5_ids), (select company_id from r5_ids), 'UPLOAD', 'r5.pdf', 'application/pdf', 8, 'companies/r5/source/r5.pdf', repeat('a', 64), 'STORED');
