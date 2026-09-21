@@ -5,7 +5,8 @@ import test from "node:test";
 const attendance = readFileSync(new URL("../src/components/payroll/AttendanceWorkspace.tsx", import.meta.url), "utf8");
 const advancedPayroll = readFileSync(new URL("../src/components/payroll/PayrollAdvancedTools.tsx", import.meta.url), "utf8");
 const expenseForm = readFileSync(new URL("../src/components/expenses/ExpenseForm.tsx", import.meta.url), "utf8");
-const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");\nconst correctionDialog = readFileSync(new URL("../src/components/financial/FinancialCorrectionDialog.tsx", import.meta.url), "utf8");
+const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");
+const correctionDialog = readFileSync(new URL("../src/components/financial/FinancialCorrectionDialog.tsx", import.meta.url), "utf8");
 const accessManagement = readFileSync(new URL("../src/components/access/DeploymentAccessManagement.tsx", import.meta.url), "utf8");
 
 test("attendance controls expose names and stay read-only for locked payroll periods", () => {
@@ -34,7 +35,8 @@ test("expense form gives invalid values visible feedback and accessible field st
 
 test("expense correction actions remain identifiable and mobile-sized", () => {
   assert.match(expensesPage, /aria-label=\{`Review correction options for \$\{expense\.description\}`\}/);
-  assert.match(expensesPage, /max-h-\[calc\(100vh-2rem\)\].*overflow-y-auto/);
+  assert.match(correctionDialog, /role="dialog" aria-modal="true"/);
+  assert.match(correctionDialog, /max-h-\[90vh\].*overflow-y-auto/);
 });
 
 test("company access destructive actions confirm and expose busy/access relationships", () => {
