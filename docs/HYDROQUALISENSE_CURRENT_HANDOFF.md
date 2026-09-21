@@ -1344,40 +1344,49 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-The completed Codex run was **Wide Documents — Managed Documents + Retained
-Artifacts Foundation**, starting from synchronized `main` SHA
-`288847309ddadf66d4d6d644f445ba04afa0ee97` on branch
-`codex/wide-documents-managed-artifacts`.
+The user has explicitly reprioritized HydroQualiSense to a **hardening-first product freeze** after the merged Wide Documents managed-document foundation.
 
-The next implementation must read:
+Current merged baseline before this documentation override:
+`cbfbd4e4f1734cb280b119dd357715bb4d7b0836`.
+
+### Do not start new product domains
+
+Archive/defer Worker Registration, Site Attendance, Face Recognition Attendance, remaining workforce expansion, Finance UX-W6 feature expansion, typed custom fields, broader Wide Documents aggregation/grouping, and other net-new customer-facing capability until the user explicitly resumes feature development.
+
+These phases are not cancelled. Preserve their historical contracts and backlog ordering.
+
+### Exact next implementation program
+
+The next implementation program is **UI Simplification Round 3 + workflow hardening**, beginning with **UX-S3A research and audit**. Read:
 
 - `AGENTS.md`;
 - `docs/AGENTS_BASELINE_20260909.md`;
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
 - this handoff;
-- `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md`;
-- the managed-document migration and focused tests;
-- the existing template, delivery, Storage, permission, and Documents routes.
+- `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md`;
+- `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`;
+- `docs/superpowers/specs/2026-09-21-ui-simplification-contextual-help-research.md`.
 
-The completed boundary is limited to standalone managed-document identity,
-immutable version history, private upload/retrieval, narrow Documents
-permissions, retained artifact registration, representative issued-document
-registration, dynamic company-template retention, and safe-demo browse/detail/
-upload-review evidence. Do not infer broad generator aggregation, authenticated
-HSC/render certification, hosted QA, provider readiness, Worker Registration,
-Finance UX-W6, custom fields, or production authorization from this structural
-foundation.
+UX-S3A is research/evidence first. Codex should use its available Chrome/browser environment for read-only comparative research into successful comparable applications, prioritizing Procore, Autodesk Construction Cloud, Buildertrend, Fieldwire, and Raken. It should inspect public/help/demo surfaces or an already-authorized browser session without mutating external accounts. Record patterns rather than copying branded/proprietary layouts.
 
-The exact next product follow-up is the remaining Wide Documents aggregation /
-authenticated-certification work only if deliberately resumed; otherwise the
-roadmap’s provider-readiness and paused Worker Registration gates remain in
-force. Do not revive the stale Jev-v2B implementation wording above.
+The internal audit must inspect representative HydroQualiSense routes/states and classify always-visible explanatory text as:
 
-Efficiency rules remain strict: pull current `main` first, record the SHA once,
-use one bounded context packet when useful, zero subagents by default, focused
-tests while editing, one final affected-test pass, and no ritual full suite.
-Browser/DB/provider validation remains conditional on the actual final diff.
+- **Keep visible** — essential for task completion, safety, blocking validation, current exceptional state, irreversible consequence, or a short instruction needed by most users;
+- **Shorten** — useful but too verbose;
+- **Contextual help** — brief secondary explanation shown through an accessible help/info affordance;
+- **Help Center** — detailed procedure, concept, example, onboarding, or troubleshooting moved to dedicated documentation with deep links;
+- **Remove** — obvious, duplicated, or non-actionable explanation.
+
+Do not put essential instructions only behind hover. Tooltips/popovers must be keyboard accessible and have click/tap behavior for touch devices.
+
+UX-S3A should produce a durable research/audit report and implementation recommendations. Do not perform broad UI remediation in the research slice. After the report, proceed through:
+
+`UX-S3B Help Center/contextual-help foundation -> UX-S3C visible-copy simplification -> UX-S3D workflow-friction hardening -> UX-S3E accessibility/responsive/visual certification`.
+
+Parallel hardening may continue for existing capabilities: provider/readiness certification, authenticated HSC/render certification, reliability/recovery, security/data-integrity, concurrency, performance, exact-SHA QA/release evidence, and bounded Jev/Repository Intelligence efficiency improvements.
+
+Efficiency rules remain strict: synchronize current `main` first, record the SHA once, use one bounded context packet when useful, zero subagents by default with hard maximum two, focused -> affected validation, no ritual full suite, and exact final-diff review. Codex does not merge its own PR.
 
 No production mutation is authorized by this handoff.
 
