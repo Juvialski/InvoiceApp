@@ -109,6 +109,12 @@ jobs:
         if: steps.scope.outputs.run == 'true'
         run: npx tsx scripts/test-migration-upgrade.ts --require-db
 
+      - name: Step 5 - Managed Documents Runtime RLS & Concurrency
+        if: steps.scope.outputs.run == 'true'
+        env:
+          MANAGED_DOCUMENTS_RUNTIME_DB: '1'
+        run: node --test --experimental-strip-types tests/managedDocumentsRuntime.test.ts
+
       - name: Stop Supabase containers
         if: always() && steps.scope.outputs.run == 'true'
         run: |
