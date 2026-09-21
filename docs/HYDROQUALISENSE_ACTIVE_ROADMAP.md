@@ -39,7 +39,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 Release/readiness certification remains a parallel track and should run when its exact prerequisites exist. A structural merge never implies hosted certification or production authorization.
 
-## 2026-09-21 TypeSafe Jev developer-intelligence pilot — experimental/deferred
+## 2026-09-21 TypeSafe Jev developer-intelligence pilot — constrained advisory-only
 
 The bounded developer-only pilot is implemented behind
 `scripts/developer-intelligence/typesafe/` using the official
@@ -50,16 +50,18 @@ benchmark. The default `agent:context` and `test:affected:agent` contracts are
 unchanged, normal CI makes no live requests, and the application/runtime bundle
 has no TypeSafe dependency.
 
-Measured evidence is intentionally mixed: the offline mock benchmark reduced
-context characters by 48.78%, while the single batched live benchmark reduced
-them by 47.95% (40 candidates to 20; 5,960 to 3,102 characters; 1,494 to 779
-`ceil(characters / 4)` token estimates), retained 100% of manually declared
-must-keep candidates, but retained only 60% of manually expected relevant
-candidates. The live request took 731 ms and used 3,910 input plus 764 output
-tokens. The pilot therefore remains experimental/deferred for automatic
-filtering; any local use must preserve the full deterministic candidate/test
-authority and treat Jev as advisory only. The exact next product phase remains
-UX-W4.5E, and no RI/product priority is changed by this pilot.
+The corrected candidate-bound live benchmark supersedes the old 60% harness
+result. One live request reduced 40 candidates to 18 and 5,960 to 2,816
+characters (1,494 to 709 `ceil(characters / 4)` token estimates), for 52.75%
+context reduction; it retained 100% of manually declared must-keep candidates,
+90% of manually expected relevant candidates, took 1,668 ms, used 6,270 input
+and 764 output tokens, and had zero fallback. The exact misses were
+`docs/README.md` and `scripts/ci-failure-context.ts`.
+
+Automatic filtering remains non-authoritative. Any local use must preserve the
+full deterministic candidate/test authority and treat Jev as advisory only. The
+exact next product phase remains UX-W4.5E, and no RI/product priority is
+changed by this pilot.
 
 ## 2026-09-20 selective workbook editing UX correction
 

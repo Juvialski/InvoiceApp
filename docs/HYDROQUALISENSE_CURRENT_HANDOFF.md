@@ -197,7 +197,7 @@ Read this handoff with:
 
 Live repository state and `AGENTS.md` override remembered chat summaries.
 
-## 2026-09-21 TypeSafe Jev developer-intelligence pilot — experimental/deferred
+## 2026-09-21 TypeSafe Jev developer-intelligence pilot — constrained advisory-only
 
 This implementation run adds a developer-only, opt-in TypeSafe layer under
 `scripts/developer-intelligence/typesafe/` with the official
@@ -209,17 +209,16 @@ invalid responses. The unified command is
 `npm.cmd run typesafe -- <doctor|context|test-triage|ci-triage|completion|benchmark>`;
 live requests require `--live`.
 
-Evidence: the official SDK smoke request succeeded with Jev `jev-1.13.0` in
-753 ms and parsed a typed category. The offline mock benchmark measured 48.78%
-context-character reduction. One batched live benchmark request took 731 ms,
-used 3,910 input and 764 output tokens, reduced 5,960 to 3,102 characters
-(47.95%), retained 100% of manually declared must-keep candidates, and retained
-60% of manually expected relevant candidates with no request fallback. This is
-not sufficient evidence for automatic context filtering, so adoption is
-experimental/deferred; use remains advisory and deterministic authority stays
-with RI-3, Workflow Map, `test:affected:agent`, Codex review, and applicable
-validation evidence. No customer/runtime, database, provider, browser, QA, or
-production behavior changed, and the exact next product phase remains UX-W4.5E.
+The corrected candidate-bound benchmark supersedes the old 60% harness result:
+one live request took 1,668 ms, used 6,270 input and 764 output tokens, reduced
+40 to 18 candidates and 5,960 to 2,816 characters (52.75%), retained 100% of
+manually declared must-keep candidates, retained 90% of manually expected
+relevant candidates, and had zero fallback. The exact misses were
+`docs/README.md` and `scripts/ci-failure-context.ts`. Use remains advisory:
+deterministic authority stays with RI-3, Workflow Map, `test:affected:agent`,
+Codex review, and applicable validation evidence. No customer/runtime,
+database, provider, browser, QA, or production behavior changed, and the exact
+next product phase remains UX-W4.5E.
 
 ---
 

@@ -67,11 +67,11 @@ export async function triageAffectedTests(options: TestTriageOptions): Promise<T
   const stateTests = requiredTests.map((testPath, index) => {
     const questionId = `c${index}`;
     questions[questionId] = score(
-      `For the task in \`task\`, how useful is \`tests[${index}]\` as an early focused validation check?`,
+      `For \`task\`, rate \`tests[${index}]\` as an early validation check.`,
       [
-        "Background: deterministically affected, but unlikely to diagnose or validate the core task early.",
-        "Focused: useful direct or adjacent validation for the task.",
-        "Highest: one of the first checks to run because it directly exercises the changed behavior, contract, or boundary.",
+        "Background: affected but unlikely to diagnose the core task early.",
+        "Focused: direct or adjacent validation.",
+        "Highest: directly exercises changed behavior or a boundary.",
       ],
     );
     return { questionId, path: testPath, reasons: options.selection.testReasons[testPath] || [] };

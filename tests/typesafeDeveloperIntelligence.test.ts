@@ -178,7 +178,7 @@ test("context reranking preserves must-keep candidates and batches bounded judgm
 
   assert.equal(calls, 1);
   assert.match(JSON.stringify(capturedRequest), /candidates\[1\]/);
-  assert.match(JSON.stringify(capturedRequest), /understand, implement, validate, or safely review/);
+  assert.match(JSON.stringify(capturedRequest), /Task-critical; retain/);
   assert.equal(result.fallback, false);
   assert.deepEqual(result.selectedCandidates.map((candidate) => candidate.id), ["keep", "relevant"]);
   assert.equal(result.diagnostic.candidateCount, 3);
@@ -230,7 +230,7 @@ test("test triage never suppresses deterministic affected tests", async () => {
     ),
   });
   assert.match(JSON.stringify(capturedRequest), /tests\[0\]/);
-  assert.match(JSON.stringify(capturedRequest), /directly exercises the changed behavior/);
+  assert.match(JSON.stringify(capturedRequest), /directly exercises changed behavior/);
   assert.equal(result.advisoryOnly, true);
   assert.deepEqual(result.requiredTests, selection.selectedTests);
   assert.deepEqual(result.recommendedTests, ["tests/high.test.ts", "tests/low.test.ts"]);

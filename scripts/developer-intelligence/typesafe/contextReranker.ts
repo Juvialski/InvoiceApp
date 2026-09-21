@@ -70,10 +70,10 @@ export async function rerankContextCandidates(options: ContextRerankOptions): Pr
   const stateCandidates = candidates.map((candidate, index) => {
     const questionId = `c${index}`;
     questions[questionId] = noul(
-      `For the task in \`task\`, should \`candidates[${index}]\` be retained in the bounded working context because it is likely needed to understand, implement, validate, or safely review the task?`,
+      `For \`task\`, retain \`candidates[${index}]\` if needed for implementation, validation, a contract, a dependency, or safe review.`,
       {
-        true: "Retain it: it directly contributes implementation context, validation/tests, a required contract or invariant, or a dependency needed for safe review.",
-        false: "Omit it: it is unrelated or only loosely topical and can be removed without losing task-critical implementation, validation, contract, or review context.",
+        true: "Task-critical; retain.",
+        false: "Not task-critical; omit.",
       },
     );
     return {
