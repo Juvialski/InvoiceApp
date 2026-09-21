@@ -133,6 +133,69 @@ Required consequences:
 
 Do not start UX-W5 operational bulk-data editors until UX-W4.5A is complete and the blocking P0/P1/shared-root-cause corrections from the visual investigation are implemented and validated.
 
+## Hardening-first product freeze and UI Simplification Round 3 — explicit 2026-09-21 override
+
+This section supersedes older `next`, `active`, and implementation-order wording when they conflict.
+
+The user has temporarily frozen **net-new product feature expansion**. The active engineering focus is now **hardening, workflow improvement, usability simplification, reliability, certification, and developer-efficiency work on capabilities that already exist**.
+
+Archive/defer until the user explicitly resumes them:
+
+- Worker Registration;
+- Site Attendance and workforce attendance expansion;
+- Face Recognition Attendance;
+- remaining UX-W5 workforce editors such as Workers, Attendance, Time Entries, and Project Assignments when they require new product/domain capability rather than hardening an existing workflow;
+- Finance UX-W6 feature expansion;
+- typed custom-field / Add Column product expansion;
+- broader Wide Documents artifact aggregation and optional handover-package grouping;
+- other product phases whose primary purpose is adding a new user-facing domain or capability.
+
+Do **not** delete historical plans or describe these items as cancelled. Keep them as an archived/deferred backlog.
+
+Still active because they harden or certify existing capability:
+
+- UI simplification, workflow clarity, accessibility, responsive behavior, and consistency;
+- reliability, recovery, validation, concurrency, error handling, security, RLS/RPC/data-integrity hardening, and performance work;
+- Wave 4D provider/readiness certification when safe external prerequisites exist;
+- authenticated HSC/document render certification for already-implemented document/template capability;
+- hosted/exact-SHA QA and release-readiness evidence;
+- Repository Intelligence/Jev work that measurably improves implementation/review efficiency without expanding customer-facing scope.
+
+### UI Simplification Round 3 governing direction
+
+Read `docs/superpowers/specs/2026-09-21-ui-simplification-contextual-help-research.md`.
+
+The governing principle is:
+
+**Show the task, data, state, and primary actions by default. Move education and secondary explanation behind consistent contextual help.**
+
+Permanent visible helper prose is no longer the default teaching mechanism. For each page, classify explanatory content as one of:
+
+1. **Keep visible** — essential to completing the current task safely, including blocking validation, irreversible consequences, current exceptional state, required field constraints, or a short statement necessary for most users.
+2. **Shorten** — useful to most users but currently verbose; reduce to a compact label or single sentence.
+3. **Contextual help** — brief secondary explanation available from an accessible info/help affordance, tooltip/popover, or section help control.
+4. **Help Center** — detailed procedure, concepts, examples, onboarding, or rare troubleshooting moved to a dedicated in-app Help area with deep links from the current page.
+5. **Remove** — text that merely restates obvious UI controls or duplicates nearby labels.
+
+Do not put task-critical information only in mouse-hover tooltips. Contextual help must work with keyboard focus and a click/tap affordance on touch devices. Detailed instructions belong in Help Center content, not large always-visible panels.
+
+### Research-first requirement
+
+The next UI phase starts with **research and evidence, not implementation**. Codex may use the available Chrome/browser environment for read-only research into successful comparable construction/project/finance applications and established usability guidance. Prioritize products such as Procore, Autodesk Construction Cloud, Buildertrend, Fieldwire, and Raken, then add other close comparators only when they provide a distinct pattern.
+
+Research must:
+
+- use public/help/demo surfaces or the user's already-authorized browser session without mutating external accounts;
+- examine navigation, first-view hierarchy, action density, view/edit states, tables/worksheets, filters, onboarding, contextual help, empty/error states, and responsive behavior;
+- record patterns and principles rather than copying proprietary assets, branding, or exact layouts;
+- compare findings against HydroQualiSense screenshots/routes and produce a durable evidence-backed recommendation before broad UI edits.
+
+The expected implementation sequence is:
+
+`UX-S3A research + app-wide instruction-density audit -> UX-S3B Help Center/contextual-help foundation -> UX-S3C app-wide visible-copy simplification -> UX-S3D workflow-friction hardening -> UX-S3E accessibility/responsive/visual certification`.
+
+New customer-facing domains remain archived throughout this sequence unless the user explicitly changes priority.
+
 ## Current priority sequence — explicit 2026-09-19 override
 
 This sequence supersedes older `active`, `next`, and implementation-order wording when they conflict. Live repository state still governs exact scope and merge safety.
