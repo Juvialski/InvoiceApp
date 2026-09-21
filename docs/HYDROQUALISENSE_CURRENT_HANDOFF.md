@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5B IMPLEMENTED FOR RECORDED SCOPES / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-21**
 Repository: `Juvialski/InvoiceApp`
 
@@ -26,7 +26,7 @@ credentials/device/runtime.
 
 The Excel-Native Operations workbook/authority contract is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the original shared foundation, the bounded Procurement pilot, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented; app-wide Excel capability remains unclaimed.
 
-The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, and UX-W4.5D Supplier Invoice/worksheet clarity are implemented. UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; the final disposition and evidence are recorded in the report and `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5A Project Materials & Project Equipment and UX-W5B Warehouse Item Master + Canonical Equipment Master worksheet maintenance are implemented for their bounded scopes. The user explicitly reprioritized the current run to Jev Workflow Intelligence v2A research/calibration and its first v2B payload-safe foundation slice (`docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`); remaining v2B experiments and UX-W5 work stay queued with separate bounded handoffs.
+The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, and UX-W4.5D Supplier Invoice/worksheet clarity are implemented. UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; the final disposition and evidence are recorded in the report and `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5A Project Materials & Project Equipment, UX-W5B Warehouse Item Master + Canonical Equipment Master, and UX-W5C Vendor Master worksheet maintenance are implemented for their bounded scopes. The user explicitly reprioritized the current run to Jev Workflow Intelligence v2A research/calibration and its first v2B payload-safe foundation slice (`docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`); remaining v2B experiments stay deferred and later UX-W5 slices retain separate bounded handoffs.
 
 The governing correction contract is `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`. The user-provided Projects and Supplier Invoice screenshots were examples only; the completed UX-W4.5A report visually inspected the broader safe-demo product across desktop, constrained laptop, tablet, and phone before broad remediation begins.
 
@@ -267,9 +267,78 @@ The single Jev context checkpoint had **0 deterministic candidates / 0 selected*
 with fallback `false`; the live response did not return model/token/latency
 fields. Jev test triage retained all **75/75** required tests and fell back with
 `sanitizer-rejected`; deterministic affected selection remains authoritative.
-Vendor master, workforce domains, Worker Registration, and other out-of-scope
-UX-W5 slices were not started. The next implementation must be a newly bounded
-UX-W5 handoff; Worker Registration remains paused.
+Vendor master is implemented below as UX-W5C. Workforce domains, Worker
+Registration, and other out-of-scope UX-W5 slices were not started; Worker
+Registration remains paused.
+
+### UX-W5C — Vendor Master worksheet maintenance
+
+UX-W5C starts from synchronized `main` SHA
+`3f9a087633f6e5508b0fe3562f4327a29d8563b0` on feature branch
+`codex/ux-w5c-vendor-master`.
+
+The Vendor directory remains a browse/search surface with canonical identity,
+linked supplier-invoice counts, source-currency totals, state, and review
+signals. Authorized users can deliberately open `Manage Vendors`, edit a
+specific Vendor, or stage a new Vendor row in the shared responsive
+`WorksheetEditor`.
+
+The worksheet exposes only safe live Vendor master fields: name, email, phone,
+tax/business ID, address, default currency, and default category. Identity,
+company ownership, normalized identity, lifecycle/archive/deactivation state,
+timestamps, invoice evidence, procurement references, Expenses/payables,
+settlement/payment truth, and history remain protected or outside ordinary
+cells. Supplier Invoice extracted text remains evidence and is not rewritten by
+Vendor master edits.
+
+Persistence reuses the existing parent/controller `onAddVendor` / `saveVendor`
+path; no parallel Vendor writer or new XLSX subsystem was added. Exact duplicate
+identity conflicts surface before save. A forward-only migration
+`20260921074220_vendor_worksheet_concurrency.sql` adds an optional
+`expectedUpdatedAt` predicate to the existing canonical Vendor RPC so stale
+worksheet rows fail closed with SQLSTATE `40001` / `EXPECTED_VERSION_MISMATCH`.
+RLS, company isolation, guarded lifecycle RPCs, and append-only Vendor history
+remain authoritative.
+
+Focused Vendor/worksheet/browser-catalog coverage passed **52/52**; the final
+deterministic affected selector passed **226/226** tests from **36/356** files
+with database fallback disabled. Full ESLint and TypeScript passed, the
+production build passed, and Workflow Map consistency passed. The repository
+Demo Visual QA runner was unavailable because this clean worktree did not have
+the QA-only `playwright` package. Direct local browser inspection covered
+`/demo/app/vendors` at the default desktop viewport and explicit phone
+`390x844`: browse directory, worksheet table, protected lifecycle state, staged
+Add Row validation, and mobile row/field fallback were visibly inspected. This
+is local/demo evidence, not hosted or production certification.
+
+The migration static suite passed **114/114** checks. Live pgTAP, clean replay,
+upgrade-path, and runtime RLS/RPC/concurrency checks were not run because
+Docker/Supabase was unavailable (`dockerDesktopLinuxEngine` was missing and
+`127.0.0.1:54322` refused the upgrade-test connection). The committed R5 pgTAP
+coverage now asserts stale-version rejection and current-version success for
+the canonical Vendor RPC.
+
+Jev effectiveness for this real phase: deterministic context candidates **22**;
+selected **14**; must-keep **11**; **2** payload-safe context requests/chunks;
+model `jev-1.13.0`; **9,821 / 1,578** input/output tokens; **1,974 ms**;
+fallback `false`. The rerank retained all explicit/must-keep Vendor paths and
+removed eight optional candidates. Deterministic test selection was **36**
+required files; live test-triage used **1** request, retained/recommended
+**36/36**, model `jev-1.13.0`, **4,848 / 534** tokens, **1,050 ms**, fallback
+`false`. Live completion used **1** request over five evidence categories,
+model `jev-1.13.0`, **694 / 89** tokens, **711 ms**, fallback `false`; the
+advisory marked database evidence absent and kept `unresolvedUncertainty=true`
+because the committed static-only database evidence and Playwright/Docker
+limitations were explicit. Initial vague/invalid
+context selector attempts were not useful; the corrected explicit-selector
+context call was useful. No customer/private records, invoice contents,
+credentials, browser/session state, or secrets were sent to Jev.
+
+The exact next unfinished UX-W5 work is the workforce set (Workers, Attendance,
+Time Entries, and Project Assignments), which remains gated by the paused Worker
+Registration sequencing and broader Wave 4D/product prerequisites. Do not
+unpause Worker Registration here. Wide Documents, provider certification,
+Finance UX-W6, and custom fields retain their separate roadmap order.
 
 ### Earlier UI/UX and hosted-certification reference
 
@@ -357,8 +426,9 @@ coherent: prefer one complete bounded workflow/domain slice with roughly 2-4
 tightly related components (about 1.5-3x the old micro-slice size as a planning
 heuristic) rather than needless single-file slices. Do not combine unrelated
 domains, independent migrations, new security/financial authorities, or all
-remaining UX work merely to create a bigger Jev candidate set. UX-W5A is
-complete; remaining UX-W5 domains still require their own bounded handoffs.
+remaining UX work merely to create a bigger Jev candidate set. UX-W5A, UX-W5B,
+and UX-W5C are complete for their recorded scopes; remaining UX-W5 domains
+still require their own bounded handoffs.
 Worker Registration remains paused under its existing gate.
 
 ---
@@ -1183,11 +1253,11 @@ Preserve throughout resumed Wave 4D and subsequent work:
 2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
 4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ/PO + Client Billing + Expenses IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, Purchase Order draft editing, Client Billing draft editing, and direct Expense DRAFT editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
-5. **UX-W4.5A through UX-W4.5E, UX-W5A, and UX-W5B are implemented for their recorded scopes.** The durable visual evidence and authority limitations remain as documented; remaining UX-W5 slices require separate bounded handoffs.
+5. **UX-W4.5A through UX-W4.5E, UX-W5A, UX-W5B, and UX-W5C are implemented for their recorded scopes.** The durable visual evidence and authority limitations remain as documented; remaining UX-W5 workforce slices require separate bounded handoffs and remain subject to the Worker Registration/Wave 4D sequencing gate.
 6. **Jev Workflow Intelligence v2A research/design is complete for this handoff.** The durable report records read-only X research, official/community source review, 48 controlled sanitized Jev requests, representative historical replay, and the prioritized v2B design. This remains developer tooling, not a product dependency or merge authority.
 7. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this handoff.** The shared request/diagnostic layer, deterministic seeding, budget-aware chunking, context integration, broad test triage, and deterministic must-keep/required-test unions are complete. Remaining v2B adjacency, requirement/evidence, replay, routing-advice, and other experimental work requires a later bounded handoff.
-8. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist; it must not displace the explicitly reprioritized v2B run.
-9. **Remaining UX-W5 product slices remain queued and bounded** until after the v2B slice or another explicit user reprioritization.
+8. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist; it remains separate from the completed v2B foundation and bounded UX-W5C product work.
+9. **Remaining UX-W5 product slices remain queued and bounded.** Workers, Attendance, Time Entries, and Project Assignments remain behind the workforce/Worker Registration sequencing gate.
 10. **Resume Wide Documents remaining managed slices.**
 11. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
 12. **RI-4 through RI-6 are later tooling; RI-7 optional 3D explorer remains LAST.**

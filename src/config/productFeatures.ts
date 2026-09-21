@@ -83,6 +83,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
       "Follow supplier invoice, Expense, purchase-order, and receipt context links to the exact record that owns each step of the workflow.",
       "Export Expenses and related supplier-payable context to a controlled Excel workbook, review supported direct-draft changes, and apply only permitted updates through the Expense workflow.",
       "Create and revise ordinary direct Expense DRAFT records in a spreadsheet-familiar worksheet while status, source provenance, settlement, FX evidence, correction, archive, and void actions remain protected or purpose-built.",
+      "Maintain safe canonical Vendor master metadata in a spreadsheet-familiar worksheet while supplier invoice evidence, procurement and Expense links, financial history, and lifecycle actions remain protected or purpose-built.",
     ],
     sortOrder: 30,
   },

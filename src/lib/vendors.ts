@@ -5,6 +5,12 @@ import { requireActiveCompanyId } from "./companyContext.ts";
 const VENDORS_STORAGE_KEY = "engineering_vendors";
 type Row = Record<string, unknown>;
 
+export interface VendorSaveInput extends Partial<Vendor> {
+  name: string;
+  /** Optional atomic version precondition used by worksheet maintenance. */
+  expectedUpdatedAt?: string | null;
+}
+
 function text(value: unknown) {
   return value === null || value === undefined || value === "" ? undefined : String(value);
 }
@@ -67,7 +73,7 @@ export async function fetchVendors(): Promise<Vendor[]> {
   return (data || []).map((row) => vendorFromRow(row as Row));
 }
 
-export async function saveVendor(vendor: Partial<Vendor> & { name: string }): Promise<Vendor> {
+export async function saveVendor(vendor: VendorSaveInput): Promise<Vendor> {
   const name = vendor.name.trim();
   const normalizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const companyId = requireActiveCompanyId();
@@ -75,18 +81,26 @@ export async function saveVendor(vendor: Partial<Vendor> & { name: string }): Pr
   if (!supabase || !companyId) {
     const localVendors = readVendorsFromLocal();
     const existingIdx = vendor.id ? localVendors.findIndex((v) => v.id === vendor.id) : -1;
+    if (existingIdx >= 0 && vendor.expectedUpdatedAt && localVendors[existingIdx].updatedAt !== vendor.expectedUpdatedAt) {
+      throw new Error("Vendor changed after it was loaded; refresh and review the current record before saving.");
+    }
     const now = new Date().toISOString();
     const saved: Vendor = {
       id: vendor.id || globalThis.crypto?.randomUUID?.() || `vendor-${Date.now()}`,
       companyId,
       name,
       normalizedName,
-      email: vendor.email || null,
-      phone: vendor.phone || null,
-      taxId: vendor.taxId || null,
-      address: vendor.address || null,
-      defaultCurrency: vendor.defaultCurrency || "PHP",
-      defaultCategory: vendor.defaultCategory || null,
+      email: vendor.email !== undefined ? vendor.email || null : existingIdx >= 0 ? localVendors[existingIdx].email || null : null,
+      phone: vendor.phone !== undefined ? vendor.phone || null : existingIdx >= 0 ? localVendors[existingIdx].phone || null : null,
+      taxId: vendor.taxId !== undefined ? vendor.taxId || null : existingIdx >= 0 ? localVendors[existingIdx].taxId || null : null,
+      address: vendor.address !== undefined ? vendor.address || null : existingIdx >= 0 ? localVendors[existingIdx].address || null : null,
+      defaultCurrency: vendor.defaultCurrency !== undefined ? vendor.defaultCurrency || null : existingIdx >= 0 ? localVendors[existingIdx].defaultCurrency || null : "PHP",
+      defaultCategory: vendor.defaultCategory !== undefined ? vendor.defaultCategory || null : existingIdx >= 0 ? localVendors[existingIdx].defaultCategory || null : null,
+      active: existingIdx >= 0 ? localVendors[existingIdx].active : true,
+      archivedAt: existingIdx >= 0 ? localVendors[existingIdx].archivedAt : null,
+      deactivatedAt: existingIdx >= 0 ? localVendors[existingIdx].deactivatedAt : null,
+      deactivatedByUserId: existingIdx >= 0 ? localVendors[existingIdx].deactivatedByUserId : null,
+      deactivationReason: existingIdx >= 0 ? localVendors[existingIdx].deactivationReason : null,
       createdAt: existingIdx >= 0 ? localVendors[existingIdx].createdAt : now,
       updatedAt: now,
     };
@@ -104,12 +118,13 @@ export async function saveVendor(vendor: Partial<Vendor> & { name: string }): Pr
       ...(vendor.id ? { id: vendor.id } : {}),
       name,
       normalizedName,
-      email: vendor.email || undefined,
-      phone: vendor.phone || undefined,
-      taxId: vendor.taxId || undefined,
-      address: vendor.address || undefined,
-      defaultCurrency: vendor.defaultCurrency || undefined,
-      defaultCategory: vendor.defaultCategory || undefined,
+      ...(vendor.email !== undefined ? { email: vendor.email } : {}),
+      ...(vendor.phone !== undefined ? { phone: vendor.phone } : {}),
+      ...(vendor.taxId !== undefined ? { taxId: vendor.taxId } : {}),
+      ...(vendor.address !== undefined ? { address: vendor.address } : {}),
+      ...(vendor.defaultCurrency !== undefined ? { defaultCurrency: vendor.defaultCurrency } : {}),
+      ...(vendor.defaultCategory !== undefined ? { defaultCategory: vendor.defaultCategory } : {}),
+      ...(vendor.expectedUpdatedAt ? { expectedUpdatedAt: vendor.expectedUpdatedAt } : {}),
     },
   });
   if (error) throw error;

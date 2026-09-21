@@ -35,6 +35,7 @@ import { supplierInvoicePaymentStateFor } from "../../lib/supplierInvoiceSettlem
 
 export interface InvoicesRouteProps {
   selectedInvoice?: InvoiceData | null;
+  guestMode?: boolean;
   activeSubTab?: AppTab | "invoices" | "extractor" | "inbox" | "review" | "vendors";
   invoices: InvoiceData[];
   vendors?: Vendor[];
@@ -109,6 +110,7 @@ export interface InvoicesRouteProps {
 
 export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   selectedInvoice,
+  guestMode = false,
   activeSubTab = "invoices",
   invoices,
   vendors = [],
@@ -178,7 +180,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canManageProjectAllocations = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.projectsWrite]);
   const canReadProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementRead);
   const canManageProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementWrite);
-  const canManageVendors = hasPermission(permissions, PERMISSION_KEYS.vendorsManage);
+  const canManageVendors = guestMode || hasPermission(permissions, PERMISSION_KEYS.vendorsManage);
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const canRecordInvoicePayment = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.invoicesWrite]);
   const canRecordExpensePayment = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.expensesWrite]);
@@ -301,7 +303,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   }
   if (activeSubTab === "extractor") return <div className="space-y-5">{canExtractInvoices ? <UploadZone onExtract={onExtract} onLoadPreset={onLoadPreset} onBatchComplete={onBatchComplete} isLoading={processingCount > 0} /> : <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950"><strong>Invoice extraction is unavailable for this access profile.</strong><p className="mt-1 text-xs">Creating a reviewable invoice requires invoice management, extraction, and verification permissions so source, invoice, and review history can be persisted together.</p></div>}</div>;
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} financialFxSnapshots={financialFxSnapshots} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifySupplierInvoices ? onStartReview : undefined} readOnly={!canVerifySupplierInvoices} />;
-  if (activeSubTab === "vendors") return <Vendors invoices={invoices} vendors={vendors} canManage={canManageVendors} onDeactivateVendor={onDeactivateVendor} onReactivateVendor={onReactivateVendor} />;
+  if (activeSubTab === "vendors") return <Vendors invoices={invoices} vendors={vendors} canManage={canManageVendors} onSaveVendor={onAddVendor} onDeactivateVendor={onDeactivateVendor} onReactivateVendor={onReactivateVendor} />;
   return <div className="space-y-5">{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}<InvoiceSettlementDirectoryPanel invoices={invoices} expenses={expenses} settlementMatches={settlementMatches} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />{correctionDialog}</div>;
 };
 

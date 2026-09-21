@@ -466,7 +466,7 @@ export function useProcurementController({
   const addVendorHandler = useCallback(async (vendor: Partial<Vendor> & { name: string }) => {
     try {
       if (remoteWorkspaceConfigured && !can(PERMISSION_KEYS.vendorsManage)) {
-        throw new Error("You do not have permission to add vendors.");
+        throw new Error("You do not have permission to manage Vendors.");
       }
       const saved = await saveVendor(vendor);
       setVendors((previous) => {
@@ -475,10 +475,10 @@ export function useProcurementController({
         if (!remoteWorkspaceConfigured) writeVendorsToLocal(next);
         return next;
       });
-      onSuccess(`Vendor "${saved.name}" created.`);
+      onSuccess(`Vendor "${saved.name}" ${vendor.id ? "saved" : "created"}.`);
       return saved;
     } catch (error) {
-      onError(error, "Could not create vendor.");
+      onError(error, "Could not save Vendor.");
       throw error;
     }
   }, [can, onError, onSuccess, remoteWorkspaceConfigured]);

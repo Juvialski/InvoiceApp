@@ -709,6 +709,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <InvoicesRoute
         selectedInvoice={selectedInvoice}
+        guestMode={!showDeploymentAccessManagement}
         onNavigatePath={onNavigatePath}
         invoices={invoices}
         expenses={expenses}
@@ -981,6 +982,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <InvoicesRoute
         activeSubTab={["extractor", "review", "invoices", "vendors"].includes(routeTarget) ? (routeTarget as any) : activeTab}
+        guestMode={!showDeploymentAccessManagement}
         onNavigatePath={onNavigatePath}
         invoices={invoices}
         financialFxSnapshots={financialFxSnapshots}
@@ -1010,6 +1012,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onConfirmPurchaseOrderMatch={onConfirmPurchaseOrderMatch}
         onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
         onOpenPurchaseOrder={onOpenPurchaseOrder}
+        onAddVendor={onAddVendor}
         onDeactivateVendor={onDeactivateVendor}
         onReactivateVendor={onReactivateVendor}
       />
