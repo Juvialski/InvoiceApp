@@ -258,7 +258,21 @@ for select to authenticated
 using ((select private.can_read_document_artifact(company_id, source_domain)));
 
 revoke all on table public.managed_documents, public.managed_document_versions, public.document_artifact_registrations from public, anon, authenticated;
-grant select on table public.managed_documents, public.managed_document_versions, public.document_artifact_registrations to authenticated;
+grant select on table public.managed_documents, public.document_artifact_registrations to authenticated;
+grant select (
+  id,
+  company_id,
+  document_id,
+  version_number,
+  source_origin,
+  original_filename,
+  mime_type,
+  size_bytes,
+  sha256,
+  template_version_id,
+  uploaded_by_user_id,
+  created_at
+) on public.managed_document_versions to authenticated;
 
 drop policy if exists "company managed documents read" on storage.objects;
 create policy "company managed documents read" on storage.objects
