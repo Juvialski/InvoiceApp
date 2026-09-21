@@ -96,11 +96,11 @@ test("WM-3 catches unknown QA scenario references", () => {
 });
 
 test("WM-3 catches a deterministic QA route mismatch", () => {
-  const qaScenarios = WORKFLOW_MAP_CONSISTENCY_CONTRACTS.qaScenarios.map((scenario) => scenario.id === "rfis--rfi-detail--rfi-detail-opened--desktop-1440"
+  const qaScenarios = WORKFLOW_MAP_CONSISTENCY_CONTRACTS.qaScenarios.map((scenario) => scenario.id === "rfis--rfi-detail--missing-record-recovery-rendered--desktop-1440"
     ? { ...scenario, route: { ...scenario.route, canonicalPath: "/projects/:projectId/wrong" } }
     : scenario);
   const contracts = contractsWith({ qaScenarios });
-  assertHasError(collectWorkflowMapConsistencyErrors(WORKFLOW_GRAPH, { contracts }), "[qa] node route-rfi-detail: scenario rfis--rfi-detail--rfi-detail-opened--desktop-1440 route mismatch");
+  assertHasError(collectWorkflowMapConsistencyErrors(WORKFLOW_GRAPH, { contracts }), "[qa] node route-rfi-detail: scenario rfis--rfi-detail--missing-record-recovery-rendered--desktop-1440 route mismatch");
 });
 
 test("WM-3 requires regression coverage for selected high-risk workflows", () => {

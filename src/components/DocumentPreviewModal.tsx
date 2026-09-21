@@ -14,6 +14,7 @@ import { useOptionalCompanyAccess } from "../context/CompanyAccessContext.tsx";
 import { PERMISSION_KEYS } from "../utils/accessControl.ts";
 import { useDialogFocus } from "./ui/useDialogFocus.ts";
 import { PdfBytePreview } from "./PdfBytePreview.tsx";
+import { documentPreviewFrameClass, documentPreviewState } from "./documentPreviewPresentation.ts";
 
 interface DocumentPreviewModalProps {
   document: FinancialDocumentSnapshot;
@@ -317,6 +318,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
   const deliveryActionLabel = latestDelivery?.status === "SENT"
     ? "Resend by Email"
     : latestDelivery?.status === "FAILED" ? "Try send again" : "Send by Email";
+  const previewState = documentPreviewState({ loading: loadingSnapshot || pdfLoading, hasBytes: Boolean(pdfBytes), error: pdfError });
   return (
     <div ref={dialogRef} className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-2 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="document-preview-title">
       <section className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-slate-100 shadow-2xl">
@@ -330,8 +332,8 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-5">
-          <section className="mx-auto min-h-[760px] w-full max-w-[720px] bg-white p-2 text-slate-900 shadow-lg sm:p-4" id="financial-document-preview" data-pdf-preview-hash={pdfHash} data-pdf-preview-source={pdfSource}>
-            {pdfBytes ? <PdfBytePreview bytes={pdfBytes} label={`${isPo ? "Purchase Order" : "Client Invoice"} ${document.documentNumber}`} onHash={handlePdfHash} /> : pdfLoading ? <div role="status" className="flex min-h-[760px] items-center justify-center text-xs font-semibold text-slate-500">Preparing the exact document PDF…</div> : <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">{pdfError || "The document PDF could not be prepared safely."}</div>}
+          <section id="financial-document-preview" data-document-preview-state={previewState} className={`mx-auto w-full max-w-[720px] bg-white p-2 text-slate-900 shadow-lg sm:p-4 ${documentPreviewFrameClass(previewState)}`} data-pdf-preview-hash={pdfHash} data-pdf-preview-source={pdfSource}>
+            {pdfBytes ? <PdfBytePreview bytes={pdfBytes} label={`${isPo ? "Purchase Order" : "Client Invoice"} ${document.documentNumber}`} onHash={handlePdfHash} /> : previewState === "loading" ? <div role="status" className="text-center text-xs font-semibold text-slate-500">Preparing the exact document PDF…</div> : <div role="alert" className="w-full rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{pdfError || "The document PDF could not be prepared safely."}</div>}
           </section>
         </div>
 

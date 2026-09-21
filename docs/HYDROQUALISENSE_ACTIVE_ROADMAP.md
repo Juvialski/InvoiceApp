@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E NEXT / UX-W5 BLOCKED PENDING VISUAL CONSISTENCY GATE / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E IMPLEMENTED / UX-W5 UNBLOCKED FROM VISUAL GATE / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-21**
 
@@ -32,7 +32,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
-3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, and UX-W4.5D Supplier Invoice/worksheet clarity are implemented for their bounded scopes.** UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification is next; UX-W5 operational bulk-data editors remain blocked until that visual gate is genuinely closed. App-wide Excel capability is not claimed.
+3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5 operational bulk-data editors are now unblocked from the visual gate and require their own bounded implementation handoff. App-wide Excel capability is not claimed.
 4. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active Excel sequence.
 5. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
 6. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
@@ -60,8 +60,9 @@ and 764 output tokens, and had zero fallback. The exact misses were
 
 Automatic filtering remains non-authoritative. Any local use must preserve the
 full deterministic candidate/test authority and treat Jev as advisory only. The
-exact next product phase remains UX-W4.5E, and no RI/product priority is
-changed by this pilot.
+UX-W4.5E visual gate is now closed for its recorded scope; UX-W5 remains the
+next selective-workbook implementation candidate, subject to its own bounded
+handoff and the separate product/provider sequencing gates.
 
 ## 2026-09-20 selective workbook editing UX correction
 
@@ -247,8 +248,14 @@ not applicable. The durable visual record and exact disposition are in
 `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
 
 **UX-W4.5E — App-Wide Visual Consistency & Professional-Finish Certification**
-is now the exact next implementation phase. UX-W5 remains blocked until W4.5E
-closes the remaining app-wide visual gate.
+is implemented at application-bearing SHA
+`3eb2819edd4da3527e083882bf451c171c35b6a4`. The shared visual grammar,
+compact document-preview states, explicit RFI/Submittal recovery-state evidence, and
+final safe-demo visual validation are recorded in
+`artifacts/ui-ux-audit/UX-W4.5A-REPORT.md` and
+`artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5 is now
+**unblocked from the visual gate**; no UX-W5 code was started in this phase.
+The safe-demo dataset does not currently certify populated RFI/Submittal detail layouts; that P2 evidence gap remains recorded without reopening the P0/P1/shared-root visual gate.
 
 ## 2026-09-20 UX-W1 — shared worksheet editing foundation implemented
 

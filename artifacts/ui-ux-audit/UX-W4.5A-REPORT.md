@@ -1,6 +1,6 @@
 # UX-W4.5A — App-Wide Screenshot Investigation & Visual Triage
 
-Status: **Investigation complete; UX-W4.5D bounded correction implemented; app-wide remediation remains deferred to UX-W4.5E**
+Status: **Investigation complete; UX-W4.5B/C/D bounded corrections implemented; UX-W4.5E app-wide visual consistency closeout implemented; UX-W5 disposition recorded below**
 Reviewed source SHA: `b279b02730b79cccac5f72ac4c93553d957db07b`
 Repository: `Juvialski/InvoiceApp`
 Reviewed: **2026-09-20**
@@ -393,5 +393,98 @@ protected exact-head browser QA as the visual merge gate.
 - **UX45A-012:** **UNCHANGED / DEFERRED** — stale/unavailable detail capture
   coverage remains a deeper W4.5E workflow/evidence concern.
 
-UX-W4.5E remains the next phase. UX-W5 remains blocked until the app-wide
-visual-consistency and professional-finish gate is genuinely closed.
+At the UX-W4.5D checkpoint, UX-W4.5E was the next phase. The UX-W4.5E
+follow-up below records the completed app-wide visual-consistency and
+professional-finish gate.
+
+## UX-W4.5E follow-up — app-wide visual consistency and professional finish
+
+The bounded UX-W4.5E implementation is complete for the remaining shared
+visual root causes and preview/evidence closeout at application-bearing SHA
+`3eb2819edd4da3527e083882bf451c171c35b6a4`. The final reviewed application
+SHA is the same value; documentation-only finalization does not alter the
+reviewed application behavior.
+
+### Implementation boundary
+
+- `src/components/ui/OperationsUI.tsx` now provides a quieter shared grammar
+  for PageHeader, SectionHeader, FilterBar, DisclosureSection, MetricCard,
+  EmptyState, Notice, LoadingState, and ErrorState: restrained eyebrow/title
+  hierarchy, consistent section markers, lighter container treatment, tighter
+  metric/filter/disclosure spacing, and no repeated visible `Key` label.
+- `src/components/documentPreviewPresentation.ts` and
+  `src/components/DocumentPreviewModal.tsx` give loading, ready, and error
+  preview states explicit compact sizing. A loading or unavailable preview no
+  longer reserves the former `min-h-[760px]` blank wall, so delivery history
+  and the next relevant action remain visible.
+- The change is presentation-only. No financial, lifecycle, permission,
+  company-isolation, provenance, history, concurrency, workbook, provider, or
+  database contract changed.
+- The final safe-demo catalog still has no RFI/Submittal records for the warehouse
+  project. The deterministic query-string scenarios now explicitly verify the
+  missing-record recovery states; no demo fixture or production data behavior
+  was added in this presentation-only closeout.
+
+### Final visual evidence inspected
+
+The final safe-demo run captured all 89 scenarios across the repository's
+desktop, constrained-laptop, tablet, and phone viewport vocabulary. The lead
+agent directly inspected the changed surfaces at desktop `1440x900`,
+constrained laptop `1366` width, tablet `768` width, and phone `390x844`,
+including the promoted evidence in
+`artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`.
+
+| Surface/state | Viewports directly inspected | Judgment |
+| --- | --- | --- |
+| Shared title/filter/metric grammar: Projects, Reports, Email/SMS | Projects desktop/laptop/tablet; Reports desktop; Email/SMS phone | **ACCEPTABLE** — hierarchy is consistent, primary work remains first, and tighter shared chrome does not hide actions or semantics. |
+| Purchase Order document preview loading state | Desktop `1440x900`, phone `390x844` | **ACCEPTABLE** — the preview state is deliberately compact; delivery history and download/send actions remain in the visible modal flow. |
+| RFI/Submittal missing-record recovery | Desktop `1440x900` | **ACCEPTABLE AS RECOVERY EVIDENCE ONLY** — unavailable states are explicit and return-to-register actions remain reachable; populated detail layouts are not certified by this safe-demo dataset. |
+| Existing Projects card-first and Supplier Invoice source-first workflows | Desktop, laptop, tablet, phone evidence from final catalog plus promoted prior qualified states | **PRESERVED** — no regression to primary card/source ordering or worksheet authority was observed. |
+
+### W4.5A finding dispositions after UX-W4.5E
+
+| Finding | Final disposition | Evidence / reason |
+| --- | --- | --- |
+| UX45A-001 | **RESOLVED for the bounded task-first surfaces** | Projects, Expenses, Cash & Banking, and Project Workspace retain primary work before secondary tools; final full demo run passed. |
+| UX45A-002 | **RESOLVED for inspected shared-shell and representative long workflows** | W4.5B scroll containment plus final phone inspection; no shell overlap or hidden primary action was observed. Broader provider-runtime behavior remains separately unverified. |
+| UX45A-003 | **RESOLVED for bounded worksheet consumers** | W4.5B responsive worksheet/dialog foundation remains green under focused and affected tests. |
+| UX45A-004 | **RESOLVED for Supplier Invoice review** | W4.5D source-first hierarchy and quiet normal provenance remain preserved. |
+| UX45A-005 | **RESOLVED for the inspected app-wide summary/card surfaces** | Shared metric treatment is quieter; primary working surfaces remain ordered first. Domain-specific analytical walls remain purpose-built where appropriate. |
+| UX45A-006 | **RESOLVED for shared worksheet and touched Supplier Invoice surfaces** | Ordinary protected/read-only and source-evidence labels remain semantic and quiet. |
+| UX45A-007 | **RESOLVED for touched surfaces; accepted as-is elsewhere** | Technical detail remains available in context/disclosures; no financial or source authority was changed. |
+| UX45A-008 | **RESOLVED for shared primitive chrome; accepted as-is for distinct workflow containers** | Shared surfaces use lighter borders/spacing; distinct workflows retain containers when they carry separate actions or exception states. |
+| UX45A-009 | **PARTIAL / accepted as-is for long authoritative registers** | Final catalog remains scanable and responsive; deeper pagination/tab restructuring would be a separate domain workflow change, outside this presentation closeout. |
+| UX45A-010 | **RESOLVED for bounded worksheet consumers** | Final full run passed responsive browser assertions; phone/tablet fallbacks remain in place. |
+| UX45A-011 | **RESOLVED for applicable document preview states** | Loading/unavailable/error frame sizing is compact and directly inspected on desktop/phone. Rendered PDF page fidelity remains covered by the existing document/PDF contracts. |
+| UX45A-012 | **PARTIAL / non-blocking** | RFI/Submittal safe-demo scenarios now verify deterministic missing-record recovery, but populated detail capture remains an evidence gap; stale missing-record recovery likewise remains a deliberate recovery state rather than fabricated detail evidence. |
+| UX45A-013 | **RESOLVED for shared PageHeader/metric/section grammar; accepted as-is for domain-specific status labels** | Ordinary page hierarchy is less uppercase-heavy and secondary copy is restrained without removing meaningful status vocabulary. |
+| UX45A-014 | **PARTIAL / non-blocking** | Shared page/header and worksheet markers now expose consistent grouping; rare domain lifecycle controls remain purpose-built by design and were not converted into generic cells. |
+
+### Validation and non-claims
+
+- New/focused visual consistency tests: **28/28**.
+- `npm.cmd run test:affected:agent`: **146/146**, database fallback disabled.
+- `npm.cmd run lint`: ESLint and TypeScript passed.
+- `npm.cmd run build`: passed. Existing Inter-font, chunk-size, and CJS
+  `import.meta` warnings remain non-blocking repository warnings.
+- Final `npm.cmd run qa:demo` at the application-bearing revision: **89/89**
+  scenarios passed; zero console errors, page errors, failed requests, or
+  horizontal-overflow failures.
+- Docker/Supabase not required — no database contract changed. No migration,
+  RLS, RPC, trigger, constraint, provider, hosted-QA, or production operation
+  was performed.
+- TypeSafe/Jev was not used; the deterministic repository path was sufficient
+  and remains authoritative.
+- The visual evidence is local/demo synthetic evidence. It does not certify
+  authenticated hosted QA, provider delivery, production behavior, or PDF
+  converter availability.
+
+### UX-W4.5E gate result
+
+The remaining P0/P1/shared-root-cause visual blockers are closed for the
+inspected application boundary. The recorded UX45A-012 populated-detail evidence
+gap is P2/non-blocking and is not treated as visual certification of those detail
+layouts. UX-W5 is **unblocked from the visual gate**,
+but its operational bulk-data scope remains subject to the separate product
+sequence, Wave 4D/provider prerequisites, and a new bounded implementation
+handoff. No UX-W5 code was started in this closeout.

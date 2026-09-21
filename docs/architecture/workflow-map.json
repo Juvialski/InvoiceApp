@@ -1561,7 +1561,7 @@
         "tests/assistantActionPolicy.test.ts"
       ],
       "qaScenarioIds": [
-        "rfis--rfi-detail--rfi-detail-opened--desktop-1440"
+        "rfis--rfi-detail--missing-record-recovery-rendered--desktop-1440"
       ]
     },
     {
@@ -1623,7 +1623,7 @@
         "tests/assistantActionPolicy.test.ts"
       ],
       "qaScenarioIds": [
-        "submittals--submittal-detail--submittal-detail-and-round-opened--desktop-1440"
+        "submittals--submittal-detail--missing-record-recovery-rendered--desktop-1440"
       ]
     },
     {
@@ -3031,7 +3031,7 @@
         "engineering-revision-lineage-is-immutable"
       ],
       "qaScenarioIds": [
-        "rfis--rfi-detail--rfi-detail-opened--desktop-1440"
+        "rfis--rfi-detail--missing-record-recovery-rendered--desktop-1440"
       ]
     },
     {
@@ -3340,7 +3340,7 @@
         "engineering-revision-lineage-is-immutable"
       ],
       "qaScenarioIds": [
-        "submittals--submittal-detail--submittal-detail-and-round-opened--desktop-1440"
+        "submittals--submittal-detail--missing-record-recovery-rendered--desktop-1440"
       ]
     },
     {
