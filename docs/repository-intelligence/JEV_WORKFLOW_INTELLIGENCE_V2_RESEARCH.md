@@ -699,8 +699,9 @@ bundles, add database/provider behavior, or begin another product phase.
 
 The first payload-safe workflow-integration slice is implemented on feature
 branch `codex/jev-workflow-intelligence-v2b`, starting from synchronized `main`
-SHA `94fc6a181edbf6162d7aa2f498e06802caaf2b53`. The implementation commit is
-`97cd00c207c3a53a67d7c5104f5f2d55c8326ae2`.
+SHA `94fc6a181edbf6162d7aa2f498e06802caaf2b53`. The implementation commits are
+`97cd00c207c3a53a67d7c5104f5f2d55c8326ae2` and
+`671bc556fc7fce19b17e740e95cab9a6c07f973e`.
 
 ## Implemented boundary
 

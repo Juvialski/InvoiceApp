@@ -1281,7 +1281,8 @@ change is authorized by this developer-tooling run.
 ## 2026-09-21 Jev Workflow Intelligence v2B payload-safe foundation
 
 Starting `main` SHA: `94fc6a181edbf6162d7aa2f498e06802caaf2b53`.
-Implementation commit: `97cd00c207c3a53a67d7c5104f5f2d55c8326ae2`.
+Implementation commits: `97cd00c207c3a53a67d7c5104f5f2d55c8326ae2`,
+`671bc556fc7fce19b17e740e95cab9a6c07f973e`.
 Feature branch: `codex/jev-workflow-intelligence-v2b`.
 
 The developer-only foundation adds exact serialized request preflight, safe
