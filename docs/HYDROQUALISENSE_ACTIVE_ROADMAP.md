@@ -35,10 +35,11 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
 3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment worksheet register editing and UX-W5B Warehouse Item Master + Canonical Equipment Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
 4. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is complete for this implementation run.** The durable report records read-only authenticated X research, official/community source review, 48 controlled live Jev requests over sanitized metadata, historical calibration, and a prioritized v2B design. v2B implementation is not started and Jev remains advisory only; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
-5. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active explicitly reprioritized run.
-6. **Remaining UX-W5 product slices stay queued and bounded.** Resume them only after the Jev v2A research run or another explicit user reprioritization; this Jev work is not a product dependency.
-7. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
-8. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
+5. **Jev Workflow Intelligence v2B — payload-safe workflow integration — is the next explicitly reprioritized developer-tooling run.** Start with payload-safe request primitives and diagnostics, deterministic clean-baseline task seeding, budget-aware chunking, and deterministic must-keep/required-test unions. Keep Jev advisory-only; do not add application/runtime Jev or automatic model/subagent routing in this first slice.
+6. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed opportunistically whenever safe credentials/device/runtime exist without displacing the explicitly reprioritized v2B tooling run.
+7. **Remaining UX-W5 product slices stay queued and bounded.** Resume them only after the v2B slice or another explicit user reprioritization; Jev work is not a product dependency.
+8. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
+9. **RI-4 through RI-6 remain later developer tooling; RI-7 optional 3D is LAST.**
 
 Release/readiness certification remains a parallel track and should run when its exact prerequisites exist. A structural merge never implies hosted certification or production authorization.
 
@@ -76,9 +77,11 @@ Planning now prefers wider but still coherent bounded phases when related work
 shares one workflow/authority model, roughly 1.5-3x the former micro-slice size
 as a heuristic. Do not bundle unrelated domains, new DB/security authorities, or
 multiple independent lifecycle systems merely to increase Jev usage. UX-W5A and
-UX-W5B are implemented for their recorded scopes. The next explicit run is Jev
-Workflow Intelligence v2A research/calibration; remaining UX-W5 slices stay
-queued and still require bounded handoffs and existing product/provider gates.
+UX-W5B are implemented for their recorded scopes. Jev Workflow Intelligence v2A
+research/calibration is complete; the next explicit run is Jev Workflow
+Intelligence v2B — payload-safe workflow integration. Remaining UX-W5 slices
+stay queued and still require bounded handoffs and existing product/provider
+gates.
 
 ## 2026-09-20 selective workbook editing UX correction
 
@@ -1002,7 +1005,11 @@ review, chunked test triage, mid-diff adjacency, and criterion-level evidence
 checking. No v2B behavior was integrated into normal context/test/CI commands,
 and no customer/runtime/database/provider contract changed.
 
-V2B implementation remains a separate future developer-tooling handoff. The
-next unfinished roadmap work is remaining Wave 4D provider/readiness evidence
-when safe external prerequisites exist, with remaining UX-W5 domains still
-queued and separately bounded. Worker Registration remains paused.
+V2B implementation remains separate from v2A and is now the next explicit
+developer-tooling handoff. The first bounded slice should implement payload-safe
+request primitives/diagnostics, deterministic clean-baseline task seeding,
+budget-aware chunking for context and broad test sets, and deterministic
+must-keep/required-test unions before richer routing experiments. Remaining
+Wave 4D provider/readiness evidence may proceed opportunistically when safe
+external prerequisites exist; remaining UX-W5 domains stay queued and
+separately bounded. Worker Registration remains paused.
