@@ -18,6 +18,7 @@ export type StorageKeyKind =
   | "LEGACY_EMAIL_EML"
   | "LEGACY_PAYROLL_IMPORT"
   | "LEGACY_ENGINEERING_REVISION"
+  | "MANAGED_DOCUMENT_VERSION"
   | "LEGACY_USER_SCOPED"
   | "UNKNOWN_COMPANY_SCOPED"
   | "INVALID";
@@ -221,6 +222,21 @@ export function parseStorageKey(rawPath: string): ParsedStorageKey {
       };
     }
 
+    // Managed document version: companies/<companyId>/managed-documents/<documentId>/versions/<versionId>/<fileName>
+    if (segments[2] === "managed-documents" && segments[4] === "versions" && segments.length === 7) {
+      return {
+        kind: "MANAGED_DOCUMENT_VERSION",
+        isValid: true,
+        rawPath: normalized,
+        companyId,
+        documentId: segments[3],
+        versionOrHash: segments[5],
+        fileName: segments[6],
+        subdomain: "managed-documents",
+        segments,
+      };
+    }
+
     // Payroll import source: companies/<companyId>/payroll-imports/<batchId>/<fileName>
     if (segments[2] === "payroll-imports" && segments.length >= 4) {
       return {
@@ -316,4 +332,26 @@ export function isCompanyScopedPath(path: string, expectedCompanyId?: string): b
     return parsed.companyId.toLowerCase() === expectedCompanyId.toLowerCase();
   }
   return true;
+}
+
+export function buildManagedDocumentStoragePath(companyId: string, documentId: string, versionId: string, fileName: string): string {
+  return [
+    "companies",
+    assertSafeStorageSegment(companyId, "Company ID"),
+    "managed-documents",
+    assertSafeStorageSegment(documentId, "Managed document ID"),
+    "versions",
+    assertSafeStorageSegment(versionId, "Managed document version ID"),
+    sanitizeStorageFileName(fileName),
+  ].join("/");
+}
+
+export function isManagedDocumentStoragePath(path: string, companyId: string, documentId: string, versionId: string): boolean {
+  let expected: string;
+  try {
+    expected = buildManagedDocumentStoragePath(companyId, documentId, versionId, path.split(/[\\/]/).filter(Boolean).pop() || "");
+  } catch {
+    return false;
+  }
+  return path.trim() === expected && parseStorageKey(path).kind === "MANAGED_DOCUMENT_VERSION";
 }

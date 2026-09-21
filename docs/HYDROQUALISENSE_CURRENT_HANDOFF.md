@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-21**
 Repository: `Juvialski/InvoiceApp`
 
@@ -366,7 +366,7 @@ Read this handoff with:
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 - `docs/HYDROQUALISENSE_UI_UX_ROUND2_SIMPLIFICATION.md` — completed UI/UX Round 2 design/acceptance record and standing UI baseline;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-- **`docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` — deferred Wide Documents Phase contract**;
+- **`docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md` — Wide Documents authority contract and recorded managed-artifact foundation**;
 - **`docs/superpowers/specs/2026-09-14-unified-document-center-design.md` — Slice 1 design**;
 - `docs/superpowers/specs/2026-09-13-document-template-ai-autotagging-design.md` — completed corrective foundation;
 - `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4A.md` — existing immutable template/mail-merge contract;
@@ -526,7 +526,7 @@ The current implementation provides:
 
 No database, RLS, RPC, Storage, financial, payroll, or provider contract changed in Slice 1. The original owning record routes, Email/SMS handoffs, template capability gates, and existing source-history boundaries remain intact.
 
-The completed Slice 2 implementation generalizes template types beyond hardcoded enums. A company administrator can define a safe business document type, declare bounded custom/repeating inputs and an allowed source context, upload the actual DOCX, review/prepare an immutable version, activate it, and discover it from Documents -> Create. The three supplied HSC DOCX files are exact client fixtures proving the generalized engine: Purchase Order uses the existing Procurement adapter; Checklist and Warranty are ordinary Project-context company-defined examples. The full Wide Documents Phase remains incomplete because retained managed-document/artifact slices are still deferred.
+The completed Slice 2 implementation generalizes template types beyond hardcoded enums. A company administrator can define a safe business document type, declare bounded custom/repeating inputs and an allowed source context, upload the actual DOCX, review/prepare an immutable version, activate it, and discover it from Documents -> Create. The three supplied HSC DOCX files are exact client fixtures proving the generalized engine: Purchase Order uses the existing Procurement adapter; Checklist and Warranty are ordinary Project-context company-defined examples. The managed standalone/version/artifact foundation is now implemented below; broader artifact aggregation and authenticated HSC/render certification remain deferred.
 
 ## Active user reprioritization — Client Security Assurance & Handoff
 
@@ -566,8 +566,10 @@ implementation run.
 
 ## Active user reprioritization — Email/SMS Reliability & UX Completion
 
-Email/SMS Reliability & UX Completion now follows the active security phase. The
-remaining Wide Documents managed-upload/artifact work is deferred, not cancelled.
+Email/SMS Reliability & UX Completion followed the active security phase at that
+earlier checkpoint. The managed-upload/artifact foundation is now implemented
+in the 2026-09-21 section below; broader aggregation and certification remain
+separate, not cancelled.
 
 The implementation adds a compact Compose, Sent / Delivery History, Email Provider
 Status, and SMS status experience; preserves historical email source evidence,
@@ -616,6 +618,81 @@ separate until controlled approved-provider evidence exists. Worker Registration
 remains paused.
 
 Slice 2 pre-merge evidence is separated by scope: focused dynamic template/Create tests pass 68/68, lint/build and Workflow Map consistency pass, and demo browser QA passes 82/82 responsive scenarios. Authenticated Local-QA records 59/59 route/responsive scenarios with no overflow/errors, but the legacy functional template checks still look for the former Settings-mounted template surface and record 7/9 functional workflows. The new dynamic HSC flow is not represented as authenticated QA-certified because its migration was not promoted to that QA target. Local Docker is unavailable for replay/pgTAP/upgrade validation, and the bundled LibreOffice renderer is unavailable for DOCX visual conversion.
+
+## Wide Documents — managed Documents + retained artifacts foundation implemented 2026-09-21
+
+This bounded implementation starts from synchronized `main` SHA
+`288847309ddadf66d4d6d644f445ba04afa0ee97` on feature branch
+`codex/wide-documents-managed-artifacts`.
+
+The new authority boundary is:
+
+- `managed_documents` owns only standalone company-document identity, bounded
+  category/origin, optional same-company project context, archive state, and the
+  current-version projection;
+- `managed_document_versions` owns immutable file metadata and private Storage
+  references. Create/version RPCs lock the parent row, preserve ordered history,
+  and reject stale version/archive requests with SQLSTATE `40001`;
+- `document_artifact_registrations` is a provenance-only index. It points a
+  retained managed version back to source domain/type/record reference and
+  template provenance without copying domain calculations, balances, statuses,
+  approvals, or lifecycle truth;
+- `documents.read` and `documents.manage` are narrow permissions. Artifact
+  reads additionally resolve the source-domain permission. Direct browser table
+  writes and ordinary version deletes are denied;
+- `company-managed-documents` is private. Server-side upload/version routes
+  validate safe file signatures, company-prefixed paths, MIME/extension pairs,
+  size, and SHA-256 before guarded metadata RPCs; retrieval uses short-lived
+  authorized signed URLs;
+- existing issued Purchase Order/Client Invoice generation keeps
+  `document_generation_evidence` and delivery history authoritative while an
+  after-insert hook registers generic artifact metadata. Dynamic company-template
+  generation retains its output in the managed layer and returns managed IDs in
+  response headers while preserving the existing binary download contract.
+
+Documents now has managed/artifact browse rows, document-oriented upload review,
+detail/version history, authorized retrieval, and deliberate new-version/archive
+actions. Deterministic demo fixtures cover a two-version Warranty Certificate
+and a generated Purchase Order artifact. No financial, procurement, payroll,
+inventory, engineering, delivery, custom-field, workforce, provider, or
+production authority was expanded.
+
+Final PR review hardened the foundation further before merge: direct private
+Storage reads now resolve through the same managed-document/source-domain
+authority as metadata reads; generated Purchase Order and Client Invoice
+registrations must prove the referenced source record belongs to the deployment
+company; macro-enabled XLSM uploads are rejected; managed Storage keys require
+the exact canonical shape; conflicting managed-document/view query state is
+normalized to the detail route; and protected database CI now runs the dedicated
+two-connection managed-document RLS/concurrency contract.
+
+Merge-gate validation for this handoff is intentionally recorded by category
+rather than frozen intermediate counts: clean migration replay; pgTAP including
+managed Storage/source-authority regression coverage; historical upgrade
+fixtures; the dedicated runtime RLS/RPC/stale-write/concurrency contract;
+focused managed Storage/router/client/workspace/generation coverage;
+`test:affected:agent`; lint/typecheck; production build; Workflow Map
+consistency; and hosted Demo Visual QA with explicit managed detail/version
+history plus generated-artifact provenance/read-only scenarios. Provider
+certification and production promotion remain separate and unclaimed.
+
+TypeSafe/Jev diagnostics were advisory only. The clean-baseline context
+checkpoint had **0 deterministic candidates / 0 selected**, `no-candidates`
+fallback, and no live request; deterministic source inspection remained the
+authority. The broad deterministic affected set retained **135/135** required
+tests in a live test-triage checkpoint using **3** payload-safe requests,
+`jev-1.13.0`, **17,292 / 2,007** input/output tokens, **2,529 ms**, and
+`fallback=false`; advisory groups were **4 highest / 64 focused / 67
+background**. The completion checkpoint used **1** request across **5**
+evidence categories, `jev-1.13.0`, **707 / 89** input/output tokens,
+**919 ms**, `fallback=false`, and found all declared categories present while
+keeping `unresolvedUncertainty=true` because automated browser and hosted
+certification were not available. Jev made no merge or release decision and
+received no secrets, customer data, browser state, or raw source contents.
+
+Remaining Wide Documents work is broader project/engineering/payroll/report
+artifact aggregation, authenticated HSC/render certification, and optional
+handover-package grouping. Worker Registration remains paused.
 
 ## 2026-09-16 Google Sign-In + Brevo migration handoff
 
@@ -1258,7 +1335,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 7. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this handoff.** The shared request/diagnostic layer, deterministic seeding, budget-aware chunking, context integration, broad test triage, and deterministic must-keep/required-test unions are complete. Remaining v2B adjacency, requirement/evidence, replay, routing-advice, and other experimental work requires a later bounded handoff.
 8. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist; it remains separate from the completed v2B foundation and bounded UX-W5C product work.
 9. **Remaining UX-W5 product slices remain queued and bounded.** Workers, Attendance, Time Entries, and Project Assignments remain behind the workforce/Worker Registration sequencing gate.
-10. **Resume Wide Documents remaining managed slices.**
+10. **Wide Documents managed standalone files, immutable versions, general upload, retained artifact registration, and Documents detail are implemented for the recorded scope.** Remaining broader artifact aggregation, authenticated HSC/render certification, and optional handover packaging require separate bounded follow-up.
 11. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
 12. **RI-4 through RI-6 are later tooling; RI-7 optional 3D explorer remains LAST.**
 
@@ -1267,51 +1344,42 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-The completed Codex run was **Jev Workflow Intelligence v2B — payload-safe
-workflow integration**. It started from synchronized `main` and used the merged
-v2A report as the calibration authority. This first v2B slice solves the concrete
-payload/candidate/chunking failures without changing
-application/runtime behavior or giving Jev merge, security, database,
-financial, lifecycle, required-test, model, subagent, or production authority.
+The completed Codex run was **Wide Documents — Managed Documents + Retained
+Artifacts Foundation**, starting from synchronized `main` SHA
+`288847309ddadf66d4d6d644f445ba04afa0ee97` on branch
+`codex/wide-documents-managed-artifacts`.
 
-It must read:
+The next implementation must read:
 
 - `AGENTS.md`;
 - `docs/AGENTS_BASELINE_20260909.md`;
 - `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
 - this handoff;
-- `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`;
-- the existing `scripts/developer-intelligence/typesafe/` implementation and
-  focused tests; and
-- the current Repository Intelligence / affected-test selectors that define
-  deterministic candidate and required-test authority.
+- `docs/HYDROQUALISENSE_UNIFIED_DOCUMENT_CENTER.md`;
+- the managed-document migration and focused tests;
+- the existing template, delivery, Storage, permission, and Documents routes.
 
-Bound the first v2B slice to shared payload-safe request primitives and
-diagnostics/effectiveness recording, deterministic clean-baseline task seeding,
-generic budget-aware ordered chunking with per-chunk fallback, context reranking
-integration, broad test-triage chunking, and deterministic must-keep/required
-unions. Preserve raw multi-axis outputs where introduced, but defer autonomous
-model/subagent routing, cascades, confidence escalation, visual-QA decisions,
-and application/runtime Jev. Remaining UX-W5, provider, workforce, Worker
-Registration, Wide Documents, and 3D work stay outside this run.
+The completed boundary is limited to standalone managed-document identity,
+immutable version history, private upload/retrieval, narrow Documents
+permissions, retained artifact registration, representative issued-document
+registration, dynamic company-template retention, and safe-demo browse/detail/
+upload-review evidence. Do not infer broad generator aggregation, authenticated
+HSC/render certification, hosted QA, provider readiness, Worker Registration,
+Finance UX-W6, custom fields, or production authorization from this structural
+foundation.
 
-The recorded product sequence remains:
+The exact next product follow-up is the remaining Wide Documents aggregation /
+authenticated-certification work only if deliberately resumed; otherwise the
+roadmap’s provider-readiness and paused Worker Registration gates remain in
+force. Do not revive the stale Jev-v2B implementation wording above.
 
-1. UX-W2 — Projects: implemented as the card-first portfolio, Project Details worksheet, Cost Codes worksheet, and optional compact list described above.
-2. UX-W3 — Supplier invoice review: implemented as source image/PDF on top, extracted header/vendor/line/totals worksheet underneath, with extracted/manual/calculated/protected/error states and existing Vendor/project/PO/verification/Expense authority preserved.
-3. UX-W4 — RFQ, Purchase Order, Client Billing, and Expenses direct DRAFT worksheet editors: implemented.
-4. UX-W4.5A — app-wide screenshot investigation and visual triage: complete for the reviewed SHA; report committed in the audit structure.
-5. UX-W4.5B — shared responsive shell/editor foundations: implemented for the bounded consumers, with qualified local visual evidence and explicit SMS/browser-harness limitations.
-6. UX-W4.5C — task-first hierarchy plus bounded workspace-width/visual grammar: implemented for the inspected/touched surfaces.
-7. UX-W4.5D — worksheet + Supplier Invoice clarity: implemented at application-bearing SHA `4d5b158acec8427fd684a64513df05a00fe6ba71`, with source-first evidence, compact status/actions, quiet ordinary provenance, and post-worksheet blocking review.
-8. UX-W4.5E — app-wide visual consistency and professional-finish certification: implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; visual gate closed for the recorded scope.
-9. UX-W5 remaining operational bulk-data editors: UX-W5A Project Materials/Equipment is implemented; the next domain requires its own bounded handoff and remains subject to product/provider sequencing gates.
-10. Resume remaining Finance/domain Excel rollouts only after the corrected interaction grammar is proven.
+Efficiency rules remain strict: pull current `main` first, record the SHA once,
+use one bounded context packet when useful, zero subagents by default, focused
+tests while editing, one final affected-test pass, and no ritual full suite.
+Browser/DB/provider validation remains conditional on the actual final diff.
 
-Efficiency rules remain strict: pull current main first, record the SHA once, one bounded context packet, zero subagents by default (maximum two only for independent bounded work), focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.
-
-No production mutation is authorized by this documentation change.
+No production mutation is authorized by this handoff.
 
 ## 2026-09-21 Jev Workflow Intelligence v2A completion
 
@@ -1344,7 +1412,8 @@ continuation boundary are in `docs/repository-intelligence/JEV_WORKFLOW_INTELLIG
 
 This handoff now records the v2B payload-safe foundation below. Wave 4D
 provider/readiness evidence may proceed opportunistically when safe external
-prerequisites exist; separately bounded remaining UX-W5 work stays queued.
+prerequisites exist; separately bounded remaining UX-W5 work stays queued and
+the managed Documents foundation is recorded above.
 Worker Registration remains paused; no product/runtime/database/provider
 change is authorized by this developer-tooling run.
 

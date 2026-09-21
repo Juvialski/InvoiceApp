@@ -1,6 +1,6 @@
 # HydroQualiSense Unified Document Center
 
-Status: **ACTIVE — Slice 1 implemented; dynamic company-template generation is the current Slice 2 implementation; retained managed artifacts remain deferred**
+Status: **ACTIVE — Slice 1 and dynamic company-template generation implemented; managed Documents + retained artifact foundation implemented for the recorded scope; broader artifact aggregation remains deferred**
 
 Date: **2026-09-14**
 
@@ -96,14 +96,42 @@ Implemented on the Wide Documents feature branch:
 - Settings -> Documents template link;
 - preserved Email/SMS, owner-route, preview, delivery-history, template capability, and source-ownership contracts.
 
+## Managed Documents + retained artifacts foundation — implemented 2026-09-21
+
+The first durable Documents-owned model now covers genuinely standalone company
+files without creating a parallel business-record authority:
+
+- `managed_documents` stores company-scoped identity, title, description,
+  bounded category/origin, optional same-company project context, active/archive
+  lifecycle, current-version pointer, and creator timestamps;
+- `managed_document_versions` stores immutable filename, MIME, size, SHA-256,
+  provider/bucket/path, uploader, template relationship when present, and
+  ordered version history;
+- `document_artifact_registrations` points retained generated files back to a
+  source domain/type/record reference and template provenance while the managed
+  version owns only the immutable file reference;
+- `documents.read` and `documents.manage` remain narrow permission boundaries;
+  generated artifacts additionally require the source-domain permission;
+- `company-managed-documents` is private and company-prefixed. Server-side
+  RPCs perform actor/company/project checks, append-only version insertion,
+  stale archive rejection, and artifact registration. Existing issued
+  Purchase Order/Client Invoice generation registers generic artifact metadata
+  through `document_generation_evidence` without replacing that authoritative
+  evidence or delivery history;
+- `/documents` now includes managed/artifact browse rows, document-oriented
+  upload review, detail/version history, authorized short-lived retrieval, and
+  deliberate version/archive actions. Safe demo fixtures cover standalone
+  warranty history and a generated Purchase Order artifact.
+
+This boundary does not migrate every existing generator, does not expose raw
+Storage paths, and does not copy financial calculations/statuses/balances into
+Documents.
+
 ## Deferred boundary
 
 The following remain unfinished and must not be represented as available merely because the shell exists:
 
-- retained managed-document records and generated-artifact history;
 - final authenticated certification of the dynamic HSC fixture workflows and source-vs-generated render evidence;
-- general company uploads and version history;
-- generic retained generated-artifact index and authorized retrieval;
 - broader project/engineering/payroll/report artifact aggregation;
 - optional handover package grouping;
 - Wave 4D SMS/provider completion;
@@ -111,4 +139,14 @@ The following remain unfinished and must not be represented as available merely 
 
 ## Validation truth
 
-Slice 1’s shell evidence remains valid. The current Slice 2 focused document/template suite passes 68/68 tests; TypeScript lint and production build pass; Workflow Map consistency passes; and the demo browser matrix passes 82/82 scenarios across desktop, tablet, and mobile with zero overflow, console errors, page errors, or failed requests. Authenticated Local-QA records 59/59 route/responsive scenarios with no overflow/errors, but its legacy functional template checks still target the former Settings mount and therefore record 7/9 functional workflows; the new dynamic HSC workflow is not claimed as authenticated QA-certified because the required migration was not promoted to that QA target. Supabase clean replay/pgTAP/upgrade runtime validation is blocked because the local Docker daemon is unavailable. The bundled LibreOffice DOCX renderer is also unavailable, so package/anchor/fidelity tests pass while converter-backed visual certification remains unclaimed. The affected selector is 223/224 because one unrelated pre-existing Expenses source-contract assertion fails; the repository-wide suite remains a separate non-green background signal.
+Slice 1 and Slice 2 evidence remains valid. Final review of the managed
+foundation strengthened the authority boundary so private Storage reads delegate
+to managed metadata/source-domain authorization, Purchase Order and Client
+Invoice provenance must resolve to same-company source records, macro-enabled
+XLSM uploads are rejected, and managed-object keys must match the exact canonical
+shape. The protected PR merge gate covers clean migration replay, pgTAP,
+historical upgrade fixtures, the dedicated managed runtime
+RLS/RPC/stale-write/concurrency test, focused and affected application tests,
+lint/typecheck/build, Workflow Map consistency, and hosted Demo Visual QA with
+managed detail/version-history and generated-artifact read-only provenance
+evidence. Provider certification and production validation remain unclaimed.

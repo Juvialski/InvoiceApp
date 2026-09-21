@@ -203,6 +203,8 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
       "Google Sign-In is used for identity only; the product does not connect to or scan a Gmail mailbox.",
       "Compose ordinary email or send an eligible issued Purchase Order or Client Invoice through the server-side Brevo delivery path and shared permission-aware history.",
       "Browse permission-approved document records through Library, start supported workflows from Create, preview issued documents using the same generated PDF artifact used for download when available, and return to the authoritative owning workflow.",
+      "Upload standalone company documents with a reviewed title/type/project context, retain immutable file versions, and open authorized detail/history views.",
+      "Retained generated artifacts show their source record and template provenance without replacing the owning Purchase Order, Client Invoice, report, or delivery history.",
       "SMS status is visible in the workspace but remains not configured until an approved provider is connected and tested.",
     ],
     sortOrder: 120,

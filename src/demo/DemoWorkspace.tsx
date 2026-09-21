@@ -36,6 +36,7 @@ import { calculateLineReceiptProgress } from "../utils/purchaseOrderReceipts.ts"
 import { supplierExpenseProjectProjection } from "../utils/supplierInvoiceCostOwnership.ts";
 import { buildSupplierInvoiceSettlementProjections } from "../lib/supplierInvoiceSettlement.ts";
 import { applyLocalChecks } from "../utils/invoiceLogic.ts";
+import { DEMO_MANAGED_DOCUMENT_DETAILS, DEMO_MANAGED_DOCUMENTS } from "./data/managedDocuments.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "documents", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -635,6 +636,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             projectSummaries={summaries}
             projectDashboard={projectDashboard}
             companyId={DEMO_COMPANY_ID}
+            managedDocuments={DEMO_MANAGED_DOCUMENTS}
+            managedDocumentDetails={DEMO_MANAGED_DOCUMENT_DETAILS}
             attentionToday={data.anchorDate}
             engineeringDocumentsCanRead={true}
             engineeringDocumentsCanCreate={false}

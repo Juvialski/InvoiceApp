@@ -19,6 +19,8 @@ export const PERMISSION_KEYS = {
   invoicesVerify: "invoices.verify",
   invoicesExtract: "invoices.extract",
   documentSend: "documents.send",
+  documentsRead: "documents.read",
+  documentsManage: "documents.manage",
   vendorsRead: "vendors.read",
   vendorsManage: "vendors.manage",
   procurementRead: "procurement.read",
@@ -98,6 +100,8 @@ export const ROUTE_PERMISSION_REQUIREMENTS: Readonly<Partial<Record<AppTab, Perm
 export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, readonly PermissionKey[]>>> = Object.freeze({
   reports: [PERMISSION_KEYS.reportsPayrollRead],
   documents: [
+    PERMISSION_KEYS.documentsRead,
+    PERMISSION_KEYS.documentsManage,
     PERMISSION_KEYS.projectsRead,
     PERMISSION_KEYS.procurementRead,
     PERMISSION_KEYS.expensesRead,
@@ -189,6 +193,8 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.invoicesVerify]: "Invoice verification",
     [PERMISSION_KEYS.invoicesExtract]: "Invoice extraction",
     [PERMISSION_KEYS.documentSend]: "Issued-document sending",
+    [PERMISSION_KEYS.documentsRead]: "Standalone Documents viewing",
+    [PERMISSION_KEYS.documentsManage]: "Standalone Documents management",
     [PERMISSION_KEYS.vendorsRead]: "Vendors",
     [PERMISSION_KEYS.vendorsManage]: "Vendor management",
     [PERMISSION_KEYS.procurementRead]: "Procurement & Purchase Orders",
