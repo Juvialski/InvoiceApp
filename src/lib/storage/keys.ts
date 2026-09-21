@@ -223,7 +223,7 @@ export function parseStorageKey(rawPath: string): ParsedStorageKey {
     }
 
     // Managed document version: companies/<companyId>/managed-documents/<documentId>/versions/<versionId>/<fileName>
-    if (segments[2] === "managed-documents" && segments[4] === "versions" && segments.length >= 7) {
+    if (segments[2] === "managed-documents" && segments[4] === "versions" && segments.length === 7) {
       return {
         kind: "MANAGED_DOCUMENT_VERSION",
         isValid: true,
