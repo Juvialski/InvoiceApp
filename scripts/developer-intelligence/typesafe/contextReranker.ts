@@ -70,8 +70,11 @@ export async function rerankContextCandidates(options: ContextRerankOptions): Pr
   const stateCandidates = candidates.map((candidate, index) => {
     const questionId = `c${index}`;
     questions[questionId] = noul(
-      "Is this deterministic repository candidate materially relevant to the supplied task?",
-      { true: "Keep it in the bounded working context.", false: "It is less relevant than the other supplied candidates." },
+      `For the task in \`task\`, should \`candidates[${index}]\` be retained in the bounded working context because it is likely needed to understand, implement, validate, or safely review the task?`,
+      {
+        true: "Retain it: it directly contributes implementation context, validation/tests, a required contract or invariant, or a dependency needed for safe review.",
+        false: "Omit it: it is unrelated or only loosely topical and can be removed without losing task-critical implementation, validation, contract, or review context.",
+      },
     );
     return {
       questionId,
