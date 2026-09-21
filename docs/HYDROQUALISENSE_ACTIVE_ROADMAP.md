@@ -63,17 +63,22 @@ The active program is now:
 
 Canonical design/research contract: `docs/superpowers/specs/2026-09-21-ui-simplification-contextual-help-research.md`.
 
-### UX-S3A research complete — exact next boundary
+### UX-S3A baseline complete — UX-S3A2 Jev-browser validation next
 
-UX-S3A is complete for the current repository boundary at source SHA
+UX-S3A produced a useful baseline at source SHA
 `567013c8f0b851468cc8d0c4bbe1eb11d3fdf6cf`. The report is
 `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md`.
-It is documentation/evidence only: no Help Center, contextual-help primitive,
+It remains documentation/evidence only: no Help Center, contextual-help primitive,
 visible-copy mass simplification, workflow redesign, provider work, database
-change, or production operation was performed. The exact next implementation
-boundary is UX-S3B as described in the report: static Help Center/topic
-registry, route-aware Help action, accessible contextual-help primitive, deep
-links, and initial high-value topics.
+change, or production operation was performed.
+
+Review identified one evidence gap before UX-S3B: the intended deep multi-product
+interactive Chrome investigation was not demonstrated. The current Jev integration
+also could not operate the browser. The exact next boundary is therefore
+**UX-S3A2 — Jev-browser comparative validation**: evaluate an existing Jev browser
+integration using the actual comparator research task, deepen the read-only
+interactive inspection, and validate/refine the S3A findings. UX-S3B remains the
+provisional implementation boundary after S3A2 closes that gap.
 
 This override supersedes older wording that names workforce expansion, Finance UX-W6, custom fields, broad Documents expansion, or other net-new feature work as the next implementation phase.
 
@@ -82,7 +87,7 @@ This override supersedes older wording that names workforce expansion, Finance U
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
 3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment, UX-W5B Warehouse Item Master + Canonical Equipment Master, and UX-W5C Vendor Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
-4. **UX-S3A research/evidence is complete and UX-S3B Help Center/contextual-help foundation is the exact next product-hardening boundary.** The durable S3A report records direct comparator and safe-demo observations, the route/state classification matrix, workflow backlog, and expanded sanitized Jev diagnostics. No S3B implementation was started in this run.
+4. **UX-S3A baseline research/evidence is complete; UX-S3A2 Jev-browser comparative validation is the exact next hardening boundary before UX-S3B.** The durable S3A report records public comparator/help-surface observations, the safe-demo route/state classification matrix, workflow backlog, and sanitized Jev diagnostics. S3A2 must test an existing Jev browser integration on the real comparative research task and deepen/validate the interactive comparator evidence before Help Center implementation begins.
 5. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is complete for this implementation run.** The durable report records read-only authenticated X research, official/community source review, 48 controlled live Jev requests over sanitized metadata, historical calibration, and a prioritized v2B design. Jev remains advisory only; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
 6. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this run.** Shared preflight/diagnostic primitives, deterministic clean-baseline task seeding, budget-aware ordered chunking, context reranking, broad test triage, and deterministic must-keep/required-test unions are now integrated. Remaining v2B experimental slices stay deferred; Jev remains advisory-only and no application/runtime Jev or automatic model/subagent routing was added.
 7. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed opportunistically whenever safe credentials/device/runtime exist without displacing the bounded UX-W5 slices.
