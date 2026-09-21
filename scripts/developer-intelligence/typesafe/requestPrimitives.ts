@@ -57,18 +57,27 @@ function aliasAuthoritySegment(key: string): string | undefined {
   return aliased;
 }
 
-function transportKeyFor(key: string, index: number, used: ReadonlySet<string>): { readonly key?: string; readonly reason?: TypeSafePreflightReason } {
-  if (!SAFE_TRANSPORT_KEY_PATTERN.test(key)) return { reason: "invalid-question-key" };
-  if (!isSensitiveTypeSafeTransportKey(key)) return { key };
-  const aliased = aliasAuthoritySegment(key);
-  if (!aliased) return { reason: "sensitive-question-key" };
-  let candidate = aliased;
+function uniqueTransportKey(baseKey: string, used: ReadonlySet<string>): string | undefined {
+  let candidate = baseKey;
   let suffix = 1;
   while (used.has(candidate)) {
-    candidate = `${aliased}_${suffix}`;
+    candidate = `${baseKey}_${suffix}`;
     suffix += 1;
+    if (!SAFE_TRANSPORT_KEY_PATTERN.test(candidate) || isSensitiveTypeSafeTransportKey(candidate)) return undefined;
   }
-  return { key: candidate };
+  return candidate;
+}
+
+function transportKeyFor(key: string, used: ReadonlySet<string>): { readonly key?: string; readonly reason?: TypeSafePreflightReason } {
+  if (!SAFE_TRANSPORT_KEY_PATTERN.test(key)) return { reason: "invalid-question-key" };
+  if (!isSensitiveTypeSafeTransportKey(key)) {
+    const unique = uniqueTransportKey(key, used);
+    return unique ? { key: unique } : { reason: "invalid-question-key" };
+  }
+  const aliased = aliasAuthoritySegment(key);
+  if (!aliased) return { reason: "sensitive-question-key" };
+  const unique = uniqueTransportKey(aliased, used);
+  return unique ? { key: unique } : { reason: "invalid-question-key" };
 }
 
 function prepareQuestions(questions: Questions | Record<string, unknown>):
@@ -79,7 +88,7 @@ function prepareQuestions(questions: Questions | Record<string, unknown>):
   const aliases: Record<string, string> = {};
   const used = new Set<string>();
   for (const [key, value] of Object.entries(questions)) {
-    const result = transportKeyFor(key, used.size, used);
+    const result = transportKeyFor(key, used);
     if (!result.key) return { ok: false, reason: result.reason || "invalid-question-key" };
     prepared[result.key] = value;
     used.add(result.key);
