@@ -84,6 +84,24 @@ test("Vendor save plans normalize safe fields and preserve canonical identity me
   assert.equal("archivedAt" in (plan.entries[0]?.input || {}), false);
 });
 
+test("Vendor save plans preserve explicit clears for optional contact metadata", () => {
+  const row = vendorWorksheetRow(vendor);
+  row.email = null;
+  row.phone = null;
+  row.address = null;
+  row.defaultCategory = null;
+
+  const plan = buildVendorSavePlan([row], new Set([row.id]));
+
+  assert.equal(plan.valid, true);
+  assert.equal(plan.entries[0]?.input.email, null);
+  assert.equal(plan.entries[0]?.input.phone, null);
+  assert.equal(plan.entries[0]?.input.address, null);
+  assert.equal(plan.entries[0]?.input.defaultCategory, null);
+  assert.equal(plan.entries[0]?.input.taxId, vendor.taxId);
+  assert.equal(plan.entries[0]?.input.expectedUpdatedAt, vendor.updatedAt);
+});
+
 test("Vendor save plans validate required identity, email, currency, and exact duplicate conflicts", () => {
   const invalid = vendorWorksheetRow({ ...vendor, id: "draft-vendor-1", name: "", email: "not-an-email", defaultCurrency: "US" }, { isNew: true });
   const invalidPlan = buildVendorSavePlan([invalid], new Set([invalid.id]));
