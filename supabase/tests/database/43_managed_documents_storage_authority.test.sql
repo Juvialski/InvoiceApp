@@ -144,6 +144,14 @@ select is(
   false,
   'viewer does not inherit template administration read permission'
 );
+
+select throws_ok(
+  $select storage_path from public.managed_document_versions
+    where document_id = (select document_id from managed_storage_ids)$,
+  '42501',
+  null,
+  'authenticated clients cannot select raw managed Storage paths'
+);
 select is_empty(
   $$select 1 from public.managed_documents where id = (select document_id from managed_storage_ids)$$,
   'template-scoped managed artifact metadata stays hidden from a Documents-only viewer'
