@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5B IMPLEMENTED FOR RECORDED SCOPES / JEV WORKFLOW INTELLIGENCE V2A NEXT / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
+Status: **ACTIVE — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5B IMPLEMENTED FOR RECORDED SCOPES / JEV WORKFLOW INTELLIGENCE V2A RESEARCH COMPLETE / V2B NOT STARTED / REMAINING UX-W5 BOUNDED / 3D EXPLORER LAST / PROVIDER CERTIFICATION PENDING / WORKER REGISTRATION PAUSED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-21**
 
@@ -34,7 +34,7 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
 3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment worksheet register editing and UX-W5B Warehouse Item Master + Canonical Equipment Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
-4. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is the next explicitly reprioritized development run.** It is a developer-tooling research phase, not a dependency for later product work. It must include read-only authenticated X research, official/community source review, controlled live Jev experiments, calibration, and a prioritized v2B design; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
+4. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is complete for this implementation run.** The durable report records read-only authenticated X research, official/community source review, 48 controlled live Jev requests over sanitized metadata, historical calibration, and a prioritized v2B design. v2B implementation is not started and Jev remains advisory only; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
 5. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed whenever safe credentials/device/runtime exist without displacing the active explicitly reprioritized run.
 6. **Remaining UX-W5 product slices stay queued and bounded.** Resume them only after the Jev v2A research run or another explicit user reprioritization; this Jev work is not a product dependency.
 7. **Resume Wide Documents remaining managed slices**, then **Worker Registration** only after Wave 4D is genuinely complete and explicitly resumed. Site Attendance follows; Face Recognition still requires separate privacy/security design.
@@ -982,3 +982,27 @@ Preserve throughout remaining work:
 **PAUSED.**
 
 UI/UX Round 2 is complete. The current approved Email/SMS Reliability & UX slice and the broader Wave 4D gate must be genuinely complete before Worker Registration. Worker Registration still requires explicit user resumption.
+
+## 2026-09-21 Jev Workflow Intelligence v2A — research/design complete
+
+The bounded v2A developer-tooling research run is complete. The durable report
+is `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
+It records official TypeSafe/SDK/evaluation sources, read-only X findings,
+reviewed community source patterns, 48 live Jev requests over sanitized
+synthetic/historical metadata, and a ten-commit labeled replay.
+
+The research confirmed the UX-W5B `0/0` clean-baseline context result, the
+current 64-candidate fallback, the 20,000-character sanitizer boundary, and
+the 75-test `sanitizer-rejected` path. Isolated offline helpers/tests now
+measure deterministic chunk coverage, multi-axis question shape, protected
+candidate retention, and historical recall separately from context reduction.
+The highest-value v2B candidates are deterministic task seeding,
+payload-aware chunking/tournament selection, multi-axis advisory context
+review, chunked test triage, mid-diff adjacency, and criterion-level evidence
+checking. No v2B behavior was integrated into normal context/test/CI commands,
+and no customer/runtime/database/provider contract changed.
+
+V2B implementation remains a separate future developer-tooling handoff. The
+next unfinished roadmap work is remaining Wave 4D provider/readiness evidence
+when safe external prerequisites exist, with remaining UX-W5 domains still
+queued and separately bounded. Worker Registration remains paused.
