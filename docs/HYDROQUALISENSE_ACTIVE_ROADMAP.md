@@ -816,16 +816,15 @@ Order artifact. The interaction remains document-oriented; no universal grid,
 custom-field platform, financial authority, or broad generator migration was
 introduced.
 
-Validation evidence for this phase: static migration checks **117/117**;
-historical upgrade fixtures **3/3**; managed runtime RLS/RPC/concurrency and
-artifact-registration test **1/1**; focused managed/UI/router/client/storage
-tests pass; deterministic affected selection **801/802 pass, 0 fail, 1 skip**
-from **128/362** files with database fallback disabled; ESLint/TypeScript,
-production build, and Workflow Map consistency pass. Manual local safe-demo
-inspection covered desktop and phone Documents browse/detail/upload-review
-states. Automated Demo Visual QA was not run because this clean worktree lacks
-the QA-only `playwright` package. Hosted QA, provider certification, and
-production validation remain unclaimed.
+Final PR review added source-aware private Storage authorization, same-company
+Purchase Order/Client Invoice provenance validation, XLSM rejection, exact
+managed-key parsing, exclusive managed-detail routing, hosted managed-detail
+visual scenarios, and a protected-CI invocation of the dedicated two-connection
+runtime RLS/stale-write/concurrency contract. The merge gate now covers clean
+migration replay, pgTAP, historical upgrades, the dedicated managed runtime
+contract, focused application tests, deterministic affected tests,
+lint/typecheck, production build, Workflow Map consistency, and hosted Demo
+Visual QA. Provider certification and production promotion remain unclaimed.
 
 Jev remained advisory: clean context was deterministic **0/0** with
 `no-candidates`; live test triage retained **135/135** required tests in **3**
