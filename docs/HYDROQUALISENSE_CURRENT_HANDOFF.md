@@ -171,14 +171,17 @@ console errors, page errors, failed requests, or horizontal-overflow failures.
 Focused UX-W4.5E coverage passed **28/28**; the integrated affected selector
 passed **146/146** with database fallback disabled; lint/typecheck and build
 passed. The lead agent directly inspected representative changed surfaces at
-desktop, constrained laptop, tablet, and phone sizes. Valid RFI/Submittal
-detail fixtures were confirmed, and preview loading/action placement was
-inspected on desktop and phone. The durable report and promoted screenshots
+desktop, constrained laptop, tablet, and phone sizes. The RFI/Submittal
+query-string scenarios were confirmed as explicit missing-record recovery
+states; populated RFI/Submittal detail layouts remain a P2 evidence gap. Preview
+loading/action placement was inspected on desktop and phone. The durable report and promoted screenshots
 are `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md` and
 `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`.
 
 UX-W4.5E closes the remaining P0/P1/shared-root-cause visual gate for this
-application boundary. **UX-W5 is unblocked from the visual gate**, but no
+application boundary. UX45A-012 remains partial/non-blocking because the safe-demo
+dataset does not certify populated RFI/Submittal detail layouts. **UX-W5 is
+unblocked from the visual gate**, but no
 UX-W5 code was started here; its operational bulk-data scope requires a new
 bounded handoff and remains subject to the separate Wave 4D/provider and
 product-sequencing gates. Local/demo evidence remains non-hosted and

@@ -420,9 +420,10 @@ reviewed application behavior.
 - The change is presentation-only. No financial, lifecycle, permission,
   company-isolation, provenance, history, concurrency, workbook, provider, or
   database contract changed.
-- Existing deterministic demo RFI/Submittal detail fixtures now render valid
-  populated states at `demo-rfi-wh-001` and `demo-sub-wh-014` / round
-  `demo-round-wh-014-2`; no fixture or production data behavior was changed.
+- The final safe-demo catalog still has no RFI/Submittal records for the warehouse
+  project. The deterministic query-string scenarios now explicitly verify the
+  missing-record recovery states; no demo fixture or production data behavior
+  was added in this presentation-only closeout.
 
 ### Final visual evidence inspected
 
@@ -437,7 +438,7 @@ including the promoted evidence in
 | --- | --- | --- |
 | Shared title/filter/metric grammar: Projects, Reports, Email/SMS | Projects desktop/laptop/tablet; Reports desktop; Email/SMS phone | **ACCEPTABLE** — hierarchy is consistent, primary work remains first, and tighter shared chrome does not hide actions or semantics. |
 | Purchase Order document preview loading state | Desktop `1440x900`, phone `390x844` | **ACCEPTABLE** — the preview state is deliberately compact; delivery history and download/send actions remain in the visible modal flow. |
-| RFI detail and Submittal detail | Desktop `1440x900` | **ACCEPTABLE** — deterministic safe fixtures render the intended populated detail workflows. |
+| RFI/Submittal missing-record recovery | Desktop `1440x900` | **ACCEPTABLE AS RECOVERY EVIDENCE ONLY** — unavailable states are explicit and return-to-register actions remain reachable; populated detail layouts are not certified by this safe-demo dataset. |
 | Existing Projects card-first and Supplier Invoice source-first workflows | Desktop, laptop, tablet, phone evidence from final catalog plus promoted prior qualified states | **PRESERVED** — no regression to primary card/source ordering or worksheet authority was observed. |
 
 ### W4.5A finding dispositions after UX-W4.5E
@@ -455,7 +456,7 @@ including the promoted evidence in
 | UX45A-009 | **PARTIAL / accepted as-is for long authoritative registers** | Final catalog remains scanable and responsive; deeper pagination/tab restructuring would be a separate domain workflow change, outside this presentation closeout. |
 | UX45A-010 | **RESOLVED for bounded worksheet consumers** | Final full run passed responsive browser assertions; phone/tablet fallbacks remain in place. |
 | UX45A-011 | **RESOLVED for applicable document preview states** | Loading/unavailable/error frame sizing is compact and directly inspected on desktop/phone. Rendered PDF page fidelity remains covered by the existing document/PDF contracts. |
-| UX45A-012 | **RESOLVED for deterministic RFI/Submittal detail capture; PARTIAL for stale-invoice recovery by design** | Final fixtures render populated RFI/Submittal details; stale missing-record recovery remains a deliberate recovery state, not a fabricated detail. |
+| UX45A-012 | **PARTIAL / non-blocking** | RFI/Submittal safe-demo scenarios now verify deterministic missing-record recovery, but populated detail capture remains an evidence gap; stale missing-record recovery likewise remains a deliberate recovery state rather than fabricated detail evidence. |
 | UX45A-013 | **RESOLVED for shared PageHeader/metric/section grammar; accepted as-is for domain-specific status labels** | Ordinary page hierarchy is less uppercase-heavy and secondary copy is restrained without removing meaningful status vocabulary. |
 | UX45A-014 | **PARTIAL / non-blocking** | Shared page/header and worksheet markers now expose consistent grouping; rare domain lifecycle controls remain purpose-built by design and were not converted into generic cells. |
 
@@ -481,7 +482,9 @@ including the promoted evidence in
 ### UX-W4.5E gate result
 
 The remaining P0/P1/shared-root-cause visual blockers are closed for the
-inspected application boundary. UX-W5 is **unblocked from the visual gate**,
+inspected application boundary. The recorded UX45A-012 populated-detail evidence
+gap is P2/non-blocking and is not treated as visual certification of those detail
+layouts. UX-W5 is **unblocked from the visual gate**,
 but its operational bulk-data scope remains subject to the separate product
 sequence, Wave 4D/provider prerequisites, and a new bounded implementation
 handoff. No UX-W5 code was started in this closeout.

@@ -618,6 +618,26 @@ const verifySettingsScreen: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyRfiMissingRecordRecovery: QaScenarioAction = async (page) => {
+  await page.locator("text=RFI not available").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const unavailable = await page.locator("text=RFI not available").count();
+  const returnToRegister = await page.getByRole("button", { name: "Return to register", exact: true }).count();
+  return [
+    { id: "rfi-missing-record-recovery-visible", passed: unavailable > 0, details: `RFI unavailable labels: ${unavailable}` },
+    { id: "rfi-missing-record-return-visible", passed: returnToRegister === 1, details: `Return-to-register controls: ${returnToRegister}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifySubmittalMissingRecordRecovery: QaScenarioAction = async (page) => {
+  await page.locator("text=Submittal not available").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const unavailable = await page.locator("text=Submittal not available").count();
+  const returnToRegister = await page.getByRole("button", { name: "Return to register", exact: true }).count();
+  return [
+    { id: "submittal-missing-record-recovery-visible", passed: unavailable > 0, details: `Submittal unavailable labels: ${unavailable}` },
+    { id: "submittal-missing-record-return-visible", passed: returnToRegister === 1, details: `Return-to-register controls: ${returnToRegister}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 function route(id: string, canonicalPath: string) {
   return { id, canonicalPath } as const;
 }
@@ -664,9 +684,9 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "exact document handoff to Email / SMS compose", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsToEmailHandoff }),
   defineQaScenario({ feature: "engineering-documents", route: route("engineering-documents", "/documents"), path: "/demo/app/documents", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "rfis", route: route("rfis", "/projects/:projectId/rfis"), path: `${PROJECT_ROOT}/rfis`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
-  defineQaScenario({ feature: "rfis", route: route("rfi-detail", "/projects/:projectId/rfis?rfiId=:rfiId"), path: `${PROJECT_ROOT}/rfis?rfiId=demo-rfi-wh-001`, interactionState: "RFI detail opened", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "rfis", route: route("rfi-detail", "/projects/:projectId/rfis?rfiId=:rfiId"), path: `${PROJECT_ROOT}/rfis?rfiId=demo-rfi-wh-001`, interactionState: "missing-record recovery rendered", viewport: QA_VIEWPORTS.desktop, action: verifyRfiMissingRecordRecovery }),
   defineQaScenario({ feature: "submittals", route: route("submittals", "/projects/:projectId/submittals"), path: `${PROJECT_ROOT}/submittals`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
-  defineQaScenario({ feature: "submittals", route: route("submittal-detail", "/projects/:projectId/submittals?submittalId=:submittalId&roundId=:roundId"), path: `${PROJECT_ROOT}/submittals?submittalId=demo-sub-wh-014&roundId=demo-round-wh-014-2`, interactionState: "Submittal detail and round opened", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "submittals", route: route("submittal-detail", "/projects/:projectId/submittals?submittalId=:submittalId&roundId=:roundId"), path: `${PROJECT_ROOT}/submittals?submittalId=demo-sub-wh-014&roundId=demo-round-wh-014-2`, interactionState: "missing-record recovery rendered", viewport: QA_VIEWPORTS.desktop, action: verifySubmittalMissingRecordRecovery }),
   defineQaScenario({ feature: "site-logs", route: route("site-logs", "/projects/:projectId/site-logs"), path: `${PROJECT_ROOT}/site-logs`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "site-logs", route: route("site-log-detail", "/projects/:projectId/site-logs?siteLogId=:siteLogId"), path: `${PROJECT_ROOT}/site-logs?siteLogId=demo-site-log-wh-concrete`, interactionState: "Site Log detail opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "site-logs", route: route("site-logs", "/projects/:projectId/site-logs"), path: `${PROJECT_ROOT}/site-logs`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.tablet }),

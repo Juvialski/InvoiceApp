@@ -250,11 +250,12 @@ not applicable. The durable visual record and exact disposition are in
 **UX-W4.5E — App-Wide Visual Consistency & Professional-Finish Certification**
 is implemented at application-bearing SHA
 `3eb2819edd4da3527e083882bf451c171c35b6a4`. The shared visual grammar,
-compact document-preview states, deterministic RFI/Submittal evidence, and
+compact document-preview states, explicit RFI/Submittal recovery-state evidence, and
 final safe-demo visual validation are recorded in
 `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md` and
 `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5 is now
 **unblocked from the visual gate**; no UX-W5 code was started in this phase.
+The safe-demo dataset does not currently certify populated RFI/Submittal detail layouts; that P2 evidence gap remains recorded without reopening the P0/P1/shared-root visual gate.
 
 ## 2026-09-20 UX-W1 — shared worksheet editing foundation implemented
 
