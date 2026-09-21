@@ -481,7 +481,7 @@ const verifyVendorMasterWorksheet: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Add row", exact: true }).click();
   const stagedRows = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-row-key]').count();
   await page.getByRole("button", { name: "Save Vendors", exact: true }).click();
-  await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-state="error"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-state="error"]:visible').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const validationErrors = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-state="error"]').count();
   const mobileFallback = await page.locator('[data-worksheet-responsive-surface="vendor-master"] [data-worksheet-mobile-fallback="true"]').count();
   return [
