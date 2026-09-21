@@ -134,9 +134,25 @@ test("Vendor worksheet exposes safe cells, protects lifecycle state, and never i
   assert.match(html, /data-worksheet-cell="vendor-1:name"[^>]*data-worksheet-editable="true"/);
   assert.match(html, /data-worksheet-cell="vendor-1:email"[^>]*data-worksheet-editable="true"/);
   assert.match(html, /data-worksheet-cell="vendor-1:defaultCurrency"[^>]*data-worksheet-editable="true"/);
+  assert.match(html, /data-worksheet-cell="vendor-1:taxId"[^>]*data-worksheet-protected="true"/);
   assert.match(html, /data-worksheet-cell="vendor-1:active"[^>]*data-worksheet-protected="true"/);
   assert.doesNotMatch(html, /data-worksheet-cell="vendor-1:(invoice|expense|purchase)/i);
   assert.doesNotMatch(html, /data-worksheet-cell="vendor-1:(companyId|normalizedName|archivedAt|updatedAt)"[^>]*data-worksheet-editable="true"/);
+});
+
+test("Vendor worksheet permits adding a missing tax identity but protects an established one", () => {
+  const withoutTax = { ...vendor, id: "vendor-no-tax", taxId: null };
+  const html = renderToStaticMarkup(
+    <VendorMasterWorksheetModal
+      vendors={[withoutTax]}
+      canManage
+      initialVendorId={withoutTax.id}
+      onClose={() => undefined}
+      onSave={async () => withoutTax}
+    />,
+  );
+
+  assert.match(html, /data-worksheet-cell="vendor-no-tax:taxId"[^>]*data-worksheet-editable="true"/);
 });
 
 test("Vendor worksheet keeps permission and draft identity boundaries explicit", () => {
