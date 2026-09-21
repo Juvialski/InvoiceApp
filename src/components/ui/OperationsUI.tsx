@@ -5,7 +5,7 @@ import { CheckCircle2, CircleAlert, Info, Loader2, RotateCcw, type LucideIcon } 
 
 export type StatusTone = "neutral" | "info" | "success" | "warning" | "danger";
 
-const surfaceClasses = "rounded-xl border border-slate-200 bg-white";
+const surfaceClasses = "rounded-lg border border-slate-200/90 bg-white";
 
 export function Surface({
   children,
@@ -63,21 +63,21 @@ export function StatusBadge({
 }
 
 export function PageHeader({ eyebrow, title, description, actions, className = "" }: { eyebrow?: string; title: string; description?: string; actions?: React.ReactNode; className?: string }) {
-  return <header className={`flex min-w-0 flex-col gap-4 border-b border-slate-200/80 pb-5 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+  return <header data-ui="page-header" className={`flex min-w-0 flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between ${className}`}>
     <div className="min-w-0">
-      {eyebrow && <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">{eyebrow}</p>}
-      <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-[1.75rem]">{title}</h1>
-      {description && <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>}
+      {eyebrow && <p className="text-[11px] font-semibold tracking-[0.12em] text-indigo-600">{eyebrow}</p>}
+      <h1 data-ui="page-header-title" className="mt-0.5 text-[1.65rem] font-extrabold tracking-tight text-slate-950 sm:text-[1.75rem]">{title}</h1>
+      {description && <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-500">{description}</p>}
     </div>
-    {actions && <div className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}</div>}
+    {actions && <div data-ui="page-header-actions" className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}</div>}
   </header>;
 }
 
 export function SectionHeader({ title, description, action, icon: Icon, className = "" }: { title: string; description?: string; action?: React.ReactNode; icon?: LucideIcon; className?: string }) {
-  return <div className="flex items-start justify-between gap-3">
+  return <div data-ui="section-header" className="flex items-start justify-between gap-3">
     <div className="min-w-0">
       <h2 className={`flex items-center gap-2 text-base font-bold text-slate-950 ${className}`}>{Icon && <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-600" />}{title}</h2>
-      {description && <p className="mt-1 text-xs sm:text-sm leading-5 text-slate-500">{description}</p>}
+      {description && <p className="mt-0.5 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">{description}</p>}
     </div>
     {action && <div className="shrink-0">{action}</div>}
   </div>;
@@ -109,7 +109,7 @@ export function FilterBar({
   className?: string;
 }) {
   return (
-    <section className={"rounded-xl border border-slate-200 bg-white p-3 sm:p-4 " + className} aria-label={ariaLabel}>
+    <section data-ui="filter-bar" className={"rounded-lg border border-slate-200/90 bg-white/90 p-2.5 sm:p-3 " + className} aria-label={ariaLabel}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
         <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">{children}</div>
         {(resultLabel || (hasActiveFilters && onReset)) && (
@@ -139,10 +139,10 @@ export function DisclosureSection({
   const [open, setOpen] = useState(defaultOpen);
   const contentId = "disclosure-" + useId().replace(/:/g, "");
   return (
-    <section className={"rounded-xl border border-slate-200 bg-white " + className}>
+    <section data-ui="disclosure-section" className={"rounded-lg border border-slate-200/90 bg-white " + className}>
       <button
         type="button"
-        className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        className="flex min-h-10 w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left"
         aria-expanded={open}
         aria-controls={contentId}
         onClick={() => setOpen((value) => !value)}
@@ -153,7 +153,7 @@ export function DisclosureSection({
         </span>
         <span aria-hidden="true" className={"shrink-0 text-lg leading-none text-slate-400 transition-transform " + (open ? "rotate-180" : "")}>⌄</span>
       </button>
-      {open && <div id={contentId} className="border-t border-slate-100 p-4">{children}</div>}
+      {open && <div id={contentId} className="border-t border-slate-100 p-3.5">{children}</div>}
     </section>
   );
 }
@@ -181,16 +181,15 @@ export function MetricCard({
   const valueTitle = !loading ? valueText : undefined;
   const metricAriaLabel = loading ? `${label}: Loading` : valueText ? `${label}: ${valueText}` : label;
   return (
-    <article aria-label={metricAriaLabel} className={`flex min-w-0 h-full flex-col rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${emphasis ? "shadow-sm" : ""} ${className}`}>
+    <article data-ui="metric-card" aria-label={metricAriaLabel} className={`flex min-w-0 h-full flex-col rounded-lg border border-slate-200/90 bg-white p-3.5 sm:p-4 ${emphasis ? "border-indigo-100" : ""} ${className}`}>
       <div className="flex items-start justify-between gap-3">
-        {Icon && <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${metricClasses[tone]}`}><Icon aria-hidden="true" className="h-4 w-4" /></span>}
-        {emphasis && <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Key</span>}
+        {Icon && <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${metricClasses[tone]}`}><Icon aria-hidden="true" className="h-4 w-4" /></span>}
       </div>
-      <p className="mt-3 max-w-full break-words whitespace-normal text-lg font-black tabular-nums tracking-tight text-slate-950 sm:text-xl xl:text-2xl" title={valueTitle}>
+      <p className="mt-2 max-w-full break-words whitespace-normal text-lg font-black tabular-nums tracking-tight text-slate-950 sm:text-xl xl:text-[1.35rem]" title={valueTitle}>
         {loading ? <span className="inline-block h-6 w-16 animate-pulse rounded-md bg-slate-200 align-middle" /> : value}
       </p>
       <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 sm:text-sm">{label}</p>
-      {detail && <p className="mt-1 text-xs leading-5 text-slate-500 sm:min-h-5">{detail}</p>}
+      {detail && <p className="mt-0.5 text-xs leading-5 text-slate-500 sm:min-h-5">{detail}</p>}
     </article>
   );
 }
@@ -209,7 +208,7 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center ${className}`} role="region" aria-label={title}>
+    <div className={`rounded-lg border border-dashed border-slate-300 bg-white px-5 py-6 text-center ${className}`} role="region" aria-label={title}>
       <AstryxEmptyState
         title={title}
         description={description}
@@ -229,21 +228,21 @@ const noticeClasses: Record<Exclude<StatusTone, "neutral">, string> = {
 
 export function Notice({ children, tone = "info" }: { children: React.ReactNode; tone?: Exclude<StatusTone, "neutral"> }) {
   const Icon = tone === "success" ? CheckCircle2 : tone === "warning" || tone === "danger" ? CircleAlert : Info;
-  return <div className={`flex items-start gap-2.5 rounded-xl border px-4 py-3.5 text-sm leading-6 ${noticeClasses[tone]}`} role={tone === "danger" ? "alert" : "status"} aria-live="polite">
+  return <div className={`flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm leading-5 ${noticeClasses[tone]}`} role={tone === "danger" ? "alert" : "status"} aria-live="polite">
     <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
     <div>{children}</div>
   </div>;
 }
 
 export function LoadingState({ label = "Loading", className = "" }: { label?: string; className?: string }) {
-  return <div className={`flex min-h-24 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm font-semibold text-slate-500 ${className}`} role="status" aria-label={label}>
+  return <div className={`flex min-h-20 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-slate-500 ${className}`} role="status" aria-label={label}>
     <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-indigo-600" />
     <span>{label}</span>
   </div>;
 }
 
 export function ErrorState({ title = "We could not load this view", description = "Try again, or return to the previous screen if the problem continues.", onRetry, onReload, className = "" }: { title?: string; description?: string; onRetry?: () => void; onReload?: () => void; className?: string }) {
-  return <div className={`rounded-xl border border-rose-200 bg-rose-50 px-4 py-5 text-rose-950 ${className}`} role="alert">
+  return <div className={`rounded-lg border border-rose-200 bg-rose-50 px-4 py-4 text-rose-950 ${className}`} role="alert">
     <div className="flex items-start gap-2.5">
       <CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" />
       <div className="min-w-0">
