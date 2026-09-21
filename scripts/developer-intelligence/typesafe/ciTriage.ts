@@ -65,10 +65,10 @@ function fallbackResult(category: CiFailureCategory, diagnostic: TypeSafeDiagnos
 
 export async function classifyCiFailure(options: CiFailureTriageOptions): Promise<CiFailureTriageResult> {
   const initialSafe = sanitizeTypeSafePayload({ excerpt: options.excerpt, command: options.command || "" });
-  if (!initialSafe.ok) return fallbackResult("unknown", { durationMs: 0, fallbackReason: "sanitizer-rejected" });
+  if (!initialSafe.ok) return fallbackResult("unknown", markTypeSafeFallback({ durationMs: 0, checkpoint: "ci-triage", itemKind: "evidence" }, "sanitizer-rejected"));
   const boundedExcerpt = extractFailureContext(options.excerpt, { maxLines: 40, maxChars: 4_000, contextLines: 4 });
   const safe = sanitizeTypeSafePayload({ excerpt: boundedExcerpt, command: options.command || "" });
-  if (!safe.ok) return fallbackResult("unknown", { durationMs: 0, fallbackReason: "sanitizer-rejected" });
+  if (!safe.ok) return fallbackResult("unknown", markTypeSafeFallback({ durationMs: 0, checkpoint: "ci-triage", itemKind: "evidence" }, "sanitizer-rejected"));
   const category = deterministicCiFailureCategory(boundedExcerpt, options.command);
   const questions = {
     category: choice("Which closed category best explains this sanitized CI failure excerpt?", Object.fromEntries(CI_FAILURE_CATEGORIES.map((item) => [item, null]))),

@@ -86,7 +86,17 @@ function deterministicResult(input: CompletionCheckInput, diagnostic: TypeSafeDi
     advisoryObservations: observations,
     mergeDecision: "not-provided",
     fallback,
-    diagnostic: { ...diagnostic, candidateCount: expectedEvidence.length, selectedCount: presentEvidence.length },
+    diagnostic: {
+      ...diagnostic,
+      checkpoint: diagnostic.checkpoint || "completion",
+      itemKind: diagnostic.itemKind || "evidence",
+      candidateCount: expectedEvidence.length,
+      selectedCount: presentEvidence.length,
+      outcome: diagnostic.outcome || (fallback ? "deterministic-fallback" : "success"),
+      fallback,
+      fallbackCategory: diagnostic.fallbackCategory || (fallback ? "provider" : "none"),
+      sanitizerRejected: diagnostic.sanitizerRejected || false,
+    },
   };
 }
 
