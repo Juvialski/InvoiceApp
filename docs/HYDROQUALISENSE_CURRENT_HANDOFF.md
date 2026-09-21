@@ -657,23 +657,24 @@ and a generated Purchase Order artifact. No financial, procurement, payroll,
 inventory, engineering, delivery, custom-field, workforce, provider, or
 production authority was expanded.
 
-Validation for this handoff:
+Final PR review hardened the foundation further before merge: direct private
+Storage reads now resolve through the same managed-document/source-domain
+authority as metadata reads; generated Purchase Order and Client Invoice
+registrations must prove the referenced source record belongs to the deployment
+company; macro-enabled XLSM uploads are rejected; managed Storage keys require
+the exact canonical shape; conflicting managed-document/view query state is
+normalized to the detail route; and protected database CI now runs the dedicated
+two-connection managed-document RLS/concurrency contract.
 
-- static migration checks: **117/117**;
-- historical upgrade fixtures: **3/3**;
-- managed runtime RLS/RPC/concurrency/artifact registration: **1/1**;
-- focused managed Storage/router/client/workspace/generation coverage: passed;
-- deterministic affected selection: **801/802 pass, 0 fail, 1 skip**, from
-  **128/362** files with database fallback disabled;
-- `npm.cmd run lint` and `npm.cmd run build`: passed;
-- Workflow Map consistency: passed after adding `managedId` and the new
-  managed-document/artifact source contracts;
-- manual local safe-demo inspection: desktop and phone Documents browse,
-  managed detail/version history, generated-artifact provenance disclosure, and
-  upload-review validation;
-- automated Demo Visual QA: **not run** because the clean worktree does not
-  contain the QA-only `playwright` package;
-- hosted QA, provider certification, and production validation: not claimed.
+Merge-gate validation for this handoff is intentionally recorded by category
+rather than frozen intermediate counts: clean migration replay; pgTAP including
+managed Storage/source-authority regression coverage; historical upgrade
+fixtures; the dedicated runtime RLS/RPC/stale-write/concurrency contract;
+focused managed Storage/router/client/workspace/generation coverage;
+`test:affected:agent`; lint/typecheck; production build; Workflow Map
+consistency; and hosted Demo Visual QA with explicit managed detail/version
+history plus generated-artifact provenance/read-only scenarios. Provider
+certification and production promotion remain separate and unclaimed.
 
 TypeSafe/Jev diagnostics were advisory only. The clean-baseline context
 checkpoint had **0 deterministic candidates / 0 selected**, `no-candidates`
