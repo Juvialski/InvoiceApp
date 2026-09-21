@@ -289,7 +289,9 @@ test("representative worksheet consumers expose stable responsive surfaces and k
   assert.match(purchaseOrder, /data-worksheet-responsive-surface="purchase-order-draft"/);
   assert.match(supplierInvoice, /data-worksheet-responsive-surface="supplier-invoice"/);
   assert.match(supplierInvoice, /protectedWhen:/);
-  assert.match(supplierInvoice, /onSave=\{!readOnly && onUpdateInvoice \?/);
+  assert.match(supplierInvoice, /const handleSave = \(\) =>/);
+  assert.match(supplierInvoice, /data-testid="supplier-invoice-worksheet-action-bar"/);
+  assert.match(supplierInvoice, /showActionBar=\{false\}/);
 });
 
 test("desktop Projects filters reserve readable space for project search", () => {
