@@ -42,6 +42,7 @@ export interface WorksheetEditorProps<T> {
   canAddRow?: boolean;
   onRemoveRow?: (row: T, rowIndex: number) => void;
   canRemoveRow?: boolean | ((row: T, rowIndex: number) => boolean);
+  hideUnavailableRemoveRowAction?: boolean;
   toolbar?: React.ReactNode;
   actions?: React.ReactNode;
   showActionBar?: boolean;
@@ -131,6 +132,7 @@ export function WorksheetEditor<T>({
   canAddRow = Boolean(onAddRow),
   onRemoveRow,
   canRemoveRow = Boolean(onRemoveRow),
+  hideUnavailableRemoveRowAction = false,
   toolbar,
   actions,
   showActionBar = true,
@@ -600,7 +602,7 @@ export function WorksheetEditor<T>({
                       </td>
                     );
                   })}
-                  {onRemoveRow && <td role="gridcell" className="whitespace-nowrap px-3 py-2 text-right"><button type="button" data-worksheet-remove-row={currentRowKey} onClick={() => handleRemoveRow(row, rowIndex)} disabled={actionDisabled || !(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow)} className="inline-flex min-h-8 items-center rounded-md border border-rose-200 bg-white px-2 py-1 text-[10px] font-black text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40">Remove row {rowIndex + 1}</button></td>}
+                  {onRemoveRow && <td role="gridcell" className="whitespace-nowrap px-3 py-2 text-right">{(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow) || !hideUnavailableRemoveRowAction ? <button type="button" data-worksheet-remove-row={currentRowKey} onClick={() => handleRemoveRow(row, rowIndex)} disabled={actionDisabled || !(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow)} className="inline-flex min-h-8 items-center rounded-md border border-rose-200 bg-white px-2 py-1 text-[10px] font-black text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40">Remove row {rowIndex + 1}</button> : null}</td>}
                 </tr>
               );
             })}
@@ -655,7 +657,7 @@ export function WorksheetEditor<T>({
                     </div>
                   );
                 })}
-                {onRemoveRow && <button type="button" data-worksheet-remove-row={currentRowKey} onClick={() => handleRemoveRow(row, rowIndex)} disabled={actionDisabled || !(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow)} className="inline-flex min-h-9 items-center rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40">Remove row {rowIndex + 1}</button>}
+                {onRemoveRow && ((typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow) || !hideUnavailableRemoveRowAction) && <button type="button" data-worksheet-remove-row={currentRowKey} onClick={() => handleRemoveRow(row, rowIndex)} disabled={actionDisabled || !(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow)} className="inline-flex min-h-9 items-center rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40">Remove row {rowIndex + 1}</button>}
               </div>
             );
           })}

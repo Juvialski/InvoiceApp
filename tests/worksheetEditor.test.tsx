@@ -183,6 +183,22 @@ test("renders disabled row operations when the parent does not authorize them", 
   assert.match(html, /data-worksheet-remove-row="row-1"[^>]*\sdisabled=""(?:\s|>)/);
 });
 
+test("can hide unavailable row-removal controls without hiding authorized draft actions", () => {
+  const html = renderToStaticMarkup(
+    <WorksheetEditor
+      ariaLabel="Materials worksheet"
+      rows={rows}
+      columns={columns}
+      rowKey={(row) => row.id}
+      onRemoveRow={() => undefined}
+      canRemoveRow={() => false}
+      hideUnavailableRemoveRowAction
+    />,
+  );
+  assert.doesNotMatch(html, /data-worksheet-remove-row="row-1"/);
+  assert.doesNotMatch(html, /data-worksheet-remove-row="row-2"/);
+});
+
 test("exposes dirty state and editable focus semantics without relying on color", () => {
   const html = renderToStaticMarkup(
     <WorksheetEditor

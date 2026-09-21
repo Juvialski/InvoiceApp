@@ -187,6 +187,44 @@ bounded handoff and remains subject to the separate Wave 4D/provider and
 product-sequencing gates. Local/demo evidence remains non-hosted and
 non-production certification.
 
+### UX-W5A — Project Materials & Project Equipment worksheet register editing
+
+UX-W5A is implemented for the bounded Project Materials / Project Equipment
+slice. The Materials & Equipment register remains the normal visual browse,
+summary, reconciliation, procurement, warehouse, site-evidence, and canonical
+Equipment context surface. Its explicit Add/Edit entry points now open a wide,
+responsive shared `WorksheetEditor` modal for safe structured metadata.
+
+Project Material editable cells are material name/description, reference/code,
+category, planned quantity, unit, permitted warehouse-item link, project cost
+code, permitted PO-line link, register status, and notes. Project Equipment
+editable cells are asset/reference, equipment name, type/category, source,
+provider/vendor, project-register start/end dates, register status, and notes.
+Stable IDs, company/project ownership, warehouse on-hand and movement truth,
+PO receiving quantities, site observations, reconciliation, canonical Equipment
+Registry identity, assignment/transfer/return, lifecycle, history, and other
+derived/source facts remain protected or outside ordinary cells.
+
+The worksheet uses keyboard navigation, bounded paste, dirty/new row staging,
+draft-only row removal, validation/normalization, a phone fallback, and
+sequential dirty-row saves through the existing `onSaveMaterial` and
+`onSaveEquipment` callbacks. A failed row remains staged and visible; no
+parallel persistence or bulk transaction was introduced. This is a
+UI/application-only change with no migration, RLS/RPC, inventory, procurement,
+provider, or production contract change. Remaining UX-W5 domains are not
+started and Worker Registration remains paused.
+
+Final validation passed the focused worksheet/editor/demo group **52/52**,
+`npm.cmd run test:affected:agent` **544/544** with database fallback disabled,
+ESLint/TypeScript, and the production build. Targeted local Playwright browser
+captures were inspected for `/demo/app/projects/demo-project-warehouse/materials-equipment`
+at desktop `1440x1000`, constrained laptop `1366x768`, tablet `768x1024`, and
+phone `390x844`, covering the browse register, material create/edit/validation,
+equipment create/edit, phone fallback, and protected canonical-identity state.
+The full database/Supabase ladder was not applicable because no database
+contract changed; no Workflow Map source/generated contract changed. Local/demo
+browser evidence remains non-hosted and non-production certification.
+
 ### Earlier UI/UX and hosted-certification reference
 
 UI/UX Round 2 was implemented from `main` at:
@@ -1075,7 +1113,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
 4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ/PO + Client Billing + Expenses IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, Purchase Order draft editing, Client Billing draft editing, and direct Expense DRAFT editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
-5. **UX-W4.5A, UX-W4.5B, UX-W4.5C, UX-W4.5D, and UX-W4.5E are implemented for their recorded scopes.** The durable sanitized report remains `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`; the qualified UX-W4.5B visual record is `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`; and the UX-W4.5C/D/E visual evidence and finding dispositions are in the report's follow-up sections. UX-W4.5E is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; UX-W5 is now unblocked from the visual gate but requires a separate bounded handoff. Provider readiness, product sequencing, financial authority, and all other existing gates remain in force.
+5. **UX-W4.5A, UX-W4.5B, UX-W4.5C, UX-W4.5D, and UX-W4.5E are implemented for their recorded scopes.** The durable sanitized report remains `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`; the qualified UX-W4.5B visual record is `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`; and the UX-W4.5C/D/E visual evidence and finding dispositions are in the report's follow-up sections. UX-W4.5E is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`. UX-W5A Project Materials & Project Equipment worksheet register editing is now implemented for its bounded scope; remaining UX-W5 slices require separate bounded handoffs. Provider readiness, product sequencing, financial authority, and all other existing gates remain in force.
 6. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 7. **Resume Wide Documents remaining managed slices.**
 8. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
@@ -1087,7 +1125,7 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 ## Next implementation handoff instructions
 
 The next Codex implementation run should begin the next separately approved
-bounded product slice after UX-W4.5E from live repository state. UX-W4.5E has
+bounded product slice after UX-W5A from live repository state. UX-W4.5E has
 implemented the app-wide visual consistency and professional-finish closeout;
 preserve all existing Supplier Invoice, Projects, RFQ, Purchase Order, Client
 Billing, Expense, financial, security, history, and workbook authority
@@ -1105,12 +1143,13 @@ It must read:
 - `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md` when a later
   transaction editor touches supplier-derived monetary context.
 
-UX-W5 is now unblocked from the UX-W4.5 visual gate, but it still requires a
-new bounded implementation handoff and must not be expanded beyond its
-approved operational bulk-data scope. Do not treat this documentation update
-as authorization to begin Workers, Attendance, Time Entries, Project
-Assignments, Project Materials/Equipment, or new Finance rollout code in the
-current task.
+Remaining UX-W5 operational bulk-data editors are unblocked from the UX-W4.5
+visual gate, but each remaining domain still requires its own bounded
+implementation handoff and must not be expanded beyond the approved
+operational bulk-data scope. UX-W5A Project Materials/Equipment is complete;
+do not treat this documentation update as authorization to begin Workers,
+Attendance, Time Entries, Project Assignments, or new Finance rollout code in
+the current task.
 
 The immediate product sequence after UX-W2 is:
 
@@ -1122,7 +1161,7 @@ The immediate product sequence after UX-W2 is:
 6. UX-W4.5C — task-first hierarchy plus bounded workspace-width/visual grammar: implemented for the inspected/touched surfaces.
 7. UX-W4.5D — worksheet + Supplier Invoice clarity: implemented at application-bearing SHA `4d5b158acec8427fd684a64513df05a00fe6ba71`, with source-first evidence, compact status/actions, quiet ordinary provenance, and post-worksheet blocking review.
 8. UX-W4.5E — app-wide visual consistency and professional-finish certification: implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; visual gate closed for the recorded scope.
-9. UX-W5 — operational bulk-data editors: now unblocked from the visual gate, but requires its own bounded handoff and remains subject to product/provider sequencing gates.
+9. UX-W5 remaining operational bulk-data editors: UX-W5A Project Materials/Equipment is implemented; the next domain requires its own bounded handoff and remains subject to product/provider sequencing gates.
 10. Resume remaining Finance/domain Excel rollouts only after the corrected interaction grammar is proven.
 
 Efficiency rules remain strict: pull current main first, record the SHA once, one bounded context packet, zero subagents by default (maximum two only for independent bounded work), focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.
