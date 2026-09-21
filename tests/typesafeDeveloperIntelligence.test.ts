@@ -257,6 +257,8 @@ test("CI triage rejects secret-bearing excerpts before any live call", async () 
   });
   assert.equal(result.category, "unknown");
   assert.equal(result.diagnostic.fallbackReason, "sanitizer-rejected");
+  assert.equal(result.diagnostic.outcome, "sanitizer-rejected");
+  assert.equal(result.diagnostic.fallbackCategory, "sanitizer");
   assert.equal(calls, 0);
 });
 
@@ -286,6 +288,9 @@ test("completion evidence check remains advisory and reports missing documentati
   assert.equal(result.mergeDecision, "not-provided");
   assert.deepEqual(result.missingEvidence, ["documentation"]);
   assert.equal(result.fallback, false);
+  assert.equal(result.diagnostic.checkpoint, "completion");
+  assert.equal(result.diagnostic.outcome, "success");
+  assert.equal(result.diagnostic.fallbackCategory, "none");
 });
 
 test("RI candidate adaptation preserves deterministic primary and changed files", () => {

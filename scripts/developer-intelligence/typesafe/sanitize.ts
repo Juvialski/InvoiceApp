@@ -15,7 +15,7 @@ export interface RejectedTypeSafePayload {
 
 export type TypeSafePayloadSanitization = SanitizedTypeSafePayload | RejectedTypeSafePayload;
 
-const SENSITIVE_KEY_PATTERN = /(?:api[-_]?key|access[-_]?token|auth(?:orization)?|credential|connection(?:[-_]?string)?|password|private[-_]?key|secret|service[-_]?role|token)/i;
+export const SENSITIVE_KEY_PATTERN = /(?:api[-_]?key|access[-_]?token|auth(?:orization)?|credential|connection(?:[-_]?string)?|password|private[-_]?key|secret|service[-_]?role|token)/i;
 const SENSITIVE_PATH_PATTERN = /^(?:artifacts?|customer(?:[-_]?data)?|downloads?|logs?|production|qa|secrets?|sessions?|uploads?)(?:\/|$)|(?:^|\/)(?:credentials?|private[-_]?keys?)(?:\/|$)/i;
 const SENSITIVE_VALUE_PATTERNS: readonly RegExp[] = [
   /-----BEGIN [^-]*PRIVATE KEY-----/i,
@@ -39,6 +39,10 @@ function sensitivePath(value: string): boolean {
 
 function sensitiveValue(value: string): boolean {
   return SENSITIVE_VALUE_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+export function isSensitiveTypeSafeTransportKey(value: string): boolean {
+  return SENSITIVE_KEY_PATTERN.test(value);
 }
 
 function containsSensitiveValue(value: unknown, key?: string): boolean {

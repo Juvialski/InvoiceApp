@@ -3,6 +3,7 @@ import {
   invokeTypeSafe,
   type TypeSafeGateway,
 } from "./client.ts";
+import { markTypeSafeFallback } from "./diagnostics.ts";
 import type { TypeSafeDiagnostic } from "./contracts.ts";
 
 export const COMPLETION_EVIDENCE_CATEGORIES = [
@@ -85,7 +86,17 @@ function deterministicResult(input: CompletionCheckInput, diagnostic: TypeSafeDi
     advisoryObservations: observations,
     mergeDecision: "not-provided",
     fallback,
-    diagnostic: { ...diagnostic, candidateCount: expectedEvidence.length, selectedCount: presentEvidence.length },
+    diagnostic: {
+      ...diagnostic,
+      checkpoint: diagnostic.checkpoint || "completion",
+      itemKind: diagnostic.itemKind || "evidence",
+      candidateCount: expectedEvidence.length,
+      selectedCount: presentEvidence.length,
+      outcome: diagnostic.outcome || (fallback ? "deterministic-fallback" : "success"),
+      fallback,
+      fallbackCategory: diagnostic.fallbackCategory || (fallback ? "provider" : "none"),
+      sanitizerRejected: diagnostic.sanitizerRejected || false,
+    },
   };
 }
 
@@ -107,18 +118,18 @@ export async function checkCompletionEvidence(input: CompletionCheckInput): Prom
       },
       questions,
     },
-    { gateway: input.gateway, env: input.env, live: input.live, timeoutMs: input.timeoutMs, candidateCount: expectedEvidence.length },
+    { gateway: input.gateway, env: input.env, live: input.live, timeoutMs: input.timeoutMs, checkpoint: "completion", itemKind: "evidence", candidateCount: expectedEvidence.length, liveResultUsed: true },
   );
   if (!response.ok) return deterministicResult(input, response.diagnostic, true);
   const observations: CompletionAdvisoryObservation[] = [];
   for (const [index, category] of expectedEvidence.entries()) {
     const answer = response.value.answers?.[`c${index}`];
     if (typeof answer !== "object" || answer === null || Array.isArray(answer) || typeof (answer as { noul?: unknown }).noul !== "number") {
-      return deterministicResult(input, { ...response.diagnostic, fallbackReason: "invalid-response" }, true);
+      return deterministicResult(input, markTypeSafeFallback(response.diagnostic, "invalid-response"), true);
     }
     const noulValue = (answer as { noul: number }).noul;
     if (!Number.isFinite(noulValue) || noulValue < 0 || noulValue > 1) {
-      return deterministicResult(input, { ...response.diagnostic, fallbackReason: "invalid-response" }, true);
+      return deterministicResult(input, markTypeSafeFallback(response.diagnostic, "invalid-response"), true);
     }
     observations.push({ category, present: noulValue >= 0.5 });
   }

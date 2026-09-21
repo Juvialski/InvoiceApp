@@ -692,3 +692,90 @@ bundles, add database/provider behavior, or begin another product phase.
 - Browser QA, Docker/Supabase, migration, provider, hosted-QA, and production
   validation were not applicable to this documentation/developer-tooling-only
   diff.
+
+---
+
+# v2B implementation evidence (2026-09-21)
+
+The first payload-safe workflow-integration slice is implemented on feature
+branch `codex/jev-workflow-intelligence-v2b`, starting from synchronized `main`
+SHA `94fc6a181edbf6162d7aa2f498e06802caaf2b53`. The implementation commits are
+`97cd00c207c3a53a67d7c5104f5f2d55c8326ae2` and
+`671bc556fc7fce19b17e740e95cab9a6c07f973e`.
+
+## Implemented boundary
+
+The developer-only TypeSafe layer now provides:
+
+- exact serialized JSON-size estimation before dispatch;
+- question/transport-key validation and safe neutral aliases for known semantic
+  authority false positives, while preserving the full meaning in the typed
+  question instruction;
+- the existing sanitizer as the final boundary, including the unchanged
+  `20_000` character cap;
+- normalized `preflight-rejected`, `sanitizer-rejected`, `provider-failure`,
+  `success`, and deterministic-fallback diagnostics;
+- per-request/per-chunk sanitized effectiveness records carrying checkpoint,
+  counts, chunk metadata, model/usage, latency, fallback/rejection status,
+  protected-union counts, and live-result-use status;
+- deterministic task seeding from explicit paths, changed paths, tracked
+  developer-tooling scopes, and RI metadata, with explicit `no-candidates`
+  fallback;
+- reusable ordered serialized-budget chunking with duplicate-free coverage and
+  local fail-open chunk fallback;
+- context reranking with retained raw relevance, boundary, validation, and
+  review-risk axes plus deterministic must-keep union;
+- broad test triage that retains every deterministic required test while
+  exposing Jev only as advisory ordering.
+
+The deterministic candidate/test universe remains authoritative. Jev cannot
+invent paths, discard failed chunks, remove required tests, alter model or
+reasoning effort, authorize subagents, or decide merge, security, database,
+financial, lifecycle, provider, release, production, or visual-QA outcomes.
+
+## Focused acceptance evidence
+
+`tests/typesafeWorkflowIntelligenceV2B.test.ts` covers request preflight and
+aliasing, sanitizer-boundary preservation, stable budget chunking, clean
+baseline/explicit/unseedable task seeding, changed/must-keep retention, >64
+candidate context chunking, rejected-chunk retention, 75-test triage, required
+test retention, failure categories, and diagnostic secret exclusion. The
+v2A-focused tests were updated to assert chunked fallback rather than the old
+64-candidate all-or-nothing behavior.
+
+## Live sanitized Jev evidence
+
+The final stable-head context checkpoint reported RI status `fresh`, **28
+deterministic candidates**, **3 requests**, **14 selected candidates**, and
+**14 deterministic protected candidates**. Model `jev-1.13.0` reported
+**13,200 input / 2,008 output tokens** over **2,041 ms**, with
+`fallback=false`; every request had a serialized payload below the 20,000
+character cap. The candidate summaries and paths were repository metadata only.
+
+The synthetic 75-test checkpoint retained **75/75 required tests** in **2
+requests**, with no fallback; the real current deterministic affected set was
+**11 tests** and completed in **1 request**. An earlier working-tree synthetic
+75-test run recorded **9,173 input / 1,113 output tokens**, **1,802 ms**, and
+`fallback=false`. These are advisory workflow-usefulness measurements, not
+merge or release evidence.
+
+## Validation and deferred boundary
+
+- Focused v2A/developer-intelligence/v2B tests: **42/42**.
+- Focused ESLint: exit **0**.
+- TypeScript typecheck: exit **0**.
+- Final `npm.cmd run test:affected:agent`: **93/93** selected tests from
+  **11/355** deterministic files, database unaffected, fallback `no`.
+- Final `npm.cmd run lint` (ESLint + TypeScript): exit **0**.
+- Final live completion/evidence checkpoint: **1 request**, **653 ms**,
+  provider/API fallback (`api-error`); deterministic evidence still reported
+  implementation/tests/documentation present with no unresolved uncertainty.
+  It remained advisory-only with `mergeDecision: not-provided`.
+- Browser QA, Docker/Supabase, migrations, provider certification, hosted QA,
+  and production validation were intentionally skipped because this diff is
+  developer tooling only.
+
+This slice deliberately stops before mid-diff adjacency/missed-contract
+analysis, criterion-level completion/replay tooling, calibrated routing advice,
+confidence cascades, visual-QA judgment, application/runtime Jev, and any
+automatic merge/release/model/subagent behavior.

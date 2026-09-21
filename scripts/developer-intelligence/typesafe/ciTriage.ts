@@ -4,6 +4,7 @@ import {
   invokeTypeSafe,
   type TypeSafeGateway,
 } from "./client.ts";
+import { markTypeSafeFallback } from "./diagnostics.ts";
 import type { TypeSafeDiagnostic } from "./contracts.ts";
 import { sanitizeTypeSafePayload } from "./sanitize.ts";
 
@@ -64,23 +65,23 @@ function fallbackResult(category: CiFailureCategory, diagnostic: TypeSafeDiagnos
 
 export async function classifyCiFailure(options: CiFailureTriageOptions): Promise<CiFailureTriageResult> {
   const initialSafe = sanitizeTypeSafePayload({ excerpt: options.excerpt, command: options.command || "" });
-  if (!initialSafe.ok) return fallbackResult("unknown", { durationMs: 0, fallbackReason: "sanitizer-rejected" });
+  if (!initialSafe.ok) return fallbackResult("unknown", markTypeSafeFallback({ durationMs: 0, checkpoint: "ci-triage", itemKind: "evidence" }, "sanitizer-rejected"));
   const boundedExcerpt = extractFailureContext(options.excerpt, { maxLines: 40, maxChars: 4_000, contextLines: 4 });
   const safe = sanitizeTypeSafePayload({ excerpt: boundedExcerpt, command: options.command || "" });
-  if (!safe.ok) return fallbackResult("unknown", { durationMs: 0, fallbackReason: "sanitizer-rejected" });
+  if (!safe.ok) return fallbackResult("unknown", markTypeSafeFallback({ durationMs: 0, checkpoint: "ci-triage", itemKind: "evidence" }, "sanitizer-rejected"));
   const category = deterministicCiFailureCategory(boundedExcerpt, options.command);
   const questions = {
     category: choice("Which closed category best explains this sanitized CI failure excerpt?", Object.fromEntries(CI_FAILURE_CATEGORIES.map((item) => [item, null]))),
   };
   const response = await invokeTypeSafe<{ readonly answers?: { readonly category?: { readonly choice?: unknown; readonly confidence?: unknown } } }>(
     { state: { task: options.task || "Classify a CI failure", command: options.command || "", excerpt: boundedExcerpt }, questions },
-    { gateway: options.gateway, env: options.env, live: options.live, timeoutMs: options.timeoutMs, candidateCount: 1 },
+    { gateway: options.gateway, env: options.env, live: options.live, timeoutMs: options.timeoutMs, checkpoint: "ci-triage", itemKind: "evidence", candidateCount: 1, liveResultUsed: true },
   );
   if (!response.ok) return fallbackResult(category, response.diagnostic);
   const answer = response.value.answers?.category;
   const selected = answer?.choice;
   if (typeof selected !== "string" || !(CI_FAILURE_CATEGORIES as readonly string[]).includes(selected)) {
-    return fallbackResult(category, { ...response.diagnostic, fallbackReason: "invalid-response" });
+    return fallbackResult(category, markTypeSafeFallback(response.diagnostic, "invalid-response"));
   }
   return {
     advisoryOnly: true,
