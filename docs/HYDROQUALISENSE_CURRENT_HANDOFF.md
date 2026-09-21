@@ -197,6 +197,29 @@ Read this handoff with:
 
 Live repository state and `AGENTS.md` override remembered chat summaries.
 
+## 2026-09-21 TypeSafe Jev developer-intelligence pilot — constrained advisory-only
+
+This implementation run adds a developer-only, opt-in TypeSafe layer under
+`scripts/developer-intelligence/typesafe/` with the official
+`@typesafe-ai/sdk` 0.6.0. It sanitizes repository-derived metadata before any
+request, batches bounded judgments over deterministic RI-3 candidates, keeps
+`mustKeep` inputs, leaves `agent:context` and `test:affected:agent` unchanged,
+and falls back on missing keys, sanitizer rejection, API errors, timeouts, or
+invalid responses. The unified command is
+`npm.cmd run typesafe -- <doctor|context|test-triage|ci-triage|completion|benchmark>`;
+live requests require `--live`.
+
+The corrected candidate-bound benchmark supersedes the old 60% harness result:
+one live request took 1,668 ms, used 6,270 input and 764 output tokens, reduced
+40 to 18 candidates and 5,960 to 2,816 characters (52.75%), retained 100% of
+manually declared must-keep candidates, retained 90% of manually expected
+relevant candidates, and had zero fallback. The exact misses were
+`docs/README.md` and `scripts/ci-failure-context.ts`. Use remains advisory:
+deterministic authority stays with RI-3, Workflow Map, `test:affected:agent`,
+Codex review, and applicable validation evidence. No customer/runtime,
+database, provider, browser, QA, or production behavior changed, and the exact
+next product phase remains UX-W4.5E.
+
 ---
 
 ## UI/UX Round 2 — completed 2026-09-13

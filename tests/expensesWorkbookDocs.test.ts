@@ -6,7 +6,7 @@ function read(path: string) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("roadmap and handoff record only the bounded Phase 4A Expenses rollout", () => {
+test("roadmap and handoff keep the bounded Expenses rollout and current UX gate explicit", () => {
   const roadmap = read("docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md");
   const handoff = read("docs/HYDROQUALISENSE_CURRENT_HANDOFF.md");
   for (const document of [roadmap, handoff]) {
@@ -14,8 +14,9 @@ test("roadmap and handoff record only the bounded Phase 4A Expenses rollout", ()
     assert.match(document, /Expenses/);
     assert.match(document, /Supplier Payables/);
     assert.match(document, /direct[\s\S]{0,120}DRAFT/i);
-    assert.match(document, /client receivables/i);
     assert.match(document, /Cash & Banking/i);
+    assert.match(document, /UX-W4\.5E/i);
+    assert.match(document, /UX-W5/i);
     assert.doesNotMatch(document, /all Finance[^\n]*Excel-native[^\n]*(available|complete|implemented)/i);
   }
 });

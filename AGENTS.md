@@ -15,6 +15,23 @@ Before implementation, PR review, migration/release work, or preparing a Codex p
 
 Live repository state overrides remembered chat summaries and old prompts.
 
+## TypeSafe Jev developer-intelligence pilot — constrained advisory-only
+
+The 2026-09-21 TypeSafe Jev pilot is developer-only and remains advisory-only;
+automatic context filtering is not implementation authority. The corrected
+candidate-bound benchmark supersedes the old harness result: one batched live
+request measured 52.75% character reduction (40 to 18 candidates), 100%
+must-keep retention, 90% expected-relevant retention, 1,668 ms latency, 6,270
+input and 764 output tokens, and zero fallback. The exact misses were
+`docs/README.md` and `scripts/ci-failure-context.ts`. Jev may be used locally
+as an explicitly opt-in advisory ranking, CI-category, test-prioritization, or
+completion-evidence aid only when the deterministic candidate set, required
+tests, safety boundaries, and Codex lead review remain authoritative. It must
+not replace RI-3, `agent:context`, `test:affected:agent`,
+database/security/financial reasoning, browser/database evidence, exact-head
+CI, or merge safety. Normal CI and application/runtime bundles must not make
+TypeSafe requests.
+
 ## Codex implementation handoff fast-start — explicit 2026-09-11 override
 
 This section overrides the preserved baseline and efficiency-guide startup language **for a fresh Codex implementation handoff only**. It does not weaken migration, release, security, data-integrity, or merge safety requirements. ChatGPT PR review uses the proportional validation override later in this file.

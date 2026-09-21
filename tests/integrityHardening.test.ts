@@ -171,9 +171,10 @@ test("incomplete Dashboard, project Overview, and Reports suppress authoritative
 
 test("Viewer and read-only roles are not offered mutation workflows", () => {
   assert.match(projectsPage, /actions=\{canManage \?/);
-  assert.match(projectRegister, /canManage && project\.status !== "ARCHIVED"/);
+  assert.match(projectRegister, /\{canManage && \(/);
+  assert.match(projectRegister, /onOpenLifecycle\(project\)/);
   assert.match(expensesPage, /actions=\{canManage \?/);
-  assert.match(expensesPage, /\{canManage && <th/);
+  assert.match(expensesPage, /if \(!canManage\) return null;/);
   assert.match(invoicesRoute, /InvoiceDirectoryReadOnly/);
   assert.match(invoicesRoute, /readOnly=\{!canVerifySupplierInvoices\}/);
   assert.doesNotMatch(invoicesRoute, /canManageMailbox|canManageGmail/);
