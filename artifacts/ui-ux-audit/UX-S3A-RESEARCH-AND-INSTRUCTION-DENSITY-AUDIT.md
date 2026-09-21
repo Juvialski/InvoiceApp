@@ -1,12 +1,28 @@
 # UX-S3A — Comparative UI Research + Instruction-Density / Workflow-Clarity Audit
 
-Status: RESEARCH COMPLETE — S3B BOUNDARY READY
+Status: BASELINE RESEARCH COMPLETE — S3A2 JEV-BROWSER COMPARATIVE VALIDATION REQUIRED BEFORE S3B
 Reviewed source SHA: 567013c8f0b851468cc8d0c4bbe1eb11d3fdf6cf
 Branch: codex/ux-s3a-comparative-audit
 Reviewed: 2026-09-21
 Repository: Juvialski/InvoiceApp
 
 This is a research/evidence deliverable. It does not implement the Help Center, contextual-help components, visible-copy simplification, or workflow changes.
+
+## Continuation qualification
+
+This report is a useful first comparative/help-surface and HydroQualiSense audit baseline, but it does **not** close the intended deep interactive comparative investigation. During review, the user observed only Raken being opened in the visible Chrome session. The report's other comparator findings remain qualified public help/documentation observations, and the current Jev integration did not control the browser.
+
+Before UX-S3B implementation, run **UX-S3A2 — Jev-browser comparative validation**:
+
+- evaluate an existing Jev browser integration against Codex's browser/Chrome workflow rather than building a new browser system first;
+- use the actual comparative research task as the benchmark;
+- interactively inspect the mandatory comparator set where public access permits;
+- validate, refine, or reject this report's transferable patterns;
+- extend the evidence beyond help-center structure into observable navigation, information hierarchy, task flows, tables/edit states, contextual help, and responsive behavior where accessible;
+- keep all external activity read-only and independently verified by Codex;
+- preserve the current HydroQualiSense route audit as baseline evidence rather than repeating it without cause.
+
+UX-S3B is therefore **provisionally bounded but not yet authorized as the next implementation phase**. S3A2 must close the research-validation gap first.
 
 ## Evidence boundary
 
