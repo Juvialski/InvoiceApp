@@ -386,6 +386,34 @@ const verifyDocumentsCreateWorkspace: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyManagedDocumentDetail: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[data-managed-document-detail="true"]');
+  await waitForHeading(page, "Warranty Certificate · Quezon City Warehouse");
+  const detail = await page.locator('[data-managed-document-detail="true"]').count();
+  const history = await page.getByRole("heading", { name: "Version history", exact: true }).count();
+  const versionTwo = await page.locator("text=Version 2 · NGL-WHX-warranty-revised.pdf · Current").count();
+  const versionOne = await page.locator("text=Version 1 · NGL-WHX-warranty.pdf").count();
+  const openCurrent = await page.getByRole("button", { name: "Open current file", exact: true }).count();
+  return [
+    { id: "managed-document-detail-visible", passed: detail === 1, details: `managed detail surfaces: ${detail}` },
+    { id: "managed-document-version-history-visible", passed: history === 1 && versionTwo === 1 && versionOne === 1, details: `history/current/older rows: ${history}/${versionTwo}/${versionOne}` },
+    { id: "managed-document-current-file-action-visible", passed: openCurrent === 1, details: `Open current file controls: ${openCurrent}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyManagedArtifactDetail: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[data-managed-document-detail="true"]');
+  await waitForHeading(page, "Purchase Order PO-2026-017 (PDF)");
+  const provenance = await page.locator("text=Generated source and template provenance").count();
+  const source = await page.locator("text=PURCHASE_ORDER · PO-2026-017").count();
+  const archive = await page.getByRole("button", { name: "Archive", exact: true }).count();
+  const versionUpload = await page.locator('input[type="file"]').count();
+  return [
+    { id: "managed-artifact-provenance-visible", passed: provenance === 1 && source === 1, details: `provenance/source rows: ${provenance}/${source}` },
+    { id: "managed-artifact-remains-read-only", passed: archive === 0 && versionUpload === 0, details: `archive/file-upload controls: ${archive}/${versionUpload}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyDocumentsTemplatesWorkspace: QaScenarioAction = async (page) => {
   await page.getByRole("tab", { name: /Templates/ }).click();
   await waitForVisible(page, '[data-document-templates-view]');
@@ -861,6 +889,9 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document Library rendered", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsWorkspace }),
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document Library rendered", viewport: QA_VIEWPORTS.tablet, action: verifyDocumentsWorkspace }),
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document Library rendered", viewport: QA_VIEWPORTS.mobile, action: verifyDocumentsWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents?managedId=:managedId"), path: "/demo/app/documents?managedId=demo-managed-warranty-001", interactionState: "managed document detail and immutable version history rendered", viewport: QA_VIEWPORTS.desktop, action: verifyManagedDocumentDetail }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents?managedId=:managedId"), path: "/demo/app/documents?managedId=demo-managed-warranty-001", interactionState: "managed document detail and immutable version history rendered", viewport: QA_VIEWPORTS.mobile, action: verifyManagedDocumentDetail }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents?managedId=:managedId"), path: "/demo/app/documents?managedId=demo-managed-artifact-001", interactionState: "managed generated artifact provenance and read-only state rendered", viewport: QA_VIEWPORTS.desktop, action: verifyManagedArtifactDetail }),
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "Document Center Create rendered", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsCreateWorkspace }),
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "Document Center Create rendered", viewport: QA_VIEWPORTS.mobile, action: verifyDocumentsCreateWorkspace }),
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "Document Center Templates rendered", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsTemplatesWorkspace }),
