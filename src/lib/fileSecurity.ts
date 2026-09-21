@@ -141,10 +141,8 @@ export function validateManagedDocumentBytes(bytes: Uint8Array, mimeType: string
       ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       : ext === "xlsx"
         ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        : ext === "xlsm"
-          ? "application/vnd.ms-excel.sheet.macroenabled.12"
-          : "";
-    if (!officeType || mime !== officeType) throw new Error("Managed Office files must be DOCX, XLSX, or XLSM with a matching MIME type.");
+        : "";
+    if (!officeType || mime !== officeType) throw new Error("Managed Office files must be DOCX or XLSX with a matching MIME type.");
     return;
   }
 
