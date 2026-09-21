@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E NEXT / UX-W5 BLOCKED PENDING VISUAL CONSISTENCY GATE / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W4 IMPLEMENTED / UX-W4.5A INVESTIGATION COMPLETE / UX-W4.5B SHARED FOUNDATIONS IMPLEMENTED / UX-W4.5C IMPLEMENTED / UX-W4.5D IMPLEMENTED / UX-W4.5E IMPLEMENTED / UX-W5 UNBLOCKED FROM VISUAL GATE / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-21**
 Repository: `Juvialski/InvoiceApp`
 
@@ -26,7 +26,7 @@ credentials/device/runtime.
 
 The Excel-Native Operations workbook/authority contract is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the original shared foundation, the bounded Procurement pilot, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented; app-wide Excel capability remains unclaimed.
 
-The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations and UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections are implemented. UX-W4.5D Supplier Invoice/worksheet clarity is implemented at application-bearing SHA `4d5b158acec8427fd684a64513df05a00fe6ba71`; UX-W4.5E is next before UX-W5.
+The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, and UX-W4.5D Supplier Invoice/worksheet clarity are implemented. UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; the final disposition and evidence are recorded in the report and `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5 is now unblocked from the visual gate and remains a separate bounded implementation phase.
 
 The governing correction contract is `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`. The user-provided Projects and Supplier Invoice screenshots were examples only; the completed UX-W4.5A report visually inspected the broader safe-demo product across desktop, constrained laptop, tablet, and phone before broad remediation begins.
 
@@ -151,9 +151,38 @@ screenshot artifact is claimed. Docker/Supabase and hosted/provider/production
 checks were not applicable. The durable disposition is recorded in
 `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`.
 
-The exact next implementation phase is **UX-W4.5E — App-Wide Visual
-Consistency & Professional-Finish Certification**. UX-W5 remains blocked until
-that visual gate is genuinely closed.
+At the UX-W4.5D checkpoint, the exact next implementation phase was
+**UX-W4.5E — App-Wide Visual Consistency & Professional-Finish Certification**.
+The UX-W4.5E section below records that the visual gate is now closed for its
+bounded scope.
+
+### UX-W4.5E — app-wide visual consistency and professional-finish closeout
+
+UX-W4.5E is implemented at application-bearing SHA
+`3eb2819edd4da3527e083882bf451c171c35b6a4`. The shared OperationsUI grammar
+now uses restrained, consistent page/section/filter/metric/disclosure/loading
+and error treatment. Document preview loading/error states use compact,
+explicit frames rather than reserving a large blank canvas. No financial,
+security, lifecycle, provenance, history, concurrency, workbook, provider, or
+database contract changed.
+
+The final safe-demo Demo Visual QA run passed **89/89** scenarios with zero
+console errors, page errors, failed requests, or horizontal-overflow failures.
+Focused UX-W4.5E coverage passed **28/28**; the integrated affected selector
+passed **146/146** with database fallback disabled; lint/typecheck and build
+passed. The lead agent directly inspected representative changed surfaces at
+desktop, constrained laptop, tablet, and phone sizes. Valid RFI/Submittal
+detail fixtures were confirmed, and preview loading/action placement was
+inspected on desktop and phone. The durable report and promoted screenshots
+are `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md` and
+`artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`.
+
+UX-W4.5E closes the remaining P0/P1/shared-root-cause visual gate for this
+application boundary. **UX-W5 is unblocked from the visual gate**, but no
+UX-W5 code was started here; its operational bulk-data scope requires a new
+bounded handoff and remains subject to the separate Wave 4D/provider and
+product-sequencing gates. Local/demo evidence remains non-hosted and
+non-production certification.
 
 ### Earlier UI/UX and hosted-certification reference
 
@@ -217,8 +246,9 @@ relevant candidates, and had zero fallback. The exact misses were
 `docs/README.md` and `scripts/ci-failure-context.ts`. Use remains advisory:
 deterministic authority stays with RI-3, Workflow Map, `test:affected:agent`,
 Codex review, and applicable validation evidence. No customer/runtime,
-database, provider, browser, QA, or production behavior changed, and the exact
-next product phase remains UX-W4.5E.
+database, provider, browser, QA, or production behavior changed. UX-W4.5E is
+closed for its recorded visual scope; UX-W5 is unblocked from that gate and
+requires its own bounded implementation handoff.
 
 ---
 
@@ -1042,7 +1072,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 2. **Repository & Architecture Professionalization — COMPLETE for this repository boundary.** Responsibility triage, repository hygiene, evidence policy, front-door onboarding, safe branding cleanup, and repository-identity evaluation are recorded; no vague broader-program status remains.
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
 4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ/PO + Client Billing + Expenses IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, Purchase Order draft editing, Client Billing draft editing, and direct Expense DRAFT editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
-5. **UX-W4.5A, UX-W4.5B, UX-W4.5C, and UX-W4.5D are implemented for their bounded scopes.** The durable sanitized report remains `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`; the qualified UX-W4.5B visual record is `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`; the UX-W4.5C/D manual visual evidence and workspace-width/visual-grammar dispositions are in the report's follow-up sections. UX45A-001 is resolved for the inspected Projects/Expenses/Cash states; UX45A-002 is partial; UX45A-003 and UX45A-010 are resolved for bounded worksheet consumers; UX45A-004 is resolved for the Supplier Invoice page; UX45A-005/008/009/013/014 remain partial beyond touched surfaces. UX-W4.5E is next, and UX-W5 remains blocked until the app-wide visual gate is genuinely closed.
+5. **UX-W4.5A, UX-W4.5B, UX-W4.5C, UX-W4.5D, and UX-W4.5E are implemented for their recorded scopes.** The durable sanitized report remains `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`; the qualified UX-W4.5B visual record is `artifacts/ui-ux-audit/screenshots/ux-w4-5b/README.md`; and the UX-W4.5C/D/E visual evidence and finding dispositions are in the report's follow-up sections. UX-W4.5E is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; UX-W5 is now unblocked from the visual gate but requires a separate bounded handoff. Provider readiness, product sequencing, financial authority, and all other existing gates remain in force.
 6. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist.
 7. **Resume Wide Documents remaining managed slices.**
 8. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
@@ -1053,7 +1083,12 @@ Do not skip directly to Worker Registration, and do not let visualization work d
 
 ## Next implementation handoff instructions
 
-The next Codex implementation run should begin **UX-W4.5E — App-Wide Visual Consistency & Professional-Finish Certification** from live repository state. UX-W4.5D has implemented the bounded Supplier Invoice/worksheet clarity correction; preserve all existing Supplier Invoice, Projects, RFQ, Purchase Order, Client Billing, Expense, financial, security, history, and workbook authority contracts.
+The next Codex implementation run should begin the next separately approved
+bounded product slice after UX-W4.5E from live repository state. UX-W4.5E has
+implemented the app-wide visual consistency and professional-finish closeout;
+preserve all existing Supplier Invoice, Projects, RFQ, Purchase Order, Client
+Billing, Expense, financial, security, history, and workbook authority
+contracts.
 
 It must read:
 
@@ -1067,7 +1102,12 @@ It must read:
 - `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY_MODEL.md` when a later
   transaction editor touches supplier-derived monetary context.
 
-Do not begin UX-W5 in this handoff. UX-W4.5A is evidence-first and complete, and UX-W4.5D is complete for its bounded scope; the next run is the app-wide W4.5E closeout driven by the report. Do not broaden that closeout into new operational worksheet domains.
+UX-W5 is now unblocked from the UX-W4.5 visual gate, but it still requires a
+new bounded implementation handoff and must not be expanded beyond its
+approved operational bulk-data scope. Do not treat this documentation update
+as authorization to begin Workers, Attendance, Time Entries, Project
+Assignments, Project Materials/Equipment, or new Finance rollout code in the
+current task.
 
 The immediate product sequence after UX-W2 is:
 
@@ -1078,8 +1118,8 @@ The immediate product sequence after UX-W2 is:
 5. UX-W4.5B — shared responsive shell/editor foundations: implemented for the bounded consumers, with qualified local visual evidence and explicit SMS/browser-harness limitations.
 6. UX-W4.5C — task-first hierarchy plus bounded workspace-width/visual grammar: implemented for the inspected/touched surfaces.
 7. UX-W4.5D — worksheet + Supplier Invoice clarity: implemented at application-bearing SHA `4d5b158acec8427fd684a64513df05a00fe6ba71`, with source-first evidence, compact status/actions, quiet ordinary provenance, and post-worksheet blocking review.
-8. UX-W4.5E — app-wide visual consistency and professional-finish certification: next, after the bounded correction slices.
-9. UX-W5 — operational bulk-data editors: only after the visual-investigation and blocking correction gate is closed.
+8. UX-W4.5E — app-wide visual consistency and professional-finish certification: implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; visual gate closed for the recorded scope.
+9. UX-W5 — operational bulk-data editors: now unblocked from the visual gate, but requires its own bounded handoff and remains subject to product/provider sequencing gates.
 10. Resume remaining Finance/domain Excel rollouts only after the corrected interaction grammar is proven.
 
 Efficiency rules remain strict: pull current main first, record the SHA once, one bounded context packet, zero subagents by default (maximum two only for independent bounded work), focused tests while editing, one final affected-test pass, and no ritual full suite. Browser/DB/provider validation remains conditional on the actual final diff.
