@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — UX-S3A COMPLETE / UX-S3B NEXT / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-21**
 Repository: `Juvialski/InvoiceApp`
 
@@ -29,6 +29,19 @@ The Excel-Native Operations workbook/authority contract is documented at `docs/s
 The later approved interaction correction is `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md`. It now governs the in-app UX: **browse visually, edit like a spreadsheet, execute sensitive workflows deliberately**. UX-W1 shared worksheet editing foundation, UX-W2 Projects integration, UX-W3 Supplier Invoice source-first worksheet review, and all bounded UX-W4 draft editors are implemented. The UX-W4.5A investigation is complete for source SHA `b279b02730b79cccac5f72ac4c93553d957db07b`; the durable report is `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. UX-W4.5B shared responsive shell/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, and UX-W4.5D Supplier Invoice/worksheet clarity are implemented. UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification is implemented at application-bearing SHA `3eb2819edd4da3527e083882bf451c171c35b6a4`; the final disposition and evidence are recorded in the report and `artifacts/ui-ux-audit/screenshots/ux-w4-5e/README.md`. UX-W5A Project Materials & Project Equipment, UX-W5B Warehouse Item Master + Canonical Equipment Master, and UX-W5C Vendor Master worksheet maintenance are implemented for their bounded scopes. The user explicitly reprioritized the current run to Jev Workflow Intelligence v2A research/calibration and its first v2B payload-safe foundation slice (`docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`); remaining v2B experiments stay deferred and later UX-W5 slices retain separate bounded handoffs.
 
 The governing correction contract is `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`. The user-provided Projects and Supplier Invoice screenshots were examples only; the completed UX-W4.5A report visually inspected the broader safe-demo product across desktop, constrained laptop, tablet, and phone before broad remediation begins.
+
+### UX-S3A — comparative research and instruction-density audit complete
+
+UX-S3A is complete at exact source SHA
+`567013c8f0b851468cc8d0c4bbe1eb11d3fdf6cf`. The durable evidence report is
+`artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md`.
+It records public comparator research, current safe-demo route/state evidence,
+the Keep / Shorten / Contextual Help / Help Center / Remove matrix, shared
+root causes, workflow-hardening backlog, S3B boundary, and the expanded
+sanitized Jev efficiency ledger. The run remained research-only: no Help
+Center, contextual-help primitive, visible-copy mass simplification, workflow,
+database, provider, or production change was made. Current safe-demo evidence
+is local synthetic evidence, not authenticated or hosted certification.
 
 ### UX-W4.5B — shared responsive shell and worksheet foundations
 
@@ -1331,13 +1344,14 @@ Preserve throughout resumed Wave 4D and subsequent work:
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
 4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ/PO + Client Billing + Expenses IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, Purchase Order draft editing, Client Billing draft editing, and direct Expense DRAFT editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
 5. **UX-W4.5A through UX-W4.5E, UX-W5A, UX-W5B, and UX-W5C are implemented for their recorded scopes.** The durable visual evidence and authority limitations remain as documented; remaining UX-W5 workforce slices require separate bounded handoffs and remain subject to the Worker Registration/Wave 4D sequencing gate.
-6. **Jev Workflow Intelligence v2A research/design is complete for this handoff.** The durable report records read-only X research, official/community source review, 48 controlled sanitized Jev requests, representative historical replay, and the prioritized v2B design. This remains developer tooling, not a product dependency or merge authority.
-7. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this handoff.** The shared request/diagnostic layer, deterministic seeding, budget-aware chunking, context integration, broad test triage, and deterministic must-keep/required-test unions are complete. Remaining v2B adjacency, requirement/evidence, replay, routing-advice, and other experimental work requires a later bounded handoff.
-8. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist; it remains separate from the completed v2B foundation and bounded UX-W5C product work.
-9. **Remaining UX-W5 product slices remain queued and bounded.** Workers, Attendance, Time Entries, and Project Assignments remain behind the workforce/Worker Registration sequencing gate.
-10. **Wide Documents managed standalone files, immutable versions, general upload, retained artifact registration, and Documents detail are implemented for the recorded scope.** Remaining broader artifact aggregation, authenticated HSC/render certification, and optional handover packaging require separate bounded follow-up.
-11. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
-12. **RI-4 through RI-6 are later tooling; RI-7 optional 3D explorer remains LAST.**
+6. **UX-S3A comparative research and instruction-density audit is complete for this handoff; UX-S3B Help Center/contextual-help foundation is exact next.** The durable report records direct comparator and safe-demo observations, the route/state classification matrix, workflow backlog, and expanded sanitized Jev diagnostics. No S3B implementation was started.
+7. **Jev Workflow Intelligence v2A research/design is complete for this handoff.** The durable report records read-only X research, official/community source review, 48 controlled sanitized Jev requests, representative historical replay, and the prioritized v2B design. This remains developer tooling, not a product dependency or merge authority.
+8. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this handoff.** The shared request/diagnostic layer, deterministic seeding, budget-aware chunking, context integration, broad test triage, and deterministic must-keep/required-test unions are complete. Remaining v2B adjacency, requirement/evidence, replay, routing-advice, and other experimental work requires a later bounded handoff.
+9. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist; it remains separate from the completed v2B foundation and bounded UX-W5C product work.
+10. **Remaining UX-W5 product slices remain queued and bounded.** Workers, Attendance, Time Entries, and Project Assignments remain behind the workforce/Worker Registration sequencing gate.
+11. **Wide Documents managed standalone files, immutable versions, general upload, retained artifact registration, and Documents detail are implemented for the recorded scope.** Remaining broader artifact aggregation, authenticated HSC/render certification, and optional handover packaging require separate bounded follow-up.
+12. **Worker Registration remains paused until Wave 4D is complete and explicitly resumed.** Site Attendance follows; Face Recognition remains separately privacy/security gated.
+13. **RI-4 through RI-6 are later tooling; RI-7 optional 3D explorer remains LAST.**
 
 Do not skip directly to Worker Registration, and do not let visualization work displace the index/context, reliability, professionalization, Excel-native, provider-readiness, or approved product work above.
 ---
@@ -1357,7 +1371,9 @@ These phases are not cancelled. Preserve their historical contracts and backlog 
 
 ### Exact next implementation program
 
-The next implementation program is **UI Simplification Round 3 + workflow hardening**, beginning with **UX-S3A research and audit**. Read:
+The next implementation program is **UI Simplification Round 3 + workflow hardening**, continuing with **UX-S3B Help Center + contextual-help foundation** after completed UX-S3A research and audit. Read:
+
+The completed UX-S3A report is artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md. It is documentation/evidence only; no S3B implementation was started.
 
 - `AGENTS.md`;
 - `docs/AGENTS_BASELINE_20260909.md`;
@@ -1368,7 +1384,7 @@ The next implementation program is **UI Simplification Round 3 + workflow harden
 - `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md`;
 - `docs/superpowers/specs/2026-09-21-ui-simplification-contextual-help-research.md`.
 
-UX-S3A is research/evidence first. Codex should use its available Chrome/browser environment for read-only comparative research into successful comparable applications, prioritizing Procore, Autodesk Construction Cloud, Buildertrend, Fieldwire, and Raken. It should inspect public/help/demo surfaces or an already-authorized browser session without mutating external accounts. Record patterns rather than copying branded/proprietary layouts.
+UX-S3A research/evidence is complete. It used read-only Chrome/browser research into public help/documentation surfaces for Procore, Autodesk Construction Cloud/Autodesk Build, Buildertrend, Fieldwire, and Raken, plus a current local safe-demo route/state audit. It recorded patterns rather than copying branded/proprietary layouts. A compatible Jev browser integration was not available, so Jev was used through the existing sanitized TypeSafe client for comparator, route-copy, and root-cause judgments; Codex independently verified the evidence.
 
 The internal audit must inspect representative HydroQualiSense routes/states and classify always-visible explanatory text as:
 
@@ -1380,7 +1396,7 @@ The internal audit must inspect representative HydroQualiSense routes/states and
 
 Do not put essential instructions only behind hover. Tooltips/popovers must be keyboard accessible and have click/tap behavior for touch devices.
 
-UX-S3A should produce a durable research/audit report and implementation recommendations. Do not perform broad UI remediation in the research slice. After the report, proceed through:
+UX-S3A produced the durable research/audit report and implementation recommendations. No broad UI remediation was performed in the research slice. Proceed through:
 
 `UX-S3B Help Center/contextual-help foundation -> UX-S3C visible-copy simplification -> UX-S3D workflow-friction hardening -> UX-S3E accessibility/responsive/visual certification`.
 
