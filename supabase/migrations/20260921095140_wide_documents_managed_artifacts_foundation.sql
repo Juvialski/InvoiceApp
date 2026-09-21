@@ -212,12 +212,31 @@ begin
 end;
 $$;
 
+create or replace function private.can_read_managed_storage_object(p_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists (
+    select 1
+    from public.managed_document_versions v
+    where v.storage_provider = 'supabase'
+      and v.storage_bucket = 'company-managed-documents'
+      and v.storage_path = p_name
+      and private.can_read_managed_document(v.company_id, v.document_id)
+  );
+$;
+
 revoke execute on function private.document_artifact_read_permission(text) from public, anon;
 revoke execute on function private.can_read_document_artifact(uuid, text) from public, anon;
 revoke execute on function private.can_read_managed_document(uuid, uuid) from public, anon;
+revoke execute on function private.can_read_managed_storage_object(text) from public, anon;
 grant execute on function private.document_artifact_read_permission(text) to authenticated, service_role;
 grant execute on function private.can_read_document_artifact(uuid, text) to authenticated, service_role;
 grant execute on function private.can_read_managed_document(uuid, uuid) to authenticated, service_role;
+grant execute on function private.can_read_managed_storage_object(text) to authenticated, service_role;
 
 alter table public.managed_documents enable row level security;
 alter table public.managed_document_versions enable row level security;
@@ -248,8 +267,7 @@ using (
   bucket_id = 'company-managed-documents'
   and name ~* '^companies/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/managed-documents/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/versions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[A-Za-z0-9._-]+$'
   and private.storage_company_id(name) is not null
-  and ((select public.has_company_permission(private.storage_company_id(name), 'documents.read'))
-    or (select public.has_company_permission(private.storage_company_id(name), 'documents.manage')))
+  and (select private.can_read_managed_storage_object(name))
 );
 drop policy if exists "company managed documents insert" on storage.objects;
 drop policy if exists "company managed documents update" on storage.objects;
