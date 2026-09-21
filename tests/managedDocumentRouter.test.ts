@@ -82,3 +82,72 @@ test("managed document upload stops at the permission gate", async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+
+test("managed document signed URLs keep raw Storage columns behind the privileged server boundary", async () => {
+  const documentId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const versionId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const storagePath = `companies/${COMPANY_ID}/managed-documents/${documentId}/versions/${versionId}/warranty.pdf`;
+  const authSelections: string[] = [];
+  const serviceSelections: string[] = [];
+  let signedQuery: any;
+
+  const authSupabase = {
+    from: (table: string) => ({
+      select: (columns: string) => {
+        authSelections.push(`${table}:${columns}`);
+        const result = table === "managed_documents"
+          ? { data: { id: documentId, company_id: COMPANY_ID, title: "Warranty", category: "WARRANTY_CERTIFICATE", origin: "MANUAL_UPLOAD", status: "ACTIVE", current_version_id: versionId, created_at: "2026-09-21T00:00:00Z", updated_at: "2026-09-21T00:00:00Z" }, error: null }
+          : table === "managed_document_versions"
+            ? { data: [{ id: versionId, document_id: documentId, version_number: 1, source_origin: "MANUAL_UPLOAD", original_filename: "warranty.pdf", mime_type: "application/pdf", size_bytes: 8, sha256: "a".repeat(64), created_at: "2026-09-21T00:00:00Z" }], error: null }
+            : { data: null, error: null };
+        const chain: any = {
+          eq: () => chain,
+          order: async () => result,
+          maybeSingle: async () => result,
+        };
+        return chain;
+      },
+    }),
+  };
+
+  const serviceClient = {
+    from: (table: string) => ({
+      select: (columns: string) => {
+        serviceSelections.push(`${table}:${columns}`);
+        const result = {
+          data: { id: versionId, company_id: COMPANY_ID, document_id: documentId, original_filename: "warranty.pdf", storage_provider: "memory", storage_bucket: "company-managed-documents", storage_path: storagePath },
+          error: null,
+        };
+        const chain: any = { eq: () => chain, maybeSingle: async () => result };
+        return chain;
+      },
+    }),
+  };
+
+  const signedProvider = {
+    id: "memory",
+    getSignedUrl: async (query: any) => {
+      signedQuery = query;
+      return "https://example.test/signed-managed-document";
+    },
+  };
+
+  const { server, port } = await startServer({
+    authorizer: async () => authContext(authSupabase),
+    providerSupplier: () => signedProvider as any,
+    serverSupabaseSupplier: () => serviceClient as any,
+  });
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/managed-documents/${documentId}/versions/${versionId}/url`);
+    assert.equal(response.status, 200);
+    const payload = await response.json() as any;
+    assert.equal(payload.data.url, "https://example.test/signed-managed-document");
+    assert.equal(authSelections.some((selection) => /storage_provider|storage_bucket|storage_path/.test(selection)), false);
+    assert.equal(serviceSelections.some((selection) => /storage_provider.*storage_bucket.*storage_path/.test(selection)), true);
+    assert.equal(signedQuery.key, storagePath);
+    assert.equal(JSON.stringify(payload).includes("storage_path"), false);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
