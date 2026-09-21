@@ -22,6 +22,10 @@ declare
   v_address text := nullif(btrim(coalesce(p_vendor->>'address', '')), '');
   v_currency text := nullif(upper(btrim(coalesce(p_vendor->>'defaultCurrency', p_vendor->>'default_currency', ''))), '');
   v_category text := nullif(btrim(coalesce(p_vendor->>'defaultCategory', p_vendor->>'default_category', '')), '');
+  v_has_email boolean := p_vendor ? 'email';
+  v_has_phone boolean := p_vendor ? 'phone';
+  v_has_address boolean := p_vendor ? 'address';
+  v_has_category boolean := p_vendor ? 'defaultCategory' or p_vendor ? 'default_category';
   v_expected_updated_at timestamptz;
   v_existing public.vendors;
   v_before jsonb;
@@ -91,21 +95,21 @@ begin
     v_changed := v_existing.name is distinct from v_name
       or v_existing.normalized_name is distinct from v_normalized_name
       or v_existing.tax_id is distinct from coalesce(v_tax_id, v_existing.tax_id)
-      or v_existing.email is distinct from coalesce(v_email, v_existing.email)
-      or v_existing.phone is distinct from coalesce(v_phone, v_existing.phone)
-      or v_existing.address is distinct from coalesce(v_address, v_existing.address)
+      or v_existing.email is distinct from case when v_has_email then v_email else v_existing.email end
+      or v_existing.phone is distinct from case when v_has_phone then v_phone else v_existing.phone end
+      or v_existing.address is distinct from case when v_has_address then v_address else v_existing.address end
       or v_existing.default_currency is distinct from coalesce(v_currency, v_existing.default_currency)
-      or v_existing.default_category is distinct from coalesce(v_category, v_existing.default_category);
+      or v_existing.default_category is distinct from case when v_has_category then v_category else v_existing.default_category end;
     v_before := to_jsonb(v_existing);
     update public.vendors v
     set name = v_name,
         normalized_name = v_normalized_name,
         tax_id = coalesce(v_tax_id, v.tax_id),
-        email = coalesce(v_email, v.email),
-        phone = coalesce(v_phone, v.phone),
-        address = coalesce(v_address, v.address),
+        email = case when v_has_email then v_email else v.email end,
+        phone = case when v_has_phone then v_phone else v.phone end,
+        address = case when v_has_address then v_address else v.address end,
         default_currency = coalesce(v_currency, v.default_currency),
-        default_category = coalesce(v_category, v.default_category),
+        default_category = case when v_has_category then v_category else v.default_category end,
         updated_at = now()
     where v.id = v_existing.id and v.company_id = v_company_id
     returning v.* into v_existing;
