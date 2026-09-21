@@ -1,7 +1,11 @@
 # Jev Workflow Intelligence v2A — Research, Calibration, and Integration Design
 
-Status: **NEXT DEVELOPER-TOOLING PHASE — RESEARCH/DESIGN FIRST**
+Status: **V2A RESEARCH/DESIGN COMPLETE — V2B IMPLEMENTATION NOT STARTED**
 Date: **2026-09-21**
+
+The original v2A phase contract below is retained as requirements history. The
+completed findings/evidence section later in this document is the current
+result and governs the v2B handoff.
 
 ## Purpose
 
@@ -300,11 +304,11 @@ does not guarantee semantic correctness or stable calibration in a new domain.
 
 ### Official TypeSafe sources
 
-- [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev): official launch description, explicit caveats about workflow-evaluation reference models, parallel independent questions, and a two-stage score-then-choice approach for high-cardinality choices.
-- [TypeSafe homepage](https://typesafe.ai/): official product positioning around typed decisions, confidence, thresholds, and review escalation. Its pricing/speed numbers are vendor claims, not InvoiceApp evidence.
-- [Official JavaScript SDK](https://github.com/typesafe-ai/typesafe-sdk-js): current package surface matches the installed `@typesafe-ai/sdk@0.6.0`; `TypeSafeClient.systemOne` accepts structured state and named `noul`, `choice`, and `score` questions, with typed answers, usage, model, timeout, retry, and request options.
-- [Official TypeSafe agent skills](https://github.com/typesafe-ai/skills): confirms the intended workflow is question design/composition in code, not free-text generation.
-- [Official workflow evals](https://evals.typesafe.ai/): the official evaluation framing explicitly decomposes work into narrow questions and keeps policy in code. This supports v2B decomposition, but the site also assumes the harness is correct and uses large-model reference labels.
+- [Introducing System One Models & Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) — official TypeSafe, published Sep 15 2026; reviewed Sep 21 2026: launch description, explicit caveats about workflow-evaluation reference models, parallel independent questions, and a two-stage score-then-choice approach for high-cardinality choices.
+- [TypeSafe homepage](https://typesafe.ai/) — official TypeSafe, reviewed Sep 21 2026: product positioning around typed decisions, confidence, thresholds, and review escalation. The displayed $42/billion-input-token pricing and speed claims are vendor claims, not InvoiceApp evidence.
+- [Official JavaScript SDK](https://github.com/typesafe-ai/typesafe-sdk-js) — official TypeSafe repository, reviewed Sep 21 2026: current package surface matches the repository-installed `@typesafe-ai/sdk@0.6.0`; `TypeSafeClient.systemOne` accepts structured state and named `noul`, `choice`, and `score` questions, with typed answers and documented client/request options. Local experiment responses supplied the recorded usage/model diagnostics.
+- [Official TypeSafe agent skills](https://github.com/typesafe-ai/skills) — official TypeSafe repository, reviewed Sep 21 2026: confirms the intended workflow is question design/composition in code, not free-text generation.
+- [Official workflow evals](https://evals.typesafe.ai/) — official TypeSafe, reviewed Sep 21 2026: the evaluation framing explicitly decomposes work into narrow questions and keeps policy in code. This supports v2B decomposition, but the site also assumes the harness is correct and uses large-model reference labels.
 
 Official capability conclusions:
 
