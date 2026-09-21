@@ -86,6 +86,24 @@ test("request preflight estimates the exact serialized envelope and aliases sema
   if (estimate.ok) assert.equal(prepared.serializedChars, estimate.serializedChars);
 });
 
+test("request preflight preserves both questions when an authority alias collides with a safe key", () => {
+  const prepared = prepareTypeSafeRequest({
+    state: { task: "synthetic authority and boundary review" },
+    questions: {
+      c0_authority: { type: "noul", instructions: "Review authority semantics." },
+      c0_boundary: { type: "noul", instructions: "Review boundary semantics." },
+    },
+  });
+
+  assert.equal(prepared.ok, true);
+  if (!prepared.ok) return;
+  assert.equal(Object.keys(prepared.request.questions).length, 2);
+  assert.equal(prepared.aliases.c0_authority, "c0_boundary");
+  assert.equal(prepared.aliases.c0_boundary, "c0_boundary_1");
+  assert.equal(Object.hasOwn(prepared.request.questions, "c0_boundary"), true);
+  assert.equal(Object.hasOwn(prepared.request.questions, "c0_boundary_1"), true);
+});
+
 test("request preflight rejects non-aliasable sensitive transport keys before dispatch", async () => {
   let calls = 0;
   const result = await invokeTypeSafe(
