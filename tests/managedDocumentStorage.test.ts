@@ -21,6 +21,7 @@ test("managed Storage paths are company/document/version scoped and sanitized", 
   assert.equal(isManagedDocumentStoragePath(path, COMPANY_ID, DOCUMENT_ID, VERSION_ID), true);
   assert.equal(isManagedDocumentStoragePath(path, "22222222-2222-4333-8444-555555555555", DOCUMENT_ID, VERSION_ID), false);
   assert.equal(isManagedDocumentStoragePath(path, COMPANY_ID, DOCUMENT_ID, "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"), false);
+  assert.equal(parseStorageKey(`${path}/unexpected`).kind, "UNKNOWN_COMPANY_SCOPED");
 });
 
 test("managed file policy accepts safe repository-supported document types", () => {
@@ -34,5 +35,6 @@ test("managed file policy rejects active content, mismatched types, binary text,
   assert.throws(() => validateManagedDocumentBytes(new TextEncoder().encode("<svg><script>alert(1)</script></svg>"), "image/svg+xml", "bad.svg"), /Active HTML, SVG, or XML/);
   assert.throws(() => validateManagedDocumentBytes(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]), "image/png", "wrong.png"), /must match/);
   assert.throws(() => validateManagedDocumentBytes(new Uint8Array([0x00, 0x01]), "text/plain", "binary.txt"), /binary data/);
+  assert.throws(() => validateManagedDocumentBytes(new Uint8Array([0x50, 0x4b, 0x03, 0x04]), "application/vnd.ms-excel.sheet.macroenabled.12", "unsafe.xlsm"), /DOCX or XLSX/);
   assert.throws(() => validateManagedDocumentBytes(new Uint8Array(MAX_MANAGED_DOCUMENT_BYTES + 1), "text/plain", "large.txt"), /exceeds/);
 });
