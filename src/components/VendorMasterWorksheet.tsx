@@ -87,12 +87,12 @@ function saveInput(row: VendorWorksheetRow): VendorSaveInput {
   return {
     ...(row.isNew ? {} : { id: row.id }),
     name: row.name.trim(),
-    ...(normalizedEmail(row.email) ? { email: normalizedEmail(row.email) } : {}),
-    ...(normalizedText(row.phone) ? { phone: normalizedText(row.phone) } : {}),
+    email: normalizedEmail(row.email) || null,
+    phone: normalizedText(row.phone) || null,
     ...(normalizedText(row.taxId) ? { taxId: normalizedText(row.taxId) } : {}),
-    ...(normalizedText(row.address) ? { address: normalizedText(row.address) } : {}),
+    address: normalizedText(row.address) || null,
     ...(normalizedCurrency(row.defaultCurrency) ? { defaultCurrency: normalizedCurrency(row.defaultCurrency) } : {}),
-    ...(normalizedText(row.defaultCategory) ? { defaultCategory: normalizedText(row.defaultCategory) } : {}),
+    defaultCategory: normalizedText(row.defaultCategory) || null,
     ...(!row.isNew && row.updatedAt ? { expectedUpdatedAt: row.updatedAt } : {}),
   };
 }
