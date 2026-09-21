@@ -267,29 +267,53 @@ Read this handoff with:
 
 Live repository state and `AGENTS.md` override remembered chat summaries.
 
-## 2026-09-21 TypeSafe Jev developer-intelligence pilot — constrained advisory-only
+## 2026-09-21 TypeSafe Jev developer-intelligence — standard advisory workflow
 
-This implementation run adds a developer-only, opt-in TypeSafe layer under
-`scripts/developer-intelligence/typesafe/` with the official
-`@typesafe-ai/sdk` 0.6.0. It sanitizes repository-derived metadata before any
-request, batches bounded judgments over deterministic RI-3 candidates, keeps
-`mustKeep` inputs, leaves `agent:context` and `test:affected:agent` unchanged,
-and falls back on missing keys, sanitizer rejection, API errors, timeouts, or
-invalid responses. The unified command is
+The TypeSafe layer under `scripts/developer-intelligence/typesafe/` uses the
+official `@typesafe-ai/sdk` 0.6.0 and is now the standard advisory accelerator
+for substantial bounded Codex phases when `TYPESAFE_API_KEY` is available.
+It sanitizes repository-derived metadata before requests, preserves
+`mustKeep` inputs, and falls back deterministically. The unified command is
 `npm.cmd run typesafe -- <doctor|context|test-triage|ci-triage|completion|benchmark>`;
 live requests require `--live`.
 
-The corrected candidate-bound benchmark supersedes the old 60% harness result:
-one live request took 1,668 ms, used 6,270 input and 764 output tokens, reduced
-40 to 18 candidates and 5,960 to 2,816 characters (52.75%), retained 100% of
-manually declared must-keep candidates, retained 90% of manually expected
-relevant candidates, and had zero fallback. The exact misses were
-`docs/README.md` and `scripts/ci-failure-context.ts`. Use remains advisory:
-deterministic authority stays with RI-3, Workflow Map, `test:affected:agent`,
-Codex review, and applicable validation evidence. No customer/runtime,
-database, provider, browser, QA, or production behavior changed. UX-W4.5E is
-closed for its recorded visual scope; UX-W5 is unblocked from that gate and
-requires its own bounded implementation handoff.
+Required operating pattern for future prompts/chats:
+
+- after clean sync and the one deterministic context packet, make one live
+  `context` call before edits;
+- use one live `test-triage` only when the deterministic affected-test set is
+  meaningfully broad;
+- make one live `completion` evidence check before PR delivery;
+- use `ci-triage` only for an actual noisy CI failure;
+- use `doctor` only for setup/connectivity diagnosis and `benchmark` only for
+  deliberate Jev evaluation.
+
+If a fresh worktree has the SDK declared/locked but not installed, run
+`npm ci --include=dev` and verify `npm ls @typesafe-ai/sdk`; do not change
+dependency declarations just to repair the worktree. Record candidate counts,
+model, input/output tokens, latency, and fallback status for useful live calls.
+
+UX-W5A demonstrated the corrected path: after the initial local module-load
+failure, the existing dev dependencies were installed without declaration
+changes and the live context checkpoint succeeded with model `jev-1.13.0`,
+3 -> 3 candidates, 728 input tokens, 55 output tokens, 776 ms, fallback=false.
+The earlier broader benchmark remains the context-reduction reference:
+40 -> 18 candidates, 52.75% character reduction, 100% must-keep retention, 90%
+expected-relevant retention, fallback=false.
+
+Jev remains non-authoritative. RI-3/Workflow Map, current source,
+`test:affected:agent`, security/financial/database reasoning, browser/database
+evidence, exact-head CI, and lead review remain authoritative. The efficiency
+goal is to preserve more Codex budget for higher-capability reasoning.
+
+Future phases should therefore be somewhat wider when the work is genuinely
+coherent: prefer one complete bounded workflow/domain slice with roughly 2-4
+tightly related components (about 1.5-3x the old micro-slice size as a planning
+heuristic) rather than needless single-file slices. Do not combine unrelated
+domains, independent migrations, new security/financial authorities, or all
+remaining UX work merely to create a bigger Jev candidate set. UX-W5A is
+complete; remaining UX-W5 domains still require their own bounded handoffs.
+Worker Registration remains paused under its existing gate.
 
 ---
 

@@ -39,31 +39,42 @@ Live repository state and `AGENTS.md` override remembered chat summaries and his
 
 Release/readiness certification remains a parallel track and should run when its exact prerequisites exist. A structural merge never implies hosted certification or production authorization.
 
-## 2026-09-21 TypeSafe Jev developer-intelligence pilot — constrained advisory-only
+## 2026-09-21 TypeSafe Jev developer-intelligence — standard advisory workflow
 
-The bounded developer-only pilot is implemented behind
-`scripts/developer-intelligence/typesafe/` using the official
-`@typesafe-ai/sdk` 0.6.0. It provides sanitized, opt-in advisory context
-reranking over RI-3 candidates, deterministic-test triage, closed-category CI
-triage, completion/evidence observations, a doctor command, and a ten-fixture
-benchmark. The default `agent:context` and `test:affected:agent` contracts are
-unchanged, normal CI makes no live requests, and the application/runtime bundle
-has no TypeSafe dependency.
+The developer-only TypeSafe layer under
+`scripts/developer-intelligence/typesafe/` uses the official
+`@typesafe-ai/sdk` 0.6.0 for sanitized advisory context reranking, deterministic
+test prioritization, failure classification, and completion/evidence checks.
+The user has promoted Jev from a rare opt-in pilot to the standard advisory
+checkpoint workflow for substantial bounded phases when `TYPESAFE_API_KEY` is
+available. Deterministic RI/Workflow Map context, current source,
+`test:affected:agent`, risk-domain validation, exact-head CI, and lead review
+remain authoritative; normal CI and application/runtime bundles make no live
+TypeSafe requests.
 
-The corrected candidate-bound live benchmark supersedes the old 60% harness
-result. One live request reduced 40 candidates to 18 and 5,960 to 2,816
-characters (1,494 to 709 `ceil(characters / 4)` token estimates), for 52.75%
-context reduction; it retained 100% of manually declared must-keep candidates,
-90% of manually expected relevant candidates, took 1,668 ms, used 6,270 input
-and 764 output tokens, and had zero fallback. The exact misses were
-`docs/README.md` and `scripts/ci-failure-context.ts`.
+Standard checkpoints are: one context rerank immediately after clean
+synchronization and the bounded deterministic context packet, optional
+`test-triage` when the deterministic affected set is meaningfully broad, one
+completion/evidence check before PR delivery, and conditional `ci-triage` only
+for a real noisy failure. `doctor` is reserved for actual setup/API problems and
+`benchmark` for deliberate evaluation rather than routine implementation.
 
-Automatic filtering remains non-authoritative. Any local use must preserve the
-full deterministic candidate/test authority and treat Jev as advisory only. The
-UX-W4.5E visual gate is now closed for its recorded scope; UX-W5A Project
-Materials & Project Equipment is implemented for its bounded scope, while
-remaining UX-W5 slices require their own bounded handoffs and the separate
-product/provider sequencing gates.
+Fresh worktrees must install the already-declared dev dependency when needed:
+if `@typesafe-ai/sdk` is locked but missing locally, use
+`npm ci --include=dev` and verify `npm ls @typesafe-ai/sdk`; do not change
+dependency declarations merely to make Jev resolve. UX-W5A confirmed this path
+with a successful live request using `jev-1.13.0`: 3 -> 3 candidates, 728 input
+tokens, 55 output tokens, 776 ms, fallback=false. The earlier broader benchmark
+remains useful evidence of where Jev can reduce optional context: 40 -> 18
+candidates, 52.75% character reduction, 100% must-keep retention, 90%
+expected-relevant retention, fallback=false.
+
+Planning now prefers wider but still coherent bounded phases when related work
+shares one workflow/authority model, roughly 1.5-3x the former micro-slice size
+as a heuristic. Do not bundle unrelated domains, new DB/security authorities, or
+multiple independent lifecycle systems merely to increase Jev usage. UX-W5A
+Project Materials & Project Equipment is implemented; remaining UX-W5 slices
+still require bounded handoffs and all existing product/provider gates.
 
 ## 2026-09-20 selective workbook editing UX correction
 

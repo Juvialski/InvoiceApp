@@ -39,22 +39,55 @@ Codex is the lead implementation/integration owner. Default to **zero subagents*
 
 Do not use spare agent capacity for duplicate audits or speculative scope expansion.
 
-### Constrained TypeSafe/Jev advisory pilot
+### TypeSafe/Jev standard advisory workflow
 
-The 2026-09-21 pilot uses the official `@typesafe-ai/sdk` 0.6.0 behind an
-opt-in developer-only CLI. The corrected candidate-bound live benchmark
-supersedes the old harness result: one request completed in 1,668 ms with 6,270
-input and 764 output tokens, reduced measured candidate context characters by
-52.75% (40 to 18), retained 100% of manually declared must-keep files, retained
-90% of manually expected relevant candidates, and had zero fallback. The exact
-misses were `docs/README.md` and `scripts/ci-failure-context.ts`.
+The repository uses the official `@typesafe-ai/sdk` 0.6.0 behind the
+developer-only `npm.cmd run typesafe -- ...` CLI. Jev is advisory only; the
+deterministic RI/Workflow Map candidate set, current source,
+`test:affected:agent`, risk-domain evidence, exact-head CI, and lead review
+remain authoritative.
 
-Automatic Jev filtering remains non-authoritative. The deterministic RI/Workflow
-Map candidate set and `test:affected:agent` remain authoritative. Local advisory
-ranking, CI classification, test prioritization, and completion evidence checks
-may be run only through explicit TypeSafe commands with live mode opt-in;
-failures fall back deterministically. Normal CI, `agent:context` default
-behavior, and application/runtime bundles remain TypeSafe-free.
+For a substantial bounded phase with `TYPESAFE_API_KEY` available:
+
+1. after clean synchronization and the one deterministic context packet, run one
+   live `context` call before edits;
+2. after deterministic affected-test selection, run one live `test-triage`
+   only when the candidate test set is broad enough to benefit from ordering;
+3. before PR delivery, run one live `completion` evidence check;
+4. run `ci-triage` only when a real noisy CI failure exists.
+
+Do not repeatedly rerun equivalent Jev requests. Do not use routine
+`benchmark` calls during product work. Use `doctor` only for actual
+setup/connectivity diagnosis.
+
+Fresh worktree rule: if `@typesafe-ai/sdk` is declared and locked but is
+missing from local `node_modules`, run `npm ci --include=dev` and verify
+`npm ls @typesafe-ai/sdk`; do not mutate dependency declarations merely to
+repair a worktree install. If the live request still fails, fall back
+deterministically and continue.
+
+Record candidate counts, selected counts, model, input/output tokens, latency,
+and fallback status when available. The corrected benchmark remains useful
+historical evidence: 40 -> 18 candidates, 52.75% character reduction, 100%
+must-keep retention, 90% expected-relevant retention, 1,668 ms latency, 6,270
+input and 764 output tokens, fallback=false. UX-W5A also proved the real
+worktree path after dependency installation: model `jev-1.13.0`, 3 -> 3
+candidates, 728 input / 55 output tokens, 776 ms, fallback=false.
+
+### Phase sizing with Jev
+
+Prefer wider **coherent** bounded phases instead of unnecessary micro-slices
+when several files/components share one workflow and authority model. A useful
+planning heuristic is roughly 1.5-3x the former micro-slice size, often 2-4
+tightly related components in one domain. This gives Jev enough optional
+context/tests to prioritize while preserving reviewability.
+
+Do not widen across unrelated domains, new database/security/financial
+authorities, independent migrations, or multiple lifecycle systems merely for
+Jev efficiency. If integration risk dominates context-scanning cost, split the
+work. The goal is to preserve more model budget for higher-capability reasoning,
+not to make PRs indiscriminately large. Normal CI, `agent:context` defaults,
+and application/runtime bundles remain TypeSafe-free.
 
 ## 3. Implementation validation ladder
 

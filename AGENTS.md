@@ -15,22 +15,50 @@ Before implementation, PR review, migration/release work, or preparing a Codex p
 
 Live repository state overrides remembered chat summaries and old prompts.
 
-## TypeSafe Jev developer-intelligence pilot — constrained advisory-only
+## TypeSafe Jev developer-intelligence — standard advisory checkpoints
 
-The 2026-09-21 TypeSafe Jev pilot is developer-only and remains advisory-only;
-automatic context filtering is not implementation authority. The corrected
-candidate-bound benchmark supersedes the old harness result: one batched live
-request measured 52.75% character reduction (40 to 18 candidates), 100%
-must-keep retention, 90% expected-relevant retention, 1,668 ms latency, 6,270
-input and 764 output tokens, and zero fallback. The exact misses were
-`docs/README.md` and `scripts/ci-failure-context.ts`. Jev may be used locally
-as an explicitly opt-in advisory ranking, CI-category, test-prioritization, or
-completion-evidence aid only when the deterministic candidate set, required
-tests, safety boundaries, and Codex lead review remain authoritative. It must
-not replace RI-3, `agent:context`, `test:affected:agent`,
-database/security/financial reasoning, browser/database evidence, exact-head
-CI, or merge safety. Normal CI and application/runtime bundles must not make
-TypeSafe requests.
+For substantial bounded implementation phases, TypeSafe/Jev is now a standard
+developer-side advisory accelerator whenever `TYPESAFE_API_KEY` is available.
+It remains non-authoritative: deterministic Repository Intelligence / Workflow
+Map context, current source, required tests, security/financial/database
+reasoning, browser/database evidence, exact-head CI, and Codex lead review remain
+the decision authority.
+
+Use Jev at these checkpoints when applicable:
+
+1. **Start/context:** after synchronizing a clean branch/worktree and generating
+   the one bounded deterministic context packet, run one live context/reranking
+   call before implementation edits. Jev may rank or reduce optional candidates
+   but may not remove changed or must-keep files.
+2. **Test prioritization:** after deterministic affected-test selection, use one
+   live `test-triage` call only when the set is meaningfully broad. Jev may
+   reorder required tests for earlier feedback; it may not remove required tests.
+3. **Completion/evidence:** before PR delivery, use one live `completion` call
+   over sanitized task/evidence metadata to flag potentially missing evidence.
+   It does not make a merge decision.
+4. **CI triage:** use `ci-triage` only for a real noisy failure where
+   classification saves time. Do not call it for green CI.
+
+Fresh worktrees must be Jev-ready. If `@typesafe-ai/sdk` is already declared in
+`package.json` / `package-lock.json` but cannot resolve locally, do not edit
+dependency declarations: run `npm ci --include=dev`, verify with
+`npm ls @typesafe-ai/sdk`, and retry the intended checkpoint once. Use
+`doctor` only for an actual setup/API-connectivity problem and `benchmark`
+only for deliberate Jev evaluation, not routine product work.
+
+Record useful Jev diagnostics in the implementation handoff when calls succeed:
+candidate counts before/after, model, input/output tokens, latency, and fallback
+status. Failures fall back immediately to deterministic behavior. Normal CI and
+application/runtime bundles remain TypeSafe-free.
+
+Jev changes phase sizing, not authority boundaries. Prefer **wider but still
+coherent bounded phases** when related work shares one workflow, data authority,
+and validation surface, because broader candidate sets give Jev more room to
+remove optional context and let higher-capability Codex reasoning focus on
+implementation. A practical planning heuristic is roughly 1.5-3x the old
+micro-slice size, often 2-4 tightly related components within one domain/workflow.
+Do not bundle unrelated domains, new DB/security authorities, or all remaining
+UX work merely to create a larger Jev task.
 
 ## Codex implementation handoff fast-start — explicit 2026-09-11 override
 
