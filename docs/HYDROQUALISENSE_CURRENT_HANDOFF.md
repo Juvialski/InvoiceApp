@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A RESEARCH + PROFESSIONAL DESIGN BLUEPRINT COMPLETE / UI-R4B NEXT**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A RESEARCH + PROFESSIONAL DESIGN BLUEPRINT COMPLETE / UI-R4B IMPLEMENTED FOR RECORDED SHARED-FOUNDATION SCOPE / UI-R4C NEXT**
 Date: **2026-09-22**
 Repository: `Juvialski/InvoiceApp`
 
@@ -1708,11 +1708,11 @@ R4A durable evidence:
 
 The visual research covered Procore, Autodesk Construction Cloud/Build, Buildertrend, Fieldwire, Raken, Linear, and Airtable, plus WCAG focus/non-text contrast guidance. It establishes Home as orientation/attention/launch rather than an analytics warehouse; recognizable but restrained Project cards; compact contextual filters; consistent action hierarchy; System/Light/Dark using the existing Astryx paired tokens; and a later separate company-bound entity-media slice.
 
-The exact next implementation phase is **UI-R4B — shared visual foundation**. R4B must stop before R4C and implement only the theme/control foundation: System/Light/Dark preference/bootstrap, semantic shared surfaces required for theme parity, shared button hierarchy, compact filter/action bar, advanced-filter disclosure, and a bounded proving integration. R4B must visually inspect the actual rendered Light/Dark results at affected standard viewports; DOM/tests/overflow checks alone are not sufficient.
+UI-R4B is implemented for the shared-foundation and bounded Projects proving scope; its durable evidence is `artifacts/ui-ux-audit/UI-R4B-SHARED-VISUAL-FOUNDATION.md`. The exact next implementation phase is **UI-R4C — Home Dashboard + Project Portfolio redesign**. R4B’s visual evidence includes lead inspection of Light/Dark states and the affected standard viewport matrix; DOM/tests/overflow checks alone were not treated as professional-visual evidence.
 
 The approved Round 4 sequence remains:
 
-`UI-R4A research/design COMPLETE -> UI-R4B dark mode + shared buttons/compact filters NEXT -> UI-R4C Home Dashboard + Project Portfolio redesign -> UI-R4D project/equipment/material media foundation -> UI-R4E app-wide rollout + light/dark professional certification`.
+`UI-R4A research/design COMPLETE -> UI-R4B shared visual foundation COMPLETE -> UI-R4C Home Dashboard + Project Portfolio redesign NEXT -> UI-R4D project/equipment/material media foundation -> UI-R4E app-wide rollout + light/dark professional certification`.
 
 Round 4 requirements already established by the user:
 
@@ -1886,3 +1886,61 @@ implementation/tests/documentation present with no unresolved uncertainty and
 returned `mergeDecision: not-provided`. Browser QA, Docker/Supabase, database,
 provider, hosted-QA, production, and full-suite validation were not run because
 the final diff is developer tooling/documentation only.
+
+## 2026-09-22 UI-R4B — shared visual foundation completion
+
+R4B started from synchronized `main` SHA
+`2a903c7d9d6db383457dac6c7a2d5d0c2e44a46a` on branch
+`codex/ui-r4b-shared-visual-foundation`. The implementation head before this
+evidence synchronization was `acd6c01`.
+
+The shared foundation now provides:
+
+- exactly `System`, `Light`, and `Dark` local presentation preferences;
+  System follows the OS/browser through the existing Astryx paired tokens, and
+  explicit choices set the matching HTML theme state;
+- first-paint preference bootstrap in `index.html`, React preference context,
+  and Settings appearance controls without a company/database setting;
+- Astryx-backed semantic canvas/surface/raised/muted/popover/control/text/
+  focus/exception classes across shared shell, headers, notifications,
+  OperationsGrid, WorksheetEditor, WorksheetTabs, and ContextualHelp roots;
+- `ActionButton` hierarchy and `CompactActionBar`/
+  `AdvancedFilterDisclosure` with active counts, chips, conditional Clear all,
+  keyboard Escape/outside dismissal, focus restoration, and responsive search,
+  Filters, Sort, and View controls;
+- bounded Projects proving integration. Parent-owned filtering, sorting,
+  permissions, lifecycle, Actual vs Committed financial distinction, partial /
+  unavailable states, card-first default, Compact List, portfolio snapshot,
+  and workbook review boundaries remain unchanged.
+
+Direct read-only visual calibration inspected Linear, Fieldwire, and Procore.
+The lead then inspected Light and Dark Projects/Settings states, expanded
+Projects Filters, and Dark Projects Compact List/shared OperationsGrid through
+CUA. Local safe-demo evidence at
+`artifacts/demo-visual-qa-r4b/manifest.json` passed **131/131** scenarios,
+including 131 screenshots, 112 interactions, 36 routes, desktop/laptop/
+tablet/phone viewports, and zero console/page/request/navigation/overflow
+failures. The durable sanitized report is
+`artifacts/ui-ux-audit/UI-R4B-SHARED-VISUAL-FOUNDATION.md`.
+
+Validation for the final application/test head:
+
+- focused R4B suite: **38/38 PASS**;
+- diagnosed shared UI cluster after the Settings provider-context test
+  harness alignment: **60/60 PASS**;
+- deterministic affected selector: **85/372 selected files, 561/561 PASS**,
+  database fallback disabled/unaffected;
+- `npm.cmd run lint`: passed;
+- `npm.cmd run build`: passed with the known Astryx font/chunk-size and CJS
+  `import.meta` warnings; no unrelated generated theme drift retained;
+- Docker/Supabase, hosted QA, provider certification, authenticated
+  customer-data evidence, production, and full-suite regression were not run
+  or claimed because this is a UI/shared-control phase.
+
+The valid Jev projects checkpoint had zero deterministic candidates and made no
+live request; the unsupported generic `ui` context selector fell back to
+deterministic source inspection. Jev did not remove required context or tests.
+
+The exact next implementation phase is **UI-R4C — Home Dashboard + Project
+Portfolio redesign**. R4C must consume this grammar and remains separate from
+entity media and all deferred workforce/finance/custom-field domains.
