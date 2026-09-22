@@ -1969,3 +1969,21 @@ These findings were reported from the currently deployed application after UI-R4
    - The observed rejection is protective; do not weaken the trigger/RLS/financial-history boundary just to suppress the message.
 
 **Priority for the next engineering session:** stabilize the Dashboard render path first if Round 4 Dashboard work is being resumed; separately fix the payroll persistence contract; investigate Brevo as a provider/runtime reliability task. Keep these concerns bounded rather than combining UI redesign, payroll authority changes, and provider configuration into one large change.
+
+
+## 2026-09-22 — UI Round 4 current-state audit
+
+A documentation-only current-state UI audit was added at:
+
+- `artifacts/ui-ux-audit/UI-R4-CURRENT-STATE-AUDIT-2026-09-22.md`
+
+The audit is based on exact `main` `cde16084260749558b1ad4432ff40430a1ef5345`, the approved R4 blueprint/R4B evidence, current source, a static style/control scan, and the user's current deployed screenshots for Dashboard, Payroll, and Email / SMS.
+
+Key conclusion for R4C: the Dashboard has two explicit route compositions. When project-cost completeness is incomplete it renders the newer permission-scoped shortcut Home; after completeness becomes true it renders `EngineeringCostOperationsDashboard`. This explains the observed brief new Dashboard followed by reversion to the old analytics Dashboard. R4C must replace this with one stable Home composition and move the legacy analytics capability behind the planned Operations Insights destination.
+
+The audit also records large remaining R4E migration debt across Supplier Invoice Viewer/Review, Payroll, Cash & Banking, Expenses, Warehouse, Equipment, Procurement child registers/editors, Email / SMS, Documents, and Reports. Projects' core portfolio register and Settings remain the strongest R4 proving/reference surfaces.
+
+The approved sequence is unchanged:
+`R4C Home + Project Portfolio -> R4D entity media -> R4E app-wide rollout/certification`.
+
+No runtime implementation, provider mutation, database work, or production certification was performed by the audit.
