@@ -127,7 +127,7 @@ export function OperationsGrid<T>({
                     aria-sort={sorted ? sortDirection === "asc" ? "ascending" : "descending" : "none"}
                     className={`whitespace-nowrap px-3 ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${column.headerClassName || ""}`}
                   >
-                    <button type="button" onClick={() => toggleSort(column)} className="hqs-focus-ring inline-flex items-center gap-1 font-black hover:text-slate-900">
+                    <button type="button" onClick={() => toggleSort(column)} className="hqs-focus-ring inline-flex items-center gap-1 font-black hover:opacity-80">
                       {column.header}
                       {sorted && <span aria-hidden="true">{sortDirection === "asc" ? "↑" : "↓"}</span>}
                     </button>
