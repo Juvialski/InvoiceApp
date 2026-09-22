@@ -323,7 +323,7 @@ export const Header: React.FC<HeaderProps> = ({
   const accountHasActions = Boolean(accountEmail || onSignOut || navigation.settingsRoute);
   const routeContext = activeModule
     ? activeRouteId && activeRouteId !== activeModule.defaultRouteId
-    ? `${activeModule.label} / ${activeRoute?.label || "Workspace"}`
+      ? `${activeModule.label} / ${activeRoute?.label || "Workspace"}`
       : activeModule.label
     : isHelpRoute ? "Help Center" : activeRoute?.label || "Workspace";
 
