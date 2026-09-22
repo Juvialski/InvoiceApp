@@ -55,6 +55,15 @@ test("Projects attention-filter QA follows the card-first default instead of req
   assert.doesNotMatch(attentionAction, /Projects table/);
 });
 
+test("Projects attention-filter QA opens the shared Filters disclosure", () => {
+  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const attentionActionStart = scenariosSource.indexOf("const verifyPortfolioAttention");
+  const attentionActionEnd = scenariosSource.indexOf("const verifyProjectAttentionAndEngineering", attentionActionStart);
+  const attentionAction = scenariosSource.slice(attentionActionStart, attentionActionEnd);
+  assert.match(attentionAction, /getByRole\("button", \{ name: "Filters", exact: true \}\)/);
+  assert.doesNotMatch(attentionAction, /More filters/);
+});
+
 test("Procurement draft QA keeps approval hidden until the new PO is persisted", () => {
   const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
   const procurementActionStart = scenariosSource.indexOf("const verifyProcurementDraftWorksheets");

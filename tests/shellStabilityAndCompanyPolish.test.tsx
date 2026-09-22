@@ -11,6 +11,7 @@ import { DashboardRoute } from "../src/app/routes/DashboardRoute.tsx";
 import { ProjectsPage } from "../src/components/projects/ProjectsPage.tsx";
 import { ExpensesPage } from "../src/components/expenses/ExpensesPage.tsx";
 import { PayrollPageV2 } from "../src/components/payroll/PayrollPageV2.tsx";
+import { HydroqualisenseThemeProvider } from "../src/ui/HydroqualisenseThemeProvider.tsx";
 import type { DashboardViewData } from "../src/components/engineering/EngineeringCostOperationsDashboard.tsx";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE } from "../src/config/regional.ts";
 import type { CompanySummary } from "../src/lib/companyAccess.ts";
@@ -57,7 +58,9 @@ test("Settings component renders full-width layout without max-w-7xl constraint"
     timezone: DEFAULT_TIMEZONE,
   };
   const markup = renderToStaticMarkup(
-    <Settings settings={settings} onChange={() => {}} showDeploymentAccessManagement={false} />
+    <HydroqualisenseThemeProvider>
+      <Settings settings={settings} onChange={() => {}} showDeploymentAccessManagement={false} />
+    </HydroqualisenseThemeProvider>
   );
   assert.match(markup, /Operational settings/);
   assert.doesNotMatch(markup, /max-w-7xl/);
