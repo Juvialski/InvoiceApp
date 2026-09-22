@@ -57,7 +57,7 @@ export function HelpCenterPage({ search, onNavigatePath }: HelpCenterPageProps) 
   const requested = useMemo(() => queryState(search), [search]);
   const [query, setQuery] = useState(requested.query);
   const [activeCategory, setActiveCategory] = useState<HelpCategoryId | "all">("all");
-  const selectedTopic = requested.topicId ? getHelpTopic(requested.topicId) : undefined;
+  const selectedTopic = requested.topicId ? HELP_TOPICS.find((topic) => topic.id === requested.topicId) : undefined;
   const invalidTopic = Boolean(requested.topicId && !selectedTopic);
 
   useEffect(() => {
