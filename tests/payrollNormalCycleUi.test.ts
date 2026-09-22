@@ -60,6 +60,8 @@ test("App payroll mutations return authoritative results instead of fire-and-for
   assert.match(app, /const handleSavePayrollPeriod = async \(period: PayrollPeriod\): Promise<PayrollPeriod>/);
   assert.match(app, /onCalculatePayrollRun=\{handleCalculatePayrollRun\}/);
   assert.match(app, /onUpdatePayrollRun=\{handleUpdatePayrollRun\}/);
+  assert.match(app, /run\.status === "APPROVED" && !run\.approvedAt/);
+  assert.match(app, /approvedAt: new Date\(\)\.toISOString\(\)/);
   assert.doesNotMatch(app, /onCalculatePayrollRun=\{\(run\) => void handleCalculatePayrollRun\(run\)\}/);
 });
 
