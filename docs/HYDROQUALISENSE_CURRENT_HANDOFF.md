@@ -92,9 +92,12 @@ Evidence for the application-bearing head:
 - focused S3B/routing/Assistant/shared-UI tests: **42/42**;
 - deterministic affected selector: **386/386** from **56/366** selected files,
   database fallback disabled;
-- final integrated `npm.cmd test`: **2042 pass / 1 fail / 9 skipped**; the one
-  failure is the unchanged `tests/uiHardeningShared.test.ts` source-shape
-  assertion and is not in the S3B authority/routing surface;
+- pre-review integrated `npm.cmd test`: **2042 pass / 1 fail / 9 skipped**;
+  the sole failure was a stale `PageHeader` source-shape assertion in
+  `tests/uiHardeningShared.test.ts`. PR review aligned that assertion with the
+  intentional `data-ui="page-header"` markup, and the corrected assertion is
+  covered by exact-head affected validation. The full suite was not rerun after
+  this test-only correction because focused/affected validation is sufficient;
 - lint/typecheck, production build, and Workflow Map consistency passed;
 - local CUA verified Help index, `invoice-review` deep link, browser back,
   unknown-topic fallback, route-level Help on Projects, search query state, and
