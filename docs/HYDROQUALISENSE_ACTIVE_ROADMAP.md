@@ -1561,3 +1561,14 @@ must-keep/required-test unions before richer routing experiments. Remaining
 Wave 4D provider/readiness evidence may proceed opportunistically when safe
 external prerequisites exist; remaining UX-W5 domains stay queued and
 separately bounded. Worker Registration remains paused.
+
+
+### Deployed follow-up findings — 2026-09-22
+
+The following current deployed findings are now explicit follow-up blockers and should be re-verified from live source before implementation:
+
+- **Dashboard stability:** the newer simplified Dashboard may render briefly and then revert to the legacy Dashboard after workspace hydration/data loading. Round 4 Dashboard completion requires a single stable authoritative render path.
+- **Payroll persistence:** the UI currently surfaces `Payroll period ownership and company are immutable`. Preserve the database immutability guard; correct client persistence/update semantics rather than weakening ownership/history protection.
+- **Brevo reliability:** Email / SMS currently reports that Brevo connection status could not be checked safely. Provider/runtime readiness is unverified until the status path and deployment configuration are investigated and controlled provider evidence is obtained.
+
+These findings do not resume deferred product domains and do not authorize production/provider mutation.
