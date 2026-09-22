@@ -63,6 +63,25 @@ The active program is now:
 
 Canonical design/research contract: `docs/superpowers/specs/2026-09-21-ui-simplification-contextual-help-research.md`.
 
+
+### 2026-09-22 user-directed UI Improvement Round 4 — next after UX-S3E
+
+The user has explicitly authorized a new **UI Improvement Round 4** after the UX-S3E closeout. This is an existing-product design and usability program, not authorization to resume unrelated deferred product domains.
+
+Round 4 must begin research-first rather than by immediately rewriting the Dashboard. The approved direction is:
+
+1. **UI-R4A — research + design blueprint.** Inspect the current HydroQualiSense desktop/laptop/tablet/phone UI and research strong current dashboard, card, filter/action, dark-theme, and media patterns from appropriate public/open-source references. Produce evidence-backed designs before broad implementation.
+2. **UI-R4B — shared visual foundation.** Implement Light/Dark/System theme behavior using the existing paired Astryx theme tokens, reduce hard-coded light-only surfaces, standardize button/action hierarchy, and replace oversized filter panels with compact responsive filter/action toolbars plus progressive disclosure.
+3. **UI-R4C — Home Dashboard + Project Portfolio redesign.** Make Dashboard a simple informative launchpad with permission-aware task/navigation cards, a small bounded overview/attention layer, and clear destinations to detailed analytics. Improve Project cards beyond generic data containers while preserving financial truth and project identity.
+4. **UI-R4D — relevant entity media foundation.** Add carefully scoped company-bound project cover/profile images, equipment photos, and material images, designed so worker avatars can be added later without implementing that deferred workforce UI now. Any storage/schema/RLS work requires its own explicit design and real local Supabase/Docker validation.
+5. **UI-R4E — app-wide rollout + professional certification.** Apply the approved shared grammar to relevant existing routes and certify both light and dark themes across the standard four viewports, including keyboard/accessibility and visual inspection.
+
+Key user concerns that Round 4 must address include the current Dashboard carrying too much detailed operational/analytics content, generic-looking project cards, oversized filter controls consuming multiple laptop rows, inconsistent button/action hierarchy, lack of dark mode, and lack of relevant imagery on projects/equipment/materials.
+
+Round 4 must preserve the standing interaction rule: **browse visually -> edit like a spreadsheet -> execute sensitive workflows deliberately**. Detailed financial/operational analytics should be relocated or navigated to rather than deleted. Dark mode must cover charts, tables, inputs, dialogs, worksheets, status colors, and overlays rather than only changing the page background.
+
+Worker Registration, Site Attendance expansion, Face Recognition, Finance UX-W6, custom-field architecture, and unrelated new product domains remain deferred unless explicitly resumed.
+
 ### UX-S3A2 Jev-browser comparative validation complete — UX-S3B ready
 
 UX-S3A produced a useful baseline at source SHA
