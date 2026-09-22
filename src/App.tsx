@@ -124,7 +124,7 @@ import { assignmentForLifecycle, componentForLifecycle, profileForLifecycle, typ
 import { isSafeToDeletePayrollPeriod, isSafeToDeletePayrollRun, selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
   import { applyPayrollMaintenance as applyPayrollMaintenanceRpc, applyPayrollWorkspaceReset as applyPayrollWorkspaceResetRpc, localMaintenanceResult, planLocalPayrollMaintenance, previewPayrollMaintenance as previewPayrollMaintenanceRpc, previewPayrollWorkspaceReset as previewPayrollWorkspaceResetRpc, assertPayrollWorkspaceResetConfirmation, type PayrollMaintenanceAction, type PayrollMaintenancePreview, type PayrollWorkspaceResetPreview } from "./lib/payrollMaintenance";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
-import { fingerprintPayrollSources, payrollPeriodSourceIdentity, validatePayrollRunSourceRevision } from "./lib/payrollSourceRevision";
+import { buildPayrollSourceRevisionInput, fingerprintPayrollSources, validatePayrollRunSourceRevision } from "./lib/payrollSourceRevision";
 import type { StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
@@ -188,8 +188,7 @@ function sourceInputForPayroll(
   data: PayrollWorkspaceData,
   projects?: readonly PayrollProjectReference[],
 ) {
-  return {
-    period: payrollPeriodSourceIdentity(period),
+  return buildPayrollSourceRevisionInput(period, {
     workers: data.workers,
     attendanceRecords: data.attendanceRecords || [],
     leaveRequests: data.leaveRequests || [],
@@ -200,7 +199,7 @@ function sourceInputForPayroll(
     assignments: data.assignments,
     recurringComponents: data.recurringComponents || [],
     projects: projects || [],
-  };
+  });
 }
 
 function prepareStoredInvoice(invoice: InvoiceData): InvoiceData {
@@ -2112,14 +2111,17 @@ function InvoiceWorkspace() {
     }
   };
 
-  const handleSavePayrollPeriod = async (period: PayrollPeriod) => {
+  const handleSavePayrollPeriod = async (period: PayrollPeriod): Promise<PayrollPeriod> => {
     try {
       if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to manage payroll periods in this company.");
       const saved = session && supabase ? await savePayrollPeriodToSupabase(period) : { ...period, updatedAt: new Date().toISOString() };
       setPayrollData((current) => ({ ...current, periods: current.periods.some((item) => item.id === saved.id) ? current.periods.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.periods] }));
       showNotification("success", "Payroll period saved.");
+      return saved;
     } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save payroll period."));
+      const message = userFacingError(error, "Could not save payroll period.");
+      showNotification("error", message);
+      throw new Error(message);
     }
   };
 
@@ -2513,17 +2515,15 @@ function InvoiceWorkspace() {
     }
   };
 
-  const handleCalculatePayrollRun = async (run: PayrollRun) => {
+  const handleCalculatePayrollRun = async (run: PayrollRun): Promise<PayrollRun> => {
     try {
       if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to calculate payroll in this company.");
       if (run.status !== "DRAFT" && run.status !== "CALCULATED") {
-        showNotification("error", "Only draft or calculated payroll runs can be calculated.");
-        return;
+        throw new Error("Only draft or calculated payroll runs can be calculated.");
       }
       const period = payrollData.periods.find((item) => item.id === run.periodId);
       if (!period || period.status === "VOID") {
-        showNotification("error", "Select a valid, non-VOID payroll period before calculating.");
-        return;
+        throw new Error("Select a valid, non-VOID payroll period before calculating.");
       }
       const existingRunEntries = payrollData.entries.filter((entry) => entry.payrollRunId === run.id);
       const hasConfiguredAutomationSources = Boolean(payrollData.workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === period.id) || (payrollData.attendanceRecords || []).some((record) => record.periodId === period.id && record.recordStatus === "CONFIRMED") || (payrollData.overtimeRequests || []).some((request) => request.periodId === period.id && request.status === "APPROVED") || (payrollData.compensationProfiles || []).length || (payrollData.recurringComponents || []).length);
@@ -2551,18 +2551,15 @@ function InvoiceWorkspace() {
           existingEntries: payrollData.entries.filter((entry) => entry.payrollRunId === run.id),
         });
         if (draft.readiness === "BLOCKING") {
-          showNotification("error", `Payroll needs attention before calculation: ${draft.exceptions.filter((issue) => issue.severity === "BLOCKING").map((issue) => issue.message).slice(0, 3).join(" ")}`);
-          return;
+          throw new Error(`Payroll needs attention before calculation: ${draft.exceptions.filter((issue) => issue.severity === "BLOCKING").map((issue) => issue.message).slice(0, 3).join(" ")}`);
         }
         const records = payrollDraftToRecords(draft, run.id);
         if (!records.entries.length) {
-          showNotification("error", "No payroll entries are ready. Add approved work entries or configure a worker compensation profile.");
-          return;
+          throw new Error("No payroll entries are ready. Add approved work entries or configure a worker compensation profile.");
         }
         const invalidAllocations = records.entries.flatMap((entry) => validatePayrollAllocations(entry, records.allocations.filter((allocation) => allocation.payrollEntryId === entry.id)).issues);
         if (invalidAllocations.length) {
-          showNotification("error", invalidAllocations.join(" "));
-          return;
+          throw new Error(invalidAllocations.join(" "));
         }
         let savedEntries = records.entries;
         let savedAllocations = records.allocations;
@@ -2579,13 +2576,12 @@ function InvoiceWorkspace() {
         });
         const warningCount = draft.exceptions.filter((issue) => issue.severity === "WARNING").length;
         showNotification("success", `Payroll run calculated from ${draft.mode.toLowerCase()} sources for ${savedEntries.length} worker${savedEntries.length === 1 ? "" : "s"}.${warningCount ? ` ${warningCount} warning${warningCount === 1 ? "" : "s"} need review.` : ""}`);
-        return;
+        return savedRun;
       }
 
       const invalidApprovedEntries = payrollData.workEntries.filter((entry) => entry.status === "APPROVED" && (!entry.periodId || entry.workDate < period.periodStart || entry.workDate > period.periodEnd));
       if (invalidApprovedEntries.length) {
-        showNotification("error", `${invalidApprovedEntries.length} approved work entr${invalidApprovedEntries.length === 1 ? "y is" : "ies are"} missing a valid period/date link.`);
-        return;
+        throw new Error(`${invalidApprovedEntries.length} approved work entr${invalidApprovedEntries.length === 1 ? "y is" : "ies are"} missing a valid period/date link.`);
       }
       const calculation = calculatePayrollRunFromWorkEntries({ runId: run.id, periodId: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, workers: payrollData.workers, assignments: payrollData.assignments, workEntries: payrollData.workEntries, attendanceRecords: payrollData.attendanceRecords || [], leaveRequests: payrollData.leaveRequests || [], overtimeRequests: payrollData.overtimeRequests || [], holidays: payrollData.holidays || [], projects: payrollProjectContext, sourceRevision: period.sourceRevision });
       const existingEntries = payrollData.entries.filter((entry) => entry.payrollRunId === run.id);
@@ -2598,13 +2594,11 @@ function InvoiceWorkspace() {
       const entriesToSave = generatedEntries.length ? generatedEntries : existingEntries;
       const allocationsToSave = generatedEntries.length ? generatedAllocations : existingAllocations;
       if (!entriesToSave.length) {
-        showNotification("error", "Add approved work entries or a manual payroll entry before calculating.");
-        return;
+        throw new Error("Add approved work entries or a manual payroll entry before calculating.");
       }
       const invalidAllocations = entriesToSave.flatMap((entry) => validatePayrollAllocations(entry, allocationsToSave.filter((allocation) => allocation.payrollEntryId === entry.id)).issues);
       if (invalidAllocations.length) {
-        showNotification("error", invalidAllocations.join(" "));
-        return;
+        throw new Error(invalidAllocations.join(" "));
       }
 
       let savedEntries = entriesToSave;
@@ -2624,27 +2618,28 @@ function InvoiceWorkspace() {
       });
       const warning = calculation.warnings.length ? ` ${calculation.warnings.join(" ")}` : "";
       showNotification("success", `Payroll run calculated. ${savedEntries.length} worker${savedEntries.length === 1 ? "" : "s"} snapshotted.${warning}`);
+      return savedRun;
     } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not calculate payroll run."));
+      const message = userFacingError(error, "Could not calculate payroll run.");
+      showNotification("error", message);
+      throw new Error(message);
     }
   };
 
-  const handleUpdatePayrollRun = async (run: PayrollRun) => {
+  const handleUpdatePayrollRun = async (run: PayrollRun): Promise<PayrollRun> => {
     try {
       if (isSupabaseConfigured && ["APPROVED", "PAID"].includes(run.status) && !can(PERMISSION_KEYS.payrollApprove)) throw new Error("You do not have permission to approve or pay payroll in this company.");
       if (isSupabaseConfigured && !["APPROVED", "PAID"].includes(run.status) && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to manage payroll runs in this company.");
       const previous = payrollData.runs.find((item) => item.id === run.id);
       if (!previous || !canTransitionPayrollRun(previous.status, run.status) || (previous.status === run.status && (run.status === "APPROVED" || run.status === "PAID" || run.status === "VOID"))) {
-        showNotification("error", `Invalid payroll run transition: ${previous?.status || "UNKNOWN"} → ${run.status}.`);
-        return;
+        throw new Error(`Invalid payroll run transition: ${previous?.status || "UNKNOWN"} → ${run.status}.`);
       }
       if (run.status === "APPROVED") {
         const approvalPeriod = payrollData.periods.find((period) => period.id === previous.periodId);
         if (approvalPeriod) {
           const freshness = validatePayrollRunSourceRevision({ run: previous, period: approvalPeriod, sourceInput: sourceInputForPayroll(approvalPeriod, payrollData, payrollProjectContext) });
           if (!freshness.valid) {
-            showNotification("error", "Payroll sources changed after calculation. Recalculate before approval.");
-            return;
+            throw new Error("Payroll sources changed after calculation. Recalculate before approval.");
           }
         }
         const approvalSchedule = (payrollData.schedules || []).find((schedule) => schedule.active && (!approvalPeriod?.scheduleId || schedule.id === approvalPeriod.scheduleId));
@@ -2653,23 +2648,29 @@ function InvoiceWorkspace() {
         if (approvalPeriod && automationEnabled) {
           const draft = buildAutomaticPayrollDraft({ period: approvalPeriod, run: previous, workers: payrollData.workers, assignments: payrollData.assignments, profiles: payrollData.compensationProfiles || [], recurringComponents: payrollData.recurringComponents || [], workEntries: payrollData.workEntries, attendanceRecords: payrollData.attendanceRecords || [], leaveRequests: payrollData.leaveRequests || [], overtimeRequests: payrollData.overtimeRequests || [], holidays: payrollData.holidays || [], projects: payrollProjectContext, mode: approvalMode });
           if (draft.readiness === "BLOCKING") {
-            showNotification("error", `Approval is blocked until payroll issues are resolved: ${draft.exceptions.filter((issue) => issue.severity === "BLOCKING").map((issue) => issue.message).slice(0, 3).join(" ")}`);
-            return;
+            throw new Error(`Approval is blocked until payroll issues are resolved: ${draft.exceptions.filter((issue) => issue.severity === "BLOCKING").map((issue) => issue.message).slice(0, 3).join(" ")}`);
           }
         }
         const runEntries = payrollData.entries.filter((entry) => entry.payrollRunId === run.id);
         const approval = validatePayrollRunApproval({ id: run.id, status: previous.status }, runEntries);
         const allocationIssues = runEntries.flatMap((entry) => validatePayrollAllocations(entry, payrollData.allocations.filter((allocation) => allocation.payrollEntryId === entry.id)).issues);
         if (!approval.valid || allocationIssues.length) {
-          showNotification("error", [...approval.issues, ...allocationIssues].join(" "));
-          return;
+          throw new Error([...approval.issues, ...allocationIssues].join(" "));
         }
       }
-      const saved = session && supabase ? await savePayrollRunToSupabase(run) : run;
+      const localRun = !session || !supabase
+        ? run.status === "APPROVED" && !run.approvedAt
+          ? { ...run, approvedAt: new Date().toISOString() }
+          : run
+        : run;
+      const saved = session && supabase ? await savePayrollRunToSupabase(run) : localRun;
       setPayrollData((current) => ({ ...current, runs: current.runs.map((item) => item.id === saved.id ? saved : item) }));
       showNotification("success", `Payroll run marked ${saved.status.toLowerCase()}.`);
+      return saved;
     } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not update payroll run."));
+      const message = userFacingError(error, "Could not update payroll run.");
+      showNotification("error", message);
+      throw new Error(message);
     }
   };
 
@@ -3746,7 +3747,7 @@ function InvoiceWorkspace() {
           onRetryPayrollPeriodPreparation={retryPayrollPeriodPreparation}
           onSavePayrollWorker={(worker) => void handleSaveWorker(worker)}
           onSavePayrollAssignment={(assignment) => void handleSaveAssignment(assignment)}
-          onSavePayrollPeriod={(period) => void handleSavePayrollPeriod(period)}
+          onSavePayrollPeriod={handleSavePayrollPeriod}
           onSavePayrollSchedule={(schedule) => void handleSavePayrollSchedule(schedule)}
           canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)}
           canManagePayrollMaintenance={payrollMaintenanceAllowed}
@@ -3763,9 +3764,9 @@ function InvoiceWorkspace() {
           onSavePayrollOvertime={(request) => void handleSaveOvertime(request)}
           onSavePayrollHoliday={(holiday) => void handleSaveHoliday(holiday)}
           onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)}
-          onUpdatePayrollRun={(run) => void handleUpdatePayrollRun(run)}
+          onUpdatePayrollRun={handleUpdatePayrollRun}
           onCreatePayrollRun={handleCreatePayrollRun}
-          onCalculatePayrollRun={(run) => void handleCalculatePayrollRun(run)}
+          onCalculatePayrollRun={handleCalculatePayrollRun}
           onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)}
           onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)}
           onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)}

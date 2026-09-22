@@ -36,6 +36,14 @@ test("demo Documents coverage includes the three Document Center views", () => {
   assert.ok(states.includes("Document Center Templates rendered"));
 });
 
+test("Payroll demo coverage includes the next-step overview and approved Cash handoff states", () => {
+  const states = DEMO_QA_SCENARIOS
+    .filter((scenario) => scenario.route.id === "payroll" || scenario.route.id === "payroll-run")
+    .map((scenario) => scenario.interactionState);
+  assert.ok(states.includes("Payroll normal-cycle next step verified"));
+  assert.ok(states.includes("approved Payroll Cash & Banking settlement handoff verified"));
+});
+
 test("Projects attention-filter QA follows the card-first default instead of requiring the optional compact list", () => {
   const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
   const attentionActionStart = scenariosSource.indexOf("const verifyPortfolioAttention");

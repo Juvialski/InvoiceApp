@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-22**
 Repository: `Juvialski/InvoiceApp`
 
@@ -280,6 +280,59 @@ No financial/source, committed-cost, RFQ/quotation history, supplier-selection,
 PO lifecycle, receipt/Warehouse, permission, company-isolation, concurrency,
 currency, or workbook authority boundary changed. The next unfinished S3D
 slice is Payroll normal-cycle hardening; UX-S3E remains later.
+
+### 2026-09-22 UX-S3D — Payroll normal-cycle workflow hardening
+
+This bounded slice starts from synchronized `main` SHA
+`2a323638e88985648375216f9e6fd3ca27ef479c` on branch
+`codex/ux-s3d-payroll-normal-cycle`.
+
+The normal Payroll sequence remains explicit:
+`select period -> prepare/import inputs -> review exceptions -> calculate -> review calculated snapshot -> approve -> Cash & Banking payment -> confirmed result/history`.
+
+The Overview no longer calculates directly. It now shows one concise next step
+and routes calculation to the Run review surface. Run calculation awaits the
+authoritative App callback, guards duplicate submissions, and only reports
+completion after the callback resolves. Approval now opens a deliberate review
+stage containing period, entry, gross, employee net-pay, allocated and
+unallocated amounts, warnings, and stale-source state before the existing
+permissioned callback can lock the run. The shared source revision/fingerprint
+validator is reused for pre-approval guidance; the App handler remains the
+final authority.
+
+Payroll period editing is metadata-only. The visible state uses the existing
+run/history projection, Approved/Paid/Void history is not editable, and the
+async save contract retains retryable errors. Approved remains distinct from
+Paid; the Payroll surface continues into Cash & Banking with employee net pay
+as the settlement basis and no Payroll-side manual Paid action.
+
+Exact validation:
+
+- focused normal-cycle, Payroll, Cash settlement, lifecycle, routing, and
+  authority suites passed;
+- deterministic affected selection: **651 pass / 0 fail / 1 skipped**, **86/369**
+  selected, database fallback disabled;
+- ESLint, TypeScript, and production build passed; build retained existing
+  Astryx font/chunk-size and CJS `import.meta` warnings;
+- local production-preview Demo Visual QA: **129 screenshots / 111 interaction
+  scenarios / 36 routes / 4 viewports**, zero console/page/request/overflow
+  failures; new overview and approved Cash handoff scenarios passed at desktop
+  and phone widths;
+- Workflow Map consistency tests passed after preserving the canonical
+  Payroll QA scenario IDs;
+- one `agent:context` attempt fell back because `payroll` is not a supported
+  Workflow Map domain; one live Jev test-triage attempt and one live sanitized
+  completion/evidence attempt returned `TypeError` before a response. No Jev
+  judgment was used and deterministic evidence remained authoritative;
+- Docker/Supabase, hosted QA, provider, and production checks were not
+  applicable: no migration, RLS/RPC, DB guard, persistence authority, locking,
+  or settlement database behavior changed.
+
+No Payroll math, source freshness authority, permission boundary, finalized or
+void history, allocation visibility, company isolation, privacy, or Cash
+settlement authority changed. UX-S3D is complete for the recorded Payroll
+scope. **UX-S3E accessibility/responsive/visual certification** is next and
+remains unstarted.
 
 ### UX-W4.5B — shared responsive shell and worksheet foundations
 
