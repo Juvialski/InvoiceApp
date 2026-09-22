@@ -1,9 +1,9 @@
 # UX-S3E — Accessibility, Responsive, and Visual Certification
 
-Status: **COMPLETE FOR THE RECORDED LOCAL/DEMO CERTIFICATION SCOPE**  
+Status: **COMPLETE FOR THE RECORDED LOCAL/DEMO CERTIFICATION SCOPE**
 Reviewed application/evidence SHA: `dd75c8c`
-Starting synchronized `main` SHA: `935c9083f08ffbda940cf3456f85b14938adf23a`  
-Branch: `codex/ux-s3e-accessibility-responsive-visual-closeout`  
+Starting synchronized `main` SHA: `935c9083f08ffbda940cf3456f85b14938adf23a`
+Branch: `codex/ux-s3e-accessibility-responsive-visual-closeout`
 Reviewed: **2026-09-22**
 
 ## Evidence boundary
