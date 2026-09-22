@@ -364,23 +364,32 @@ const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Requests for Quotation (RFQs)" }).click();
   await page.getByRole("button", { name: "Issue", exact: true }).first().click();
   await waitForVisible(page, '[role="dialog"]');
+  const issueDialogFocusEntered = await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')));
   const issueConfirmation = await page.getByRole("button", { name: "Confirm Issue", exact: true }).count();
   const issueSafety = await page.locator("text=Issuing does not select a supplier or create a Purchase Order.").count();
   await page.getByRole("button", { name: "Back", exact: true }).click();
+  const issueDialogFocusRestored = await page.evaluate(() => document.activeElement?.textContent?.trim() === "Issue");
   await page.getByRole("button", { name: "New RFQ", exact: true }).first().click();
   await waitForVisible(page, '[data-testid="rfq-draft-worksheet"]');
+  const rfqDialogFocusEntered = await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')));
   const rfqWorksheet = await page.locator('[data-testid="rfq-draft-worksheet"]').count();
   const rfqEditors = await page.locator('[data-testid="rfq-draft-worksheet"] [data-worksheet-editor="true"]').count();
   const rfqAddRow = await page.locator('[data-testid="rfq-draft-worksheet"] [data-worksheet-add-row="true"]').count();
-  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await page.keyboard.press("Escape");
+  const rfqDialogFocusRestored = await page.evaluate(() => document.activeElement?.textContent?.trim() === "New RFQ");
 
   await page.getByRole("button", { name: "Purchase Orders" }).click();
   await page.getByRole("button", { name: "New Purchase Order", exact: true }).first().click();
   await waitForVisible(page, '[data-testid="purchase-order-draft-worksheet"]');
+  const poDialogFocusEntered = await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')));
   const poWorksheet = await page.locator('[data-testid="purchase-order-draft-worksheet"]').count();
   const poEditors = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-editor="true"]').count();
   const poAddRow = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-add-row="true"]').count();
   const protectedCells = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-protected="true"]').count();
+  await page.keyboard.press("Escape");
+  const poDialogFocusRestored = await page.evaluate(() => document.activeElement?.textContent?.trim() === "New Purchase Order");
+  await page.getByRole("button", { name: "New Purchase Order", exact: true }).first().click();
+  await waitForVisible(page, '[data-testid="purchase-order-draft-worksheet"]');
   const approval = await page.getByRole("button", { name: "Approve PO", exact: true }).count();
   const saveBeforeApproval = await page.locator("text=Save this draft before approval becomes available.").count();
   const receiptWorkflow = await page.getByRole("button", { name: /Record Delivery \/ Receipt/ }).count();
@@ -388,13 +397,19 @@ const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
   return [
     { id: "rfq-issue-confirmation-visible", passed: issueConfirmation === 1, details: `RFQ issue confirmation controls: ${issueConfirmation}` },
     { id: "rfq-issue-safety-boundary-visible", passed: issueSafety === 1, details: `RFQ issue safety notices: ${issueSafety}` },
+    { id: "rfq-issue-dialog-focus-entered", passed: issueDialogFocusEntered, details: `RFQ issue dialog received focus: ${issueDialogFocusEntered}` },
+    { id: "rfq-issue-dialog-focus-restored", passed: issueDialogFocusRestored, details: `RFQ issue opener focus restored: ${issueDialogFocusRestored}` },
     { id: "rfq-draft-worksheet-visible", passed: rfqWorksheet === 1, details: `RFQ worksheet surfaces: ${rfqWorksheet}` },
     { id: "rfq-draft-worksheet-editors-visible", passed: rfqEditors === 2, details: `RFQ worksheet editors: ${rfqEditors}` },
     { id: "rfq-draft-worksheet-add-row-visible", passed: rfqAddRow === 1, details: `RFQ Add row controls: ${rfqAddRow}` },
+    { id: "rfq-dialog-focus-entered", passed: rfqDialogFocusEntered, details: `RFQ dialog received focus: ${rfqDialogFocusEntered}` },
+    { id: "rfq-dialog-focus-restored", passed: rfqDialogFocusRestored, details: `RFQ opener focus restored: ${rfqDialogFocusRestored}` },
     { id: "po-draft-worksheet-visible", passed: poWorksheet === 1, details: `PO worksheet surfaces: ${poWorksheet}` },
     { id: "po-draft-worksheet-editors-visible", passed: poEditors === 2, details: `PO worksheet editors: ${poEditors}` },
     { id: "po-draft-worksheet-add-row-visible", passed: poAddRow === 1, details: `PO Add row controls: ${poAddRow}` },
     { id: "po-draft-protected-cells-visible", passed: protectedCells > 0, details: `PO protected cells: ${protectedCells}` },
+    { id: "po-dialog-focus-entered", passed: poDialogFocusEntered, details: `PO dialog received focus: ${poDialogFocusEntered}` },
+    { id: "po-dialog-focus-restored", passed: poDialogFocusRestored, details: `PO opener focus restored: ${poDialogFocusRestored}` },
     { id: "po-draft-approval-workflow-outside-worksheet", passed: approval === 0, details: `new PO approval controls: ${approval}` },
     { id: "po-draft-save-before-approval-visible", passed: saveBeforeApproval === 1, details: `save-before-approval notices: ${saveBeforeApproval}` },
     { id: "po-draft-receiving-workflow-not-on-draft", passed: receiptWorkflow === 0, details: `draft receiving controls: ${receiptWorkflow}` },
@@ -576,10 +591,20 @@ const verifySmsComposeWorkspace: QaScenarioAction = async (page) => {
 };
 
 const openMobileNavigation: QaScenarioAction = async (page) => {
-  await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+  const opener = page.getByRole("button", { name: "Open navigation", exact: true });
+  await opener.press("Enter");
   await waitForVisible(page, 'button[aria-label="Close navigation"]');
   const count = await page.locator('button[aria-label="Close navigation"]').count();
-  return [{ id: "mobile-navigation-visible", passed: count > 0, details: `close-navigation controls: ${count}` } satisfies QaAssertion];
+  const focusEntered = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Close navigation");
+  await page.keyboard.press("Escape");
+  const focusRestored = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Open navigation");
+  await opener.press("Enter");
+  await waitForVisible(page, 'button[aria-label="Close navigation"]');
+  return [
+    { id: "mobile-navigation-visible", passed: count > 0, details: `close-navigation controls: ${count}` },
+    { id: "mobile-navigation-focus-entered", passed: focusEntered, details: `focus entered drawer: ${focusEntered}` },
+    { id: "mobile-navigation-focus-restored", passed: focusRestored, details: `focus restored to opener: ${focusRestored}` },
+  ] satisfies readonly QaAssertion[];
 };
 
 function assertHeading(name: string | RegExp, assertionId: string): QaScenarioAction {
@@ -1019,10 +1044,12 @@ const verifyPageHeaderHelpAction: QaScenarioAction = async (page) => {
 const verifyAttachmentContextualHelp: QaScenarioAction = async (page) => {
   const trigger = page.getByRole("button", { name: "Attachment eligibility help", exact: true });
   const triggerCount = await trigger.count();
-  await trigger.first().click();
+  await trigger.first().press("Enter");
   const dialog = page.getByRole("dialog", { name: "Eligible document attachments", exact: true });
   await dialog.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const dialogCount = await dialog.count();
+  const ariaModal = await page.evaluate(() => document.querySelector('[role="dialog"][aria-labelledby^="contextual-help-"]')?.getAttribute("aria-modal") || "");
+  const focusedOnOpen = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "");
   const articleLink = await page.getByRole("link", { name: "Read more in Help Center", exact: true }).count();
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "detached", timeout: READY_TIMEOUT_MS });
@@ -1030,6 +1057,7 @@ const verifyAttachmentContextualHelp: QaScenarioAction = async (page) => {
   return [
     { id: "contextual-help-trigger-visible", passed: triggerCount === 1, details: `attachment-help triggers: ${triggerCount}` },
     { id: "contextual-help-dialog-visible", passed: dialogCount === 1, details: `attachment-help dialogs: ${dialogCount}` },
+    { id: "contextual-help-keyboard-opened", passed: focusedOnOpen === "Attachment eligibility help" && ariaModal === "false", details: `keyboard focus: ${focusedOnOpen || "none"}; aria-modal: ${ariaModal || "missing"}` },
     { id: "contextual-help-article-link-visible", passed: articleLink === 1, details: `configured Help Center article links: ${articleLink}` },
     { id: "contextual-help-escape-closes", passed: true, details: "Escape detached the contextual-help dialog" },
     { id: "contextual-help-focus-restored", passed: focusedLabel === "Attachment eligibility help", details: `focused aria-label: ${focusedLabel || "none"}` },
@@ -1120,9 +1148,9 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "exact document handoff to Email / SMS compose", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsToEmailHandoff }),
   defineQaScenario({ feature: "engineering-documents", route: route("engineering-documents", "/documents"), path: "/demo/app/documents", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "rfis", route: route("rfis", "/projects/:projectId/rfis"), path: `${PROJECT_ROOT}/rfis`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
-  defineQaScenario({ feature: "rfis", route: route("rfi-detail", "/projects/:projectId/rfis?rfiId=:rfiId"), path: `${PROJECT_ROOT}/rfis?rfiId=demo-rfi-wh-001`, interactionState: "missing-record recovery rendered", viewport: QA_VIEWPORTS.desktop, action: verifyRfiMissingRecordRecovery }),
+  defineQaScenario({ feature: "rfis", route: route("rfi-detail", "/projects/:projectId/rfis?rfiId=:rfiId"), path: `${PROJECT_ROOT}/rfis?rfiId=demo-rfi-missing-s3e`, interactionState: "missing-record recovery rendered", viewport: QA_VIEWPORTS.desktop, action: verifyRfiMissingRecordRecovery }),
   defineQaScenario({ feature: "submittals", route: route("submittals", "/projects/:projectId/submittals"), path: `${PROJECT_ROOT}/submittals`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
-  defineQaScenario({ feature: "submittals", route: route("submittal-detail", "/projects/:projectId/submittals?submittalId=:submittalId&roundId=:roundId"), path: `${PROJECT_ROOT}/submittals?submittalId=demo-sub-wh-014&roundId=demo-round-wh-014-2`, interactionState: "missing-record recovery rendered", viewport: QA_VIEWPORTS.desktop, action: verifySubmittalMissingRecordRecovery }),
+  defineQaScenario({ feature: "submittals", route: route("submittal-detail", "/projects/:projectId/submittals?submittalId=:submittalId&roundId=:roundId"), path: `${PROJECT_ROOT}/submittals?submittalId=demo-sub-missing-s3e&roundId=demo-round-missing-s3e`, interactionState: "missing-record recovery rendered", viewport: QA_VIEWPORTS.desktop, action: verifySubmittalMissingRecordRecovery }),
   defineQaScenario({ feature: "site-logs", route: route("site-logs", "/projects/:projectId/site-logs"), path: `${PROJECT_ROOT}/site-logs`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "site-logs", route: route("site-log-detail", "/projects/:projectId/site-logs?siteLogId=:siteLogId"), path: `${PROJECT_ROOT}/site-logs?siteLogId=demo-site-log-wh-concrete`, interactionState: "Site Log detail opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "site-logs", route: route("site-logs", "/projects/:projectId/site-logs"), path: `${PROJECT_ROOT}/site-logs`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.tablet }),
