@@ -20,6 +20,11 @@ test("shared visual foundation defines semantic Astryx-backed surface classes", 
     "hqs-secondary-text",
     "hqs-border",
     "hqs-focus-ring",
+    "hqs-search-control",
+    "hqs-muted-fill",
+    "hqs-success-text",
+    "hqs-warning-text",
+    "hqs-danger-text",
   ]) {
     assert.match(css, new RegExp(`\\.${className}\\b`), className);
   }
@@ -46,6 +51,9 @@ test("shared roots and Settings expose the R4B theme/control architecture", () =
   assert.doesNotMatch(contextualHelp, /rounded-xl border border-slate-200 bg-white/);
   assert.match(operationsUi, /export function ActionButton/);
   assert.match(operationsUi, /variant\?: ButtonVariant/);
+  assert.match(operationsUi, /hqs-search-control/);
+  assert.doesNotMatch(settings, /text-slate-(?:500|600|900)|border-slate-(?:100|200)|bg-white/);
+  assert.doesNotMatch(operationsUi, /bg-slate-200|text-slate-700|text-rose-900/);
 });
 
 test("shared UI owns compact action bar and advanced disclosure primitives", () => {
