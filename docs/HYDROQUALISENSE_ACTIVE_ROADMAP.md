@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 ACTIVE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 ACTIVE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE QUEUE SLICE IMPLEMENTED FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-22**
 
@@ -55,8 +55,8 @@ The active program is now:
 
 1. **UX-S3A + UX-S3A2 — Comparative UI research, app-wide instruction-density audit, and Jev-browser validation are complete for the recorded research boundary.** The durable report at `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md` records direct public comparator observations, current safe-demo route/state evidence, the Keep / Shorten / Contextual Help / Help Center / Remove classification, matched Jev/Codex browser results, shared root causes, workflow friction, Help Center taxonomy, limitations, and the S3B readiness decision. No broad UI remediation was implemented.
 2. **UX-S3B — Help Center + contextual-help foundation and targeted browser evidence are closed for the recorded boundary.** The canonical 35-topic/13-category registry, `/help` deep links, shared route-aware Help actions, contextual popovers, and durable structured scenarios are implemented. The merged PR #228 protected run was green but did not include Help scenarios; this continuation added the missing index/article responsive matrix, search/category/deep-link/history/fallback, two non-demo header actions, and Email attachment contextual-help Escape/focus coverage. Local production-server Demo Visual QA passed the full 123-scenario/36-route/4-viewport catalog with zero console, page, request, and overflow failures. This does not claim authenticated comparator parity, hosted/provider/production certification, or S3D completion.
-3. **UX-S3C — App-wide visible-copy simplification is implemented for the recorded scope.** Shared page/section chrome was shortened, duplicate Email/SMS attachment/draft guidance was removed while the contextual Help and provider/human-confirmation semantics remained, Procurement workbook education now follows the working register, and representative Dashboard, Projects, Project Workspace, Cost Codes, Supplier Invoices, Expenses, Cash & Banking, Documents, Email/SMS, Payroll, Settings, Warehouse, Equipment, Vendors, Reports, and worksheet copy was simplified. Financial/source, lifecycle, permission, provenance, provider, approval/payment, and review-before-Apply boundaries remain visible. The next UI phase is UX-S3D workflow-friction hardening; UX-S3E remains later visual/accessibility closeout.
-4. **UX-S3D — Workflow-friction hardening.** Audit multi-step workflows for duplicate actions, unnecessary confirmation, unclear state transitions, inconsistent action placement, weak defaults, preventable navigation, and recoverability. Improve existing workflows without adding new business domains.
+3. **UX-S3C — App-wide visible-copy simplification is implemented for the recorded scope.** Shared page/section chrome was shortened, duplicate Email/SMS attachment/draft guidance was removed while the contextual Help and provider/human-confirmation semantics remained, Procurement workbook education now follows the working register, and representative Dashboard, Projects, Project Workspace, Cost Codes, Supplier Invoices, Expenses, Cash & Banking, Documents, Email/SMS, Payroll, Settings, Warehouse, Equipment, Vendors, Reports, and worksheet copy was simplified. Financial/source, lifecycle, permission, provenance, provider, approval/payment, and review-before-Apply boundaries remain visible.
+4. **UX-S3D — Supplier Invoice review queue action hardening is implemented for the recorded scope.** Queue mode now keeps one truthful `Verify & Create Expense & Next` action in the sticky queue footer; the review-bar duplicate is suppressed while standalone review retains its direct action. Source evidence, human verification, Expense authority, warning confirmation, save state, audit/history, and lifecycle boundaries are unchanged. The remaining S3D P1 follow-ups are Cash settlement/reconciliation, Procurement lifecycle, and Payroll normal cycle; UX-S3E remains later visual/accessibility closeout.
 5. **UX-S3E — Accessibility, responsive, and visual closeout.** Re-run app-wide route/state evidence at desktop, constrained laptop, tablet, and phone; verify keyboard/focus/contextual-help behavior and close the highest-impact clutter/friction findings.
 6. **Application hardening in parallel.** Continue reliability, recovery, validation, concurrency, security/data-integrity, performance, provider/readiness certification, authenticated document/render certification, and exact-SHA release evidence when their prerequisites exist.
 7. **Developer-efficiency hardening.** Jev/Repository Intelligence work may continue when it improves context selection, review, evidence, or implementation efficiency without expanding customer-facing product scope.
@@ -180,12 +180,56 @@ The S3B targeted browser gate is closed for this continuation. UX-S3C is
 implemented for the recorded visible-copy boundary; workflow redesign remains
 out of scope. No Settings capability status changed.
 
+### 2026-09-22 UX-S3D — Supplier Invoice queue action hardening
+
+The bounded UX-S3D slice starts from synchronized `main` SHA
+`031729c4ad789f22913d6b9930d572fc5455faf4` and is implemented in commit
+`ce7f9b5a721c7c8ec52b952e560ff22bc4c0b16c` on branch
+`codex/ux-s3d-workflow-friction`.
+
+Queue-mode Supplier Invoice review now exposes the consequential
+`Verify & Create Expense & Next` action only in the sticky queue footer. The
+review-bar action is suppressed only while a review session is active;
+standalone review continues to expose its direct `Verify & Create Expense`
+action. The footer label is shared with the review-bar label source so repair
+mode remains explicit as `Save & Create Expense & Next`.
+
+No financial/source authority, supplier evidence, canonical Vendor resolution,
+linked Expense ownership, warning confirmation, save/error recovery, audit
+history, permission, concurrency, lifecycle, database, provider, or route
+contract changed. This is a presentation/action-placement correction only.
+
+Validation for the exact application-bearing commit:
+
+- focused Supplier Invoice/worksheet suite: **13/13**;
+- deterministic `npm.cmd run test:affected:agent`: **74/74**, **11/368** selected,
+  database fallback disabled;
+- Jev test-triage: **1** live request over **11/11** required tests, model
+  `jev-1.13.0`, **1,573 / 159** input/output tokens, **742 ms**, fallback
+  `false`; every required test was retained and the new queue regression was
+  ranked highest;
+- `npm.cmd run lint`: ESLint and TypeScript passed;
+- `npm.cmd run build`: passed with existing Astryx font/chunk-size and CJS
+  `import.meta` warnings;
+- exact-head local production-server Demo Visual QA at commit
+  `ce7f9b5a721c7c8ec52b952e560ff22bc4c0b16c`: **123/123** scenarios, **104**
+  interactions, **123** screenshots, **36** routes, **4** viewports, zero
+  console/page/request/overflow failures. Supplier Invoice review passed at
+  desktop, tablet, and phone states;
+- Workflow Map consistency was not run because no route/workflow-map contract
+  changed. Docker/Supabase, hosted QA, provider, and production checks were
+  not applicable to this UI-only diff. The full suite was not run by ritual.
+
+The next bounded S3D follow-up is Cash settlement/reconciliation, followed by
+Procurement lifecycle and Payroll normal-cycle hardening. These remain
+deliberately unimplemented in this slice.
+
 ## Current priority sequence
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
 3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment, UX-W5B Warehouse Item Master + Canonical Equipment Master, and UX-W5C Vendor Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
-4. **UX-S3A baseline research/evidence, UX-S3A2 Jev-browser comparative validation, UX-S3B targeted browser evidence, and UX-S3C visible-copy simplification are implemented for the recorded boundary.** Local production-server Demo Visual QA passed 123/123 scenarios across four viewports with zero browser/overflow failures. UX-S3D workflow-friction hardening is the next UI phase; UX-S3E visual/accessibility closeout remains later.
+4. **UX-S3A baseline research/evidence, UX-S3A2 Jev-browser comparative validation, UX-S3B targeted browser evidence, UX-S3C visible-copy simplification, and the first UX-S3D Supplier Invoice queue action slice are implemented for their recorded boundaries.** Exact-head local production-server Demo Visual QA passed 123/123 scenarios across four viewports with zero browser/overflow failures. UX-S3D remains active for Cash settlement/reconciliation, Procurement lifecycle, and Payroll normal-cycle follow-ups; UX-S3E visual/accessibility closeout remains later.
 5. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is complete for this implementation run.** The durable report records read-only authenticated X research, official/community source review, 48 controlled live Jev requests over sanitized metadata, historical calibration, and a prioritized v2B design. Jev remains advisory only; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
 6. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this run.** Shared preflight/diagnostic primitives, deterministic clean-baseline task seeding, budget-aware ordered chunking, context reranking, broad test triage, and deterministic must-keep/required-test unions are now integrated. Remaining v2B experimental slices stay deferred; Jev remains advisory-only and no application/runtime Jev or automatic model/subagent routing was added.
 7. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed opportunistically whenever safe credentials/device/runtime exist without displacing the bounded UX-W5 slices.
