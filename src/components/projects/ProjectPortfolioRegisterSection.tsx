@@ -94,7 +94,7 @@ function FinancialValue({
       data-financial-status={metric.status}
     >
       {financialValue(metric, currency)}
-      {metric.status === "partial" && <span className="ml-1 text-[9px] font-bold text-amber-700">Partial</span>}
+      {metric.status === "partial" && <span className="ml-1 text-[9px] font-bold hqs-warning-text">Partial</span>}
     </span>
   );
 }
@@ -117,8 +117,8 @@ function PortfolioFinancialValue({
 
   return (
     <span data-financial-status={metric.status}>
-      <strong className="font-sans font-bold tabular-nums text-slate-900">{value}</strong>
-      {statusLabel && <span className="mt-0.5 block text-[9px] font-bold text-amber-700">{statusLabel}</span>}
+      <strong className="font-sans font-bold tabular-nums hqs-primary-text">{value}</strong>
+      {statusLabel && <span className="mt-0.5 block text-[9px] font-bold hqs-warning-text">{statusLabel}</span>}
     </span>
   );
 }
@@ -226,9 +226,9 @@ export function ProjectRegisterCard({
         </div>
 
         {view.activeCostCodesCount > 0 && (
-          <div className="flex flex-wrap justify-between gap-1 px-1 text-[10px] text-slate-600">
+          <div className="flex flex-wrap justify-between gap-1 px-1 text-[10px] hqs-secondary-text">
             <span>{view.activeCostCodesCount} active work packages ({money(view.allocatedCostCodeBudget, view.currency)} allocated)</span>
-            {view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && <span className="font-semibold text-amber-700">Uncoded: {money(view.uncodedActualCost, view.currency)}</span>}
+            {view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && <span className="font-semibold hqs-warning-text">Uncoded: {money(view.uncodedActualCost, view.currency)}</span>}
           </div>
         )}
       </button>
@@ -240,7 +240,7 @@ export function ProjectRegisterCard({
             <summary className="hqs-control hqs-focus-ring cursor-pointer list-none rounded-lg px-2.5 py-2 text-xs font-bold [&::-webkit-details-marker]:hidden">More actions</summary>
             <div className="hqs-popover absolute right-0 z-20 mt-1 min-w-44 rounded-xl p-1.5">
               <button type="button" onClick={() => onOpenLifecycle(project)} className="hqs-control hqs-focus-ring flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left text-xs font-bold">
-                {project.status === "ARCHIVED" ? <RotateCcw className="h-3.5 w-3.5 text-emerald-600" /> : <Archive className="h-3.5 w-3.5 text-slate-500" />}
+                {project.status === "ARCHIVED" ? <RotateCcw className="h-3.5 w-3.5 hqs-success-text" /> : <Archive className="h-3.5 w-3.5 hqs-secondary-text" />}
                 {project.status === "ARCHIVED" ? "Reactivate project" : "Project lifecycle"}
               </button>
             </div>
@@ -280,7 +280,7 @@ function ProjectPortfolioOperationsGrid({
                   onClick={() => onOpenProject(project)}
                   className="text-left hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                 >
-                  <span className="block text-[10px] font-black uppercase tracking-wide text-indigo-600">{project.projectCode}</span>
+                  <span className="block text-[10px] font-black uppercase tracking-wide hqs-accent-text">{project.projectCode}</span>
                     <strong className="hqs-primary-text mt-0.5 block text-xs font-bold">{project.projectName}</strong>
                     <span className="hqs-secondary-text mt-0.5 block max-w-[22rem] truncate text-[10px]">
                     {project.clientName || "No client set"} {project.location ? "· " + project.location : ""}
@@ -310,11 +310,11 @@ function ProjectPortfolioOperationsGrid({
                         {view.attentionFlags.length} attention signal{view.attentionFlags.length === 1 ? "" : "s"}
                       </span>
                       {view.attentionFlags.slice(0, 2).map((item) => <span key={item.id} className={"rounded border px-1.5 py-0.5 text-[9px] font-bold " + attentionTone(item.tone)} title={item.detail}>{item.label}</span>)}
-                      {view.attentionFlags.length > 2 && <span className="text-[9px] font-semibold text-slate-400">+{view.attentionFlags.length - 2} more</span>}
+                      {view.attentionFlags.length > 2 && <span className="text-[9px] font-semibold hqs-secondary-text">+{view.attentionFlags.length - 2} more</span>}
                     </div>
                   )}
-                  {topAttention && <span className="block max-w-[18rem] truncate text-[9px] font-semibold text-slate-600" title={topAttention.explanation}>Top reason: {topAttention.title}</span>}
-                  {view.isPartial && <span className="block text-[9px] font-bold text-amber-700">Partial project data</span>}
+                  {topAttention && <span className="block max-w-[18rem] truncate text-[9px] font-semibold hqs-secondary-text" title={topAttention.explanation}>Top reason: {topAttention.title}</span>}
+                  {view.isPartial && <span className="block text-[9px] font-bold hqs-warning-text">Partial project data</span>}
                 </div>
               );
             },
@@ -323,12 +323,12 @@ function ProjectPortfolioOperationsGrid({
           { key: "taxTreatment", header: "Tax treatment", protected: true, value: (view) => <StatusBadge tone={view.project.taxTreatment === "UNCLASSIFIED" || !view.project.taxTreatment ? "warning" : "info"}>{projectTaxTreatmentLabel(view.project.taxTreatment)}</StatusBadge> },
           { key: "contractValue", header: "Contract Value", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.contractValue.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.contractValue} currency={view.currency} /> },
           { key: "projectBudget", header: "Budget", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.approvedCostBudget.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.approvedCostBudget} currency={view.currency} /> },
-          { key: "actualCost", header: "Actual", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.actualCost.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums text-indigo-700", value: (view) => <FinancialValue metric={view.financialTruth.actualCost} currency={view.currency} /> },
+          { key: "actualCost", header: "Actual", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.actualCost.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums hqs-accent-text", value: (view) => <FinancialValue metric={view.financialTruth.actualCost} currency={view.currency} /> },
           { key: "committedCost", header: "Committed", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.committedCost.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.committedCost} currency={view.currency} /> },
           { key: "billed", header: "Billed", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.billed.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.billed} currency={view.currency} /> },
           { key: "collected", header: "Collected", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.collected.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums", value: (view) => <FinancialValue metric={view.financialTruth.collected} currency={view.currency} /> },
           { key: "outstandingReceivables", header: "Outstanding", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.outstandingReceivables.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums text-amber-800", value: (view) => <FinancialValue metric={view.financialTruth.outstandingReceivables} currency={view.currency} /> },
-          { key: "remainingToBill", header: "Remaining to Bill", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.remainingToBill.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums text-emerald-700", value: (view) => <FinancialValue metric={view.financialTruth.remainingToBill} currency={view.currency} /> },
+          { key: "remainingToBill", header: "Remaining to Bill", align: "right" as const, protected: true, sortValue: (view) => view.financialTruth.remainingToBill.amount ?? -Infinity, cellClassName: "font-sans font-bold tabular-nums hqs-success-text", value: (view) => <FinancialValue metric={view.financialTruth.remainingToBill} currency={view.currency} /> },
         ]}
         renderActions={(view) => {
           const project = view.project;
@@ -485,8 +485,8 @@ export function ProjectPortfolioRegisterSection({
           </div>
         )
       ) : (
-        <Card className="p-8 text-center text-xs text-slate-500" elevation="low">
-          <p className="font-semibold text-slate-700">No projects match the current filters.</p>
+        <Card className="p-8 text-center text-xs hqs-secondary-text" elevation="low">
+          <p className="font-semibold hqs-secondary-text">No projects match the current filters.</p>
           <p className="mt-1">Try adjusting your search query, status, or financial health filter.</p>
         </Card>
       )}
@@ -494,7 +494,7 @@ export function ProjectPortfolioRegisterSection({
 
       {/* Secondary portfolio analysis stays available after the primary project work. */}
       <details aria-label="Portfolio Management Summary" data-ux45c="projects-secondary-analysis" className="group hqs-surface-raised rounded-xl shadow-sm">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black hqs-primary-text [&::-webkit-details-marker]:hidden">
           <span>Portfolio snapshot</span>
           <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800">
             <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
@@ -504,24 +504,24 @@ export function ProjectPortfolioRegisterSection({
         <div className="space-y-3 border-t hqs-border p-3">
           <Card className="p-4 shadow-sm" elevation="low">
             <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-4" aria-label="Project counts">
-              <div><dt className="text-slate-500">Total projects</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-950">{isHydrating ? "…" : portfolio.totalProjects}</dd></div>
-              <div><dt className="text-slate-500">Active</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-emerald-700">{isHydrating ? "…" : portfolio.activeProjects}</dd></div>
-              <div><dt className="text-slate-500">On hold</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-amber-700">{isHydrating ? "…" : portfolio.onHoldProjects}</dd></div>
-              <div><dt className="text-slate-500">Archived</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-700">{isHydrating ? "…" : portfolio.archivedProjects}</dd></div>
+              <div><dt className="hqs-secondary-text">Total projects</dt><dd className="mt-0.5 text-lg font-black tabular-nums hqs-primary-text">{isHydrating ? "…" : portfolio.totalProjects}</dd></div>
+              <div><dt className="hqs-secondary-text">Active</dt><dd className="mt-0.5 text-lg font-black tabular-nums hqs-success-text">{isHydrating ? "…" : portfolio.activeProjects}</dd></div>
+              <div><dt className="hqs-secondary-text">On hold</dt><dd className="mt-0.5 text-lg font-black tabular-nums hqs-warning-text">{isHydrating ? "…" : portfolio.onHoldProjects}</dd></div>
+              <div><dt className="hqs-secondary-text">Archived</dt><dd className="mt-0.5 text-lg font-black tabular-nums hqs-secondary-text">{isHydrating ? "…" : portfolio.archivedProjects}</dd></div>
             </dl>
             <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 border-t hqs-border pt-3 text-xs" aria-label="Project management attention counts">
-              <div><dt className="text-slate-500">Needs attention</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.projectsNeedingAttentionCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>{isHydrating ? "…" : portfolio.projectsNeedingAttentionCount}</dd></div>
-              <div><dt className="text-slate-500">Critical signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.criticalAttentionCount > 0 ? "text-rose-700" : "text-slate-700"}`}>{isHydrating ? "…" : portfolio.criticalAttentionCount}</dd></div>
-              <div><dt className="text-slate-500">Warning signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.warningAttentionCount > 0 ? "text-amber-700" : "text-slate-700"}`}>{isHydrating ? "…" : portfolio.warningAttentionCount}</dd></div>
-              <div><dt className="text-slate-500">Info signals</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-indigo-700">{isHydrating ? "…" : portfolio.infoAttentionCount}</dd></div>
+              <div><dt className="hqs-secondary-text">Needs attention</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.projectsNeedingAttentionCount > 0 ? "hqs-warning-text" : "hqs-success-text"}`}>{isHydrating ? "…" : portfolio.projectsNeedingAttentionCount}</dd></div>
+              <div><dt className="hqs-secondary-text">Critical signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.criticalAttentionCount > 0 ? "hqs-danger-text" : "hqs-secondary-text"}`}>{isHydrating ? "…" : portfolio.criticalAttentionCount}</dd></div>
+              <div><dt className="hqs-secondary-text">Warning signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.warningAttentionCount > 0 ? "hqs-warning-text" : "hqs-secondary-text"}`}>{isHydrating ? "…" : portfolio.warningAttentionCount}</dd></div>
+              <div><dt className="hqs-secondary-text">Info signals</dt><dd className="mt-0.5 text-lg font-black tabular-nums hqs-accent-text">{isHydrating ? "…" : portfolio.infoAttentionCount}</dd></div>
             </div>
           </Card>
           {portfolio.currencies.length > 0 && (
             <details className="group hqs-surface-raised rounded-xl shadow-sm" aria-label="Portfolio Financial Totals">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-black text-slate-800 [&::-webkit-details-marker]:hidden">
-                <span className="inline-flex items-center gap-1.5"><Coins className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />Financial totals by currency</span>
-                <span className="text-[10px] font-semibold text-slate-500 group-open:hidden">Show detail</span>
-                <span className="hidden text-[10px] font-semibold text-slate-500 group-open:inline">Hide detail</span>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-black hqs-primary-text [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-1.5"><Coins className="h-3.5 w-3.5 hqs-accent-text" aria-hidden="true" />Financial totals by currency</span>
+                <span className="text-[10px] font-semibold hqs-secondary-text group-open:hidden">Show detail</span>
+                <span className="hidden text-[10px] font-semibold hqs-secondary-text group-open:inline">Hide detail</span>
               </summary>
               <div className="grid gap-3 border-t hqs-border p-3 sm:grid-cols-2 xl:grid-cols-3">
                 {portfolio.currencies.map((currencyCode) => {
@@ -540,13 +540,13 @@ export function ProjectPortfolioRegisterSection({
                   return (
                     <Card key={currencyCode} className="p-4 shadow-none" elevation="low" data-portfolio-currency={currencyCode}>
                       <div className="flex items-center justify-between gap-2 border-b hqs-border pb-2.5">
-                        <span className="text-xs font-black uppercase text-indigo-700">{currencyCode} Portfolio ({group.projectCount})</span>
+                        <span className="text-xs font-black uppercase hqs-accent-text">{currencyCode} Portfolio ({group.projectCount})</span>
                         {!group.isComplete && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">Partial / unavailable</span>}
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-                        {metrics.map(([label, metric]) => <div key={label} className="flex min-w-0 flex-col"><span className="text-slate-500">{label}</span><PortfolioFinancialValue metric={metric} currency={currencyCode} /></div>)}
+                        {metrics.map(([label, metric]) => <div key={label} className="flex min-w-0 flex-col"><span className="hqs-secondary-text">{label}</span><PortfolioFinancialValue metric={metric} currency={currencyCode} /></div>)}
                       </div>
-                      <div className="mt-3 border-t hqs-border pt-2 text-[9px] text-slate-500">Optional controls: pending {portfolioMetricInline(group.financialMetrics.pendingCostExposure, currencyCode)} · payables {portfolioMetricInline(group.financialMetrics.outstandingPayables, currencyCode)}</div>
+                      <div className="mt-3 border-t hqs-border pt-2 text-[9px] hqs-secondary-text">Optional controls: pending {portfolioMetricInline(group.financialMetrics.pendingCostExposure, currencyCode)} · payables {portfolioMetricInline(group.financialMetrics.outstandingPayables, currencyCode)}</div>
                     </Card>
                   );
                 })}
