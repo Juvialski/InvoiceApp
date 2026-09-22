@@ -621,6 +621,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             inventoryItems={data.inventoryItems}
             inventoryMovements={data.inventoryMovements}
             purchaseOrders={data.purchaseOrders || []}
+            rfqs={data.rfqs || []}
+            supplierQuotations={data.supplierQuotations || []}
             receipts={data.purchaseOrderReceipts || []}
             subcontracts={data.subcontracts || []}
             subcontractClaims={data.subcontractClaims || []}

@@ -46,3 +46,22 @@ test("Projects attention-filter QA follows the card-first default instead of req
   assert.match(attentionAction, /data-project-id/);
   assert.doesNotMatch(attentionAction, /Projects table/);
 });
+
+test("Procurement draft QA keeps approval hidden until the new PO is persisted", () => {
+  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const procurementActionStart = scenariosSource.indexOf("const verifyProcurementDraftWorksheets");
+  const procurementActionEnd = scenariosSource.indexOf("const verifyClientInvoiceDocumentDeliverySurface", procurementActionStart);
+  assert.ok(procurementActionStart >= 0 && procurementActionEnd > procurementActionStart);
+  const procurementAction = scenariosSource.slice(procurementActionStart, procurementActionEnd);
+  assert.match(procurementAction, /const approval = await page\.getByRole\("button", \{ name: "Approve PO", exact: true \}\)\.count\(\);/);
+  assert.match(procurementAction, /approval === 0/);
+  assert.match(procurementAction, /Save this draft before approval/);
+  assert.match(procurementAction, /const issueConfirmation = await page\.getByRole\("button", \{ name: "Confirm Issue", exact: true \}\)\.count\(\);/);
+  assert.match(procurementAction, /issueConfirmation === 1/);
+});
+
+test("demo Procurement route receives the seeded RFQ and quotation evidence", () => {
+  const demoWorkspace = readFileSync(new URL("../src/demo/DemoWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(demoWorkspace, /rfqs=\{data\.rfqs \|\| \[\]\}/);
+  assert.match(demoWorkspace, /supplierQuotations=\{data\.supplierQuotations \|\| \[\]\}/);
+});
