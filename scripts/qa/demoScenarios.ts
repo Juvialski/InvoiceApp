@@ -335,7 +335,7 @@ const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Issue", exact: true }).first().click();
   await waitForVisible(page, '[role="dialog"]');
   const issueConfirmation = await page.getByRole("button", { name: "Confirm Issue", exact: true }).count();
-  const issueSafety = await page.getByText("Issuing does not select a supplier or create a Purchase Order.", { exact: false }).count();
+  const issueSafety = await page.locator("text=Issuing does not select a supplier or create a Purchase Order.").count();
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByRole("button", { name: "New RFQ", exact: true }).first().click();
   await waitForVisible(page, '[data-testid="rfq-draft-worksheet"]');
@@ -352,7 +352,7 @@ const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
   const poAddRow = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-add-row="true"]').count();
   const protectedCells = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-protected="true"]').count();
   const approval = await page.getByRole("button", { name: "Approve PO", exact: true }).count();
-  const saveBeforeApproval = await page.getByText("Save this draft before approval becomes available.", { exact: false }).count();
+  const saveBeforeApproval = await page.locator("text=Save this draft before approval becomes available.").count();
   const receiptWorkflow = await page.getByRole("button", { name: /Record Delivery \/ Receipt/ }).count();
 
   return [
