@@ -3,6 +3,7 @@ import { Clock3, Coins, Globe2, MapPin, RotateCcw } from "lucide-react";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE, RegionalSettings } from "../config/regional";
 import { BRAND } from "../config/brand.ts";
 import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
+import { ContextualHelp } from "./ui/ContextualHelp.tsx";
 import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.tsx";
 import { CompanyProfileSettings } from "./access/CompanyProfileSettings.tsx";
 import { CompanyDocumentProfileSettings } from "./access/CompanyDocumentProfileSettings.tsx";
@@ -91,6 +92,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
                 <span className="text-xs font-medium text-slate-600">Timezone: <strong className="font-bold text-slate-900">{settings.timezone}</strong></span>
               </div>
             </div>
+
+            <div className="mt-3 flex items-center gap-2 text-xs text-slate-500"><ContextualHelp label="Regional display preference help" title="Regional display preferences" articleTopicId="settings">These browser preferences control presentation only. They do not change company access, financial authority, or role permissions.</ContextualHelp><span>About display preferences</span></div>
 
             <div className="mt-4 grid sm:grid-cols-2 gap-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5">

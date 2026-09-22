@@ -5,6 +5,11 @@ import { navigationModuleTourTarget, navigationRouteTourTarget } from "../src/na
 
 const header = readFileSync(new URL("../src/components/Header.tsx", import.meta.url), "utf8");
 const accessStates = readFileSync(new URL("../src/components/access/AccessStates.tsx", import.meta.url), "utf8");
+const operationsUI = readFileSync(new URL("../src/components/ui/OperationsUI.tsx", import.meta.url), "utf8");
+const helpCenter = readFileSync(new URL("../src/components/help/HelpCenterPage.tsx", import.meta.url), "utf8");
+const helpAction = readFileSync(new URL("../src/components/help/HelpAction.tsx", import.meta.url), "utf8");
+const appShell = readFileSync(new URL("../src/app/AppShell.tsx", import.meta.url), "utf8");
+const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 
 test("route tour targets are deterministic and independent from module scope", () => {
   assert.equal(navigationRouteTourTarget("extract"), "route:extract");
@@ -37,4 +42,19 @@ test("expanded navigation uses the supplied HydroQualiSense logo and wraps the f
   assert.doesNotMatch(header, /Deployment/);
   assert.doesNotMatch(header, new RegExp(["Engineering", "Operations"].join("\\s+")));
   assert.doesNotMatch(header, /BRAND\.tagline/);
+});
+
+test("PageHeader owns one route-aware Help action with an explicit Help Center opt-out", () => {
+  assert.match(operationsUI, /HelpAction/);
+  assert.match(operationsUI, /helpTopicId\?:/);
+  assert.match(helpCenter, /helpTopicId=\{null\}/);
+  assert.match(helpAction, /data-ui="page-header-help"/);
+  assert.match(helpAction, /pathname\.startsWith\("\/demo\/"\)/);
+});
+
+test("Help shell context does not activate a business route or permission guard", () => {
+  assert.match(appShell, /isHelpRoute/);
+  assert.match(header, /isHelpRoute/);
+  assert.match(app, /route\.kind === "help"/);
+  assert.match(app, /route\.kind !== "help"/);
 });

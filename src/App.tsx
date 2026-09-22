@@ -395,7 +395,7 @@ function InvoiceWorkspace() {
 
   useEffect(() => {
     if (typeof document !== "undefined") {
-      const tabLabel = route.kind === "tab" ? ROUTE_DEFINITIONS.find((candidate) => candidate.appTab === route.tab)?.label : undefined;
+      const tabLabel = route.kind === "help" ? "Help Center" : route.kind === "tab" ? ROUTE_DEFINITIONS.find((candidate) => candidate.appTab === route.tab)?.label : undefined;
       document.title = formatPageTitle(tabLabel);
     }
     const signature = `${route.kind}:${route.pathname}${route.search}`;
@@ -412,14 +412,14 @@ function InvoiceWorkspace() {
       const returnPath = route.returnTo || appPathForTab(route.tab);
       setWorkspaceReturnPath(returnPath);
       setWorkspaceOrigin(appTabForLocation(parseAppLocation(returnPath)));
-    } else if (route.kind !== "unknown") {
+    } else if (route.kind !== "unknown" && route.kind !== "help") {
       setWorkspaceReturnPath(appPathForTab(route.tab));
       setWorkspaceOrigin(route.tab);
     }
   }, [route]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !session || access.status !== "ready" || !activeCompanyId) return;
+    if (!isSupabaseConfigured || !session || access.status !== "ready" || !activeCompanyId || route.kind === "unknown" || route.kind === "help") return;
     if (canAccessAppTab(route.tab, permissions)) return;
     const fallback = appPathForTab(defaultAppTabForPermissions(permissions));
     if (`${route.pathname}${route.search}` !== fallback) navigateToPath(fallback, true);
@@ -3435,9 +3435,9 @@ function InvoiceWorkspace() {
       .filter((definition) => canAccessAppTab(definition.appTab, permissions))
       .map((definition) => definition.id);
   }, [permissions, session]);
-  const routePermission = route.kind === "unknown" ? null : requiredPermissionForAppTab(route.tab);
+  const routePermission = route.kind === "unknown" || route.kind === "help" ? null : requiredPermissionForAppTab(route.tab);
   const routeDenied = Boolean(isSupabaseConfigured && session && access.status === "ready" && (
-    (route.kind !== "unknown" && activeCompanyId && routePermission && !canAccessAppTab(route.tab, permissions))
+    (route.kind !== "unknown" && route.kind !== "help" && activeCompanyId && routePermission && !canAccessAppTab(route.tab, permissions))
   ));
   const workspaceRouteVisible = !routeNotFound && !routeDenied;
   useEffect(() => {
@@ -3526,6 +3526,7 @@ function InvoiceWorkspace() {
         onReturnToDashboard={() => navigateToPath(appPathForTab("dashboard"))}
         routeRecovery={routeRecovery}
         onRecoverRoute={() => navigateToPath(routeRecoveryPath, true)}
+        isHelpRoute={route.kind === "help"}
       >
         <AppRouter
           route={route}

@@ -38,6 +38,13 @@ const BASE_ROUTE_CONTRACTS: readonly AppRouteContract[] = ROUTE_DEFINITIONS.map(
 export const APP_ROUTE_CONTRACTS: readonly AppRouteContract[] = Object.freeze([
   ...BASE_ROUTE_CONTRACTS,
   {
+    id: "help",
+    canonicalPath: "/help",
+    pathPattern: "/help",
+    queryKeys: ["topic", "q"],
+    scope: "production-and-demo",
+  },
+  {
     id: "project-workspace",
     routeId: "projects",
     canonicalPath: "/projects/:projectId",

@@ -6,9 +6,10 @@ import type { AppTab } from "./routes.ts";
  * lag one render behind a history update and briefly dispatch the previous
  * page (or no page) while the content area catches up.
  */
-export type AppRouteTarget = "invoice-workspace" | "unknown" | AppTab;
+export type AppRouteTarget = "invoice-workspace" | "help" | "unknown" | AppTab;
 
 export function appRouteTargetForLocation(location: AppLocation): AppRouteTarget {
+  if (location.kind === "help") return "help";
   if (location.kind === "invoice" || location.kind === "review-invoice") return "invoice-workspace";
   if (location.kind === "expense") return "expenses";
   if (location.kind === "project") return "projects";

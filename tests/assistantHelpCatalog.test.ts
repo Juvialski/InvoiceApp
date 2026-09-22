@@ -59,3 +59,12 @@ test("unknown help questions stay honest instead of inventing a feature", () => 
   }
   assert.match(unknownHelpResponse("something else"), /Engineering Documents and blueprints/i);
 });
+
+test("Assistant help remains a compatibility projection of canonical topics", () => {
+  const matches = searchHelpCatalog("company member permission deny");
+  assert.equal(matches[0]?.id, "company-access");
+  assert.ok(matches[0]?.details);
+  const response = getHelpResponse("company member permission deny");
+  assert.equal(response.kind, "matches");
+  if (response.kind === "matches") assert.deepEqual(response.references[0], { type: "help", id: "company-access", label: "Company access and member permissions" });
+});

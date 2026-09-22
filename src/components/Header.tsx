@@ -61,6 +61,7 @@ export interface HeaderProps {
   permissions?: readonly PermissionKey[];
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  isHelpRoute?: boolean;
 }
 
 const routeIcons: Record<RouteId, React.ElementType> = {
@@ -282,6 +283,7 @@ export const Header: React.FC<HeaderProps> = ({
   permissions,
   collapsed = false,
   onToggleCollapse,
+  isHelpRoute = false,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [invoicesExpanded, setInvoicesExpanded] = useState(() => ["invoices", "extractor", "review", "vendors"].includes(activeTab));
@@ -296,8 +298,8 @@ export const Header: React.FC<HeaderProps> = ({
     onClose: () => setMobileOpen(false),
     initialFocusRef: mobileCloseButtonRef,
   });
-  const activeRoute = getRouteForAppTab(activeTab);
-  const activeRouteId = activeRoute?.id || null;
+  const activeRoute = isHelpRoute ? undefined : getRouteForAppTab(activeTab);
+  const activeRouteId = isHelpRoute ? null : activeRoute?.id || null;
   const activeModuleDefinition = getPrimaryModuleForRoute(activeRouteId);
   const activeCompany = companies.find((company) => company.id === activeCompanyId);
   const syncStatus = workspaceSyncStatus as WorkspaceSyncStatus;
@@ -323,13 +325,13 @@ export const Header: React.FC<HeaderProps> = ({
     ? activeRouteId && activeRouteId !== activeModule.defaultRouteId
       ? `${activeModule.label} / ${activeRoute?.label || "Workspace"}`
       : activeModule.label
-    : activeRoute?.label || "Workspace";
+    : isHelpRoute ? "Help Center" : activeRoute?.label || "Workspace";
 
   useEffect(() => {
     setMobileOpen(false);
     setAccountOpen(false);
     if (activeModule?.id === "invoices") setInvoicesExpanded(true);
-  }, [activeTab, activeModule?.id]);
+  }, [activeTab, activeModule?.id, isHelpRoute]);
 
   useEffect(() => {
     if (!mobileOpen && !accountOpen) return undefined;

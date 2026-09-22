@@ -15,7 +15,7 @@ test("shared operations UI exposes intentional surface, loading, error, and metr
   assert.match(operationsUi, /role="alert"/);
   assert.match(operationsUi, /aria-label=\{metricAriaLabel\}/);
   assert.match(operationsUi, /Reload page/);
-  assert.match(operationsUi, /<header className=/);
+  assert.match(operationsUi, /<header data-ui="page-header" className=/);
 });
 
 test("shared operations UI exposes compact action, filter, and disclosure grammar", () => {

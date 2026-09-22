@@ -2,6 +2,8 @@ import React, { useId, useState } from "react";
 import { Badge as AstryxBadge } from "@astryxdesign/core/Badge";
 import { EmptyState as AstryxEmptyState } from "@astryxdesign/core/EmptyState";
 import { CheckCircle2, CircleAlert, Info, Loader2, RotateCcw, type LucideIcon } from "lucide-react";
+import { HelpAction } from "../help/HelpAction.tsx";
+import type { HelpTopicId } from "../../help/helpCatalog.ts";
 
 export type StatusTone = "neutral" | "info" | "success" | "warning" | "danger";
 
@@ -62,14 +64,14 @@ export function StatusBadge({
   );
 }
 
-export function PageHeader({ eyebrow, title, description, actions, className = "" }: { eyebrow?: string; title: string; description?: string; actions?: React.ReactNode; className?: string }) {
+export function PageHeader({ eyebrow, title, description, actions, className = "", helpTopicId }: { eyebrow?: string; title: string; description?: string; actions?: React.ReactNode; className?: string; helpTopicId?: HelpTopicId | null }) {
   return <header data-ui="page-header" className={`flex min-w-0 flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between ${className}`}>
     <div className="min-w-0">
       {eyebrow && <p className="text-[11px] font-semibold tracking-[0.12em] text-indigo-600">{eyebrow}</p>}
       <h1 data-ui="page-header-title" className="mt-0.5 text-[1.65rem] font-extrabold tracking-tight text-slate-950 sm:text-[1.75rem]">{title}</h1>
       {description && <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-500">{description}</p>}
     </div>
-    {actions && <div data-ui="page-header-actions" className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}</div>}
+    <div data-ui="page-header-actions" className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}<HelpAction topicId={helpTopicId} /></div>
   </header>;
 }
 

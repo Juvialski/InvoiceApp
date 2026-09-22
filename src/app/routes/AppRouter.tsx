@@ -125,6 +125,7 @@ const ReportsRoute = lazy(() => import("./ReportsRoute"));
 const SettingsRoute = lazy(() => import("./SettingsRoute"));
 const EmailSmsRoute = lazy(() => import("./EmailSmsRoute"));
 const DocumentsRoute = lazy(() => import("./DocumentsRoute"));
+const HelpRoute = lazy(() => import("./HelpRoute"));
 
 const lazyRouteFallback = <RouteLoadingSkeleton />;
 
@@ -708,6 +709,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   const routeTarget = appRouteTargetForLocation(route);
   const procurementContext = routeTarget === "procurement" ? procurementContextFromSearch(route.search) : undefined;
   const warehouseContext = routeTarget === "warehouse" ? warehouseContextFromSearch(route.search) : undefined;
+
+  if (routeTarget === "help") {
+    return lazyRoute(<HelpRoute search={route.search} onNavigatePath={onNavigatePath} />);
+  }
 
   // 1. Single Invoice Verification / Review Workspace Mode
   if (routeTarget === "invoice-workspace" && selectedInvoice) {

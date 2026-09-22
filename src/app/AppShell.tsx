@@ -127,6 +127,7 @@ export interface AppShellProps {
   onReturnToDashboard?: () => void;
   routeRecovery?: RouteRecoveryCopy;
   onRecoverRoute?: () => void;
+  isHelpRoute?: boolean;
 
   // Optional custom footer
   footerText?: string;
@@ -160,6 +161,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onReturnToDashboard,
   routeRecovery,
   onRecoverRoute,
+  isHelpRoute = false,
   footerText = BRAND.footerText,
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -218,6 +220,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           activeCompanyId={activeCompanyId}
           visibleRouteIds={visibleRouteIds}
           permissions={permissions}
+          isHelpRoute={isHelpRoute}
           collapsed={isSidebarCollapsed}
           onToggleCollapse={handleToggleCollapse}
         />
