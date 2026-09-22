@@ -49,9 +49,9 @@ const KIND_LABELS: Record<DocumentRegisterKind, string> = {
 };
 
 const DOCUMENT_VIEWS: readonly { id: DocumentWorkspaceView; label: string; description: string }[] = [
-  { id: "library", label: "Library", description: "Find company documents" },
-  { id: "create", label: "Create", description: "Start a business workflow" },
-  { id: "templates", label: "Templates", description: "Manage approved Word designs" },
+  { id: "library", label: "Library", description: "Find records" },
+  { id: "create", label: "Create", description: "Start a workflow" },
+  { id: "templates", label: "Templates", description: "Manage approved designs" },
 ];
 
 function go(path: string, onNavigatePath?: AppNavigate) {
@@ -162,7 +162,7 @@ export function DocumentsRoute({
       <PageHeader
         eyebrow="Company document center"
         title="Documents"
-        description={view === "library" ? "Find, preview, and continue work on document records from across your company workflows." : view === "create" ? "Start a supported business document workflow from one clear place." : "Manage Document templates and their reviewed versions."}
+        description={view === "library" ? "Find records, then continue to the owning workflow." : view === "create" ? "Start a supported business document workflow." : "Manage approved Document templates."}
         actions={<div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => go(appPathForEmailWorkspace("compose", { returnTo: appPathForDocumentsWorkspace(view) }), onNavigatePath)} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 hover:bg-indigo-50"><Mail className="h-3.5 w-3.5" />Compose</button><button type="button" onClick={() => navigateView("create")} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white hover:bg-indigo-700"><ArrowRight className="h-3.5 w-3.5" />Create document</button>{view !== "templates" && <button type="button" onClick={() => navigateView("templates")} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"><Settings2 className="h-3.5 w-3.5" />Templates</button>}</div>}
       />
 

@@ -1122,10 +1122,10 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           }
           description={
             activeTab === "rfqs"
-              ? "Solicit competitive supplier bids, evaluate line-item pricing side-by-side, and audit selection reasons before generating purchase orders."
+              ? "Compare supplier bids and record the selection before creating a Purchase Order."
               : activeTab === "subcontracts"
-              ? "Manage specialized trade subcontract commitments, schedule milestones, and track committed liabilities linked to project cost codes."
-              : "Manage supplier commitments, track purchase orders, and monitor committed cost obligations without distorting actual cost."
+              ? "Manage trade subcontract commitments and cost-code links."
+              : "Manage supplier commitments and committed cost; actual cost stays separate."
           }
         />
         {canManage && (
@@ -1161,17 +1161,6 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           </div>
         )}
       </div>
-
-      {activeTab !== "subcontracts" && <ProcurementWorkbookPanel
-        rfqs={localRfqs}
-        purchaseOrders={purchaseOrders}
-        projects={projects}
-        vendors={vendors}
-        canManage={Boolean(canManage)}
-        onSaveRFQ={handleSaveRFQInternal}
-        onSavePurchaseOrder={onSavePO}
-        onRefreshProcurement={onRefreshProcurement}
-      />}
 
       {/* Sub-Tabs: [Purchase Orders] [Requests for Quotation (RFQs)] [Subcontracts] */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-slate-200">
@@ -1334,6 +1323,17 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           onDeleteDraftSubcontract={(subcontract) => runSubcontractRowAction(subcontract.id, () => handleDeleteSubcontractInternal(subcontract.id), "Could not delete draft subcontract.")}
         />
       )}
+
+      {activeTab !== "subcontracts" && <ProcurementWorkbookPanel
+        rfqs={localRfqs}
+        purchaseOrders={purchaseOrders}
+        projects={projects}
+        vendors={vendors}
+        canManage={Boolean(canManage)}
+        onSaveRFQ={handleSaveRFQInternal}
+        onSavePurchaseOrder={onSavePO}
+        onRefreshProcurement={onRefreshProcurement}
+      />}
 
       {/* ========================================================================= */}
       {/* MODALS */}

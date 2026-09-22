@@ -410,7 +410,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     <PageHeader
       eyebrow="Supplier payables and project cost"
       title="Expenses"
-      description="Review and manage expense records here. Linked supplier documents provide supporting context; archive changes visibility, while void changes active financial cost."
+      description="Linked supplier documents support the Expense record. Archive changes visibility; void changes active cost."
       actions={canManage ? <div className="flex flex-wrap gap-2">
         {canUploadSupplierInvoice && onUploadSupplierInvoice && <button type="button" onClick={onUploadSupplierInvoice} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100"><ExternalLink className="h-3.5 w-3.5" /> Upload supplier invoice</button>}
         <button type="button" onClick={openNewExpenseEditor} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><Plus className="h-3.5 w-3.5" /> Add expense</button>

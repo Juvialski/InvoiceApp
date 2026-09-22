@@ -145,7 +145,7 @@ export const ProductFeaturesRoadmap: React.FC = () => (
       <div className="min-w-0 flex-1">
         <SectionHeader
           title="Hydroqualisense Features & Roadmap"
-          description="A clear guide to what is available now, what is approved next, and what remains in future design. No delivery dates are implied."
+          description="Available, planned, and future capability status. No delivery dates are implied."
         />
       </div>
     </div>

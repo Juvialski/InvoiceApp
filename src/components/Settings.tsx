@@ -1,7 +1,6 @@
 import React from "react";
 import { Clock3, Coins, Globe2, MapPin, RotateCcw } from "lucide-react";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE, RegionalSettings } from "../config/regional";
-import { BRAND } from "../config/brand.ts";
 import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 import { ContextualHelp } from "./ui/ContextualHelp.tsx";
 import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.tsx";
@@ -31,7 +30,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
       <PageHeader
         eyebrow="Workspace configuration"
         title="Operational settings"
-        description={`This ${BRAND.productName} deployment belongs to one client company. Roles and permissions control what each company user can access.`}
+        description="Regional settings and company access for this deployment."
       />
 
       <section className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 shadow-sm sm:p-5" aria-labelledby="settings-document-templates-title" data-settings-document-templates-link="true">
@@ -51,7 +50,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-center">
             <SectionHeader
               title="Deployment company"
-              description="In production, deployment company profile controls are database-backed and single-tenant."
+              description="Company profile controls are database-backed in production."
             />
           </div>
         )}
@@ -67,8 +66,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
                   title="Regional display preferences"
                   description={
                     showDeploymentAccessManagement
-                      ? "These browser preferences control presentation. Deployment company defaults are managed in Company Profile."
-                      : "These demo/browser preferences control presentation only. Production company profile controls are intentionally not mounted here."
+                      ? "Display preferences only; company defaults are managed in Company Profile."
+                      : "Display preferences only in this browser."
                   }
                 />
               </div>

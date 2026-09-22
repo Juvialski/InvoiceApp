@@ -153,7 +153,7 @@ test("supplier invoice worksheet makes the shared-draft save and discard scope e
     <SupplierInvoiceWorksheet invoice={invoice()} onUpdateInvoice={() => undefined} />,
   );
 
-  assert.match(html, /All sections share one review draft/);
+  assert.match(html, /One draft spans all sections/);
   assert.equal((html.match(/Save worksheet edits/g) || []).length, 1);
   assert.equal((html.match(/Discard all worksheet edits/g) || []).length, 1);
   assert.equal((html.match(/data-testid="supplier-invoice-worksheet-action-bar"/g) || []).length, 1);

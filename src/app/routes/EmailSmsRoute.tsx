@@ -68,7 +68,7 @@ export function EmailSmsRoute({
 
   const navigateView = (view: "compose" | "sent" | "email-status" | "sms", channel?: "email" | "sms") => go(appPathForEmailWorkspace(view, view === "compose" ? { returnTo: context.returnTo, channel } : {}), onNavigatePath);
   const sectionDescription = context.view === "compose"
-    ? context.channel === "sms" ? "Prepare one reviewed transactional SMS." : "Draft an email, choose an eligible document, then review before sending through Brevo."
+    ? context.channel === "sms" ? "Prepare one reviewed transactional SMS." : "Prepare reviewed email and optional document attachments."
     : context.view === "sent"
       ? "Review outbound attempts, provider status, and safe next actions."
       : context.view === "email-status"

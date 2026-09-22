@@ -21,6 +21,11 @@ For a normal fresh implementation task, Codex should spend almost no time provin
 
 If local work must be preserved, use a clean worktree/branch from current `origin/main`; never destroy local-only work just to synchronize.
 
+When the synchronized existing checkout is clean, branch in place and reuse its
+existing `node_modules`. A fresh worktree is exceptional: use one only to
+preserve divergent local work or isolate genuinely concurrent work, and install
+dependencies only when that required worktree lacks them.
+
 Do not spend implementation startup time on:
 
 - old PRs or old CI;

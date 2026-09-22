@@ -53,7 +53,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses = [], s
       <PageHeader
         eyebrow="Operations overview"
         title="Invoice operations"
-        description="Keep intake moving, resolve review work, and monitor invoice totals without combining source currencies."
+        description="Review intake, open review work, and invoice totals."
         actions={(
           <>
             <button type="button" onClick={() => onNavigate("extractor")} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
@@ -94,7 +94,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses = [], s
 
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="p-4 shadow-sm sm:p-5" elevation="low">
-          <SectionHeader title="Currency breakdown" description="Invoice value and outstanding balance stay separated by source currency." icon={WalletCards} />
+          <SectionHeader title="Currency breakdown" description="Source currencies remain separate." icon={WalletCards} />
           {Object.keys(totals).length ? <div className="mt-4 space-y-3" role="list" aria-label="Invoice totals by currency">
             {Object.entries(totals).map(([currency, value]) => (
               <div key={currency} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0" role="listitem">
@@ -107,7 +107,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses = [], s
         </Card>
 
         <Card className="p-4 shadow-sm sm:p-5" elevation="low">
-          <SectionHeader title="Philippine VAT summary" description="Review aid only; this does not produce an official BIR tax return." icon={Receipt} />
+        <SectionHeader title="Philippine VAT summary" description="Review aid; not an official BIR return." icon={Receipt} />
           <div className="mt-4 grid grid-cols-2 gap-2" aria-label="Philippine VAT summary values">
             {[
               ["VATable purchases", formatMoney(phVatable, "PHP")],
@@ -125,7 +125,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses = [], s
       <Card className="p-4 shadow-sm sm:p-5" elevation="low">
         <SectionHeader
           title="Recent activity"
-          description="Latest active invoice records by extraction time."
+          description="Latest active invoices."
           action={<button type="button" onClick={() => onNavigate("invoices")} className="rounded-lg px-2 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">View register</button>}
         />
         {latest.length ? <div className="mt-4 space-y-2" role="list" aria-label="Recent invoice activity">

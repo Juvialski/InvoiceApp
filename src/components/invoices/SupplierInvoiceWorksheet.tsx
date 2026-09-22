@@ -446,7 +446,7 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
     <details data-testid="supplier-invoice-worksheet-help" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600">
       <summary className="cursor-pointer font-bold text-slate-700">How this review works</summary>
       <div className="mt-2 space-y-2">
-        <p>All sections share one review draft. Save once after reviewing the permitted extracted fields; discarding resets the full worksheet draft. Calculated and protected values keep their accounting meaning, and canonical Vendor identity remains a separate confirmed workflow.</p>
+        <p>One draft spans all sections. Save permitted extracted fields together; discard resets the draft. Calculated and protected values retain their meaning, and canonical Vendor identity remains separate.</p>
         <div className="flex flex-wrap gap-1.5" aria-label="Worksheet state legend">
           <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-bold text-indigo-800">Manually corrected</span>
           <span className="rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-900">Unresolved</span>

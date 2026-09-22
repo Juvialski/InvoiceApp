@@ -100,7 +100,7 @@ export function DocumentCreateView({ onNavigatePath, projects, purchaseOrders, c
 
   return (
     <section className="space-y-4" aria-label="Create documents" data-document-create-view="true">
-      <SectionHeader title="Create a document" description="Choose a business workflow. The owning module keeps the record, permissions, and history authoritative." />
+      <SectionHeader title="Create a document" description="Choose a workflow; the owning module keeps the record and history authoritative." />
 
       <ManagedDocumentUploadView companyId={companyId} projects={projects} demoMode={demoMode} canManage={canManageDocuments} onCreated={onManagedDocumentCreated} />
       <ManagedDocumentCreateView projects={projects} purchaseOrders={purchaseOrders} clientBillings={clientBillings} />

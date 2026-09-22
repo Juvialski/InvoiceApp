@@ -42,8 +42,8 @@ function reasonBadges(invoice: InvoiceData, financialFxSnapshots: readonly Finan
 export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, financialFxSnapshots = [], onOpenInvoice, onStartReview, readOnly = false }) => {
   const queue = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID"), [invoices]);
   const description = readOnly
-    ? "Inspect supplier invoices that are awaiting verification. Your role can read these records but cannot edit or post the linked Expense."
-    : "Review the original supplier invoice source, resolve exceptions, then post its authoritative Expense.";
+    ? "Inspect invoices awaiting verification. Editing and linked Expense posting are unavailable for this role."
+    : "Review source and exceptions before posting the authoritative linked Expense.";
   if (!queue.length) return <div className="space-y-5"><PageHeader eyebrow="Human verification" title="Supplier invoice review queue" description={description} /><EmptyState icon={CheckCircle2} title="Review queue is clear" description="New uploaded supplier invoices with uncertainty or validation issues will appear here." /></div>;
 
   return <div className="space-y-5">

@@ -221,7 +221,7 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <h3 className="text-sm font-black text-slate-950">Work Package Cost Codes</h3>
-            <p className="mt-0.5 text-xs text-slate-500">Edit code, work package, budget, and forecast fields in a worksheet. Actuals, commitments, variances, and lifecycle remain protected workflows.</p>
+            <p className="mt-0.5 text-xs text-slate-500">Edit code, work package, budget, and forecast fields. Actuals, commitments, variances, and lifecycle stay protected.</p>
           </div>
         </div>
 
