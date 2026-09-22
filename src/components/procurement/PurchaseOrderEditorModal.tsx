@@ -126,6 +126,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
   const [lines, setLines] = useState<EditableLine[]>([emptyLine()]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasUnsavedDraftChanges, setHasUnsavedDraftChanges] = useState(false);
   const [showCancelPrompt, setShowCancelPrompt] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -221,6 +222,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
         setNotes("");
         setLines([emptyLine()]);
       }
+      setHasUnsavedDraftChanges(false);
       setErrorMessage(null);
       setShowCancelPrompt(false);
       setShowDeleteConfirm(false);
@@ -245,6 +247,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
     try {
       const saved = await onAddVendor({ name: newVendorName.trim(), defaultCurrency: currency });
       setVendorId(saved.id);
+      setHasUnsavedDraftChanges(true);
       setNewVendorName("");
       setShowAddVendor(false);
     } catch (err: any) {
@@ -523,13 +526,21 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
     setCurrency(row.currency);
     setDescription(row.description);
     setNotes(row.notes);
+    setHasUnsavedDraftChanges(true);
   };
 
-  const handleLinesChange = (nextLines: readonly EditableLine[]) => setLines([...nextLines]);
+  const handleLinesChange = (nextLines: readonly EditableLine[]) => {
+    setLines([...nextLines]);
+    setHasUnsavedDraftChanges(true);
+  };
 
   const handleApprove = async () => {
     if (!purchaseOrder?.id) {
       setErrorMessage("Save this draft before approval.");
+      return;
+    }
+    if (hasUnsavedDraftChanges) {
+      setErrorMessage("Save draft changes before approval.");
       return;
     }
     try {
@@ -758,6 +769,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
 
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold leading-4 text-amber-900">Amount and Received columns are calculated/protected. Editing this worksheet never approves, issues, receives, closes, cancels, matches, or settles a purchase order.</p>
             {!isEditing && <p data-testid="purchase-order-save-before-approval" className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-semibold leading-4 text-indigo-900">Save this draft before approval becomes available. Approval is a separate lifecycle transition for a persisted draft.</p>}
+            {isDraft && isEditing && canApprove && hasUnsavedDraftChanges && <p id="po-unsaved-approval-guard" data-testid="purchase-order-unsaved-approval-guard" className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-semibold leading-4 text-indigo-900">Save draft changes before approval. Approval uses the last persisted draft.</p>}
           </section>
 
           {/* Delivery & Goods Receipts Section for Non-Draft POs */}
@@ -1236,7 +1248,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
             )}
 
             {isDraft && isEditing && canApprove && (
-              <button type="button" onClick={handleApprove} disabled={isSubmitting || loading} className="flex items-center px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-700 text-white">
+              <button type="button" onClick={handleApprove} disabled={isSubmitting || loading || hasUnsavedDraftChanges} aria-describedby={hasUnsavedDraftChanges ? "po-unsaved-approval-guard" : undefined} className="flex items-center px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-700 text-white disabled:cursor-not-allowed disabled:opacity-50">
                 <CheckCircle className="h-3.5 w-3.5 mr-1" />
                 Approve PO
               </button>
