@@ -70,6 +70,19 @@ test("Procurement draft QA keeps approval hidden until the new PO is persisted",
   assert.match(procurementAction, /issueConfirmation === 1/);
 });
 
+test("S3E demo evidence targets deterministic missing records and shared keyboard/focus states", () => {
+  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const rfi = DEMO_QA_SCENARIOS.find((scenario) => scenario.route.id === "rfi-detail");
+  const submittal = DEMO_QA_SCENARIOS.find((scenario) => scenario.route.id === "submittal-detail");
+
+  assert.ok(rfi?.path.includes("rfiId=demo-rfi-missing-s3e"));
+  assert.ok(submittal?.path.includes("submittalId=demo-sub-missing-s3e"));
+  assert.match(scenariosSource, /\.press\("Enter"\)/);
+  assert.match(scenariosSource, /mobile-navigation-focus-restored/);
+  assert.match(scenariosSource, /contextual-help-keyboard-opened/);
+  assert.match(scenariosSource, /po-dialog-focus-restored/);
+});
+
 test("demo Procurement route receives the seeded RFQ and quotation evidence", () => {
   const demoWorkspace = readFileSync(new URL("../src/demo/DemoWorkspace.tsx", import.meta.url), "utf8");
   assert.match(demoWorkspace, /rfqs=\{data\.rfqs \|\| \[\]\}/);
