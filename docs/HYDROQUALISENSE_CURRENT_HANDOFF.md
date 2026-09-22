@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A RESEARCH + PROFESSIONAL DESIGN BLUEPRINT COMPLETE / UI-R4B NEXT**
 Date: **2026-09-22**
 Repository: `Juvialski/InvoiceApp`
 
@@ -1699,11 +1699,20 @@ These phases are not cancelled. Preserve their historical contracts and backlog 
 
 UX-S3A2, UX-S3B, UX-S3C, UX-S3D, and UX-S3E are complete for their recorded boundaries, so **UI Simplification Round 3 is closed for the recorded local/demo scope**.
 
-The user's newly authorized next program is **UI Improvement Round 4**, beginning with **UI-R4A — research + design blueprint**. Do not immediately rewrite the Dashboard from preference alone. First inspect the current application across the standard four viewports and conduct bounded read-only UI research into strong current dashboard/home, card, filter/action, dark-theme, and media patterns. Then produce the Round 4 implementation design.
+The user's authorized **UI Improvement Round 4** is active. **UI-R4A — research + design blueprint is complete** and did not change production UI/runtime/database behavior. The lead used current source plus the immediately preceding four-viewport S3E baseline, and directly inspected public product screenshots/rendered examples rather than relying on documentation text alone.
 
-The currently approved Round 4 sequence is:
+R4A durable evidence:
 
-`UI-R4A research/design -> UI-R4B dark mode + shared buttons/compact filters -> UI-R4C Home Dashboard + Project Portfolio redesign -> UI-R4D project/equipment/material media foundation -> UI-R4E app-wide rollout + light/dark professional certification`.
+- `artifacts/ui-ux-audit/UI-R4A-COMPARATIVE-VISUAL-RESEARCH.md`;
+- `docs/superpowers/specs/2026-09-22-ui-r4-professional-design-blueprint.md`.
+
+The visual research covered Procore, Autodesk Construction Cloud/Build, Buildertrend, Fieldwire, Raken, Linear, and Airtable, plus WCAG focus/non-text contrast guidance. It establishes Home as orientation/attention/launch rather than an analytics warehouse; recognizable but restrained Project cards; compact contextual filters; consistent action hierarchy; System/Light/Dark using the existing Astryx paired tokens; and a later separate company-bound entity-media slice.
+
+The exact next implementation phase is **UI-R4B — shared visual foundation**. R4B must stop before R4C and implement only the theme/control foundation: System/Light/Dark preference/bootstrap, semantic shared surfaces required for theme parity, shared button hierarchy, compact filter/action bar, advanced-filter disclosure, and a bounded proving integration. R4B must visually inspect the actual rendered Light/Dark results at affected standard viewports; DOM/tests/overflow checks alone are not sufficient.
+
+The approved Round 4 sequence remains:
+
+`UI-R4A research/design COMPLETE -> UI-R4B dark mode + shared buttons/compact filters NEXT -> UI-R4C Home Dashboard + Project Portfolio redesign -> UI-R4D project/equipment/material media foundation -> UI-R4E app-wide rollout + light/dark professional certification`.
 
 Round 4 requirements already established by the user:
 
