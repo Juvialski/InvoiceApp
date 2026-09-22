@@ -64,10 +64,7 @@ test("Assistant help remains a compatibility projection of canonical topics", ()
   const matches = searchHelpCatalog("company member permission deny");
   assert.equal(matches[0]?.id, "company-access");
   assert.ok(matches[0]?.details);
-  assert.deepEqual(
-    getHelpResponse("company member permission deny").kind === "matches"
-      ? getHelpResponse("company member permission deny").references[0]
-      : undefined,
-    { type: "help", id: "company-access", label: "Company access and member permissions" },
-  );
+  const response = getHelpResponse("company member permission deny");
+  assert.equal(response.kind, "matches");
+  if (response.kind === "matches") assert.deepEqual(response.references[0], { type: "help", id: "company-access", label: "Company access and member permissions" });
 });

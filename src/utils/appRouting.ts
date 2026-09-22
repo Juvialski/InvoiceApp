@@ -51,8 +51,17 @@ export interface EmailWorkspaceContext {
   returnTo?: string;
 }
 
+export interface HelpLocation {
+  kind: "help";
+  pathname: string;
+  search: string;
+  topicId?: string;
+  query?: string;
+}
+
 export type AppLocation =
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
+  | HelpLocation
   | {
       kind: "project"; tab: "projects"; routeId: "projects"; projectId: string; view: ProjectWorkspaceView; pathname: string; search: string;
       billingId?: string; documentId?: string; revisionId?: string; rfiId?: string; submittalId?: string; roundId?: string; siteLogId?: string;
@@ -116,6 +125,18 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
   const query = new URLSearchParams(normalizedSearch);
   const segments = normalizedPath.split("/").filter(Boolean).map(safeDecode);
 
+  if (normalizedPath === "/help") {
+    const topicId = routeQueryValue(query, "help", "topic")?.trim() || undefined;
+    const helpQuery = routeQueryValue(query, "help", "q")?.trim() || undefined;
+    return {
+      kind: "help",
+      pathname: normalizedPath,
+      search: normalizedSearch,
+      ...(topicId ? { topicId } : {}),
+      ...(helpQuery ? { query: helpQuery } : {}),
+    };
+  }
+
   if (segments[0] === "projects" && segments[1]) {
     const requestedView = segments[2] || routeQueryValue(query, "project-workspace", "view") || "overview";
     const view = PROJECT_VIEWS.has(requestedView as ProjectWorkspaceView)
@@ -168,11 +189,12 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
 }
 
 export function appTabForLocation(location: AppLocation): AppTab {
+  if (location.kind === "help" || location.kind === "unknown") return "dashboard";
   return location.tab;
 }
 
-export function isKnownWorkspaceLocation(location: AppLocation): location is Exclude<AppLocation, { kind: "unknown" }> {
-  return location.kind !== "unknown";
+export function isKnownWorkspaceLocation(location: AppLocation): location is Exclude<AppLocation, { kind: "unknown" } | { kind: "help" }> {
+  return location.kind !== "unknown" && location.kind !== "help";
 }
 
 export function appPathForTab(tab: AppTab) {

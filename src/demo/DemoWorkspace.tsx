@@ -43,11 +43,13 @@ const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehou
 function activeTabFor(location: DemoLocation): AppTab {
   if (location.kind === "documents") return "documents";
   if (location.kind === "assistant" || location.kind === "landing") return "dashboard";
+  if (location.appLocation.kind === "help") return "dashboard";
   return location.appLocation.tab;
 }
 
 function safeAppLocation(location: DemoLocation): AppLocation | null {
   if (location.kind !== "app") return null;
+  if (location.appLocation.kind === "help") return null;
   const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extractor", "inbox", "review", "documents", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
   return allowed.has(location.appLocation.tab) ? location.appLocation : null;
 }
