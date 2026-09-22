@@ -12,6 +12,7 @@ export interface HelpActionProps {
 export function HelpAction({ topicId, className = "" }: HelpActionProps) {
   if (topicId === null) return null;
   const pathname = typeof window === "undefined" ? "/" : window.location.pathname;
+  if (pathname.startsWith("/demo/")) return null;
   const routeId = resolveRoute(pathname).routeId;
   const topic = topicId ? getHelpTopic(topicId) : routeId ? getDefaultHelpTopic(routeId) : undefined;
   const path = topic ? helpTopicPath(topic.id) : "/help";

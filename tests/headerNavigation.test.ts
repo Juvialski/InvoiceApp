@@ -49,6 +49,7 @@ test("PageHeader owns one route-aware Help action with an explicit Help Center o
   assert.match(operationsUI, /helpTopicId\?:/);
   assert.match(helpCenter, /helpTopicId=\{null\}/);
   assert.match(helpAction, /data-ui="page-header-help"/);
+  assert.match(helpAction, /pathname\.startsWith\("\/demo\/"\)/);
 });
 
 test("Help shell context does not activate a business route or permission guard", () => {
