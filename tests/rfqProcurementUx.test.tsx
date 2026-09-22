@@ -1,12 +1,15 @@
 import React from "react";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ProcurementPage } from "../src/components/procurement/ProcurementPage.tsx";
 import { RFQEditorModal, persistedRFQLineId } from "../src/components/procurement/RFQEditorModal.tsx";
 import { PurchaseOrderEditorModal, persistedPurchaseOrderLineId } from "../src/components/procurement/PurchaseOrderEditorModal.tsx";
 import { SupplierQuotationModal } from "../src/components/procurement/SupplierQuotationModal.tsx";
 import { RFQComparisonModal } from "../src/components/procurement/RFQComparisonModal.tsx";
+import { RFQIssueConfirmationModal } from "../src/components/procurement/RFQIssueConfirmationModal.tsx";
+import { ProcurementDraftPOContinuation } from "../src/components/procurement/ProcurementDraftPOContinuation.tsx";
 import { createDemoRFQs, createDemoSupplierQuotations } from "../src/demo/data/procurement.ts";
 import { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";
 import { defaultDemoAnchorDate } from "../src/demo/data/demoDates.ts";
@@ -266,6 +269,65 @@ test("Purchase Order draft editing uses shared worksheets and protects calculate
   assert.doesNotMatch(markup, /Record Delivery \/ Receipt/);
 });
 
+test("new Purchase Order keeps approval unavailable until a draft is persisted", () => {
+  const markup = renderToStaticMarkup(
+    <PurchaseOrderEditorModal
+      open={true}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canManage={true}
+      canApprove={true}
+      onSave={async () => {}}
+      onTransition={async () => {}}
+      onDelete={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /Save Draft/);
+  assert.match(markup, /Save this draft before approval/);
+  assert.doesNotMatch(markup, /Approve PO/);
+});
+
+test("persisted Purchase Order approval is guarded while worksheet edits are unsaved", () => {
+  const source = readFileSync(new URL("../src/components/procurement/PurchaseOrderEditorModal.tsx", import.meta.url), "utf8");
+  assert.match(source, /hasUnsavedDraftChanges/);
+  assert.match(source, /Save draft changes before approval\./);
+  assert.match(source, /disabled=\{isSubmitting \|\| loading \|\| hasUnsavedDraftChanges\}/);
+  assert.match(source, /aria-describedby=\{hasUnsavedDraftChanges \? "po-unsaved-approval-guard" : undefined\}/);
+});
+
+test("issued Purchase Order with outstanding receipt quantity keeps Close visibly guarded", () => {
+  const purchaseOrder = demoWorkspace.purchaseOrders.find((candidate) => candidate.status === "ISSUED");
+  assert.ok(purchaseOrder, "Expected an issued purchase order in demo data");
+  const markup = renderToStaticMarkup(
+    <PurchaseOrderEditorModal
+      open={true}
+      purchaseOrder={purchaseOrder}
+      receipts={demoWorkspace.purchaseOrderReceipts}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canManage={true}
+      canApprove={true}
+      matches={demoWorkspace.purchaseOrderMatches}
+      invoices={demoWorkspace.invoices}
+      onSave={async () => {}}
+      onTransition={async () => {}}
+      onDelete={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /Close is unavailable until all ordered quantities are received/);
+  const closeLabelIndex = markup.indexOf("Mark Complete \/ Close");
+  assert.notEqual(closeLabelIndex, -1, "Expected the close lifecycle control");
+  const closeButtonStart = markup.lastIndexOf("<button", closeLabelIndex);
+  const closeButtonEnd = markup.indexOf(">", closeButtonStart);
+  assert.match(markup.slice(closeButtonStart, closeButtonEnd), /disabled/);
+});
+
 test("Purchase Order non-draft worksheet keeps editing protected while workflows stay outside the grid", () => {
   const purchaseOrder = demoWorkspace.purchaseOrders.find((candidate) => candidate.status === "ISSUED");
   assert.ok(purchaseOrder, "Expected an issued purchase order in demo data");
@@ -294,6 +356,40 @@ test("Purchase Order non-draft worksheet keeps editing protected while workflows
   assert.match(markup, /Delivery &amp; Goods Receipts Tracking/);
   assert.match(markup, /Record Delivery \/ Receipt/);
   assert.doesNotMatch(markup, /Approve PO/);
+});
+
+test("RFQ Issue uses an explicit confirmation stage before sending the request out for quote", () => {
+  const rfq = demoRfqs.find((candidate) => candidate.status === "DRAFT") || demoRfqs[0];
+  const markup = renderToStaticMarkup(
+    <RFQIssueConfirmationModal
+      isOpen={true}
+      rfq={rfq}
+      onConfirm={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /role="dialog"/);
+  assert.match(markup, new RegExp(rfq.rfqNumber));
+  assert.match(markup, /Confirm Issue/);
+  assert.match(markup, />Back</);
+  assert.match(markup, /does not select a supplier or create a Purchase Order/);
+});
+
+test("draft PO conversion exposes a truthful result and review continuation", () => {
+  const markup = renderToStaticMarkup(
+    <ProcurementDraftPOContinuation
+      poNumber="PO-25-9012"
+      quotationNumber="QUO-MS-2025-088"
+      onDismiss={() => {}}
+    />,
+  );
+
+  assert.match(markup, /role="status"/);
+  assert.match(markup, /Draft Purchase Order PO-25-9012 created/);
+  assert.match(markup, /QUO-MS-2025-088/);
+  assert.match(markup, /remains uncommitted/);
+  assert.match(markup, /Review the draft in Purchase Orders/);
 });
 
 test("SupplierQuotationModal renders with vendor selection, terms, and auto-populated line items", () => {

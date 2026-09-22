@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 ACTIVE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT SLICES IMPLEMENTED FOR RECORDED SCOPES / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 ACTIVE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-22**
 
@@ -266,16 +266,77 @@ Validation for this implementation branch:
   persistence, locking, or financial guard changed. Hosted QA, provider, and
   production certification remain separate and unclaimed.
 
-The next unfinished S3D slice is Procurement lifecycle hardening, followed by
-Payroll normal-cycle hardening; UX-S3E accessibility/responsive/visual closeout
-remains later. No Procurement or Payroll workflow hardening is claimed here.
+At this historical cash-slice checkpoint, the next unfinished S3D slice was
+Procurement lifecycle hardening, followed by Payroll normal-cycle hardening;
+UX-S3E accessibility/responsive/visual closeout remained later. The current
+Procurement status is recorded in the section below.
+
+### 2026-09-22 UX-S3D — Procurement lifecycle workflow hardening
+
+This bounded slice starts from synchronized `main` SHA
+`9b0810193ca4a6d7eb2221f6320b8d7177509164` on branch
+`codex/ux-s3d-procurement-lifecycle`. The application-bearing implementation
+head is `6f7a59f5cd2e979485e3b987b6b76d39a57f5411`; the exact demo-evidence
+head is `7baa892c090ccdf17e0ad32fa2688b28ea3f5b44`.
+
+The Procurement lifecycle now keeps the existing workflow staged and truthful:
+
+- a new unsaved PO exposes `Save Draft` only, explains that approval requires a
+  persisted draft, and never treats an Approve action as a save;
+- a persisted draft still exposes the existing authoritative `Approve PO`
+  transition separately from Save Draft;
+- RFQ `Issue` opens an explicit confirmation stage that explains it does not
+  select a supplier or create a PO, preserves retryable failure state, and then
+  calls the existing lifecycle callback;
+- successful selected-quotation conversion continues to Purchase Orders,
+  filters to the requested PO number, and reports an uncommitted draft awaiting
+  review/save/approval;
+- issued POs with outstanding receipt quantity keep Close visibly disabled with
+  the existing authoritative close guard preserved;
+- the demo route now receives its seeded RFQ/quotation evidence so browser QA
+  can inspect the real RFQ Issue state without inventing a lifecycle result.
+
+The existing workbook hierarchy was verified in live source and browser
+evidence: the active RFQ/PO register remains before the secondary workbook
+panel. Import remains `Review proposals -> select -> confirm -> Apply`; no
+workbook action performs approval, issue, receipt, close, cancellation, or
+supplier selection.
+
+Validation for the exact application/evidence head:
+
+- focused Procurement/RFQ/PO/workbook/domain suite: **68/68**;
+- deterministic `npm.cmd run test:affected:agent`: **359/359**, **55/368**
+  selected, database fallback disabled;
+- `npm.cmd run lint`: ESLint and TypeScript passed;
+- `npm.cmd run build`: passed with existing Astryx font/chunk-size and CJS
+  `import.meta` warnings;
+- exact-head local production-preview Demo Visual QA at `7baa892`: **127/127**
+  scenarios, **36** routes, **4** viewports, **108** interaction scenarios,
+  **127** screenshots, zero console/page/request/overflow failures. RFQ Issue
+  confirmation, its safety boundary, new-PO approval absence, save-before-
+  approval notice, register-before-workbook hierarchy, and phone states passed;
+- Jev start/context: deterministic packet had no Workflow Map match and the
+  one live context checkpoint returned no candidates, dispatched zero live
+  requests, and fell back deterministically;
+- Jev completion/evidence: one sanitized live attempt returned `TypeError`
+  before a response; no Jev completion judgment was used;
+- no Docker/Supabase, hosted QA, provider, or production validation was run or
+  claimed because no migration, RPC, RLS, schema, persistence, locking, or
+  financial/inventory guard changed.
+
+Financial/source authority, committed-cost semantics, RFQ/quotation history,
+supplier-selection audit, PO approval/issue/receipt/close lifecycle, Warehouse
+continuation, permissions, company isolation, concurrency, currency, and
+review-before-Apply boundaries remain unchanged. The next unfinished S3D slice
+is Payroll normal-cycle hardening; UX-S3E accessibility/responsive/visual
+closeout remains later.
 
 ## Current priority sequence
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
 3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment, UX-W5B Warehouse Item Master + Canonical Equipment Master, and UX-W5C Vendor Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
-4. **UX-S3A baseline research/evidence, UX-S3A2 Jev-browser comparative validation, UX-S3B targeted browser evidence, UX-S3C visible-copy simplification, UX-S3D Supplier Invoice queue action hardening, and UX-S3D Cash settlement/reconciliation hardening are implemented for their recorded boundaries.** Exact-head local production-preview Demo Visual QA passed 124/124 scenarios across four viewports with zero browser/overflow failures. UX-S3D remains active for Procurement lifecycle and Payroll normal-cycle follow-ups; UX-S3E visual/accessibility closeout remains later.
+4. **UX-S3A baseline research/evidence, UX-S3A2 Jev-browser comparative validation, UX-S3B targeted browser evidence, UX-S3C visible-copy simplification, and UX-S3D Supplier Invoice queue, Cash settlement/reconciliation, and Procurement lifecycle hardening are implemented for their recorded boundaries.** Exact-head local production-preview Demo Visual QA passed 127/127 scenarios across four viewports with zero browser/overflow failures. UX-S3D remains active only for the Payroll normal-cycle follow-up; UX-S3E visual/accessibility closeout remains later.
 5. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is complete for this implementation run.** The durable report records read-only authenticated X research, official/community source review, 48 controlled live Jev requests over sanitized metadata, historical calibration, and a prioritized v2B design. Jev remains advisory only; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
 6. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this run.** Shared preflight/diagnostic primitives, deterministic clean-baseline task seeding, budget-aware ordered chunking, context reranking, broad test triage, and deterministic must-keep/required-test unions are now integrated. Remaining v2B experimental slices stay deferred; Jev remains advisory-only and no application/runtime Jev or automatic model/subagent routing was added.
 7. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed opportunistically whenever safe credentials/device/runtime exist without displacing the bounded UX-W5 slices.

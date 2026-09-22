@@ -332,6 +332,11 @@ const verifyPurchaseOrderDocumentDeliverySurface: QaScenarioAction = async (page
 
 const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Requests for Quotation (RFQs)" }).click();
+  await page.getByRole("button", { name: "Issue", exact: true }).first().click();
+  await waitForVisible(page, '[role="dialog"]');
+  const issueConfirmation = await page.getByRole("button", { name: "Confirm Issue", exact: true }).count();
+  const issueSafety = await page.locator("text=Issuing does not select a supplier or create a Purchase Order.").count();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByRole("button", { name: "New RFQ", exact: true }).first().click();
   await waitForVisible(page, '[data-testid="rfq-draft-worksheet"]');
   const rfqWorksheet = await page.locator('[data-testid="rfq-draft-worksheet"]').count();
@@ -347,9 +352,12 @@ const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
   const poAddRow = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-add-row="true"]').count();
   const protectedCells = await page.locator('[data-testid="purchase-order-draft-worksheet"] [data-worksheet-protected="true"]').count();
   const approval = await page.getByRole("button", { name: "Approve PO", exact: true }).count();
+  const saveBeforeApproval = await page.locator("text=Save this draft before approval becomes available.").count();
   const receiptWorkflow = await page.getByRole("button", { name: /Record Delivery \/ Receipt/ }).count();
 
   return [
+    { id: "rfq-issue-confirmation-visible", passed: issueConfirmation === 1, details: `RFQ issue confirmation controls: ${issueConfirmation}` },
+    { id: "rfq-issue-safety-boundary-visible", passed: issueSafety === 1, details: `RFQ issue safety notices: ${issueSafety}` },
     { id: "rfq-draft-worksheet-visible", passed: rfqWorksheet === 1, details: `RFQ worksheet surfaces: ${rfqWorksheet}` },
     { id: "rfq-draft-worksheet-editors-visible", passed: rfqEditors === 2, details: `RFQ worksheet editors: ${rfqEditors}` },
     { id: "rfq-draft-worksheet-add-row-visible", passed: rfqAddRow === 1, details: `RFQ Add row controls: ${rfqAddRow}` },
@@ -357,7 +365,8 @@ const verifyProcurementDraftWorksheets: QaScenarioAction = async (page) => {
     { id: "po-draft-worksheet-editors-visible", passed: poEditors === 2, details: `PO worksheet editors: ${poEditors}` },
     { id: "po-draft-worksheet-add-row-visible", passed: poAddRow === 1, details: `PO Add row controls: ${poAddRow}` },
     { id: "po-draft-protected-cells-visible", passed: protectedCells > 0, details: `PO protected cells: ${protectedCells}` },
-    { id: "po-draft-approval-workflow-outside-worksheet", passed: approval === 1, details: `PO approval controls: ${approval}` },
+    { id: "po-draft-approval-workflow-outside-worksheet", passed: approval === 0, details: `new PO approval controls: ${approval}` },
+    { id: "po-draft-save-before-approval-visible", passed: saveBeforeApproval === 1, details: `save-before-approval notices: ${saveBeforeApproval}` },
     { id: "po-draft-receiving-workflow-not-on-draft", passed: receiptWorkflow === 0, details: `draft receiving controls: ${receiptWorkflow}` },
   ] satisfies readonly QaAssertion[];
 };
