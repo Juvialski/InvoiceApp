@@ -1,10 +1,11 @@
-import React, { useId, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Badge as AstryxBadge } from "@astryxdesign/core/Badge";
 import { EmptyState as AstryxEmptyState } from "@astryxdesign/core/EmptyState";
 import { Button as AstryxButton, type ButtonProps, type ButtonVariant } from "@astryxdesign/core/Button";
 import { CheckCircle2, CircleAlert, Info, Loader2, RotateCcw, type LucideIcon } from "lucide-react";
 import { HelpAction } from "../help/HelpAction.tsx";
 import type { HelpTopicId } from "../../help/helpCatalog.ts";
+import { countActiveFilters } from "./filterActionBarModel.ts";
 
 export type StatusTone = "neutral" | "info" | "success" | "warning" | "danger";
 
@@ -47,6 +48,142 @@ export type ActionButtonProps = Omit<ButtonProps, "variant"> & { variant?: Butto
 
 export function ActionButton({ variant = "secondary", className = "", ...props }: ActionButtonProps) {
   return <AstryxButton {...props} variant={variant} className={`hqs-action-button ${className}`} />;
+}
+
+export interface FilterChip {
+  id: string;
+  label: string;
+  onRemove: () => void;
+}
+
+export interface CompactSearchControl {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  ariaLabel: string;
+}
+
+export interface AdvancedFilterDisclosureProps {
+  children: React.ReactNode;
+  activeCount?: number;
+  label?: string;
+  onClear?: () => void;
+}
+
+export function AdvancedFilterDisclosure({
+  children,
+  activeCount = 0,
+  label = "Filters",
+  onClear,
+}: AdvancedFilterDisclosureProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelId = `advanced-filter-${useId().replace(/:/g, "")}`;
+  const close = useCallback(() => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const firstControl = panelRef.current?.querySelector<HTMLElement>("button, input, select, textarea, [tabindex]:not([tabindex='-1'])");
+    firstControl?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      }
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target)) close();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [close, open]);
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        ref={triggerRef}
+        type="button"
+        className="hqs-control hqs-focus-ring inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {label}
+        {activeCount > 0 && <span className="hqs-accent-text rounded-full px-1.5 text-[10px] font-black">{activeCount}</span>}
+      </button>
+      {open && (
+        <div ref={panelRef} id={panelId} role="dialog" aria-label={`${label} options`} className="hqs-popover absolute left-0 top-[calc(100%+0.5rem)] z-40 w-[min(36rem,calc(100vw-2rem))] rounded-xl p-3.5 sm:right-0 sm:left-auto">
+          <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+          {onClear && activeCount > 0 && <div className="hqs-border mt-3 flex justify-end border-t pt-3"><button type="button" className="hqs-control hqs-focus-ring rounded-lg px-2.5 py-1.5 text-xs font-bold" onClick={onClear}>Clear filters</button></div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export interface CompactActionBarProps {
+  search?: CompactSearchControl;
+  quickFilters?: React.ReactNode;
+  advancedFilters?: React.ReactNode;
+  activeFilterValues?: readonly unknown[];
+  activeFilters?: readonly FilterChip[];
+  sort?: React.ReactNode;
+  view?: React.ReactNode;
+  primaryAction?: React.ReactNode;
+  resultLabel?: React.ReactNode;
+  onClearAll?: () => void;
+  ariaLabel?: string;
+  className?: string;
+}
+
+export function CompactActionBar({
+  search,
+  quickFilters,
+  advancedFilters,
+  activeFilterValues = [],
+  activeFilters = [],
+  sort,
+  view,
+  primaryAction,
+  resultLabel,
+  onClearAll,
+  ariaLabel = "Filters and actions",
+  className = "",
+}: CompactActionBarProps) {
+  const activeFilterCount = countActiveFilters(activeFilterValues);
+  return (
+    <section data-ui="compact-action-bar" aria-label={ariaLabel} className={`hqs-surface-raised rounded-xl p-2.5 sm:p-3 ${className}`}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-nowrap">
+        {search && (
+          <label className="hqs-input hqs-focus-ring flex min-w-0 basis-full items-center rounded-lg px-3 sm:basis-auto sm:flex-1">
+            <span className="sr-only">{search.ariaLabel}</span>
+            <input type="search" value={search.value} onChange={(event) => search.onChange(event.currentTarget.value)} placeholder={search.placeholder} aria-label={search.ariaLabel} className="h-10 min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" />
+          </label>
+        )}
+        {quickFilters && <div className="hidden min-w-0 items-center gap-2 sm:flex">{quickFilters}</div>}
+        {advancedFilters && <AdvancedFilterDisclosure activeCount={activeFilterCount} onClear={onClearAll}>{advancedFilters}</AdvancedFilterDisclosure>}
+        {sort && <div className="min-w-0 shrink-0">{sort}</div>}
+        {view && <div className="hidden shrink-0 items-center sm:flex">{view}</div>}
+        {primaryAction && <div className="ml-auto shrink-0">{primaryAction}</div>}
+      </div>
+      {(activeFilterCount > 0 && activeFilters.length > 0) && (
+        <div className="hqs-border mt-2 flex flex-wrap items-center gap-1.5 border-t pt-2">
+          {activeFilters.map((filter) => <button key={filter.id} type="button" onClick={filter.onRemove} className="hqs-control hqs-focus-ring inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold">{filter.label}<span aria-hidden="true">×</span></button>)}
+          {onClearAll && <button type="button" onClick={onClearAll} className="hqs-accent-text ml-1 min-h-8 px-1 text-[11px] font-bold hover:underline">Clear all</button>}
+        </div>
+      )}
+      {resultLabel && <div className="hqs-secondary-text mt-2 text-xs font-semibold" role="status" aria-live="polite">{resultLabel}</div>}
+    </section>
+  );
 }
 
 export function StatusBadge({

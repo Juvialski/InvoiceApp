@@ -47,3 +47,10 @@ test("shared roots and Settings expose the R4B theme/control architecture", () =
   assert.match(operationsUi, /export function ActionButton/);
   assert.match(operationsUi, /variant\?: ButtonVariant/);
 });
+
+test("shared UI owns compact action bar and advanced disclosure primitives", () => {
+  const operationsUi = source("src/components/ui/OperationsUI.tsx");
+  assert.match(operationsUi, /export function AdvancedFilterDisclosure/);
+  assert.match(operationsUi, /export function CompactActionBar/);
+  assert.match(operationsUi, /export interface FilterChip/);
+});
