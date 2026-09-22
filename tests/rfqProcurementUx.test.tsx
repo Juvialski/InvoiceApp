@@ -1,6 +1,7 @@
 import React from "react";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ProcurementPage } from "../src/components/procurement/ProcurementPage.tsx";
 import { RFQEditorModal, persistedRFQLineId } from "../src/components/procurement/RFQEditorModal.tsx";
@@ -287,6 +288,14 @@ test("new Purchase Order keeps approval unavailable until a draft is persisted",
   assert.match(markup, /Save Draft/);
   assert.match(markup, /Save this draft before approval/);
   assert.doesNotMatch(markup, /Approve PO/);
+});
+
+test("persisted Purchase Order approval is guarded while worksheet edits are unsaved", () => {
+  const source = readFileSync(new URL("../src/components/procurement/PurchaseOrderEditorModal.tsx", import.meta.url), "utf8");
+  assert.match(source, /hasUnsavedDraftChanges/);
+  assert.match(source, /Save draft changes before approval\./);
+  assert.match(source, /disabled=\{isSubmitting \|\| loading \|\| hasUnsavedDraftChanges\}/);
+  assert.match(source, /aria-describedby=\{hasUnsavedDraftChanges \? "po-unsaved-approval-guard" : undefined\}/);
 });
 
 test("issued Purchase Order with outstanding receipt quantity keeps Close visibly guarded", () => {
