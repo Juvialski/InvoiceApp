@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT SLICES IMPLEMENTED FOR RECORDED SCOPES / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
 Date: **2026-09-22**
 Repository: `Juvialski/InvoiceApp`
 
@@ -128,10 +128,11 @@ UI/application diff; no migration/RLS/RPC/authority contract changed and no
 Settings capability status changed.
 
 UX-S3C is implemented for the recorded visible-copy boundary. Workflow
-redesign remains out of scope. UX-S3D is active; its bounded Supplier Invoice
-queue and Cash settlement/reconciliation slices are recorded below, while
-Procurement lifecycle and Payroll normal-cycle hardening remain deliberate
-follow-ups before UX-S3E accessibility/responsive/visual closeout.
+redesign remains out of scope. At this S3C handoff checkpoint, UX-S3D was
+active; its bounded Supplier Invoice queue and Cash settlement/reconciliation
+slices are recorded below, while Procurement lifecycle and Payroll normal-cycle
+hardening remained deliberate follow-ups before UX-S3E accessibility/responsive/
+visual closeout. Later S3D completion sections below reconcile the current state.
 
 ### 2026-09-22 UX-S3D — Supplier Invoice queue action hardening
 
@@ -174,9 +175,10 @@ Exact-head validation:
   were unchanged. Docker/Supabase, hosted QA, provider, and production checks
   were not applicable. The full suite was not run by ritual.
 
-The next unfinished S3D work is Cash settlement/reconciliation, followed by
-Procurement lifecycle and Payroll normal-cycle hardening. Those workflows were
-inspected but deliberately not changed in the Supplier Invoice slice.
+That historical handoff was followed by the bounded Cash settlement,
+Procurement lifecycle, and remaining Payroll normal-cycle hardening slices.
+Those workflows were inspected but deliberately not changed in the Supplier
+Invoice slice.
 
 ### 2026-09-22 UX-S3D — Cash settlement and reconciliation workflow hardening
 
@@ -219,9 +221,65 @@ Exact-head validation for the branch:
 - no Docker/Supabase, hosted QA, provider, or production validation was run or
   claimed because the final diff did not change database/runtime authority.
 
-The next unfinished S3D slice is Procurement lifecycle hardening, followed by
-Payroll normal-cycle hardening. UX-S3E remains later. No Procurement or Payroll
-workflow hardening is claimed in this Cash slice.
+At this historical cash-slice checkpoint, the next unfinished S3D slice was
+Procurement lifecycle hardening, followed by Payroll normal-cycle hardening.
+The current Procurement status is recorded below; UX-S3E remains later.
+
+### 2026-09-22 UX-S3D — Procurement lifecycle workflow hardening
+
+This bounded slice starts from synchronized `main` SHA
+`9b0810193ca4a6d7eb2221f6320b8d7177509164` on branch
+`codex/ux-s3d-procurement-lifecycle`. The exact demo-evidence head is
+`7baa892c090ccdf17e0ad32fa2688b28ea3f5b44`.
+
+The implementation preserves the normal Procurement sequence
+`prepare/edit -> review -> human confirm -> execute -> result/continue`:
+
+- New Purchase Orders now show `Save Draft` and a visible save-before-approval
+  boundary; `Approve PO` appears only for a persisted draft. Persisted draft
+  approval still uses the existing separate approval callback/permission.
+- RFQ `Issue` is now a focused confirmation dialog. It explains that Issue
+  does not select a supplier or create a PO, keeps the dialog retryable on
+  failure, and calls the existing transition only after explicit confirmation.
+- Selected quotation conversion still creates only a DRAFT PO, then continues
+  to Purchase Orders filtered to the requested PO number with an uncommitted
+  draft result notice.
+- Issued POs with outstanding receipt quantity keep Close disabled with a
+  visible reason; the authoritative server/domain close guard remains in
+  force.
+- DemoWorkspace now passes its seeded RFQ/quotation data into AppRouter so
+  browser evidence exercises a real draft RFQ and real comparison data.
+
+The historical workbook-before-register finding was verified as already fixed:
+the active RFQ/PO register remains before `ProcurementWorkbookPanel`. Workbook
+review-before-Apply, protected fields, stale checks, and authoritative save
+callbacks remain unchanged.
+
+Exact-head validation:
+
+- focused Procurement/RFQ/PO/workbook/domain tests: **68/68**;
+- deterministic affected selector: **359/359**, **55/368** selected, database
+  fallback disabled;
+- `npm.cmd run lint`: ESLint and TypeScript passed;
+- `npm.cmd run build`: passed with existing Astryx font/chunk-size and CJS
+  `import.meta` warnings;
+- local production-preview Demo Visual QA at `7baa892`: **127/127** scenarios,
+  **36** routes, **4** viewports, **108** interaction scenarios, **127**
+  screenshots, zero console/page/request/overflow failures. RFQ Issue
+  confirmation and its safety copy passed at desktop/tablet/phone; the new PO
+  approval absence and save boundary passed at desktop/tablet/phone; the
+  register-before-workbook hierarchy was visually inspected;
+- Jev context checkpoint: no Workflow Map match, no candidates, zero live
+  requests, deterministic fallback;
+- Jev completion/evidence attempt: sanitized request returned `TypeError`
+  before a response; no model judgment was used;
+- Docker/Supabase, hosted QA, provider, and production checks were not
+  applicable and were not run.
+
+No financial/source, committed-cost, RFQ/quotation history, supplier-selection,
+PO lifecycle, receipt/Warehouse, permission, company-isolation, concurrency,
+currency, or workbook authority boundary changed. The next unfinished S3D
+slice is Payroll normal-cycle hardening; UX-S3E remains later.
 
 ### UX-W4.5B — shared responsive shell and worksheet foundations
 
@@ -1524,7 +1582,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
 4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ/PO + Client Billing + Expenses IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, Purchase Order draft editing, Client Billing draft editing, and direct Expense DRAFT editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
 5. **UX-W4.5A through UX-W4.5E, UX-W5A, UX-W5B, and UX-W5C are implemented for their recorded scopes.** The durable visual evidence and authority limitations remain as documented; remaining UX-W5 workforce slices require separate bounded handoffs and remain subject to the Worker Registration/Wave 4D sequencing gate.
-6. **UX-S3A baseline research, UX-S3A2 Jev-browser validation, UX-S3B targeted browser evidence, UX-S3C visible-copy simplification, UX-S3D Supplier Invoice queue hardening, and UX-S3D Cash settlement/reconciliation hardening are implemented for their recorded boundaries.** Preserve the current reports and S3B design/plan. Exact-head local production-preview Demo Visual QA passed 124/124 scenarios across four viewports with zero browser/overflow failures. UX-S3D remains active for Procurement lifecycle and Payroll normal-cycle follow-ups; UX-S3E visual/accessibility closeout remains later.
+6. **UX-S3A baseline research, UX-S3A2 Jev-browser validation, UX-S3B targeted browser evidence, UX-S3C visible-copy simplification, and UX-S3D Supplier Invoice queue, Cash settlement/reconciliation, and Procurement lifecycle hardening are implemented for their recorded boundaries.** Preserve the current reports and S3B design/plan. Exact-head local production-preview Demo Visual QA passed 127/127 scenarios across four viewports with zero browser/overflow failures. UX-S3D remains active only for the Payroll normal-cycle follow-up; UX-S3E visual/accessibility closeout remains later.
 7. **Jev Workflow Intelligence v2A research/design is complete for this handoff.** The durable report records read-only X research, official/community source review, 48 controlled sanitized Jev requests, representative historical replay, and the prioritized v2B design. This remains developer tooling, not a product dependency or merge authority.
 8. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this handoff.** The shared request/diagnostic layer, deterministic seeding, budget-aware chunking, context integration, broad test triage, and deterministic must-keep/required-test unions are complete. Remaining v2B adjacency, requirement/evidence, replay, routing-advice, and other experimental work requires a later bounded handoff.
 9. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist; it remains separate from the completed v2B foundation and bounded UX-W5C product work.
@@ -1551,7 +1609,7 @@ These phases are not cancelled. Preserve their historical contracts and backlog 
 
 ### Exact next implementation program
 
-The current implementation program is **UI Simplification Round 3 + workflow hardening**. UX-S3A2 is complete for the recorded public research boundary, UX-S3B's targeted browser evidence is closed, UX-S3C visible-copy simplification is implemented for the recorded boundary, and the bounded UX-S3D Supplier Invoice and Cash settlement slices are implemented. Continue with the remaining bounded Procurement and Payroll S3D P1 workflows before UX-S3E. Read:
+The current implementation program is **UI Simplification Round 3 + workflow hardening**. UX-S3A2 is complete for the recorded public research boundary, UX-S3B's targeted browser evidence is closed, UX-S3C visible-copy simplification is implemented for the recorded boundary, and the bounded UX-S3D Supplier Invoice, Cash settlement, and Procurement lifecycle slices are implemented. Continue with the remaining bounded Payroll S3D P1 workflow before UX-S3E. Read:
 
 The UX-S3A baseline report is `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md`. Preserve it and validate/refine it rather than restarting the internal HydroQualiSense audit from zero. The S3B design and plan are `docs/superpowers/specs/2026-09-21-ux-s3b-help-center-contextual-help-design.md` and `docs/superpowers/plans/2026-09-21-ux-s3b-help-center-contextual-help.md`.
 
@@ -1580,7 +1638,7 @@ Do not put essential instructions only behind hover. Tooltips/popovers must be k
 
 UX-S3A produced the baseline research/audit report and UX-S3A2 validated/refined it. S3B now supplies the static Help Center/contextual-help foundation; no broad UI remediation was performed. Proceed through:
 
-`UX-S3A2 Jev-browser comparative validation (complete) -> UX-S3B static foundation + targeted browser evidence (closed) -> UX-S3C visible-copy simplification (implemented for recorded scope) -> UX-S3D Supplier Invoice + Cash settlement hardening (implemented for recorded scopes) -> UX-S3D remaining Procurement/Payroll workflow hardening -> UX-S3E accessibility/responsive/visual certification`.
+`UX-S3A2 Jev-browser comparative validation (complete) -> UX-S3B static foundation + targeted browser evidence (closed) -> UX-S3C visible-copy simplification (implemented for recorded scope) -> UX-S3D Supplier Invoice + Cash settlement + Procurement lifecycle hardening (implemented for recorded scopes) -> UX-S3D remaining Payroll workflow hardening -> UX-S3E accessibility/responsive/visual certification`.
 
 Parallel hardening may continue for existing capabilities: provider/readiness certification, authenticated HSC/render certification, reliability/recovery, security/data-integrity, concurrency, performance, exact-SHA QA/release evidence, and bounded Jev/Repository Intelligence efficiency improvements.
 
