@@ -55,7 +55,7 @@ test("Procurement draft QA keeps approval hidden until the new PO is persisted",
   const procurementAction = scenariosSource.slice(procurementActionStart, procurementActionEnd);
   assert.match(procurementAction, /const approval = await page\.getByRole\("button", \{ name: "Approve PO", exact: true \}\)\.count\(\);/);
   assert.match(procurementAction, /approval === 0/);
-  assert.match(procurementAction, /Save this draft before approval/);
+  assert.match(procurementAction, /Save this draft before approval/);\n  assert.match(procurementAction, /page\\.locator\\(\"text=Save this draft before approval becomes available\\.\"\\)/);\n  assert.doesNotMatch(procurementAction, /getByText/);
   assert.match(procurementAction, /const issueConfirmation = await page\.getByRole\("button", \{ name: "Confirm Issue", exact: true \}\)\.count\(\);/);
   assert.match(procurementAction, /issueConfirmation === 1/);
 });
