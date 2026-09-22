@@ -134,9 +134,12 @@ Validation for the implementation head:
 - focused S3B/routing/Assistant/shared-UI suite: **42/42**;
 - deterministic `npm.cmd run test:affected:agent`: **386/386**, 56/366 selected,
   database fallback disabled;
-- the final integrated `npm.cmd test` run was **2042 pass / 1 fail / 9 skipped**;
-  the sole failure was the unchanged `tests/uiHardeningShared.test.ts`
-  source-shape assertion and is not in the S3B authority/routing surface;
+- the pre-review integrated `npm.cmd test` run was **2042 pass / 1 fail / 9 skipped**;
+  the sole failure was a stale `PageHeader` source-shape assertion in
+  `tests/uiHardeningShared.test.ts`. PR review aligned that assertion with the
+  intentional `data-ui="page-header"` markup, and the corrected assertion is
+  covered by exact-head affected validation. The full suite was not rerun after
+  this test-only correction because focused/affected validation is sufficient;
 - `npm.cmd run lint`: passed;
 - `npm.cmd run build`: passed, with existing Astryx font/bundle-size and CJS
   `import.meta` warnings; generated theme artifacts were not included in the
