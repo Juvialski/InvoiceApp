@@ -1944,3 +1944,46 @@ deterministic source inspection. Jev did not remove required context or tests.
 The exact next implementation phase is **UI-R4C — Home Dashboard + Project
 Portfolio redesign**. R4C must consume this grammar and remains separate from
 entity media and all deferred workforce/finance/custom-field domains.
+
+
+## 2026-09-22 — Deployed runtime findings requiring follow-up
+
+These findings were reported from the currently deployed application after UI-R4B was merged. They are documentation-only observations for the next implementation/reliability run; this entry does not claim a fix or production certification.
+
+1. **Dashboard render instability / legacy reversion — open blocker.**
+   - The newer simplified Dashboard can appear briefly, then the UI switches back to the older Dashboard after workspace data finishes loading.
+   - Treat this as a correctness/regression issue, not cosmetic flicker. Do not represent the Round 4 Dashboard work as complete until one authoritative Dashboard composition remains stable across initial load, hydration/data refresh, navigation, reload, permission-scoped states, and incomplete-source states.
+   - The next investigation should identify the competing render/state paths and remove the late state transition that restores the legacy Dashboard. Do not hide the symptom with a delay or skeleton.
+   - Preserve the Round 4 contract: Home is orientation + attention + launch/navigation; detailed analytics remain available through their deeper destination rather than replacing Home after hydration.
+
+2. **Brevo provider status currently failing — open reliability issue.**
+   - The Email / SMS workspace currently displays: `Brevo · Connection problem` and `Brevo connection status could not be checked safely.`
+   - Until investigated and revalidated, Brevo runtime/provider readiness must remain **unverified/unavailable**, regardless of previously implemented provider support or earlier local evidence.
+   - Follow-up must inspect the live status-check path, deployment configuration/secrets, server/Edge Function behavior, permissions, and safe provider diagnostics before attempting any real send. Do not convert an unknown status into a green/connected state.
+   - No uncontrolled external email send is authorized by this finding.
+
+3. **Payroll period persistence immutability error — open functional issue.**
+   - Payroll currently surfaces `Payroll period ownership and company are immutable`.
+   - The database guard itself is intentional and must remain. Current source inspection indicates `savePayrollPeriodToSupabase()` performs an upsert that supplies the current `user_id` and active `company_id` even for an existing period, while the Wave 5 payroll guard rejects changing either ownership field.
+   - Follow-up should distinguish INSERT from UPDATE semantics so an existing payroll period keeps its original ownership/company fields, add a same-company multi-user regression case, and keep finalized/history protections intact.
+   - The observed rejection is protective; do not weaken the trigger/RLS/financial-history boundary just to suppress the message.
+
+**Priority for the next engineering session:** stabilize the Dashboard render path first if Round 4 Dashboard work is being resumed; separately fix the payroll persistence contract; investigate Brevo as a provider/runtime reliability task. Keep these concerns bounded rather than combining UI redesign, payroll authority changes, and provider configuration into one large change.
+
+
+## 2026-09-22 — UI Round 4 current-state audit
+
+A documentation-only current-state UI audit was added at:
+
+- `artifacts/ui-ux-audit/UI-R4-CURRENT-STATE-AUDIT-2026-09-22.md`
+
+The audit is based on exact `main` `cde16084260749558b1ad4432ff40430a1ef5345`, the approved R4 blueprint/R4B evidence, current source, a static style/control scan, and the user's current deployed screenshots for Dashboard, Payroll, and Email / SMS.
+
+Key conclusion for R4C: the Dashboard has two explicit route compositions. When project-cost completeness is incomplete it renders the newer permission-scoped shortcut Home; after completeness becomes true it renders `EngineeringCostOperationsDashboard`. This explains the observed brief new Dashboard followed by reversion to the old analytics Dashboard. R4C must replace this with one stable Home composition and move the legacy analytics capability behind the planned Operations Insights destination.
+
+The audit also records large remaining R4E migration debt across Supplier Invoice Viewer/Review, Payroll, Cash & Banking, Expenses, Warehouse, Equipment, Procurement child registers/editors, Email / SMS, Documents, and Reports. Projects' core portfolio register and Settings remain the strongest R4 proving/reference surfaces.
+
+The approved sequence is unchanged:
+`R4C Home + Project Portfolio -> R4D entity media -> R4E app-wide rollout/certification`.
+
+No runtime implementation, provider mutation, database work, or production certification was performed by the audit.
