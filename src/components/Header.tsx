@@ -536,11 +536,11 @@ export const Header: React.FC<HeaderProps> = ({
         }`}
       >
         <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-          <button ref={mobileMenuButtonRef} type="button" onClick={() => setMobileOpen(true)} className="hqs-control inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg p-2 text-slate-600 shadow-sm hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-navigation-drawer"><Menu className="h-4 w-4" /></button>
+          <button ref={mobileMenuButtonRef} type="button" onClick={() => setMobileOpen(true)} className="hqs-control hqs-secondary-text inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg p-2 shadow-sm hover:opacity-80 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-navigation-drawer"><Menu className="h-4 w-4" /></button>
           <BrandMark variant="header" decorative />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-600 sm:text-base">
-              <span className="hidden sm:inline"><span className="hqs-primary-text font-bold">{BRAND.productName}</span><span className="mx-1.5 text-slate-300">/</span></span>
+            <p className="hqs-secondary-text truncate text-sm font-semibold sm:text-base">
+              <span className="hidden sm:inline"><span className="hqs-primary-text font-bold">{BRAND.productName}</span><span className="hqs-secondary-text mx-1.5">/</span></span>
               <span className="hqs-primary-text font-bold sm:font-normal">{routeContext}</span>
             </p>
           </div>
@@ -548,12 +548,12 @@ export const Header: React.FC<HeaderProps> = ({
             <div className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold ${syncStatus === "guest" ? "border-amber-200 bg-amber-50 text-amber-800" : syncStatus === "offline" || syncStatus === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`} title={syncTitle} aria-label={syncTitle}><SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} /><span className="hidden md:inline">{syncLabel}</span></div>
             {invoicesCount > 0 && <button type="button" onClick={onBatchExportExcel} className="hqs-action-button hidden min-h-10 items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:inline-flex"><Download aria-hidden="true" className="h-3.5 w-3.5" /> Export</button>}
             {accountHasActions && <div className="relative shrink-0" ref={accountMenuRef}>
-              <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"} aria-expanded={accountOpen} aria-controls="header-account-menu" className="hqs-control inline-flex min-h-10 max-w-[12rem] items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-bold shadow-sm hover:text-indigo-700"><UserCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" /><span className="hidden max-w-[9rem] truncate sm:inline">{accountEmail || "Account"}</span></button>
+              <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"} aria-expanded={accountOpen} aria-controls="header-account-menu" className="hqs-control inline-flex min-h-10 max-w-[12rem] items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-bold shadow-sm hover:opacity-80"><UserCircle2 aria-hidden="true" className="hqs-accent-text h-3.5 w-3.5 shrink-0" /><span className="hidden max-w-[9rem] truncate sm:inline">{accountEmail || "Account"}</span></button>
               {accountOpen && <div id="header-account-menu" role="menu" aria-label="Account menu" className="hqs-popover absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] w-64 overflow-y-auto rounded-xl p-2">
-                {accountEmail && <p className="truncate px-2 py-1.5 text-xs font-bold text-slate-600">{accountEmail}</p>}
-                <p className="px-2 pb-1.5 text-[10px] font-semibold text-slate-400">Account / Workspace</p>
+                {accountEmail && <p className="hqs-primary-text truncate px-2 py-1.5 text-xs font-bold">{accountEmail}</p>}
+                <p className="hqs-secondary-text px-2 pb-1.5 text-[10px] font-semibold">Account / Workspace</p>
                 {navigation.settingsRoute && <button type="button" role="menuitem" data-tour="route:settings" aria-current={activeTab === navigation.settingsRoute.appTab ? "page" : undefined} onClick={() => selectRoute(navigation.settingsRoute!)} className="hqs-control flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-bold"><SettingsIcon aria-hidden="true" className="h-3.5 w-3.5" />Workspace Settings</button>}
-                {navigation.settingsRoute && onSignOut && <div className="my-1 border-t border-slate-100" />}
+                {navigation.settingsRoute && onSignOut && <div className="hqs-border my-1 border-t" />}
                 {onSignOut && <button type="button" role="menuitem" onClick={() => void handleSignOut()} disabled={accountBusy} className="hqs-control flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-bold disabled:opacity-50"><LogOut aria-hidden="true" className="h-3.5 w-3.5" />{accountBusy ? "Signing out…" : "Sign out"}</button>}
               </div>}
             </div>}
