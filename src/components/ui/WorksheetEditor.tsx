@@ -516,7 +516,7 @@ export function WorksheetEditor<T>({
       role={cell.editableCell ? "button" : undefined}
       aria-label={cell.editableCell ? `Edit ${cell.column.header}, row ${cell.context.rowIndex + 1}` : undefined}
       onClick={cell.editableCell ? () => beginEditing(cell.position) : undefined}
-      className={`min-w-0 break-words whitespace-normal rounded-md px-2 py-1.5 text-left text-xs ${cell.editableCell ? "cursor-text hover:bg-indigo-50" : "cursor-not-allowed text-slate-600"}`}
+      className={`min-w-0 break-words whitespace-normal rounded-md px-2 py-1.5 text-left text-xs ${cell.editableCell ? "cursor-text hqs-row-hover" : "cursor-not-allowed hqs-secondary-text"}`}
     >
       {renderCellDisplay(cell)}
       {cell.readOnlyCell && <span className="sr-only">{cell.protectedCell ? "Protected field. " : "Read-only field. "}Cannot be edited.</span>}
@@ -535,7 +535,7 @@ export function WorksheetEditor<T>({
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {actions}
           {onCancel && <button type="button" onClick={() => { pendingActionRef.current = null; updateRows(rows.slice()); setLocalDirtyCells(new Set()); setLocalIssues({}); setEditingCell(null); setEditorValue(""); onCancel(); }} disabled={actionDisabled} className="hqs-control inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">{cancelLabel}</button>}
-          {onSave && <button type="button" onClick={() => requestAction("save", onSave)} disabled={actionDisabled} className="hqs-control hqs-action-button inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 text-xs font-black text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{saveLabel}</button>}
+          {onSave && <button type="button" onClick={() => requestAction("save", onSave)} disabled={actionDisabled} className="hqs-control hqs-action-button hqs-accent-text inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 text-xs font-black disabled:cursor-not-allowed disabled:opacity-50">{saveLabel}</button>}
           {onApply && <button type="button" onClick={() => requestAction("apply", onApply)} disabled={actionDisabled} className="hqs-action-button inline-flex min-h-9 items-center rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-black text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">{applyLabel}</button>}
           {onAddRow && <button type="button" data-worksheet-add-row="true" onClick={handleAddRow} disabled={actionDisabled || !canAddRow} className="hqs-control inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">Add row</button>}
         </div>
@@ -562,11 +562,11 @@ export function WorksheetEditor<T>({
             </tr>
           </thead>
           <tbody>
-            {draftRows.length === 0 && <tr role="row"><td role="gridcell" colSpan={columns.length + (onRemoveRow ? 1 : 0)} className="p-6 text-center text-xs text-slate-500">{emptyState}</td></tr>}
+            {draftRows.length === 0 && <tr role="row"><td role="gridcell" colSpan={columns.length + (onRemoveRow ? 1 : 0)} className="hqs-secondary-text p-6 text-center text-xs">{emptyState}</td></tr>}
             {draftRows.map((row, rowIndex) => {
               const currentRowKey = rowKey(row, rowIndex);
               return (
-                <tr key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-row-key={currentRowKey} className="border-b border-slate-100">
+                <tr key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-row-key={currentRowKey} className="hqs-border border-b">
                   {columns.map((column, columnIndex) => {
                     const cell = getCellView(row, rowIndex, column, columnIndex);
                     const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-desktop` : undefined;
@@ -609,8 +609,8 @@ export function WorksheetEditor<T>({
           </tbody>
         </table>
         </div>
-        <div data-worksheet-mobile-fallback="true" role="grid" aria-label={`${ariaLabel} mobile`} aria-rowcount={draftRows.length + 1} className="divide-y divide-slate-200 md:hidden">
-          {draftRows.length === 0 && <div role="row" className="p-6 text-center text-xs text-slate-500">{emptyState}</div>}
+        <div data-worksheet-mobile-fallback="true" role="grid" aria-label={`${ariaLabel} mobile`} aria-rowcount={draftRows.length + 1} className="divide-y divide-[var(--color-border)] md:hidden">
+          {draftRows.length === 0 && <div role="row" className="hqs-secondary-text p-6 text-center text-xs">{emptyState}</div>}
           {draftRows.map((row, rowIndex) => {
             const currentRowKey = rowKey(row, rowIndex);
             return (
@@ -647,7 +647,7 @@ export function WorksheetEditor<T>({
                       className={`min-w-0 rounded-lg border px-2.5 py-2 ${stateClasses[cell.state]} ${cell.readOnlyCell ? "cursor-not-allowed" : ""}`}
                     >
                       <div className="flex min-w-0 items-center justify-between gap-3">
-                        <span className="min-w-0 text-[10px] font-black uppercase tracking-wide text-slate-500">{column.header}</span>
+                        <span className="hqs-secondary-text min-w-0 text-[10px] font-black uppercase tracking-wide">{column.header}</span>
                       </div>
                       <div className="mt-1 min-w-0">
                         {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : renderMobileDisplay(cell)}
