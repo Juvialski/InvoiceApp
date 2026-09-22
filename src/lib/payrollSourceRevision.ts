@@ -75,6 +75,39 @@ export function payrollPeriodSourceIdentity(period: {
   };
 }
 
+export interface PayrollSourceRevisionWorkspaceInput {
+  workers?: readonly unknown[];
+  attendanceRecords?: readonly unknown[];
+  leaveRequests?: readonly unknown[];
+  overtimeRequests?: readonly unknown[];
+  holidays?: readonly unknown[];
+  workEntries?: readonly unknown[];
+  compensationProfiles?: readonly unknown[];
+  assignments?: readonly unknown[];
+  recurringComponents?: readonly unknown[];
+  projects?: readonly unknown[];
+}
+
+/** Build the canonical source input used by both calculation and approval freshness checks. */
+export function buildPayrollSourceRevisionInput(
+  period: { id: string; periodStart: string; periodEnd: string; sourceRevision?: number },
+  input: PayrollSourceRevisionWorkspaceInput,
+): PayrollSourceRevisionInput {
+  return {
+    period: payrollPeriodSourceIdentity(period),
+    workers: input.workers || [],
+    attendanceRecords: input.attendanceRecords || [],
+    leaveRequests: input.leaveRequests || [],
+    overtimeRequests: input.overtimeRequests || [],
+    holidays: input.holidays || [],
+    workEntries: input.workEntries || [],
+    compensationProfiles: input.compensationProfiles || [],
+    assignments: input.assignments || [],
+    recurringComponents: input.recurringComponents || [],
+    projects: input.projects || [],
+  };
+}
+
 export interface PayrollSourceRevisionValidationResult {
   valid: boolean;
   stale: boolean;

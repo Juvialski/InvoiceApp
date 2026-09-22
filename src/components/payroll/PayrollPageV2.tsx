@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, CircleAlert, Clock3, HardHat, Settings2, Users, WalletCards } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CalendarDays, ChevronDown, CircleAlert, Settings2, Users, WalletCards } from "lucide-react";
 import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollAdjustment, PayrollEntry, PayrollHoliday, PayrollPeriod, PayrollProjectAllocation, PayrollProjectReference, PayrollRun, ProjectCostCode, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
 import { selectActualPayrollPeriod, selectNearestUpcomingPayrollPeriod, type PayrollSchedule } from "../../lib/payrollSchedule";
 import { findPayrollScheduleVersionGaps, payrollPeriodFrequencyLabel, selectPrimaryPayrollSchedule } from "../../lib/payrollIntegrity";
 import { buildAutomaticPayrollDraft } from "../../lib/payrollWorkflow";
 import { formatPayrollPeriodLabel, selectStablePayrollPeriod, getPayrollPeriodDisplayState } from "../../utils/payrollCalendar";
-import type { RecurringPayrollComponent, WorkerCompensationProfile } from "../../lib/payrollAutomation";
+import type { PayrollException, RecurringPayrollComponent, WorkerCompensationProfile } from "../../lib/payrollAutomation";
+import { appPathForCashTarget, appPathForPayrollRun } from "../../utils/appRouting";
+import { buildPayrollSourceRevisionInput, validatePayrollRunSourceRevision } from "../../lib/payrollSourceRevision";
 import { BRAND } from "../../config/brand";
 import { PayrollPeriods } from "./PayrollPeriods";
 import { PayrollRunView } from "./PayrollRunView";
@@ -49,7 +51,7 @@ export interface PayrollPageV2Props {
   periodPreparationState?: "NO_SCHEDULE" | "PREPARING" | "SYNCING" | "READY" | "FAILED" | "WAITING_FOR_BOUNDARY";
   onRetryPeriodPreparation?: () => void;
   onSaveWorker: (worker: Worker) => void;
-  onSavePeriod: (period: PayrollPeriod) => void;
+  onSavePeriod: (period: PayrollPeriod) => void | Promise<PayrollPeriod | void>;
   onSaveSchedule?: (schedule: PayrollSchedule) => void | Promise<PayrollSchedule | void>;
   onSaveAttendance?: (record: AttendanceRecord) => void;
   onSaveAttendanceBatch?: (records: AttendanceRecord[]) => void;
@@ -61,9 +63,9 @@ export interface PayrollPageV2Props {
   onSaveAssignment?: (assignment: ProjectWorkerAssignment) => void;
   onSaveWorkEntry?: (entry: WorkEntry) => void;
   onSavePayrollEntry?: (entry: PayrollEntry, allocations: PayrollProjectAllocation[]) => void;
-  onUpdateRun?: (run: PayrollRun) => void;
+  onUpdateRun?: (run: PayrollRun) => void | Promise<PayrollRun | void>;
   onCreateRun?: (periodId: string) => void;
-  onCalculateRun?: (run: PayrollRun) => void;
+  onCalculateRun?: (run: PayrollRun) => void | Promise<PayrollRun | void>;
   onStagePayrollImport?: (batch: PayrollImportBatch, rows: PayrollImportRow[], bytes: Uint8Array) => void;
   onSavePayrollImportTemplate?: (template: PayrollImportTemplate) => void;
   onCommitPayrollImport?: (staged: import("../../lib/payrollImportWorkflow").StagedPayrollImport, periodStart: string, periodEnd: string, payDate?: string) => void;
@@ -78,6 +80,7 @@ export interface PayrollPageV2Props {
   onPreviewFactoryReset?: () => Promise<PayrollWorkspaceResetPreview>;
   onApplyFactoryReset?: (confirmation: string) => Promise<unknown>;
   onNavigatePath?: AppNavigate;
+  payrollIssues?: readonly PayrollException[];
   selectedPeriodId?: string;
   attendanceDate?: string;
   onSelectedPeriodIdChange?: (periodId: string) => void;
@@ -88,7 +91,29 @@ function money(value: number) { return new Intl.NumberFormat("en-PH", { style: "
 function localDateOnly() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`; }
 function periodIdForToday(periods: PayrollPeriod[], today = localDateOnly()) { return selectStablePayrollPeriod(periods.filter((period) => period.status !== "VOID"), undefined, today)?.id || ""; }
 
-export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignments, periods, runs, entries, allocations, adjustments = [], workEntries = [], attendanceRecords = [], leaveRequests = [], overtimeRequests = [], holidays = [], projects, costCodes = [], schedules = [], compensationProfiles = [], recurringComponents = [], payrollImportWorkerIds = [], departmentManagerWorkerIds = [], importBatches = [], importTemplates = [], periodPreparationState = periods.length ? "READY" : schedules.length ? "PREPARING" : "NO_SCHEDULE", onRetryPeriodPreparation, onPreviewFactoryReset, onApplyFactoryReset, onSaveWorker, onSavePeriod, onSaveSchedule, onSaveCompensationProfile, onSaveRecurringComponent, onSaveAssignment, onSaveWorkEntry, onSaveAttendance, onSaveAttendanceBatch, onSaveLeave, onSaveOvertime, onSaveHoliday, onSavePayrollEntry, onUpdateRun, onCreateRun, onCalculateRun, onStagePayrollImport, onSavePayrollImportTemplate, onCommitPayrollImport, canManagePayrollSettings = true, canManagePayrollMaintenance = true, canManageWorkforce = true, canManagePayrollSources = true, canManagePayrollImports = true, onPayrollLifecycle, onPreviewPayrollMaintenance, onApplyPayrollMaintenance, onNavigatePath, selectedPeriodId: controlledSelectedPeriodId, attendanceDate, onSelectedPeriodIdChange }) => {
+type PayrollNextStep = { title: string; detail: string; actionLabel?: string; action: "IMPORT" | "RUNS" | "CASH" | "NONE" };
+
+function payrollNextStep(input: {
+  selectedPeriod?: PayrollPeriod;
+  selectedRun?: PayrollRun;
+  hasInputs: boolean;
+  blockingCount: number;
+  sourceStale: boolean;
+  canImport: boolean;
+}): PayrollNextStep {
+  if (!input.selectedPeriod) return { title: "Select a payroll period", detail: "Choose the period you are preparing before reviewing payroll inputs.", action: "NONE" };
+  if (!input.selectedRun) return { title: "Create a draft payroll run", detail: "Open Payroll Runs to create the draft that will hold this period's review and calculation.", actionLabel: "Open payroll runs", action: "RUNS" };
+  if (input.blockingCount > 0) return { title: `Resolve ${input.blockingCount} blocking issue${input.blockingCount === 1 ? "" : "s"}`, detail: "Correct the source problem before calculation or approval can continue.", actionLabel: "Review exceptions", action: "RUNS" };
+  if (input.selectedRun.status === "DRAFT" && !input.hasInputs) return { title: "Prepare payroll inputs", detail: "Import reviewed source work or collect approved work before calculation.", actionLabel: input.canImport ? "Import workbook" : "Open payroll runs", action: input.canImport ? "IMPORT" : "RUNS" };
+  if (input.selectedRun.status === "DRAFT") return { title: "Review payroll before calculation", detail: "Inspect the linked inputs and calculated basis on the Run surface before calculating.", actionLabel: "Review payroll", action: "RUNS" };
+  if (input.selectedRun.status === "CALCULATED" && input.sourceStale) return { title: "Recalculate because sources changed", detail: "The calculated snapshot no longer matches the current payroll sources.", actionLabel: "Review and recalculate", action: "RUNS" };
+  if (input.selectedRun.status === "CALCULATED") return { title: "Review calculated payroll", detail: "Confirm gross cost, employee net pay, allocations, and warnings before approval.", actionLabel: "Review payroll", action: "RUNS" };
+  if (input.selectedRun.status === "APPROVED") return { title: "Record payment in Cash & Banking", detail: "Payroll is approved and locked. Confirm employee net-pay disbursement through Cash & Banking; it remains separate from Payroll.", actionLabel: "Open Cash & Banking", action: "CASH" };
+  if (input.selectedRun.status === "PAID") return { title: "Payroll paid — history locked", detail: "Settlement evidence confirms payment. Review or reverse it through the established Cash & Banking path when authorized.", action: "NONE" };
+  return { title: "Payroll history is locked", detail: "This run is voided and remains available as history.", action: "NONE" };
+}
+
+export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignments, periods, runs, entries, allocations, adjustments = [], workEntries = [], attendanceRecords = [], leaveRequests = [], overtimeRequests = [], holidays = [], projects, costCodes = [], schedules = [], compensationProfiles = [], recurringComponents = [], payrollImportWorkerIds = [], departmentManagerWorkerIds = [], importBatches = [], importTemplates = [], periodPreparationState = periods.length ? "READY" : schedules.length ? "PREPARING" : "NO_SCHEDULE", onRetryPeriodPreparation, onPreviewFactoryReset, onApplyFactoryReset, onSaveWorker, onSavePeriod, onSaveSchedule, onSaveCompensationProfile, onSaveRecurringComponent, onSaveAssignment, onSaveWorkEntry, onSaveAttendance, onSaveAttendanceBatch, onSaveLeave, onSaveOvertime, onSaveHoliday, onSavePayrollEntry, onUpdateRun, onCreateRun, onCalculateRun, onStagePayrollImport, onSavePayrollImportTemplate, onCommitPayrollImport, canManagePayrollSettings = true, canManagePayrollMaintenance = true, canManageWorkforce = true, canManagePayrollSources = true, canManagePayrollImports = true, onPayrollLifecycle, onPreviewPayrollMaintenance, onApplyPayrollMaintenance, onNavigatePath, payrollIssues = [], selectedPeriodId: controlledSelectedPeriodId, attendanceDate, onSelectedPeriodIdChange }) => {
   const [tab, setTab] = useState<PayrollTab>(() => attendanceDate ? "attendance" : "overview");
   const [localSelectedPeriodId, setLocalSelectedPeriodId] = useState("");
   const selectedPeriodId = controlledSelectedPeriodId ?? localSelectedPeriodId;
@@ -122,6 +147,25 @@ export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignmen
   const issues = draft?.exceptions || [];
   const blockingIssues = issues.filter((issue) => issue.severity === "BLOCKING");
   const warningIssues = issues.filter((issue) => issue.severity === "WARNING");
+  const selectedRunSourceFreshness = selectedPeriod && selectedRun?.status === "CALCULATED"
+    ? validatePayrollRunSourceRevision({
+      run: selectedRun,
+      period: selectedPeriod,
+      sourceInput: buildPayrollSourceRevisionInput(selectedPeriod, {
+        workers,
+        attendanceRecords,
+        leaveRequests,
+        overtimeRequests,
+        holidays,
+        workEntries,
+        compensationProfiles,
+        assignments,
+        recurringComponents,
+        projects,
+      }),
+    })
+    : undefined;
+  const nextStep = payrollNextStep({ selectedPeriod, selectedRun, hasInputs: Boolean(selectedPeriodWorkEntries.length || selectedPeriodEntries.length), blockingCount: blockingIssues.length, sourceStale: Boolean(selectedRunSourceFreshness?.stale), canImport: canManagePayrollImports });
   const gross = selectedPeriodEntries.reduce((sum, entry) => sum + entry.grossPay, 0);
   const projectLabor = selectedPeriodEntries.reduce((sum, entry) => sum + entry.projectAllocatedCost, 0);
   const overhead = Math.max(0, gross - projectLabor);
@@ -133,6 +177,14 @@ export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignmen
   const workspaceDataPending = useWorkspaceDataPending();
   const isHydrating = workspaceDataPending && !periods.length && !workers.length;
   const navigatePeriod = (period?: PayrollPeriod) => { if (!period) return; setSelectedPeriodId(period.id); setTab("overview"); };
+  const openNextStep = () => {
+    if (nextStep.action === "IMPORT") { setTab("import"); return; }
+    if (nextStep.action === "CASH" && selectedRun) {
+      onNavigatePath?.(appPathForCashTarget("PAYROLL", selectedRun.id, appPathForPayrollRun(selectedRun.id)));
+      return;
+    }
+    if (nextStep.action === "RUNS") setTab("runs");
+  };
   const payrollTabButton = (value: PayrollTab, label: string) => <button key={value} type="button" onClick={() => setTab(value)} aria-current={tab === value ? "page" : undefined} className={"inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-2 text-xs font-bold " + (tab === value ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50")}>{label}</button>;
 
   return <div className="space-y-5" data-tour="payroll-overview">
@@ -171,15 +223,21 @@ export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignmen
     </nav>
     {tab === "calendar" && <PayrollCalendar periods={periods} runs={runs} entries={entries} importBatches={importBatches} automaticDraft={draft} selectedPeriodId={selectedPeriodId} onSelectPeriod={(periodId) => { setSelectedPeriodId(periodId); setTab("calendar"); }} onOpenOverview={(period) => { setSelectedPeriodId(period.id); setTab("overview"); }} onOpenRun={(_, period) => { setSelectedPeriodId(period.id); setTab("runs"); }} schedules={schedules} />}
     {tab === "attendance" && <AttendanceWorkspace workers={workers} periods={periods} selectedPeriodId={selectedPeriodId} initialDate={attendanceDate} lockedPeriodIds={runs.filter((run) => ["APPROVED", "PAID", "VOID"].includes(run.status)).map((run) => run.periodId)} attendanceRecords={attendanceRecords} leaveRequests={leaveRequests} overtimeRequests={overtimeRequests} holidays={holidays} onSaveAttendance={onSaveAttendance || (() => undefined)} onSaveAttendanceBatch={onSaveAttendanceBatch} onSaveLeave={onSaveLeave} onSaveOvertime={onSaveOvertime} onSaveHoliday={onSaveHoliday} onPayrollLifecycle={onPayrollLifecycle} canManagePayrollSources={canManagePayrollSources} />}
-    {tab === "overview" && <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]"><section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Normal cycle</p><h3 className="mt-1 text-lg font-black">What needs doing</h3></div><Clock3 className="h-5 w-5 text-indigo-600" /></div><ol className="mt-4 space-y-3 text-xs"><Step done={Boolean(selectedPeriod)} label={actualCurrentPeriod ? "Open the current period" : "Open the selected period"} /><Step done={Boolean(selectedPeriodWorkEntries.length || selectedPeriodEntries.length)} label="Import workbook or collect approved work" /><Step done={!blockingIssues.length} label="Review exceptions" /><Step done={selectedRun?.status === "CALCULATED" || selectedRun?.status === "APPROVED" || selectedRun?.status === "PAID"} label="Calculate payroll" /><Step done={selectedRun?.status === "APPROVED" || selectedRun?.status === "PAID"} label="Approve, then record payment in Cash &amp; Banking" /></ol><div className="mt-5 flex flex-wrap gap-2">{canManagePayrollImports && <button type="button" onClick={() => setTab("import")} className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Import workbook</button>}<button type="button" onClick={() => setTab("runs")} disabled={!selectedRun} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Review payroll</button>{canManagePayrollSources && <button type="button" onClick={() => selectedRun && onCalculateRun?.(selectedRun)} disabled={!selectedRun || !onCalculateRun || Boolean(blockingIssues.length)} className="rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Calculate payroll</button>}</div></section><section className="space-y-4"><PayrollScheduleSettings schedule={activeSchedule} periods={periods} canManage={canManagePayrollSettings} onSave={onSaveSchedule || (() => undefined)} /><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><Settings2 className="h-4 w-4 text-indigo-600" /><h3 className="text-sm font-black">Automation mode</h3></div><p className="mt-2 text-xs leading-5 text-slate-600">Assisted mode is the recommended starting point. It combines work entries, effective compensation, assignments, recurring components, and safe import context. Approval and payment remain human-controlled.</p><span className="mt-3 inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-700">{automationMode} · audit snapshots on calculate</span></div><PayrollAdvancedTools schedules={schedules} periods={periods} runs={runs} entries={entries} allocations={allocations} adjustments={adjustments} workEntries={workEntries} importBatches={importBatches} canManageMaintenance={canManagePayrollMaintenance} onPreview={onPreviewPayrollMaintenance} onApply={onApplyPayrollMaintenance} /></section></div>}
-    {tab === "workers" && <div className="space-y-4"><PayrollProfiles workers={workers} projects={projects} profiles={compensationProfiles} components={recurringComponents} payrollEntries={entries} payrollRuns={runs} periods={periods} onSaveProfile={onSaveCompensationProfile || (() => undefined)} onSaveComponent={onSaveRecurringComponent || (() => undefined)} onPayrollLifecycle={onPayrollLifecycle} canManageWorkforce={canManageWorkforce} /><WorkersTable workers={workers} projects={projects} assignments={assignments} lifecycleData={{ attendanceRecords, leaveRequests, overtimeRequests, workEntries, payrollEntries: entries, payrollRuns: runs, periods, compensationProfiles, recurringComponents, payrollImportWorkerIds, departmentManagerWorkerIds }} onSave={onSaveWorker} onPayrollLifecycle={onPayrollLifecycle} canManageWorkforce={canManageWorkforce} />{onSaveAssignment && <ProjectAssignments assignments={assignments} workers={workers} projects={projects} workEntries={workEntries} overtimeRequests={overtimeRequests} payrollEntries={entries} allocations={allocations} onSave={onSaveAssignment} onPayrollLifecycle={onPayrollLifecycle} canManageWorkforce={canManageWorkforce} />}<PayrollPeriods periods={periods} schedules={schedules} onSave={onSavePeriod} canManage={canManagePayrollSources} /></div>}
+    {tab === "overview" && <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]"><PayrollOverviewCard nextStep={nextStep} onAction={openNextStep} /><section className="space-y-4"><PayrollScheduleSettings schedule={activeSchedule} periods={periods} canManage={canManagePayrollSettings} onSave={onSaveSchedule || (() => undefined)} /><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><Settings2 className="h-4 w-4 text-indigo-600" /><h3 className="text-sm font-black">Automation mode</h3></div><p className="mt-2 text-xs leading-5 text-slate-600">Assisted mode is the recommended starting point. It combines work entries, effective compensation, assignments, recurring components, and safe import context. Approval and payment remain human-controlled.</p><span className="mt-3 inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-700">{automationMode} · audit snapshots on calculate</span></div><PayrollAdvancedTools schedules={schedules} periods={periods} runs={runs} entries={entries} allocations={allocations} adjustments={adjustments} workEntries={workEntries} importBatches={importBatches} canManageMaintenance={canManagePayrollMaintenance} onPreview={onPreviewPayrollMaintenance} onApply={onApplyPayrollMaintenance} /></section></div>}
+    {tab === "workers" && <div className="space-y-4"><PayrollProfiles workers={workers} projects={projects} profiles={compensationProfiles} components={recurringComponents} payrollEntries={entries} payrollRuns={runs} periods={periods} onSaveProfile={onSaveCompensationProfile || (() => undefined)} onSaveComponent={onSaveRecurringComponent || (() => undefined)} onPayrollLifecycle={onPayrollLifecycle} canManageWorkforce={canManageWorkforce} /><WorkersTable workers={workers} projects={projects} assignments={assignments} lifecycleData={{ attendanceRecords, leaveRequests, overtimeRequests, workEntries, payrollEntries: entries, payrollRuns: runs, periods, compensationProfiles, recurringComponents, payrollImportWorkerIds, departmentManagerWorkerIds }} onSave={onSaveWorker} onPayrollLifecycle={onPayrollLifecycle} canManageWorkforce={canManageWorkforce} />{onSaveAssignment && <ProjectAssignments assignments={assignments} workers={workers} projects={projects} workEntries={workEntries} overtimeRequests={overtimeRequests} payrollEntries={entries} allocations={allocations} onSave={onSaveAssignment} onPayrollLifecycle={onPayrollLifecycle} canManageWorkforce={canManageWorkforce} />}<PayrollPeriods periods={periods} runs={runs} schedules={schedules} onSave={onSavePeriod} canManage={canManagePayrollSources} /></div>}
     {tab === "time" && (onSaveWorkEntry ? <TimeEntries entries={workEntries} workers={workers} projects={projects} periods={periods} assignments={assignments} runs={runs} selectedPeriodId={selectedPeriodId} onSave={onSaveWorkEntry} onPayrollLifecycle={onPayrollLifecycle} canManagePayrollSources={canManagePayrollSources} /> : <Empty label="Time entry persistence is not available in this workspace." />)}
-    {tab === "runs" && <PayrollRunView runs={runs} periods={periods} entries={entries} allocations={allocations} workers={workers} projects={projects} costCodes={costCodes} workEntries={workEntries} assignments={assignments} selectedPeriodId={selectedPeriodId} onSaveEntry={onSavePayrollEntry} onUpdateRun={onUpdateRun} onCreateRun={onCreateRun} onCalculateRun={onCalculateRun} onNavigatePath={onNavigatePath} />}
+    {tab === "runs" && <PayrollRunView runs={runs} periods={periods} entries={entries} allocations={allocations} workers={workers} projects={projects} costCodes={costCodes} workEntries={workEntries} assignments={assignments} selectedPeriodId={selectedPeriodId} onSaveEntry={onSavePayrollEntry} onUpdateRun={onUpdateRun} onCreateRun={onCreateRun} onCalculateRun={onCalculateRun} onNavigatePath={onNavigatePath} payrollIssues={issues.length ? issues : payrollIssues} sourceFreshness={selectedRunSourceFreshness} />}
     {tab === "import" && (canManagePayrollImports && onStagePayrollImport && onSavePayrollImportTemplate && onCommitPayrollImport ? <PayrollImportWorkflow workers={workers} projects={projects} periods={periods} selectedPeriodId={selectedPeriodId} batches={importBatches} templates={importTemplates} onStage={onStagePayrollImport} onSaveTemplate={onSavePayrollImportTemplate} onCommit={onCommitPayrollImport} /> : <Empty label="Payroll import management requires payroll import and payroll management permission." />)}
     {selectedPeriodRuns.some((run) => ["APPROVED", "PAID", "VOID"].includes(run.status)) && <p className="text-[10px] text-slate-500">This period contains a locked run. Approved, paid, or void run data is read-only.</p>}
   </div>;
 };
 
 function Metric({ icon, value, secondary, label, small = false, loading = false }: { icon: React.ReactNode; value: React.ReactNode; secondary?: React.ReactNode; label: string; small?: boolean; loading?: boolean }) { return <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5"><div>{icon}</div><p className={`${small ? "text-[11px] sm:text-xs leading-snug break-words" : "text-lg sm:text-xl truncate"} mt-3 font-black tabular-nums`}>{loading ? <span className="inline-block h-6 w-16 animate-pulse rounded bg-slate-200 align-middle" /> : value}</p>{secondary && !loading && <p className="mt-1 break-words text-[10px] font-semibold leading-4 text-indigo-700">{secondary}</p>}<p className="text-[10px] font-semibold text-slate-500">{label}</p></div>; }
-function Step({ done, label }: { done: boolean; label: string }) { return <li className="flex items-center gap-2"><CheckCircle2 className={`h-4 w-4 ${done ? "text-emerald-600" : "text-slate-300"}`} /><span className={done ? "font-semibold text-slate-700" : "text-slate-500"}>{label}</span></li>; }
+function PayrollOverviewCard({ nextStep, onAction }: { nextStep: PayrollNextStep; onAction: () => void }) {
+  return <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-label="Payroll normal cycle next step">
+    <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Normal cycle</p><h3 className="mt-1 text-lg font-black">Next step</h3></div><span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-700">Payroll stage</span></div>
+    <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4" role="status"><p className="text-[10px] font-black uppercase tracking-wide text-indigo-700">What needs doing</p><h4 className="mt-1 text-base font-black text-indigo-950">{nextStep.title}</h4><p className="mt-1 text-xs leading-5 text-indigo-900">{nextStep.detail}</p>{nextStep.actionLabel && <button type="button" onClick={onAction} className="mt-4 inline-flex min-h-10 items-center justify-center rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">{nextStep.actionLabel}</button>}</div>
+    <p className="mt-4 text-[10px] leading-4 text-slate-500">Calculation, approval, and payment remain separate stages; record payment through Cash &amp; Banking after approval. Detailed payroll procedure is available in Help.</p>
+  </section>;
+}
 function Empty({ label }: { label: string }) { return <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-xs text-slate-500">{label}</div>; }

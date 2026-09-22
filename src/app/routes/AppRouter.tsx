@@ -321,7 +321,7 @@ export interface AppRouterProps {
   onPayrollLifecycle?: (request: PayrollLifecycleRequest) => Promise<void> | void;
   onSavePayrollWorker?: (worker: Worker) => void;
   onSavePayrollAssignment?: (assignment: ProjectWorkerAssignment) => void;
-  onSavePayrollPeriod?: (period: PayrollPeriod) => void;
+  onSavePayrollPeriod?: (period: PayrollPeriod) => void | Promise<PayrollPeriod | void>;
   onSavePayrollSchedule?: (schedule: PayrollSchedule) => void | Promise<PayrollSchedule | void>;
   onSaveWorkerCompensationProfile?: (profile: WorkerCompensationProfile) => void;
   onSaveRecurringPayrollComponent?: (component: RecurringPayrollComponent) => void;
@@ -332,9 +332,9 @@ export interface AppRouterProps {
   onSavePayrollOvertime?: (request: OvertimeRequest) => void;
   onSavePayrollHoliday?: (holiday: PayrollHoliday) => void;
   onSavePayrollEntry?: (entry: PayrollEntry, allocations: PayrollProjectAllocation[]) => void;
-  onUpdatePayrollRun?: (run: PayrollRun) => void;
+  onUpdatePayrollRun?: (run: PayrollRun) => void | Promise<PayrollRun | void>;
   onCreatePayrollRun?: (periodId: string) => void;
-  onCalculatePayrollRun?: (run: PayrollRun) => void;
+  onCalculatePayrollRun?: (run: PayrollRun) => void | Promise<PayrollRun | void>;
   onStagePayrollImport?: (batch: PayrollImportBatch, rows: PayrollImportRow[], bytes: Uint8Array) => void;
   onSavePayrollImportTemplate?: (template: PayrollImportTemplate) => void;
   onCommitPayrollImport?: (

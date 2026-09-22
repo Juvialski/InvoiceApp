@@ -3,6 +3,7 @@ import { ArrowLeft, WalletCards } from "lucide-react";
 import { PayrollPageV2, type PayrollPageV2Props } from "../../components/payroll/PayrollPageV2";
 import { PayrollRunView } from "../../components/payroll/PayrollRunView";
 import { attendanceDateFromSearch, payrollPeriodIdFromSearch, payrollRunIdFromSearch } from "../../utils/appRouting.ts";
+import { buildPayrollSourceRevisionInput, validatePayrollRunSourceRevision } from "../../lib/payrollSourceRevision.ts";
 import { useWorkspaceDataPending } from "../AppPermissionContext.tsx";
 import { BRAND } from "../../config/brand.ts";
 
@@ -57,6 +58,25 @@ export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
     );
   }
 
+  const sourceFreshness = requestedRun.status === "CALCULATED"
+    ? validatePayrollRunSourceRevision({
+      run: requestedRun,
+      period: requestedPeriod,
+      sourceInput: buildPayrollSourceRevisionInput(requestedPeriod, {
+        workers: props.workers,
+        attendanceRecords: props.attendanceRecords,
+        leaveRequests: props.leaveRequests,
+        overtimeRequests: props.overtimeRequests,
+        holidays: props.holidays,
+        workEntries: props.workEntries,
+        compensationProfiles: props.compensationProfiles,
+        assignments: props.assignments,
+        recurringComponents: props.recurringComponents,
+        projects: props.projects,
+      }),
+    })
+    : undefined;
+
   return (
     <div className="space-y-5" data-tour="payroll-run-deep-link">
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -89,6 +109,9 @@ export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
         onSaveEntry={props.onSavePayrollEntry}
         onUpdateRun={props.onUpdateRun}
         onCalculateRun={props.onCalculateRun}
+        onNavigatePath={props.onNavigatePath}
+        payrollIssues={props.payrollIssues}
+        sourceFreshness={sourceFreshness}
       />
     </div>
   );

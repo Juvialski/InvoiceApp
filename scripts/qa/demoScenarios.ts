@@ -178,6 +178,36 @@ const verifyCashExpenseTarget: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyPayrollNormalCycleOverview: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Next step");
+  const nextStep = await page.getByRole("heading", { name: "Next step", exact: true }).count();
+  const reviewOrPrepare = await page.getByRole("button", { name: /Review payroll|Import workbook/ }).count();
+  const calculateFromOverview = await page.getByRole("button", { name: "Calculate payroll", exact: true }).count();
+  const stageCopy = await page.locator("text=Calculation, approval, and payment remain separate stages").count();
+  return [
+    { id: "payroll-normal-cycle-next-step-visible", passed: nextStep === 1, details: `next-step panels: ${nextStep}` },
+    { id: "payroll-normal-cycle-review-or-prepare-action-visible", passed: reviewOrPrepare >= 1, details: `review/prepare actions: ${reviewOrPrepare}` },
+    { id: "payroll-overview-does-not-calculate-directly", passed: calculateFromOverview === 0, details: `overview Calculate payroll buttons: ${calculateFromOverview}` },
+    { id: "payroll-normal-cycle-stage-boundary-visible", passed: stageCopy === 1, details: `stage-boundary copy: ${stageCopy}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyPayrollApprovedSettlementHandoff: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[aria-label="payroll settlement"]');
+  const settlement = await page.locator('[aria-label="payroll settlement"]').count();
+  const netPay = await page.locator("text=Expected employee net pay").count();
+  const recordPayment = await page.getByRole("link", { name: /Record Payment/ }).count();
+  const manualPaid = await page.locator("text=Mark paid manually").count();
+  const cashBoundary = await page.locator("text=Cash evidence only").count();
+  return [
+    { id: "payroll-approved-settlement-card-visible", passed: settlement === 1, details: `payroll settlement cards: ${settlement}` },
+    { id: "payroll-approved-net-pay-basis-visible", passed: netPay === 1, details: `employee net-pay basis labels: ${netPay}` },
+    { id: "payroll-approved-record-payment-visible", passed: recordPayment === 1, details: `Record Payment links: ${recordPayment}` },
+    { id: "payroll-no-manual-paid-toggle", passed: manualPaid === 0, details: `manual paid controls: ${manualPaid}` },
+    { id: "payroll-cash-authority-copy-visible", passed: cashBoundary >= 1, details: `cash authority copy: ${cashBoundary}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyCashBrowseAndChoice: QaScenarioAction = async (page) => {
   await waitForHeading(page, "Cash & Banking");
   const browseStage = await page.locator('[data-testid="cash-stage-browse"]').count();
@@ -1126,7 +1156,11 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor master worksheet maintenance rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorMasterWorksheet }),
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor master worksheet maintenance rendered", viewport: QA_VIEWPORTS.mobile, action: verifyVendorMasterWorksheet }),
   defineQaScenario({ feature: "payroll", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "payroll", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "Payroll normal-cycle next step verified", viewport: QA_VIEWPORTS.desktop, action: verifyPayrollNormalCycleOverview }),
+  defineQaScenario({ feature: "payroll", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "Payroll normal-cycle next step verified", viewport: QA_VIEWPORTS.mobile, action: verifyPayrollNormalCycleOverview }),
   defineQaScenario({ feature: "payroll", route: route("payroll-run", "/payroll?runId=:runId"), path: "/demo/app/payroll?runId=demo-payroll-run-9", interactionState: "payroll run opened", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "payroll", route: route("payroll-run", "/payroll?runId=:runId"), path: "/demo/app/payroll?runId=demo-payroll-run-9", interactionState: "approved Payroll Cash & Banking settlement handoff verified", viewport: QA_VIEWPORTS.desktop, action: verifyPayrollApprovedSettlementHandoff }),
+  defineQaScenario({ feature: "payroll", route: route("payroll-run", "/payroll?runId=:runId"), path: "/demo/app/payroll?runId=demo-payroll-run-9", interactionState: "approved Payroll Cash & Banking settlement handoff verified", viewport: QA_VIEWPORTS.mobile, action: verifyPayrollApprovedSettlementHandoff }),
   defineQaScenario({ feature: "expenses", route: route("expenses", "/expenses"), path: "/demo/app/expenses", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "supplier-payables", route: route("expenses", "/expenses?expenseId=:expenseId"), path: "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02", interactionState: "authoritative Expense payment surface opened", viewport: QA_VIEWPORTS.desktop, action: verifyExpensePaymentSurface }),
   defineQaScenario({ feature: "supplier-payables", route: route("expenses", "/expenses?expenseId=:expenseId"), path: "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02", interactionState: "authoritative Expense payment surface opened", viewport: QA_VIEWPORTS.mobile, action: verifyExpensePaymentSurface }),
