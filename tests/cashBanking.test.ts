@@ -11,7 +11,9 @@ import {
   createFinancialAccount,
   createFinancialMatch,
   createFinancialTransaction,
+  eligibleSettlementReviewTransactions,
   findInternalTransferSuggestions,
+  hasConfirmedInternalTransfer,
   reconciliationStatusForTransaction,
   resolveFinancialBalance,
   suggestFinancialMatches,
@@ -239,4 +241,21 @@ test("internal transfer suggestions require opposite movement across same-compan
   assert.equal(suggestion?.left.id, "left");
   assert.equal(suggestion?.right.id, "right");
   assert.equal(findInternalTransferSuggestions([left, { ...right, currency: "USD" }]).length, 0);
+});
+
+test("operating settlement review excludes confirmed transfer pairs but keeps ordinary settlement history", () => {
+  const transfer = transaction({ id: "transfer", accountId: "a", transactionDate: "2026-08-10", direction: "DEBIT", amount: 10000, description: "Transfer to BPI", currency: "PHP", reconciliationStatus: "MATCHED" });
+  const ordinarySettlement = transaction({ id: "ordinary", accountId: "a", transactionDate: "2026-08-11", direction: "DEBIT", amount: 2500, description: "Supplier payment", currency: "PHP", reconciliationStatus: "MATCHED" });
+  const ignored = transaction({ id: "ignored", accountId: "a", transactionDate: "2026-08-12", direction: "DEBIT", amount: 900, description: "Ignored item", currency: "PHP", reconciliationStatus: "IGNORED" });
+  const pending = transaction({ id: "pending", accountId: "a", transactionDate: "2026-08-13", direction: "DEBIT", amount: 800, description: "Pending item", currency: "PHP", status: "PENDING" });
+  const reversed = transaction({ id: "reversed", accountId: "a", transactionDate: "2026-08-14", direction: "DEBIT", amount: 700, description: "Reversed item", currency: "PHP", status: "REVERSED" });
+  const transferMatch = createFinancialMatch({ transactionId: transfer.id, targetType: "TRANSFER", targetId: "other-account-row", matchedAmount: 10000, status: "CONFIRMED" }, now);
+  const invoiceMatch = createFinancialMatch({ transactionId: ordinarySettlement.id, targetType: "INVOICE", targetId: "invoice-1", matchedAmount: 2500, status: "CONFIRMED" }, now);
+
+  assert.equal(hasConfirmedInternalTransfer(transfer.id, [transferMatch]), true);
+  assert.equal(hasConfirmedInternalTransfer(ordinarySettlement.id, [invoiceMatch]), false);
+  assert.deepEqual(
+    eligibleSettlementReviewTransactions([transfer, ordinarySettlement, ignored, pending, reversed], [transferMatch, invoiceMatch]).map((item) => item.id),
+    [ordinarySettlement.id],
+  );
 });

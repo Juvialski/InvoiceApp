@@ -907,6 +907,19 @@ export function confirmedMatchedAmount(transactionId: string, matches: readonly 
   return roundMoney(matches.filter((match) => match.transactionId === transactionId && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0));
 }
 
+export function hasConfirmedInternalTransfer(transactionId: string, matches: readonly FinancialTransactionMatch[]): boolean {
+  return matches.some((match) => match.transactionId === transactionId && match.targetType === "TRANSFER" && match.status === "CONFIRMED");
+}
+
+export function eligibleSettlementReviewTransactions(
+  transactions: readonly FinancialTransaction[],
+  matches: readonly FinancialTransactionMatch[],
+): FinancialTransaction[] {
+  return transactions.filter((transaction) => transaction.status === "POSTED"
+    && transaction.reconciliationStatus !== "IGNORED"
+    && !hasConfirmedInternalTransfer(transaction.id, matches));
+}
+
 export function confirmedTargetMatchedAmount(targetType: FinancialMatchTargetType, targetId: string, matches: readonly FinancialTransactionMatch[]): number {
   return roundMoney(matches.filter((match) => match.targetType === targetType && match.targetId === targetId && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0));
 }

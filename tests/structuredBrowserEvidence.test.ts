@@ -72,6 +72,19 @@ test("demo scenario catalog is unique and covers the required product surfaces",
   assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.interactionState === "demo drawing preview opened"));
 });
 
+test("Cash settlement catalog covers intentional choice, explicit confirmation, result continuation, and transfer separation", () => {
+  const cashScenarios = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "cash-banking");
+  for (const state of [
+    "cash browse with intentional allocation choice",
+    "cash settlement result and return context verified",
+    "cash internal transfer workflow kept separate",
+  ]) {
+    const matching = cashScenarios.filter((scenario) => scenario.interactionState === state);
+    assert.ok(matching.length > 0, `missing Cash scenario: ${state}`);
+    assert.ok(matching.every((scenario) => scenario.action), `missing action for Cash scenario: ${state}`);
+  }
+});
+
 test("targeted Help evidence covers responsive index, articles, navigation, headers, and contextual help", () => {
   const helpIndex = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "help" && scenario.path === "/help");
   const helpArticle = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "help" && scenario.path === "/help?topic=invoice-review");

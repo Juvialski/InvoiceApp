@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, Landmark, Link2, RotateCcw, Search, Split, WalletCards } from "lucide-react";
-import { confirmedCandidateMatchedAmount, financialId, isFinancialReconciliationCandidateLifecycleEligible, reconciliationStatusForTransaction, type CashBankingWorkspaceData, type FinancialReconciliationCandidate, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
+import { confirmedCandidateMatchedAmount, eligibleSettlementReviewTransactions, financialId, isFinancialReconciliationCandidateLifecycleEligible, reconciliationStatusForTransaction, type CashBankingWorkspaceData, type FinancialReconciliationCandidate, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
 import { defaultSettlementAllocation, type FinancialSettlementHistoryItem } from "../lib/financialSettlement.ts";
 import { reverseFinancialSettlement } from "../lib/financialSettlementPersistence.ts";
 import { appPathForExpense, appPathForInvoice, appPathForPayrollRun, appPathForProject, appPathForSubcontractClaim, financialTransactionIdFromSearch, type CashSettlementTargetContext } from "../utils/appRouting.ts";
@@ -39,6 +39,13 @@ function targetPath(candidate: FinancialReconciliationCandidate) {
   return undefined;
 }
 
+interface SettlementConfirmationResult {
+  transactionId: string;
+  transactionDescription: string;
+  allocations: Array<{ label: string; amount: number; href?: string }>;
+  returnTo?: string;
+}
+
 export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selectedTransactionId, targetContext, onNavigatePath, candidates, canReconcile = true, canSettleTarget = () => true, onSaveMatch, onSaveMatchBatch, onReverseMatch, canReverseMatch }) => {
   const linkedId = selectedTransactionId || (typeof window === "undefined" ? undefined : financialTransactionIdFromSearch(window.location.search));
   const requestedTargetCandidate = targetContext?.targetType && targetContext.targetId
@@ -47,11 +54,8 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
   const linkedTargetTransactionId = targetContext?.requested && requestedTargetCandidate
     ? data.matches.find((match) => match.status === "CONFIRMED" && match.targetType === requestedTargetCandidate.targetType && match.targetId === requestedTargetCandidate.targetId)?.transactionId
     : undefined;
-  const requestedTargetDirection = targetContext?.targetType === "CLIENT_COLLECTION" ? "CREDIT" : "DEBIT";
   const initial = data.transactions.find((transaction) => transaction.id === linkedId)
-    || (linkedTargetTransactionId ? data.transactions.find((transaction) => transaction.id === linkedTargetTransactionId) : undefined)
-    || (targetContext?.requested && requestedTargetCandidate ? data.transactions.find((transaction) => transaction.status === "POSTED" && transaction.direction === requestedTargetDirection && !["MATCHED", "IGNORED"].includes(transaction.reconciliationStatus)) : undefined)
-    || data.transactions.find((transaction) => transaction.status === "POSTED" && !["MATCHED", "IGNORED"].includes(transaction.reconciliationStatus));
+    || (linkedTargetTransactionId ? data.transactions.find((transaction) => transaction.id === linkedTargetTransactionId) : undefined);
   const [transactionId, setTransactionId] = useState(selectedTransactionId !== undefined ? selectedTransactionId : initial?.id || "");
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -61,10 +65,11 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
   const [reversalReason, setReversalReason] = useState("");
   const [reversalError, setReversalError] = useState("");
   const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
+  const [confirmationResult, setConfirmationResult] = useState<SettlementConfirmationResult | null>(null);
   const routeTransactionIdRef = useRef<string | undefined>(selectedTransactionId);
   const targetRequestKey = targetContext?.requested ? `${targetContext.targetType || ""}:${targetContext.targetId || ""}:${targetContext.invalid ? "invalid" : "valid"}` : "";
   const routeTargetKeyRef = useRef(targetRequestKey);
-  const defaultTransactionId = data.transactions.find((item) => item.status === "POSTED" && (!targetContext?.requested || item.direction === requestedTargetDirection) && !["MATCHED", "IGNORED"].includes(item.reconciliationStatus))?.id || "";
+  const resolvedTransactionId = selectedTransactionId || linkedTargetTransactionId || "";
   const navigate = (path: string) => {
     if (onNavigatePath) onNavigatePath(path);
     else navigateInApp(path);
@@ -76,15 +81,15 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
     const selectedRouteAvailable = Boolean(selectedTransactionId && data.transactions.some((item) => item.id === selectedTransactionId));
     const needsRouteResolution = selectedRouteAvailable && transactionId !== selectedTransactionId;
     const currentUnavailable = Boolean(transactionId && !data.transactions.some((item) => item.id === transactionId));
-    const needsDefaultResolution = selectedTransactionId === undefined && (currentUnavailable || (!transactionId && Boolean(defaultTransactionId)));
-    if (routeChanged || targetChanged || needsRouteResolution || needsDefaultResolution) {
+    if (routeChanged || targetChanged || needsRouteResolution || currentUnavailable) {
       routeTransactionIdRef.current = selectedTransactionId;
       routeTargetKeyRef.current = targetRequestKey;
-      setTransactionId(selectedTransactionId || defaultTransactionId);
+      setTransactionId(resolvedTransactionId);
       setDraft({});
       setNotice(null);
+      setConfirmationResult(null);
     }
-  }, [data.transactions, defaultTransactionId, selectedTransactionId, targetRequestKey, transactionId]);
+  }, [data.transactions, resolvedTransactionId, selectedTransactionId, targetRequestKey, transactionId]);
   const transaction = data.transactions.find((item) => item.id === transactionId);
   const workspaceDataPending = useWorkspaceDataPending();
   const requestedTransactionUnavailable = Boolean(selectedTransactionId && !workspaceDataPending && !data.transactions.some((item) => item.id === selectedTransactionId));
@@ -98,6 +103,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
   const targetOutstanding = requestedTargetCandidate ? round(Math.max(0, requestedTargetCandidate.amount - targetSettled)) : 0;
   const targetCurrencyMatches = Boolean(!transaction || !requestedTargetCandidate || !requestedTargetCandidate.currency || requestedTargetCandidate.currency.toUpperCase() === transaction.currency.toUpperCase());
   const targetDirectionMatches = Boolean(!transaction || !requestedTargetCandidate || (transaction.direction === (requestedTargetCandidate.targetType === "CLIENT_COLLECTION" ? "CREDIT" : "DEBIT")));
+  const transactionOptions = useMemo(() => eligibleSettlementReviewTransactions(data.transactions, data.matches), [data.matches, data.transactions]);
 
   const rows = useMemo(() => {
     if (!transaction || transaction.status !== "POSTED" || transaction.reconciliationStatus === "IGNORED" || activeMatches.some((match) => match.transactionId === transaction.id && match.targetType === "TRANSFER")) return [];
@@ -174,6 +180,16 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
       } else if (onSaveMatch) {
         for (const match of newMatches) await onSaveMatch(match, nextTransaction);
       }
+      setConfirmationResult({
+        transactionId: transaction.id,
+        transactionDescription: transaction.description,
+        allocations: selectedDrafts.map((row) => ({
+          label: row.candidate.label,
+          amount: row.amount,
+          ...(targetPath(row.candidate) ? { href: targetPath(row.candidate) } : {}),
+        })),
+        ...(targetContext?.returnTo ? { returnTo: targetContext.returnTo } : {}),
+      });
       setDraft({});
       setNotice({ tone: "success", text: `${selectedDrafts.length} settlement allocation${selectedDrafts.length === 1 ? "" : "s"} confirmed by the guarded settlement operation.` });
     } catch (error) {
@@ -182,6 +198,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
   };
 
   const openReversal = (match: FinancialTransactionMatch) => {
+    setConfirmationResult(null);
     setReversalMatch(match);
     setReversalReason("");
     setReversalError("");
@@ -198,6 +215,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
       }
       setReversedIds((current) => new Set([...current, reversalMatch.id]));
       setReversalMatch(null); setReversalReason("");
+      setConfirmationResult(null);
       setNotice({ tone: "success", text: "Settlement link reversed. The original confirmation remains in audit history." });
     } catch (error) {
       setReversalError(safeErrorMessage(error, "Settlement reversal failed."));
@@ -250,22 +268,38 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
                   ? `This target requires a ${requestedTargetCandidate.targetType === "CLIENT_COLLECTION" ? "CREDIT" : "DEBIT"} transaction. Choose a compatible posted transaction.`
                   : "The exact target is prioritized below. Select or review legitimate posted cash evidence, then confirm settlement explicitly.";
 
-  return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Settlement allocation workspace" data-tour="cash-settlement-workspace">
+  return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Settlement allocation workspace" data-tour="cash-settlement-workspace" data-testid="cash-settlement-workspace">
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2" aria-label="Cash settlement stages">
+      <span data-testid="cash-stage-browse" className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-600">1. Browse account</span>
+      <ArrowRight className="h-3 w-3 text-indigo-400" aria-hidden="true" />
+      <span data-testid="cash-stage-choose" className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-600">2. Choose transaction / target</span>
+      <ArrowRight className="h-3 w-3 text-indigo-400" aria-hidden="true" />
+      <span data-testid="cash-stage-review" className="rounded-full bg-indigo-600 px-2 py-1 text-[10px] font-black text-white">3. Review allocation</span>
+      <ArrowRight className="h-3 w-3 text-indigo-400" aria-hidden="true" />
+      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-600">4. Confirm / continue</span>
+    </div>
     {targetContext?.requested && <div className={`mb-3 rounded-xl border px-3 py-2.5 text-xs ${targetContext.invalid || !requestedTargetCandidate || (requestedTargetCandidate && !isFinancialReconciliationCandidateLifecycleEligible(requestedTargetCandidate)) ? "border-amber-200 bg-amber-50 text-amber-950" : "border-indigo-200 bg-indigo-50 text-indigo-950"}`} role={targetContext.invalid || !requestedTargetCandidate ? "alert" : undefined} data-testid="cash-target-context">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><p className="break-words font-black">Payment target: {targetLabel}</p>{targetMessage && <p className="mt-1 break-words text-[10px] leading-4">{targetMessage}</p>}</div>{targetContext.returnTo && <a href={targetContext.returnTo} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); navigate(targetContext.returnTo!); }} className="inline-flex min-h-9 shrink-0 items-center justify-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-indigo-700 shadow-sm hover:bg-indigo-50" data-testid="cash-return-to-client-invoice">{returnTargetLabel} <ArrowRight className="h-3 w-3" /></a>}</div>
     </div>}
     {requestedTransactionUnavailable && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"><span>The requested cash transaction is not available in this workspace.</span><button type="button" onClick={() => navigate("/cash")} className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-amber-900 shadow-sm">Return to Cash &amp; Banking</button></div>}
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
       <div><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600">Reconciliation allocation</p><h2 className="mt-1 text-base font-black text-slate-950">Link posted cash to {directionLabel}</h2><p className="mt-1 max-w-3xl text-xs text-slate-500">Allocate one {transaction?.direction === "CREDIT" ? "credit" : "debit"} across one or many targets. Confirmation links payment evidence only; it does not create another collection or change project cost.</p></div>
-      <select aria-label="Transaction to reconcile" value={transactionId} onChange={(event) => { setTransactionId(event.target.value); setDraft({}); setNotice(null); }} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">
+      <select aria-label="Transaction to reconcile" value={transactionId} onChange={(event) => { setTransactionId(event.target.value); setDraft({}); setNotice(null); setConfirmationResult(null); }} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">
         <option value="">Select transaction</option>
-        {data.transactions.filter((item) => item.status === "POSTED" && item.reconciliationStatus !== "IGNORED").sort((a,b) => b.transactionDate.localeCompare(a.transactionDate)).map((item) => <option key={item.id} value={item.id}>{item.transactionDate} · {item.direction} · {item.referenceNumber || item.description.slice(0, 30)} · {money(item.amount, item.currency)}</option>)}
+        {transactionOptions.sort((a,b) => b.transactionDate.localeCompare(a.transactionDate)).map((item) => <option key={item.id} value={item.id}>{item.transactionDate} · {item.direction} · {item.referenceNumber || item.description.slice(0, 30)} · {money(item.amount, item.currency)}</option>)}
       </select>
     </div>
 
     {notice && <div className={`mt-3 rounded-lg border px-3 py-2 text-xs font-semibold ${notice.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{notice.text}</div>}
 
-    {!transaction ? <p className="mt-4 rounded-xl border border-dashed border-slate-200 p-5 text-sm text-slate-500">Choose a posted cash transaction to start reconciliation.</p> : <>
+    {confirmationResult && <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3" data-testid="cash-settlement-result" role="status">
+      <p className="text-xs font-black text-emerald-950">Settlement evidence recorded</p>
+      <p className="mt-1 break-words text-[10px] leading-4 text-emerald-900">{confirmationResult.transactionDescription} was linked through Cash &amp; Banking. The source record was not changed.</p>
+      <ul className="mt-2 space-y-1 text-[10px] text-emerald-900">{confirmationResult.allocations.map((allocation) => <li key={`${allocation.label}-${allocation.amount}`} className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="font-bold">{allocation.label}</span><span>{money(allocation.amount, transaction?.currency || "PHP")}</span>{allocation.href && <a href={allocation.href} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); navigate(allocation.href!); }} className="font-black text-indigo-700 hover:underline">Open target</a>}</li>)}</ul>
+      {confirmationResult.returnTo && <a href={confirmationResult.returnTo} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); navigate(confirmationResult.returnTo!); }} className="mt-3 inline-flex min-h-9 items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-indigo-700 shadow-sm hover:bg-indigo-50">Return to source <ArrowRight className="h-3 w-3" /></a>}
+    </div>}
+
+    {!transaction ? <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-5" data-testid="cash-settlement-empty-selection"><p className="text-sm font-black text-slate-700">Choose a posted cash transaction to start reconciliation.</p><p className="mt-1 text-xs leading-5 text-slate-500">Suggestions remain advisory until you review an allocation and explicitly confirm settlement.</p></div> : <>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         <Metric icon={Landmark} label="Account" value={`${account?.displayName || "Account"}${account?.maskedIdentifier ? ` · ${account.maskedIdentifier}` : ""}`} />
         <Metric label="Date / reference" value={`${transaction.transactionDate} · ${transaction.referenceNumber || "No reference"}`} />
@@ -306,10 +340,10 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
         const href = targetPath(candidate);
         const targetCanBeSettled = canSettle(candidate.targetType);
         const requested = requestedTargetCandidate && candidate.targetType === requestedTargetCandidate.targetType && candidate.targetId === requestedTargetCandidate.targetId;
-        return <article key={key} className={`rounded-xl border p-3 ${requested ? "border-indigo-300 bg-indigo-50/40 ring-1 ring-indigo-100" : "border-slate-200"}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-black text-indigo-700">{candidate.targetType}</span>{requested && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-black text-white">Requested target</span>}<strong className="break-words text-xs text-slate-900">{candidate.label}</strong></div><p className="mt-1 text-[10px] text-slate-500">{candidate.date || "Date unavailable"}{candidate.reference ? ` · ${candidate.reference}` : ""}</p><p className="mt-1 text-[10px] text-slate-500">{candidate.targetType === "CLIENT_COLLECTION" ? "Collection amount" : "Payable"} {money(candidate.amount, candidate.currency || transaction.currency)} · linked {money(settled, transaction.currency)} · <strong className="text-slate-700">remaining {money(outstanding, transaction.currency)}</strong></p></div>{href && <a href={href} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); navigate(href); }} aria-label="Open settlement target" className="shrink-0 rounded-lg p-2 text-indigo-700 hover:bg-indigo-50"><Link2 className="h-4 w-4" /></a>}</div><div className="mt-3 flex gap-2"><div className="relative min-w-0 flex-1"><span className="pointer-events-none absolute left-3 top-2.5 text-[10px] font-bold text-slate-400">{transaction.currency}</span><input inputMode="decimal" value={draft[key] || ""} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} placeholder="0.00" disabled={!targetCanBeSettled} className="min-h-10 w-full rounded-lg border border-slate-200 pl-12 pr-3 text-right text-xs font-bold tabular-nums outline-none focus:border-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-50" /></div><button type="button" onClick={() => choose(candidate, outstanding)} disabled={!targetCanBeSettled || remaining <= 0} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[10px] font-black text-indigo-700 disabled:opacity-40"><Split className="h-3.5 w-3.5" /> {targetCanBeSettled ? "Allocate" : "Requires target permission"}</button></div></article>;
+        return <article key={key} data-testid="cash-settlement-candidate" data-target-type={candidate.targetType} className={`rounded-xl border p-3 ${requested ? "border-indigo-300 bg-indigo-50/40 ring-1 ring-indigo-100" : "border-slate-200"}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-black text-indigo-700">{candidate.targetType}</span><span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black text-slate-600">Suggestion · not confirmed</span>{requested && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-black text-white">Requested target</span>}<strong className="break-words text-xs text-slate-900">{candidate.label}</strong></div><p className="mt-1 text-[10px] text-slate-500">{candidate.date || "Date unavailable"}{candidate.reference ? ` · ${candidate.reference}` : ""}</p><p className="mt-1 text-[10px] text-slate-500">{candidate.targetType === "CLIENT_COLLECTION" ? "Collection amount" : "Payable"} {money(candidate.amount, candidate.currency || transaction.currency)} · linked {money(settled, transaction.currency)} · <strong className="text-slate-700">remaining {money(outstanding, transaction.currency)}</strong></p></div>{href && <a href={href} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); navigate(href); }} aria-label="Open settlement target" className="shrink-0 rounded-lg p-2 text-indigo-700 hover:bg-indigo-50"><Link2 className="h-4 w-4" /></a>}</div><div className="mt-3 flex gap-2"><div className="relative min-w-0 flex-1"><span className="pointer-events-none absolute left-3 top-2.5 text-[10px] font-bold text-slate-400">{transaction.currency}</span><input inputMode="decimal" value={draft[key] || ""} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} placeholder="0.00" disabled={!targetCanBeSettled} className="min-h-10 w-full rounded-lg border border-slate-200 pl-12 pr-3 text-right text-xs font-bold tabular-nums outline-none focus:border-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-50" /></div><button type="button" onClick={() => choose(candidate, outstanding)} disabled={!targetCanBeSettled || remaining <= 0} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[10px] font-black text-indigo-700 disabled:opacity-40"><Split className="h-3.5 w-3.5" /> {targetCanBeSettled ? "Allocate" : "Requires target permission"}</button></div></article>;
       })}{!rows.length && <p className="lg:col-span-2 rounded-xl border border-dashed border-slate-200 p-5 text-center text-xs text-slate-500">No eligible same-currency target has a remaining balance for this {transaction.direction === "CREDIT" ? "credit" : "debit"}.</p>}</div>}
 
-      <div className="mt-4 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="flex items-center gap-1.5 text-xs font-black text-slate-800"><WalletCards className="h-4 w-4" /> Confirmation review</p><p className="mt-1 text-[10px] text-slate-500">{selectedDrafts.length ? `${selectedDrafts.length} allocation${selectedDrafts.length === 1 ? "" : "s"} selected. Server validation is authoritative.` : "Select one or more allocations. Nothing is auto-confirmed."}</p>{draftInvalid && <p className="mt-1 text-[10px] font-bold text-rose-700">The allocation exceeds a remaining balance or needs the target domain permission.</p>}</div><button type="button" onClick={() => void confirm()} disabled={!canReconcile || (!onSaveMatch && !onSaveMatchBatch) || busy || !selectedDrafts.length || draftInvalid} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-xs font-black text-white disabled:opacity-40"><CheckCircle2 className="h-4 w-4" /> {busy ? "Confirming…" : "Confirm settlement"}</button></div>
+      <div className="mt-4 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between" data-testid="cash-confirmation-review"><div><p className="flex items-center gap-1.5 text-xs font-black text-slate-800"><WalletCards className="h-4 w-4" /> Confirmation review</p><p className="mt-1 text-[10px] text-slate-500">{selectedDrafts.length ? `${selectedDrafts.length} allocation${selectedDrafts.length === 1 ? "" : "s"} selected · ${money(draftTotal, transaction.currency)}. Server validation is authoritative.` : "Select one or more allocations. Nothing is auto-confirmed."}</p>{draftInvalid && <p className="mt-1 text-[10px] font-bold text-rose-700">The allocation exceeds a remaining balance or needs the target domain permission.</p>}</div><button type="button" onClick={() => void confirm()} disabled={!canReconcile || (!onSaveMatch && !onSaveMatchBatch) || busy || !selectedDrafts.length || draftInvalid} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-xs font-black text-white disabled:opacity-40"><CheckCircle2 className="h-4 w-4" /> {busy ? "Confirming…" : "Confirm settlement"}</button></div>
     </>}
     <p className="mt-3 flex items-center gap-1.5 text-[10px] text-slate-400"><Split className="h-3 w-3" /> Internal account transfers continue through the dedicated transfer workflow below and never become invoice/payroll settlement.</p>
 

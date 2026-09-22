@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 ACTIVE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE QUEUE SLICE IMPLEMENTED FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 ACTIVE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT SLICES IMPLEMENTED FOR RECORDED SCOPES / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-22**
 
@@ -56,7 +56,7 @@ The active program is now:
 1. **UX-S3A + UX-S3A2 — Comparative UI research, app-wide instruction-density audit, and Jev-browser validation are complete for the recorded research boundary.** The durable report at `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md` records direct public comparator observations, current safe-demo route/state evidence, the Keep / Shorten / Contextual Help / Help Center / Remove classification, matched Jev/Codex browser results, shared root causes, workflow friction, Help Center taxonomy, limitations, and the S3B readiness decision. No broad UI remediation was implemented.
 2. **UX-S3B — Help Center + contextual-help foundation and targeted browser evidence are closed for the recorded boundary.** The canonical 35-topic/13-category registry, `/help` deep links, shared route-aware Help actions, contextual popovers, and durable structured scenarios are implemented. The merged PR #228 protected run was green but did not include Help scenarios; this continuation added the missing index/article responsive matrix, search/category/deep-link/history/fallback, two non-demo header actions, and Email attachment contextual-help Escape/focus coverage. Local production-server Demo Visual QA passed the full 123-scenario/36-route/4-viewport catalog with zero console, page, request, and overflow failures. This does not claim authenticated comparator parity, hosted/provider/production certification, or S3D completion.
 3. **UX-S3C — App-wide visible-copy simplification is implemented for the recorded scope.** Shared page/section chrome was shortened, duplicate Email/SMS attachment/draft guidance was removed while the contextual Help and provider/human-confirmation semantics remained, Procurement workbook education now follows the working register, and representative Dashboard, Projects, Project Workspace, Cost Codes, Supplier Invoices, Expenses, Cash & Banking, Documents, Email/SMS, Payroll, Settings, Warehouse, Equipment, Vendors, Reports, and worksheet copy was simplified. Financial/source, lifecycle, permission, provenance, provider, approval/payment, and review-before-Apply boundaries remain visible.
-4. **UX-S3D — Supplier Invoice review queue action hardening is implemented for the recorded scope.** Queue mode now keeps one truthful `Verify & Create Expense & Next` action in the sticky queue footer; the review-bar duplicate is suppressed while standalone review retains its direct action. Source evidence, human verification, Expense authority, warning confirmation, save state, audit/history, and lifecycle boundaries are unchanged. The remaining S3D P1 follow-ups are Cash settlement/reconciliation, Procurement lifecycle, and Payroll normal cycle; UX-S3E remains later visual/accessibility closeout.
+4. **UX-S3D — Supplier Invoice review queue and Cash settlement/reconciliation hardening are implemented for their recorded scopes.** Supplier queue mode keeps one truthful `Verify & Create Expense & Next` action in the sticky queue footer; Cash now uses non-mutating queue review, intentional transaction selection, explicit allocation confirmation, transfer separation, and result/return continuation. Source evidence, financial authority, warning confirmation, save state, audit/history, lifecycle, and settlement boundaries are unchanged. The remaining S3D P1 follow-ups are Procurement lifecycle and Payroll normal cycle; UX-S3E remains later visual/accessibility closeout.
 5. **UX-S3E — Accessibility, responsive, and visual closeout.** Re-run app-wide route/state evidence at desktop, constrained laptop, tablet, and phone; verify keyboard/focus/contextual-help behavior and close the highest-impact clutter/friction findings.
 6. **Application hardening in parallel.** Continue reliability, recovery, validation, concurrency, security/data-integrity, performance, provider/readiness certification, authenticated document/render certification, and exact-SHA release evidence when their prerequisites exist.
 7. **Developer-efficiency hardening.** Jev/Repository Intelligence work may continue when it improves context selection, review, evidence, or implementation efficiency without expanding customer-facing product scope.
@@ -220,16 +220,62 @@ Validation for the exact application-bearing commit:
   changed. Docker/Supabase, hosted QA, provider, and production checks were
   not applicable to this UI-only diff. The full suite was not run by ritual.
 
-The next bounded S3D follow-up is Cash settlement/reconciliation, followed by
-Procurement lifecycle and Payroll normal-cycle hardening. These remain
-deliberately unimplemented in this slice.
+### 2026-09-22 UX-S3D — Cash settlement and reconciliation workflow hardening
+
+This bounded slice starts from synchronized `main` SHA
+`d1cfa93ca04320f800db9737635ec23a6e002b36` on branch
+`codex/ux-s3d-cash-settlement-hardening`.
+
+Cash & Banking now presents one staged operating-settlement path:
+`Browse account -> Choose transaction / target -> Review allocation -> Confirm /
+continue`. The unresolved queue no longer confirms suggested matches directly;
+its `Review allocation` link preserves the exact Cash route and any target/source
+return context. The allocation workspace no longer selects an arbitrary first
+transaction, marks candidates as advisory until confirmation, excludes confirmed
+internal-transfer rows from operating-settlement choices, and reports the
+recorded result with affected target and return/open-target continuation.
+
+The dedicated internal-transfer workflow remains separate, including paired-row
+confirmation/reversal semantics. Failed confirmation leaves draft allocation and
+review context truthful. No settlement math, source-record ownership, lifecycle,
+permission, RLS/RPC, migration, persistence, provider, or database contract
+changed.
+
+Validation for this implementation branch:
+
+- focused Cash/settlement/demo/browser-contract tests: **43/43**;
+- deterministic `npm.cmd run test:affected:agent`: **652/652**, **82/368**
+  selected, database fallback disabled;
+- `npm.cmd run lint`: ESLint and TypeScript passed;
+- `npm.cmd run typecheck`: passed;
+- `npm.cmd run build`: passed with existing Astryx font/chunk-size and CJS
+  `import.meta` warnings;
+- exact-head local production-preview Demo Visual QA: **124/124** scenarios,
+  **124** screenshots, **36** routes, **4** viewports, zero console/page/request/
+  overflow failures; Cash browse/choice, split confirmation/result desktop and
+  mobile, transfer separation, supplier target context, and client collection
+  target continuation all passed and representative screenshots were visually
+  inspected;
+- the single live Jev start/context checkpoint used the fresh deterministic
+  packet, found no optional candidates, dispatched zero live requests, and fell
+  back to deterministic source/evidence;
+- the one sanitized Jev completion/evidence attempt returned a `TypeError`
+  before a response; no Jev completion judgment was used and deterministic
+  evidence remained authoritative;
+- database validation was not applicable because no migration, RPC, RLS,
+  persistence, locking, or financial guard changed. Hosted QA, provider, and
+  production certification remain separate and unclaimed.
+
+The next unfinished S3D slice is Procurement lifecycle hardening, followed by
+Payroll normal-cycle hardening; UX-S3E accessibility/responsive/visual closeout
+remains later. No Procurement or Payroll workflow hardening is claimed here.
 
 ## Current priority sequence
 
 1. **RI-2 → RI-3 → Repository & Architecture Professionalization Completion is complete in the current implementation boundary.** RI-2 graph/query, RI-3 bounded context integration, responsibility triage, repository hygiene, evidence policy, onboarding/front-door synchronization, safe current branding cleanup, and repository-identity evaluation are recorded with focused evidence.
 2. **Professionalization completion gate is closed.** Remaining large/shared modules have explicit decomposition or intentional-retention decisions; current source/test ownership and tracked-vs-transient evidence policy are documented; the external repository rename is a documented manual administrative choice rather than an open architecture task.
 3. **Excel Phase 0/readiness, the original shared foundation, Procurement, Projects/project controls, bounded Phase 4A Expenses + Supplier Payables, UX-W1, UX-W2, UX-W3, and all bounded UX-W4 draft editors are implemented.** **UX-W4.5A app-wide screenshot investigation, UX-W4.5B shared responsive/editor foundations, UX-W4.5C task-first hierarchy plus bounded workspace-width/visual-grammar corrections, UX-W4.5D Supplier Invoice/worksheet clarity, and UX-W4.5E App-Wide Visual Consistency & Professional-Finish Certification are implemented for their recorded scopes.** UX-W5A Project Materials & Project Equipment, UX-W5B Warehouse Item Master + Canonical Equipment Master, and UX-W5C Vendor Master worksheet maintenance are implemented for their bounded scopes; remaining UX-W5 operational bulk-data editors require separate bounded slices. App-wide Excel capability is not claimed.
-4. **UX-S3A baseline research/evidence, UX-S3A2 Jev-browser comparative validation, UX-S3B targeted browser evidence, UX-S3C visible-copy simplification, and the first UX-S3D Supplier Invoice queue action slice are implemented for their recorded boundaries.** Exact-head local production-server Demo Visual QA passed 123/123 scenarios across four viewports with zero browser/overflow failures. UX-S3D remains active for Cash settlement/reconciliation, Procurement lifecycle, and Payroll normal-cycle follow-ups; UX-S3E visual/accessibility closeout remains later.
+4. **UX-S3A baseline research/evidence, UX-S3A2 Jev-browser comparative validation, UX-S3B targeted browser evidence, UX-S3C visible-copy simplification, UX-S3D Supplier Invoice queue action hardening, and UX-S3D Cash settlement/reconciliation hardening are implemented for their recorded boundaries.** Exact-head local production-preview Demo Visual QA passed 124/124 scenarios across four viewports with zero browser/overflow failures. UX-S3D remains active for Procurement lifecycle and Payroll normal-cycle follow-ups; UX-S3E visual/accessibility closeout remains later.
 5. **Jev Workflow Intelligence v2A — research, calibration, and integration design — is complete for this implementation run.** The durable report records read-only authenticated X research, official/community source review, 48 controlled live Jev requests over sanitized metadata, historical calibration, and a prioritized v2B design. Jev remains advisory only; see `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`.
 6. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this run.** Shared preflight/diagnostic primitives, deterministic clean-baseline task seeding, budget-aware ordered chunking, context reranking, broad test triage, and deterministic must-keep/required-test unions are now integrated. Remaining v2B experimental slices stay deferred; Jev remains advisory-only and no application/runtime Jev or automatic model/subagent routing was added.
 7. **Complete remaining Wave 4D provider/readiness evidence when external prerequisites are available.** Controlled Brevo/SMS certification may proceed opportunistically whenever safe credentials/device/runtime exist without displacing the bounded UX-W5 slices.
