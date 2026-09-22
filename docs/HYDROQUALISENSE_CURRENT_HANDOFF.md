@@ -1697,7 +1697,30 @@ These phases are not cancelled. Preserve their historical contracts and backlog 
 
 ### Exact next implementation program
 
-The current implementation program is **hardening-first certification and reliability work on existing capabilities**. UX-S3A2 is complete for the recorded public research boundary, UX-S3B's targeted browser evidence is closed, UX-S3C visible-copy simplification is implemented for the recorded boundary, UX-S3D Supplier Invoice, Cash settlement, Procurement lifecycle, and Payroll normal-cycle slices are implemented, and UX-S3E accessibility/responsive/visual certification is complete for the recorded local/demo scope. Continue only with separately authorized provider/readiness, hosted/authenticated, release, reliability, security/data-integrity, or bounded developer-efficiency work; do not start a new product domain from this handoff. Read:
+UX-S3A2, UX-S3B, UX-S3C, UX-S3D, and UX-S3E are complete for their recorded boundaries, so **UI Simplification Round 3 is closed for the recorded local/demo scope**.
+
+The user's newly authorized next program is **UI Improvement Round 4**, beginning with **UI-R4A — research + design blueprint**. Do not immediately rewrite the Dashboard from preference alone. First inspect the current application across the standard four viewports and conduct bounded read-only UI research into strong current dashboard/home, card, filter/action, dark-theme, and media patterns. Then produce the Round 4 implementation design.
+
+The currently approved Round 4 sequence is:
+
+`UI-R4A research/design -> UI-R4B dark mode + shared buttons/compact filters -> UI-R4C Home Dashboard + Project Portfolio redesign -> UI-R4D project/equipment/material media foundation -> UI-R4E app-wide rollout + light/dark professional certification`.
+
+Round 4 requirements already established by the user:
+
+- simplify the Dashboard into general information, current attention, and navigation/task cards rather than displaying every analytics domain on the home screen;
+- consider a permission-aware “What do you want to do today?” launchpad for Projects, Payroll, Supplier Invoices, Procurement, Cash & Banking, Documents/communications, and other existing destinations;
+- preserve detailed analytics by moving or linking them to appropriate deeper views rather than deleting capability;
+- improve Project cards beyond the current generic rectangular treatment using researched patterns rather than copying a single product;
+- add Light/Dark/System mode by building on the existing paired Astryx theme tokens and remove hard-coded light-only assumptions across shared surfaces;
+- reduce large multi-row filter cards into compact responsive search/filter/sort/view controls with advanced filters behind progressive disclosure;
+- improve shared button/action hierarchy and overflow-menu use;
+- plan relevant company-bound imagery for project profile/cover images, equipment photos, and material images; keep future worker images as a design extension only;
+- treat any image-storage/schema/RLS work as a separate security/data-integrity slice requiring real local Supabase/Docker validation;
+- use appropriate open-source UI/accessibility tooling or patterns when it improves quality, but do not replace the existing design system with several competing component libraries.
+
+The hardening-first product freeze still applies to unrelated deferred domains. Round 4 is an explicitly authorized existing-product UI program, not a blanket resumption of Worker Registration, Site Attendance, Face Recognition, Finance UX-W6, custom fields, or other net-new domains.
+
+Provider/readiness, hosted/authenticated, reliability, security/data-integrity, and bounded developer-efficiency work may continue separately when explicitly selected. Read:
 
 The UX-S3A baseline report is `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md`. Preserve it and validate/refine it rather than restarting the internal HydroQualiSense audit from zero. The S3B design and plan are `docs/superpowers/specs/2026-09-21-ux-s3b-help-center-contextual-help-design.md` and `docs/superpowers/plans/2026-09-21-ux-s3b-help-center-contextual-help.md`.
 
