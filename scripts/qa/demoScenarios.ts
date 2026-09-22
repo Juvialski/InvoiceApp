@@ -1048,7 +1048,7 @@ const verifyAttachmentContextualHelp: QaScenarioAction = async (page) => {
   const dialog = page.getByRole("dialog", { name: "Eligible document attachments", exact: true });
   await dialog.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const dialogCount = await dialog.count();
-  const ariaModal = await dialog.getAttribute("aria-modal");
+  const ariaModal = await page.evaluate(() => document.querySelector('[role="dialog"][aria-labelledby^="contextual-help-"]')?.getAttribute("aria-modal") || "");
   const focusedOnOpen = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "");
   const articleLink = await page.getByRole("link", { name: "Read more in Help Center", exact: true }).count();
   await page.keyboard.press("Escape");
