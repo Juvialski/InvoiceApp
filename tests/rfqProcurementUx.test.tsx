@@ -8,6 +8,7 @@ import { PurchaseOrderEditorModal, persistedPurchaseOrderLineId } from "../src/c
 import { SupplierQuotationModal } from "../src/components/procurement/SupplierQuotationModal.tsx";
 import { RFQComparisonModal } from "../src/components/procurement/RFQComparisonModal.tsx";
 import { RFQIssueConfirmationModal } from "../src/components/procurement/RFQIssueConfirmationModal.tsx";
+import { ProcurementDraftPOContinuation } from "../src/components/procurement/ProcurementDraftPOContinuation.tsx";
 import { createDemoRFQs, createDemoSupplierQuotations } from "../src/demo/data/procurement.ts";
 import { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";
 import { defaultDemoAnchorDate } from "../src/demo/data/demoDates.ts";
@@ -364,6 +365,22 @@ test("RFQ Issue uses an explicit confirmation stage before sending the request o
   assert.match(markup, /Confirm Issue/);
   assert.match(markup, />Back</);
   assert.match(markup, /does not select a supplier or create a Purchase Order/);
+});
+
+test("draft PO conversion exposes a truthful result and review continuation", () => {
+  const markup = renderToStaticMarkup(
+    <ProcurementDraftPOContinuation
+      poNumber="PO-25-9012"
+      quotationNumber="QUO-MS-2025-088"
+      onDismiss={() => {}}
+    />,
+  );
+
+  assert.match(markup, /role="status"/);
+  assert.match(markup, /Draft Purchase Order PO-25-9012 created/);
+  assert.match(markup, /QUO-MS-2025-088/);
+  assert.match(markup, /remains uncommitted/);
+  assert.match(markup, /Review the draft in Purchase Orders/);
 });
 
 test("SupplierQuotationModal renders with vendor selection, terms, and auto-populated line items", () => {

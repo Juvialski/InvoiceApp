@@ -64,6 +64,7 @@ import { PageHeader } from "../ui/OperationsUI.tsx";
 import { PurchaseOrderRegisterSection } from "./PurchaseOrderRegisterSection.tsx";
 import { RfqRegisterSection } from "./RfqRegisterSection.tsx";
 import { ProcurementWorkbookPanel } from "./ProcurementWorkbookPanel.tsx";
+import { ProcurementDraftPOContinuation } from "./ProcurementDraftPOContinuation.tsx";
 import type { ProcurementRefreshContext } from "../../lib/procurementWorkbook.ts";
 import {
   SubcontractRegisterSection,
@@ -248,6 +249,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   const [activePo, setActivePo] = useState<PurchaseOrder | null | undefined>(undefined);
   const [previewPo, setPreviewPo] = useState<PurchaseOrder | null>(null);
   const [receiptContinuation, setReceiptContinuation] = useState<{ receipt: PurchaseOrderReceipt; purchaseOrder: PurchaseOrder } | null>(null);
+  const [draftPoContinuation, setDraftPoContinuation] = useState<{ poNumber: string; quotationNumber: string } | null>(null);
 
   // RFQ State (with graceful fallback to demo seed when not provided)
   const defaultAnchor = useMemo(() => defaultDemoAnchorDate(), []);
@@ -1050,40 +1052,45 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   };
 
   const handleConvertToPOInternal = async (quotationId: string, poNum: string, poNotesText?: string) => {
+    const targetQuote = localQuotations.find((q) => q.id === quotationId);
     if (onConvertQuotationToPO) {
       await onConvertQuotationToPO(quotationId, poNum, poNotesText);
-      return;
+    } else {
+      // Fallback: use onSavePO
+      if (!targetQuote) return;
+      const parentRfq = localRfqs.find((r) => r.id === targetQuote.rfqId);
+
+      const poLines = (targetQuote.lines || [])
+        .filter((l) => !l.isNoBid && l.quantity > 0)
+        .map((l) => ({
+          description: l.description,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          unit: l.unit,
+          amount: l.amount,
+        }));
+
+      await onSavePO(
+        {
+          poNumber: poNum,
+          vendorId: targetQuote.vendorId,
+          projectId: parentRfq?.projectId || projects[0]?.id || "",
+          currency: targetQuote.currency,
+          status: "DRAFT",
+          description: `Generated from RFQ ${parentRfq?.rfqNumber || ""} / Quotation ${targetQuote.quotationNumber}`,
+          notes: poNotesText || targetQuote.notes || null,
+          rfqId: parentRfq?.id || null,
+          supplierQuotationId: targetQuote.id,
+        },
+        poLines,
+      );
     }
 
-    // Fallback: use onSavePO
-    const targetQuote = localQuotations.find((q) => q.id === quotationId);
-    if (!targetQuote) return;
-    const parentRfq = localRfqs.find((r) => r.id === targetQuote.rfqId);
-
-    const poLines = (targetQuote.lines || [])
-      .filter((l) => !l.isNoBid && l.quantity > 0)
-      .map((l) => ({
-        description: l.description,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-        unit: l.unit,
-        amount: l.amount,
-      }));
-
-    await onSavePO(
-      {
-        poNumber: poNum,
-        vendorId: targetQuote.vendorId,
-        projectId: parentRfq?.projectId || projects[0]?.id || "",
-        currency: targetQuote.currency,
-        status: "DRAFT",
-        description: `Generated from RFQ ${parentRfq?.rfqNumber || ""} / Quotation ${targetQuote.quotationNumber}`,
-        notes: poNotesText || targetQuote.notes || null,
-        rfqId: parentRfq?.id || null,
-        supplierQuotationId: targetQuote.id,
-      },
-      poLines,
-    );
+    setDraftPoContinuation({ poNumber: poNum, quotationNumber: targetQuote?.quotationNumber || "selected quotation" });
+    setActiveTab("purchase_orders");
+    setQuery(poNum);
+    setStatusFilter("ALL");
+    setDeliveryFilter("ALL");
   };
 
   if (!canRead) {
@@ -1105,6 +1112,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
         <div><p className="font-black">Goods receipt {receiptContinuation.receipt.receiptNumber} recorded.</p><p className="mt-1">Warehouse posting remains a separate explicit movement. Continue with the exact receipt context{continuationMovement ? " or persisted movement" : ""}.</p></div>
         <a href={continuationPath} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(continuationPath); }} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-emerald-700 px-3 py-2 font-black text-white hover:bg-emerald-800">{continuationMovement ? "Open exact Warehouse movement" : "Continue to Warehouse"}</a>
       </section>}
+      {draftPoContinuation && <ProcurementDraftPOContinuation {...draftPoContinuation} onDismiss={() => setDraftPoContinuation(null)} />}
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
