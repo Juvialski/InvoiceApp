@@ -266,6 +266,57 @@ test("Purchase Order draft editing uses shared worksheets and protects calculate
   assert.doesNotMatch(markup, /Record Delivery \/ Receipt/);
 });
 
+test("new Purchase Order keeps approval unavailable until a draft is persisted", () => {
+  const markup = renderToStaticMarkup(
+    <PurchaseOrderEditorModal
+      open={true}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canManage={true}
+      canApprove={true}
+      onSave={async () => {}}
+      onTransition={async () => {}}
+      onDelete={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /Save Draft/);
+  assert.match(markup, /Save this draft before approval/);
+  assert.doesNotMatch(markup, /Approve PO/);
+});
+
+test("issued Purchase Order with outstanding receipt quantity keeps Close visibly guarded", () => {
+  const purchaseOrder = demoWorkspace.purchaseOrders.find((candidate) => candidate.status === "ISSUED");
+  assert.ok(purchaseOrder, "Expected an issued purchase order in demo data");
+  const markup = renderToStaticMarkup(
+    <PurchaseOrderEditorModal
+      open={true}
+      purchaseOrder={purchaseOrder}
+      receipts={demoWorkspace.purchaseOrderReceipts}
+      projects={mockProjects}
+      vendors={mockVendors}
+      costCodes={mockCostCodes}
+      canManage={true}
+      canApprove={true}
+      matches={demoWorkspace.purchaseOrderMatches}
+      invoices={demoWorkspace.invoices}
+      onSave={async () => {}}
+      onTransition={async () => {}}
+      onDelete={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /Close is unavailable until all ordered quantities are received/);
+  const closeLabelIndex = markup.indexOf("Mark Complete \/ Close");
+  assert.notEqual(closeLabelIndex, -1, "Expected the close lifecycle control");
+  const closeButtonStart = markup.lastIndexOf("<button", closeLabelIndex);
+  const closeButtonEnd = markup.indexOf(">", closeButtonStart);
+  assert.match(markup.slice(closeButtonStart, closeButtonEnd), /disabled/);
+});
+
 test("Purchase Order non-draft worksheet keeps editing protected while workflows stay outside the grid", () => {
   const purchaseOrder = demoWorkspace.purchaseOrders.find((candidate) => candidate.status === "ISSUED");
   assert.ok(purchaseOrder, "Expected an issued purchase order in demo data");
