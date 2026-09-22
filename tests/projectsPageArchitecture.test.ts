@@ -78,7 +78,15 @@ test("projects portfolio and register presentation has explicit architectural bo
   assert.match(projectRegisterSection, /aria-label="Portfolio Management Summary"/);
   assert.match(projectRegisterSection, /aria-label="Projects table"/);
   assert.match(projectRegisterSection, /aria-label="Projects list cards"/);
-  assert.match(projectRegisterSection, /aria-label="Search projects"/);
+  assert.match(projectRegisterSection, /ariaLabel:\s*"Search projects"/);
+  assert.match(projectRegisterSection, /CompactActionBar/);
+  assert.match(projectRegisterSection, /countActiveFilters/);
+  assert.match(projectRegisterSection, /activeFilterValues/);
+  assert.match(projectRegisterSection, /Filter by project manager/);
+  assert.match(projectRegisterSection, /Filter by project currency/);
+  assert.match(projectRegisterSection, /Filter by financial health and attention signals/);
+  assert.match(projectRegisterSection, /Filter by attention category/);
+  assert.match(projectRegisterSection, /onClearAll=\{activeFilterCount > 0 \? onClearFilters : undefined\}/);
   assert.match(projectRegisterSection, /OperationsGrid/);
   assert.match(operationsGrid, /data-operations-grid/);
   assert.match(operationsGrid, /data-field-protected/);
