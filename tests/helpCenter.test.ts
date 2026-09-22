@@ -30,6 +30,7 @@ test("Help Center deep links render one article with recovery and related paths"
   assert.match(page, /helpTopicPath\(/);
   assert.match(route, /HelpCenterPage/);
   assert.match(page, /data-help-invalid-topic="true"/);
+  assert.match(page, /HELP_TOPICS\.find\(\(topic\) => topic\.id === requested\.topicId\)/);
   assert.doesNotMatch(page, /HELP_TOPICS\.map\(.*article\.steps/s);
 });
 
