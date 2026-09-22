@@ -269,7 +269,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   ? "bg-emerald-50 text-emerald-900 border-emerald-200"
                   : notification.type === "error"
                     ? "bg-rose-50 text-rose-900 border-rose-200"
-                    : "hqs-surface text-slate-800 hqs-border"
+                    : "hqs-surface hqs-primary-text hqs-border"
               }`}
             >
               <div className="flex min-w-0 items-start gap-2.5">
@@ -285,7 +285,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   type="button"
                   aria-label="Dismiss notification"
                   onClick={onDismissNotification}
-                  className="hqs-control inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg p-2 text-slate-400 hover:text-slate-700"
+                  className="hqs-control hqs-secondary-text inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg p-2 hover:opacity-80"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -323,15 +323,15 @@ export const AppShell: React.FC<AppShellProps> = ({
         </main>
 
         <footer
-          className={`hqs-surface border-t py-4 text-center text-xs text-slate-500 transition-[margin] duration-200 ${
+          className={`hqs-surface hqs-secondary-text border-t py-4 text-center text-xs transition-[margin] duration-200 ${
             isSidebarCollapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
           }`}
         >
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-4">
             <span>{footerText}</span>
             <nav aria-label="Workspace policy navigation" className="flex flex-wrap justify-center gap-x-3 gap-y-1 font-bold">
-              <a href="/privacy" className="text-slate-600 hover:text-slate-950">Privacy Policy</a>
-              <a href="/terms" className="text-slate-600 hover:text-slate-950">Terms of Service</a>
+              <a href="/privacy" className="hqs-secondary-text hover:opacity-80">Privacy Policy</a>
+              <a href="/terms" className="hqs-secondary-text hover:opacity-80">Terms of Service</a>
             </nav>
           </div>
         </footer>
