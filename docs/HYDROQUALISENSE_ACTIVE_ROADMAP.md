@@ -54,7 +54,7 @@ These phases are **archived/deferred, not cancelled**.
 The active program is now:
 
 1. **UX-S3A + UX-S3A2 — Comparative UI research, app-wide instruction-density audit, and Jev-browser validation are complete for the recorded research boundary.** The durable report at `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md` records direct public comparator observations, current safe-demo route/state evidence, the Keep / Shorten / Contextual Help / Help Center / Remove classification, matched Jev/Codex browser results, shared root causes, workflow friction, Help Center taxonomy, limitations, and the S3B readiness decision. No broad UI remediation was implemented.
-2. **UX-S3B — Help Center + contextual-help static foundation is implemented at application-bearing SHA `2e9fa81815bdeaec11e39ba834e37860ddea64cf`, with responsive browser evidence still pending.** The branch adds a canonical 35-topic/13-category registry, `/help` topic deep links, a shared route-aware page Help action, and accessible click/tap contextual popovers with three safe exemplars. Task-critical instructions remain visible; no S3C copy cleanup or S3D workflow redesign was started. S3B does not claim authenticated comparator parity, hosted/provider/production certification, or responsive product certification until the protected browser evidence is available.
+2. **UX-S3B — Help Center + contextual-help static foundation is implemented at final application-bearing SHA `cddcb1ec1e3bc269642487bf5774a1ba55894389`, with responsive browser evidence still pending.** The branch adds a canonical 35-topic/13-category registry, `/help` topic deep links, a shared route-aware page Help action, and accessible click/tap contextual popovers with three safe exemplars. Task-critical instructions remain visible; no S3C copy cleanup or S3D workflow redesign was started. S3B does not claim authenticated comparator parity, hosted/provider/production certification, or responsive product certification until the protected browser evidence is available.
 3. **UX-S3C — App-wide visible-copy simplification.** Remove obvious/redundant instructional prose, shorten page/section chrome, collapse optional explanation, reduce nested instructional cards, and make the current task/data/actions dominate the first useful viewport.
 4. **UX-S3D — Workflow-friction hardening.** Audit multi-step workflows for duplicate actions, unnecessary confirmation, unclear state transitions, inconsistent action placement, weak defaults, preventable navigation, and recoverability. Improve existing workflows without adding new business domains.
 5. **UX-S3E — Accessibility, responsive, and visual closeout.** Re-run app-wide route/state evidence at desktop, constrained laptop, tablet, and phone; verify keyboard/focus/contextual-help behavior and close the highest-impact clutter/friction findings.
@@ -103,7 +103,7 @@ This override supersedes older wording that names workforce expansion, Finance U
 The bounded UX-S3B implementation starts from synchronized `main` SHA
 `e5ae27c9c12ed0cab19902cd6cd53dc0626ed884` on branch
 `codex/ux-s3b-help-center`. The application-bearing implementation head before
-documentation synchronization is `2e9fa81815bdeaec11e39ba834e37860ddea64cf`.
+documentation synchronization is `cddcb1ec1e3bc269642487bf5774a1ba55894389` before this final handoff update.
 
 The implementation adds one canonical repository-backed Help model at
 `src/help/helpCatalog.ts` and keeps `src/assistant/helpCatalog.ts` as a

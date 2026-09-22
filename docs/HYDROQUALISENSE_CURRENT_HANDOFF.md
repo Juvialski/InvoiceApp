@@ -67,7 +67,8 @@ completion.
 
 The implementation is on branch `codex/ux-s3b-help-center`, from synchronized
 `main` SHA `e5ae27c9c12ed0cab19902cd6cd53dc0626ed884`; application-bearing head
-before documentation synchronization is `2e9fa81815bdeaec11e39ba834e37860ddea64cf`.
+final application-bearing head before this final documentation synchronization is
+`cddcb1ec1e3bc269642487bf5774a1ba55894389`.
 
 The canonical Help registry at `src/help/helpCatalog.ts` contains **35** current
 topics across **13** categories and **16** route-default mappings. The existing
