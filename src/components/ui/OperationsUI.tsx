@@ -1,13 +1,14 @@
 import React, { useId, useState } from "react";
 import { Badge as AstryxBadge } from "@astryxdesign/core/Badge";
 import { EmptyState as AstryxEmptyState } from "@astryxdesign/core/EmptyState";
+import { Button as AstryxButton, type ButtonProps, type ButtonVariant } from "@astryxdesign/core/Button";
 import { CheckCircle2, CircleAlert, Info, Loader2, RotateCcw, type LucideIcon } from "lucide-react";
 import { HelpAction } from "../help/HelpAction.tsx";
 import type { HelpTopicId } from "../../help/helpCatalog.ts";
 
 export type StatusTone = "neutral" | "info" | "success" | "warning" | "danger";
 
-const surfaceClasses = "rounded-lg border border-slate-200/90 bg-white";
+const surfaceClasses = "hqs-surface rounded-lg";
 
 export function Surface({
   children,
@@ -35,12 +36,18 @@ const toneToVariant = (tone: StatusTone) => {
 };
 
 const metricClasses: Record<StatusTone, string> = {
-  neutral: "bg-slate-100 text-slate-700",
-  info: "bg-sky-50 text-sky-700",
-  success: "bg-emerald-50 text-emerald-700",
-  warning: "bg-amber-50 text-amber-700",
-  danger: "bg-rose-50 text-rose-700",
+  neutral: "hqs-surface-muted hqs-secondary-text",
+  info: "hqs-attention-info",
+  success: "hqs-exception-success",
+  warning: "hqs-exception-warning",
+  danger: "hqs-exception-danger",
 };
+
+export type ActionButtonProps = Omit<ButtonProps, "variant"> & { variant?: ButtonVariant };
+
+export function ActionButton({ variant = "secondary", className = "", ...props }: ActionButtonProps) {
+  return <AstryxButton {...props} variant={variant} className={`hqs-action-button ${className}`} />;
+}
 
 export function StatusBadge({
   children,
@@ -65,11 +72,11 @@ export function StatusBadge({
 }
 
 export function PageHeader({ eyebrow, title, description, actions, className = "", helpTopicId }: { eyebrow?: string; title: string; description?: string; actions?: React.ReactNode; className?: string; helpTopicId?: HelpTopicId | null }) {
-  return <header data-ui="page-header" className={`flex min-w-0 flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+  return <header data-ui="page-header" className={`flex min-w-0 flex-col gap-3 border-b hqs-border pb-4 sm:flex-row sm:items-center sm:justify-between ${className}`}>
     <div className="min-w-0">
-      {eyebrow && <p className="text-[11px] font-semibold tracking-[0.12em] text-indigo-600">{eyebrow}</p>}
-      <h1 data-ui="page-header-title" className="mt-0.5 text-[1.65rem] font-extrabold tracking-tight text-slate-950 sm:text-[1.75rem]">{title}</h1>
-      {description && <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-500">{description}</p>}
+      {eyebrow && <p className="hqs-accent-text text-[11px] font-semibold tracking-[0.12em]">{eyebrow}</p>}
+      <h1 data-ui="page-header-title" className="hqs-primary-text mt-0.5 text-[1.65rem] font-extrabold tracking-tight sm:text-[1.75rem]">{title}</h1>
+      {description && <p className="hqs-secondary-text mt-1 max-w-2xl text-sm leading-5">{description}</p>}
     </div>
     <div data-ui="page-header-actions" className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}<HelpAction topicId={helpTopicId} /></div>
   </header>;
@@ -78,8 +85,8 @@ export function PageHeader({ eyebrow, title, description, actions, className = "
 export function SectionHeader({ title, description, action, icon: Icon, className = "" }: { title: string; description?: string; action?: React.ReactNode; icon?: LucideIcon; className?: string }) {
   return <div data-ui="section-header" className="flex items-start justify-between gap-3">
     <div className="min-w-0">
-      <h2 className={`flex items-center gap-2 text-base font-bold text-slate-950 ${className}`}>{Icon && <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-600" />}{title}</h2>
-      {description && <p className="mt-0.5 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">{description}</p>}
+      <h2 className={`hqs-primary-text flex items-center gap-2 text-base font-bold ${className}`}>{Icon && <Icon aria-hidden="true" className="hqs-accent-text h-4 w-4 shrink-0" />}{title}</h2>
+      {description && <p className="hqs-secondary-text mt-0.5 max-w-2xl text-xs leading-5 sm:text-sm">{description}</p>}
     </div>
     {action && <div className="shrink-0">{action}</div>}
   </div>;
@@ -111,13 +118,13 @@ export function FilterBar({
   className?: string;
 }) {
   return (
-    <section data-ui="filter-bar" className={"rounded-lg border border-slate-200/90 bg-white/90 p-2.5 sm:p-3 " + className} aria-label={ariaLabel}>
+    <section data-ui="filter-bar" className={"hqs-surface rounded-lg p-2.5 sm:p-3 " + className} aria-label={ariaLabel}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
         <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">{children}</div>
         {(resultLabel || (hasActiveFilters && onReset)) && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+          <div className="hqs-secondary-text flex shrink-0 flex-wrap items-center gap-2 text-xs font-semibold">
             {resultLabel && <span role="status" aria-live="polite">{resultLabel}</span>}
-            {hasActiveFilters && onReset && <button type="button" onClick={onReset} className="inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">{resetLabel}</button>}
+            {hasActiveFilters && onReset && <button type="button" onClick={onReset} className="hqs-control hqs-focus-ring inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 text-xs font-bold">{resetLabel}</button>}
           </div>
         )}
       </div>
@@ -141,7 +148,7 @@ export function DisclosureSection({
   const [open, setOpen] = useState(defaultOpen);
   const contentId = "disclosure-" + useId().replace(/:/g, "");
   return (
-    <section data-ui="disclosure-section" className={"rounded-lg border border-slate-200/90 bg-white " + className}>
+    <section data-ui="disclosure-section" className={"hqs-surface rounded-lg " + className}>
       <button
         type="button"
         className="flex min-h-10 w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left"
@@ -149,13 +156,13 @@ export function DisclosureSection({
         aria-controls={contentId}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="min-w-0">
-          <span className="block text-sm font-black text-slate-900">{title}</span>
-          {description && <span className="mt-0.5 block text-xs leading-5 text-slate-500">{description}</span>}
+          <span className="min-w-0">
+          <span className="hqs-primary-text block text-sm font-black">{title}</span>
+          {description && <span className="hqs-secondary-text mt-0.5 block text-xs leading-5">{description}</span>}
         </span>
         <span aria-hidden="true" className={"shrink-0 text-lg leading-none text-slate-400 transition-transform " + (open ? "rotate-180" : "")}>⌄</span>
       </button>
-      {open && <div id={contentId} className="border-t border-slate-100 p-3.5">{children}</div>}
+      {open && <div id={contentId} className="hqs-border border-t p-3.5">{children}</div>}
     </section>
   );
 }
@@ -183,15 +190,15 @@ export function MetricCard({
   const valueTitle = !loading ? valueText : undefined;
   const metricAriaLabel = loading ? `${label}: Loading` : valueText ? `${label}: ${valueText}` : label;
   return (
-    <article data-ui="metric-card" aria-label={metricAriaLabel} className={`flex min-w-0 h-full flex-col rounded-lg border border-slate-200/90 bg-white p-3.5 sm:p-4 ${emphasis ? "border-indigo-100" : ""} ${className}`}>
+    <article data-ui="metric-card" aria-label={metricAriaLabel} className={`hqs-surface-raised flex min-w-0 h-full flex-col rounded-lg p-3.5 sm:p-4 ${emphasis ? "border-indigo-100" : ""} ${className}`}>
       <div className="flex items-start justify-between gap-3">
         {Icon && <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${metricClasses[tone]}`}><Icon aria-hidden="true" className="h-4 w-4" /></span>}
       </div>
-      <p className="mt-2 max-w-full break-words whitespace-normal text-lg font-black tabular-nums tracking-tight text-slate-950 sm:text-xl xl:text-[1.35rem]" title={valueTitle}>
+      <p className="hqs-primary-text mt-2 max-w-full break-words whitespace-normal text-lg font-black tabular-nums tracking-tight sm:text-xl xl:text-[1.35rem]" title={valueTitle}>
         {loading ? <span className="inline-block h-6 w-16 animate-pulse rounded-md bg-slate-200 align-middle" /> : value}
       </p>
       <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 sm:text-sm">{label}</p>
-      {detail && <p className="mt-0.5 text-xs leading-5 text-slate-500 sm:min-h-5">{detail}</p>}
+      {detail && <p className="hqs-secondary-text mt-0.5 text-xs leading-5 sm:min-h-5">{detail}</p>}
     </article>
   );
 }
@@ -210,7 +217,7 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={`rounded-lg border border-dashed border-slate-300 bg-white px-5 py-6 text-center ${className}`} role="region" aria-label={title}>
+    <div className={`hqs-surface rounded-lg border-dashed px-5 py-6 text-center ${className}`} role="region" aria-label={title}>
       <AstryxEmptyState
         title={title}
         description={description}
@@ -222,10 +229,10 @@ export function EmptyState({
 }
 
 const noticeClasses: Record<Exclude<StatusTone, "neutral">, string> = {
-  info: "border-sky-200 bg-sky-50 text-sky-950",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-950",
-  warning: "border-amber-200 bg-amber-50 text-amber-950",
-  danger: "border-rose-200 bg-rose-50 text-rose-950",
+  info: "hqs-exception-info",
+  success: "hqs-exception-success",
+  warning: "hqs-exception-warning",
+  danger: "hqs-exception-danger",
 };
 
 export function Notice({ children, tone = "info" }: { children: React.ReactNode; tone?: Exclude<StatusTone, "neutral"> }) {
@@ -237,14 +244,14 @@ export function Notice({ children, tone = "info" }: { children: React.ReactNode;
 }
 
 export function LoadingState({ label = "Loading", className = "" }: { label?: string; className?: string }) {
-  return <div className={`flex min-h-20 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-slate-500 ${className}`} role="status" aria-label={label}>
-    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-indigo-600" />
+  return <div className={`hqs-surface hqs-secondary-text flex min-h-20 items-center justify-center gap-2 rounded-lg px-4 py-5 text-sm font-semibold ${className}`} role="status" aria-label={label}>
+    <Loader2 aria-hidden="true" className="hqs-accent-text h-4 w-4 animate-spin" />
     <span>{label}</span>
   </div>;
 }
 
 export function ErrorState({ title = "We could not load this view", description = "Try again, or return to the previous screen if the problem continues.", onRetry, onReload, className = "" }: { title?: string; description?: string; onRetry?: () => void; onReload?: () => void; className?: string }) {
-  return <div className={`rounded-lg border border-rose-200 bg-rose-50 px-4 py-4 text-rose-950 ${className}`} role="alert">
+  return <div className={`hqs-exception-danger rounded-lg px-4 py-4 ${className}`} role="alert">
     <div className="flex items-start gap-2.5">
       <CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" />
       <div className="min-w-0">
@@ -252,7 +259,7 @@ export function ErrorState({ title = "We could not load this view", description 
         <p className="mt-1 text-sm leading-5 text-rose-900">{description}</p>
         {(onRetry || onReload) && <div className="mt-3 flex flex-wrap gap-2">
           {onRetry && <button type="button" onClick={onRetry} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white hover:bg-rose-800"><RotateCcw aria-hidden="true" className="h-3.5 w-3.5" /> Try again</button>}
-          {onReload && <button type="button" onClick={onReload} className="inline-flex min-h-10 items-center rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs font-bold text-rose-900 hover:bg-rose-100">Reload page</button>}
+          {onReload && <button type="button" onClick={onReload} className="hqs-control inline-flex min-h-10 items-center rounded-lg px-3 py-2 text-xs font-bold">Reload page</button>}
         </div>}
       </div>
     </div>

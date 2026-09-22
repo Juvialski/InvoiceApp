@@ -4,20 +4,99 @@
 @import "./ui/hydroqualisense.css";
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #f8fafc;
+  background: light-dark(#f8fafc, #0f172a);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
-html { background: #f8fafc; }
-body { margin: 0; min-width: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; }
+html { background: var(--color-background-body, light-dark(#f8fafc, #0f172a)); }
+body {
+  margin: 0;
+  min-width: 0;
+  min-height: 100vh;
+  background: var(--color-background-body, light-dark(#f8fafc, #0f172a));
+  color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
+}
 button, input, select, textarea { font: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--color-accent, #6366f1);
   outline-offset: 2px;
 }
+
+.hqs-app-canvas {
+  background: var(--color-background-body, light-dark(#f8fafc, #0f172a));
+  color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
+}
+
+.hqs-surface,
+.hqs-surface-raised,
+.hqs-surface-muted,
+.hqs-popover {
+  border: 1px solid var(--color-border, light-dark(#e2e8f0, #334155));
+  color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
+}
+
+.hqs-surface { background: var(--color-background-surface, light-dark(#ffffff, #1e293b)); }
+.hqs-surface-raised {
+  background: var(--color-background-card, light-dark(#ffffff, #1e293b));
+  box-shadow: var(--shadow-low, 0 1px 2px rgb(15 23 42 / 0.05));
+}
+.hqs-surface-muted { background: var(--color-background-muted, light-dark(#f1f5f9, #1e293b)); }
+.hqs-popover {
+  background: var(--color-background-popover, light-dark(#ffffff, #1e293b));
+  box-shadow: var(--shadow-high, 0 10px 15px rgb(15 23 42 / 0.08));
+}
+.hqs-shell-header {
+  background: color-mix(in srgb, var(--color-background-surface, light-dark(#ffffff, #1e293b)) 95%, transparent);
+  border-color: var(--color-border, light-dark(#e2e8f0, #334155));
+}
+.hqs-primary-text { color: var(--color-text-primary, light-dark(#0f172a, #f8fafc)); }
+.hqs-secondary-text { color: var(--color-text-secondary, light-dark(#475569, #94a3b8)); }
+.hqs-accent-text { color: var(--color-text-accent, light-dark(#4f46e5, #818cf8)); }
+.hqs-border { border-color: var(--color-border, light-dark(#e2e8f0, #334155)); }
+.hqs-control,
+.hqs-input {
+  border: 1px solid var(--color-border, light-dark(#e2e8f0, #334155));
+  background: var(--color-background-surface, light-dark(#ffffff, #1e293b));
+  color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
+}
+.hqs-control:hover,
+.hqs-input:hover { border-color: var(--color-border-emphasized, light-dark(#cbd5e1, #475569)); }
+.hqs-input::placeholder { color: var(--color-text-secondary, light-dark(#475569, #94a3b8)); }
+.hqs-focus-ring:focus-visible {
+  outline: 2px solid var(--color-accent, #6366f1);
+  outline-offset: 2px;
+}
+.hqs-action-button { min-height: 2.5rem; border-radius: var(--radius-element, 0.5rem); }
+.hqs-choice {
+  border: 1px solid var(--color-border, light-dark(#e2e8f0, #334155));
+  background: var(--color-background-muted, light-dark(#f1f5f9, #1e293b));
+  color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
+}
+.hqs-choice:has(input:checked) {
+  border-color: var(--color-accent, #4f46e5);
+  box-shadow: inset 0 0 0 1px var(--color-accent, #4f46e5);
+}
+.hqs-exception-info { border-color: var(--color-border-emphasized); background: var(--color-accent-muted); color: var(--color-text-primary); }
+.hqs-exception-success { border-color: var(--color-success); background: var(--color-success-muted); color: var(--color-text-primary); }
+.hqs-exception-warning { border-color: var(--color-warning); background: var(--color-warning-muted); color: var(--color-text-primary); }
+.hqs-exception-danger { border-color: var(--color-error); background: var(--color-error-muted); color: var(--color-text-primary); }
+.hqs-attention-danger { border-color: var(--color-error); background: var(--color-error-muted); color: var(--color-error); }
+.hqs-attention-warning { border-color: var(--color-warning); background: var(--color-warning-muted); color: var(--color-warning); }
+.hqs-attention-info { border-color: var(--color-border-emphasized); background: var(--color-accent-muted); color: var(--color-text-accent); }
+.hqs-attention-neutral { border-color: var(--color-border); background: var(--color-background-muted); color: var(--color-text-secondary); }
+.hqs-cell-clean { background: var(--color-background-surface); color: var(--color-text-primary); }
+.hqs-cell-selected { background: var(--color-accent-muted); box-shadow: inset 0 0 0 1px var(--color-border-emphasized); }
+.hqs-cell-editing { background: var(--color-accent-muted); box-shadow: inset 0 0 0 2px var(--color-accent); }
+.hqs-cell-dirty { background: var(--color-warning-muted); }
+.hqs-cell-warning { background: var(--color-warning-muted); box-shadow: inset 0 0 0 1px var(--color-warning); }
+.hqs-cell-error { background: var(--color-error-muted); box-shadow: inset 0 0 0 1px var(--color-error); }
+.hqs-cell-protected { background: var(--color-background-muted); color: var(--color-text-secondary); }
+.hqs-cell-conflict { background: var(--color-warning-muted); box-shadow: inset 0 0 0 2px var(--color-warning); }
+.hqs-row-selected { background: var(--color-accent-muted); }
+.hqs-row-hover:hover { background: var(--color-background-muted); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -30,11 +109,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .ops-table th { white-space: nowrap; font-weight: 800; }
 .ops-table tbody tr { transition: background-color 120ms ease; }
-.ops-table tbody tr:hover { background: #f8fafc; }
+.ops-table tbody tr:hover { background: var(--color-background-muted, light-dark(#f8fafc, #1e293b)); }
 .ops-table td, .ops-table th { vertical-align: middle; }
 .ops-table { font-size: 0.875rem; line-height: 1.35rem; }
 .ops-table thead { font-size: 0.75rem; line-height: 1.1rem; }
-.ops-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.ops-scrollbar { scrollbar-width: thin; scrollbar-color: var(--color-border-emphasized, #cbd5e1) transparent; }
 
 /* Project invoice decisions use cards on narrow screens; keep the legacy
    register table available at laptop widths without rendering both views. */
@@ -62,9 +141,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   20% { box-shadow: 0 0 0 5px rgb(56 189 248 / 0.18); }
 }
 
-.field-label { display: block; font-size: 0.8125rem; line-height: 1.15rem; font-weight: 700; color: #475569; }
-.field-input { width: 100%; min-height: 2.625rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #fff; padding: 0.625rem 0.8rem; font-size: 0.875rem; line-height: 1.25rem; color: #1e293b; }
-.field-input:focus { outline: 2px solid rgba(99, 102, 241, 0.2); border-color: #818cf8; }
+.field-label { display: block; font-size: 0.8125rem; line-height: 1.15rem; font-weight: 700; color: var(--color-text-secondary, #475569); }
+.field-input { width: 100%; min-height: 2.625rem; border: 1px solid var(--color-border, #e2e8f0); border-radius: 0.75rem; background: var(--color-background-surface, #fff); padding: 0.625rem 0.8rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--color-text-primary, #1e293b); }
+.field-input:focus { outline: 2px solid color-mix(in srgb, var(--color-accent, #6366f1) 25%, transparent); border-color: var(--color-accent, #818cf8); }
 
 /* Permission risk must not look like access denial. Sensitive permissions keep
    a thin amber cue, while access state is carried by the explicit status text. */

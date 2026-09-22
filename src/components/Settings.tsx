@@ -9,6 +9,8 @@ import { CompanyDocumentProfileSettings } from "./access/CompanyDocumentProfileS
 import { DeploymentAiBootstrapSettings } from "./access/DeploymentAiBootstrapSettings.tsx";
 import { UserDocumentIdentitySettings } from "./access/UserDocumentIdentitySettings.tsx";
 import { ProductFeaturesRoadmap } from "./ProductFeaturesRoadmap.tsx";
+import { ActionButton } from "./ui/OperationsUI.tsx";
+import { ThemePreferenceSettings } from "./ui/ThemePreferenceSettings.tsx";
 import { appPathForDocumentsWorkspace } from "../utils/appRouting.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
 
@@ -33,21 +35,23 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
         description="Regional settings and company access for this deployment."
       />
 
-      <section className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 shadow-sm sm:p-5" aria-labelledby="settings-document-templates-title" data-settings-document-templates-link="true">
+      <section className="hqs-surface-raised rounded-xl p-4 sm:p-5" aria-labelledby="settings-document-templates-title" data-settings-document-templates-link="true">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p id="settings-document-templates-title" className="text-sm font-black text-slate-950">Document templates</p>
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-600">Manage approved Word designs, mappings, versions, and activation from Documents.</p>
+            <p id="settings-document-templates-title" className="hqs-primary-text text-sm font-black">Document templates</p>
+            <p className="hqs-secondary-text mt-1 max-w-3xl text-xs leading-5">Manage approved Word designs, mappings, versions, and activation from Documents.</p>
           </div>
-          <button type="button" onClick={() => { const path = appPathForDocumentsWorkspace("templates"); if (onNavigatePath) onNavigatePath(path); else if (typeof window !== "undefined") window.location.assign(path); }} className="inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white hover:bg-indigo-700">Manage Document Templates</button>
+          <ActionButton variant="primary" label="Manage Document Templates" onClick={() => { const path = appPathForDocumentsWorkspace("templates"); if (onNavigatePath) onNavigatePath(path); else if (typeof window !== "undefined") window.location.assign(path); }} />
         </div>
       </section>
+
+      <ThemePreferenceSettings />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {showDeploymentAccessManagement ? (
           <CompanyProfileSettings />
         ) : (
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-center">
+          <div className="hqs-surface-raised rounded-xl p-5 flex flex-col justify-center">
             <SectionHeader
               title="Deployment company"
               description="Company profile controls are database-backed in production."
@@ -55,10 +59,10 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
           </div>
         )}
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm flex flex-col justify-between" aria-label="Regional display preferences">
+        <section className="hqs-surface-raised rounded-xl p-4 sm:p-5 flex flex-col justify-between" aria-label="Regional display preferences">
           <div>
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0">
+              <div className="hqs-surface-muted hqs-accent-text w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
                 <Globe2 className="w-5 h-5" />
               </div>
               <div className="min-w-0 flex-1">
@@ -74,19 +78,19 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
             </div>
 
             <div className="grid sm:grid-cols-2 gap-3 mt-5">
-              <div className="rounded-xl bg-slate-50 p-3.5 flex items-center gap-2.5">
+              <div className="hqs-surface-muted rounded-xl p-3.5 flex items-center gap-2.5">
                 <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span className="text-xs font-medium text-slate-600">Country: <strong className="font-bold text-slate-900">{settings.country}</strong></span>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3.5 flex items-center gap-2.5">
+              <div className="hqs-surface-muted rounded-xl p-3.5 flex items-center gap-2.5">
                 <Globe2 className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span className="text-xs font-medium text-slate-600">Locale: <strong className="font-bold text-slate-900">{settings.locale}</strong></span>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3.5 flex items-center gap-2.5">
+              <div className="hqs-surface-muted rounded-xl p-3.5 flex items-center gap-2.5">
                 <Coins className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span className="text-xs font-medium text-slate-600">Currency: <strong className="font-bold text-slate-900">{settings.currency}</strong></span>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3.5 flex items-center gap-2.5">
+              <div className="hqs-surface-muted rounded-xl p-3.5 flex items-center gap-2.5">
                 <Clock3 className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span className="text-xs font-medium text-slate-600">Timezone: <strong className="font-bold text-slate-900">{settings.timezone}</strong></span>
               </div>
@@ -95,11 +99,11 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-500"><ContextualHelp label="Regional display preference help" title="Regional display preferences" articleTopicId="settings">These browser preferences control presentation only. They do not change company access, financial authority, or role permissions.</ContextualHelp><span>About display preferences</span></div>
 
             <div className="mt-4 grid sm:grid-cols-2 gap-3">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5">
+              <div className="hqs-surface-muted hqs-border rounded-xl border p-3.5">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Currency handling</p>
                 <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">Source currencies remain visible on imported invoices. No automatic conversion is applied.</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5">
+              <div className="hqs-surface-muted hqs-border rounded-xl border p-3.5">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Review checks</p>
                 <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">VAT, completeness, and reconciliation checks stay available for reviewer action.</p>
               </div>

@@ -205,7 +205,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       projectCostCompleteness={projectCostCompleteness}
       workspaceDataPending={workspaceDataPending}
     >
-      <div data-app-shell="true" className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      <div data-app-shell="true" className="hqs-app-canvas min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
         <DeploymentEnvironmentBanner />
         <Header
           activeTab={activeTab}
@@ -246,7 +246,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   type="button"
                   onClick={onReloadRemoteInvoice}
                   disabled={saveState === "saving"}
-                  className="inline-flex min-h-10 items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="hqs-control inline-flex min-h-10 items-center rounded-lg px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reload latest
                 </button>
@@ -269,7 +269,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   ? "bg-emerald-50 text-emerald-900 border-emerald-200"
                   : notification.type === "error"
                     ? "bg-rose-50 text-rose-900 border-rose-200"
-                    : "bg-white text-slate-800 border-slate-200"
+                    : "hqs-surface text-slate-800 hqs-border"
               }`}
             >
               <div className="flex min-w-0 items-start gap-2.5">
@@ -285,7 +285,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   type="button"
                   aria-label="Dismiss notification"
                   onClick={onDismissNotification}
-                  className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  className="hqs-control inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg p-2 text-slate-400 hover:text-slate-700"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -294,7 +294,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           )}
 
           {workspaceLoading && (
-            <div className="mb-5 flex min-h-10 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3.5 text-sm font-semibold">
+            <div className="hqs-surface mb-5 flex min-h-10 items-center gap-2 rounded-2xl p-3.5 text-sm font-semibold">
               <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
               Loading workspace…
             </div>
@@ -323,7 +323,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         </main>
 
         <footer
-          className={`border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 transition-[margin] duration-200 ${
+          className={`hqs-surface border-t py-4 text-center text-xs text-slate-500 transition-[margin] duration-200 ${
             isSidebarCollapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
           }`}
         >

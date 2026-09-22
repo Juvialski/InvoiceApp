@@ -36,7 +36,7 @@ export function WorksheetTabs({ ariaLabel, tabs, value, onChange, className = ""
   };
 
   return (
-    <div role="tablist" aria-label={ariaLabel} aria-orientation="horizontal" className={`flex min-w-0 gap-1 overflow-x-auto border-b border-slate-200 ${className}`}>
+    <div role="tablist" aria-label={ariaLabel} aria-orientation="horizontal" className={`hqs-border flex min-w-0 gap-1 overflow-x-auto border-b ${className}`}>
       {tabs.map((tab, index) => {
         const selected = tab.id === value;
         return (

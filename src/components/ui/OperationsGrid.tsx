@@ -104,11 +104,11 @@ export function OperationsGrid<T>({
   };
 
   if (!sortedRows.length) {
-    return <div data-operations-grid="true" className={`overflow-hidden rounded-xl border border-slate-200 bg-white ${className}`}><div className="p-6 text-center text-xs text-slate-500">{emptyState}</div></div>;
+    return <div data-operations-grid="true" className={`hqs-surface-raised overflow-hidden rounded-xl ${className}`}><div className="hqs-secondary-text p-6 text-center text-xs">{emptyState}</div></div>;
   }
 
   return (
-    <div data-operations-grid="true" className={`overflow-hidden rounded-xl border border-slate-200 bg-white ${className}`}>
+    <div data-operations-grid="true" className={`hqs-surface-raised overflow-hidden rounded-xl ${className}`}>
       <div className="max-h-[min(65vh,48rem)] overflow-auto">
         <table
           role="grid"
@@ -116,7 +116,7 @@ export function OperationsGrid<T>({
           aria-rowcount={sortedRows.length + 1}
           className="w-full border-collapse text-left text-xs"
         >
-          <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+          <thead className="hqs-surface-muted hqs-secondary-text sticky top-0 z-10 border-b text-[10px] uppercase tracking-wide">
             <tr role="row">
               {columns.map((column) => {
                 const sorted = sortKey === column.key;
@@ -127,7 +127,7 @@ export function OperationsGrid<T>({
                     aria-sort={sorted ? sortDirection === "asc" ? "ascending" : "descending" : "none"}
                     className={`whitespace-nowrap px-3 ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${column.headerClassName || ""}`}
                   >
-                    <button type="button" onClick={() => toggleSort(column)} className="inline-flex items-center gap-1 font-black hover:text-slate-900">
+                    <button type="button" onClick={() => toggleSort(column)} className="hqs-focus-ring inline-flex items-center gap-1 font-black hover:text-slate-900">
                       {column.header}
                       {sorted && <span aria-hidden="true">{sortDirection === "asc" ? "↑" : "↓"}</span>}
                     </button>
@@ -149,7 +149,7 @@ export function OperationsGrid<T>({
                   aria-selected={selected}
                   onClick={() => selectRow(row)}
                   onDoubleClick={() => onRowActivate?.(row)}
-                  className={`border-b border-slate-100 transition-colors ${selected ? "bg-indigo-50/70" : "hover:bg-slate-50/80"}`}
+                  className={`hqs-border border-b transition-colors ${selected ? "hqs-row-selected" : "hqs-row-hover"}`}
                 >
                   {columns.map((column, columnIndex) => {
                     const editable = resolveFlag(column.editable, row);
