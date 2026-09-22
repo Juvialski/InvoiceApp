@@ -36,7 +36,7 @@ export function WorksheetTabs({ ariaLabel, tabs, value, onChange, className = ""
   };
 
   return (
-    <div role="tablist" aria-label={ariaLabel} aria-orientation="horizontal" className={`flex min-w-0 gap-1 overflow-x-auto border-b border-slate-200 ${className}`}>
+    <div role="tablist" aria-label={ariaLabel} aria-orientation="horizontal" className={`hqs-border flex min-w-0 gap-1 overflow-x-auto border-b ${className}`}>
       {tabs.map((tab, index) => {
         const selected = tab.id === value;
         return (
@@ -56,9 +56,9 @@ export function WorksheetTabs({ ariaLabel, tabs, value, onChange, className = ""
               if (event.key === "Home") { event.preventDefault(); focusTab(tabs.findIndex((candidate) => !candidate.disabled)); }
               if (event.key === "End") { event.preventDefault(); focusTab([...tabs].map((candidate, candidateIndex) => ({ candidate, candidateIndex })).reverse().find(({ candidate }) => !candidate.disabled)?.candidateIndex ?? -1); }
             }}
-            className={`min-h-10 shrink-0 border-b-2 px-3 py-2 text-xs font-black transition-colors ${selected ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"} disabled:cursor-not-allowed disabled:opacity-45`}
+            className={`min-h-10 shrink-0 border-b-2 px-3 py-2 text-xs font-black transition-colors ${selected ? "border-[var(--color-accent)] hqs-accent-text" : "border-transparent hqs-secondary-text hover:opacity-80"} disabled:cursor-not-allowed disabled:opacity-45`}
           >
-            {tab.label}{tab.count !== undefined && <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-600">{tab.count}</span>}
+            {tab.label}{tab.count !== undefined && <span className="hqs-muted-fill hqs-secondary-text ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums">{tab.count}</span>}
           </button>
         );
       })}

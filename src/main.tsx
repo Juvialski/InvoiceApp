@@ -15,7 +15,7 @@ function Root() {
   const mode = applicationModeForPath(window.location.pathname, window.location.search, window.location.hash, undefined, window.location.hostname);
   return (
     <HydroqualisenseThemeProvider>
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-600">Loading {BRAND.productName}…</div>}>
+      <Suspense fallback={<div className="hqs-app-canvas hqs-primary-text flex min-h-screen items-center justify-center text-sm font-semibold">Loading {BRAND.productName}…</div>}>
         {mode === 'workflow-map' ? (
           <WorkflowMapRoot />
         ) : mode === 'demo' ? (

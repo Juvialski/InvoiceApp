@@ -17,8 +17,8 @@ test("narrow operational registers use progressive disclosure instead of forced 
   assert.match(expenses, /className="hidden lg:block"/);
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
   assert.match(projectRegister, /data-project-id=\{project\.id\}/);
-  assert.match(projectRegister, /className="min-w-0 w-full overflow-hidden shadow-sm"/);
-  assert.match(projectRegister, /className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-slate-100 p-3"/);
+  assert.match(projectRegister, /className="hqs-surface-raised min-w-0 w-full overflow-hidden/);
+  assert.match(projectRegister, /className="hqs-border flex min-w-0 flex-wrap items-center justify-between gap-2 border-t p-3"/);
   assert.match(projectRegister, /Open project workspace for/);
   assert.match(purchaseOrderRegister, /aria-label="Purchase order register cards"/);
   assert.match(rfqRegister, /aria-label="RFQ register cards"/);
@@ -294,9 +294,14 @@ test("representative worksheet consumers expose stable responsive surfaces and k
   assert.match(supplierInvoice, /showActionBar=\{false\}/);
 });
 
-test("desktop Projects filters reserve readable space for project search", () => {
+test("Projects use one shared compact filter/action bar with advanced disclosure", () => {
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
-  assert.match(projectRegister, /<div className="relative xl:col-span-2">[\s\S]*aria-label="Search projects"/);
-  assert.match(projectRegister, /<details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-2 xl:col-span-3"/);
-  assert.match(projectRegister, /<div className="flex gap-2 xl:col-span-2">[\s\S]*aria-label="Sort projects by field"/);
+  assert.match(projectRegister, /<CompactActionBar[\s\S]*ariaLabel="Project filters and actions"/);
+  assert.match(projectRegister, /activeFilterValues=\{/);
+  assert.match(projectRegister, /ariaLabel:\s*"Search projects"/);
+  assert.match(projectRegister, /aria-label="Filter by project status"/);
+  assert.match(projectRegister, /aria-label="Filter by project manager"/);
+  assert.match(projectRegister, /aria-label="Filter by project currency"/);
+  assert.match(projectRegister, /aria-label="Sort projects by field"/);
+  assert.match(projectRegister, /onClearAll=\{activeFilterCount > 0 \? onClearFilters : undefined\}/);
 });
