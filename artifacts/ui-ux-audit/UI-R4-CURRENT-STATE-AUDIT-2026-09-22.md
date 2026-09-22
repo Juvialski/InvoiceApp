@@ -461,3 +461,19 @@ No live email/SMS was sent.
 No new customer-facing product domain was authorized.
 
 This report exists to give the next Codex run a concrete current-state evidence base and to prevent Round 4 from repeating broad visual rediscovery.
+
+
+## 2026-09-23 field finding — Dark mode foreground contrast is currently unacceptable
+
+The user reports that current deployed Dark mode largely darkens backgrounds while many foreground styles do not adapt with sufficient contrast. This matches the static audit: many non-proving surfaces still contain hard-coded light-theme `text-slate-*`, `bg-white`, `bg-slate-50`, and `border-slate-*` treatment instead of the R4B semantic layer.
+
+**Disposition: P1 visual blocker for final Round 4 certification.**
+
+Planning impact:
+
+- **R4C:** Home and Project Portfolio must be genuinely Dark-ready on the exact touched surfaces. Do not ship a new Home that repeats the background-only theme failure.
+- **R4D:** media/fallback/overlay/caption treatment must work in both themes where media appears.
+- **R4E:** perform the app-wide contrast remediation and certification. This includes text, muted text, status copy, inputs, borders, focus, selected state, icons, charts/legends, disabled/placeholder states, dialogs/popovers, empty/error/loading states, and page-specific controls.
+- Low-contrast Dark text/control defects are P1, not cosmetic follow-up.
+
+The existing semantic `hqs-*`/Astryx token system remains the source of truth. The fix should migrate legacy structural styles onto that system rather than create a second dark palette or hundreds of unrelated `dark:` patches.

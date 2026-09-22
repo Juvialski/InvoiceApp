@@ -671,3 +671,48 @@ Round 4 does not authorize:
 - replacement of Astryx with another full component library;
 - broad database changes before R4D;
 - removal of audit/history/provenance/permission safeguards.
+
+
+## 17. 2026-09-23 field correction — Dark mode contrast is a release blocker
+
+A deployed-user review after R4B found that Dark mode is **not professionally usable app-wide yet**. On multiple remaining legacy surfaces, the background becomes dark while text, borders, muted labels, controls, and semantic states continue to use light-theme assumptions. The result is low contrast and inconsistent hierarchy.
+
+This is now a binding Round 4 requirement, not optional polish.
+
+### R4C requirement for touched surfaces
+
+R4C remains **Home Dashboard + Project Portfolio**. It must not expand into an app-wide theme rewrite, but every surface it changes must be visually complete in Light and Dark:
+
+- Home / Dashboard;
+- Operations Insights entry and any changed analytics framing;
+- Project Portfolio cards/list/filter controls;
+- shared shell/header primitives only where R4C changes them.
+
+For those touched surfaces, merely changing the canvas/background is insufficient. Text, secondary text, icons, borders, controls, selected/focus states, status surfaces, empty/loading/error states, tooltips/popovers, charts/legends where shown, and disabled states must all use semantic theme tokens and remain readable.
+
+### R4E app-wide contrast remediation
+
+R4E is the authoritative app-wide cleanup and certification phase. It must explicitly include **Dark-mode contrast remediation**, not only theme propagation.
+
+R4E must:
+
+1. inventory hard-coded light-theme text/background/border/control assumptions on every remaining existing route;
+2. migrate structural styling to the existing Astryx/HydroQualiSense semantic theme layer rather than piling on page-specific `dark:` overrides;
+3. verify ordinary body text and important labels against WCAG AA contrast expectations (normally 4.5:1 for regular text, 3:1 for large text);
+4. verify non-text UI boundaries, focus indicators, selected states, input borders, meaningful icons, and actionable controls remain distinguishable (target 3:1 where WCAG non-text contrast applies);
+5. preserve semantic warning/success/error meaning without producing unreadable colored text on dark fills;
+6. check disabled and placeholder text for intentional hierarchy without making them illegible;
+7. inspect real screenshots in Light and Dark at desktop, constrained laptop, tablet, and phone for the affected routes;
+8. treat low-contrast text or controls that materially impair use as a **P1 visual blocker** for Round 4 certification.
+
+Automated "no overflow", DOM, route, and screenshot-capture PASS results are not sufficient. The lead must visually inspect actual Dark screenshots.
+
+### Explicit anti-pattern
+
+Do **not** represent Dark mode as complete when only the page canvas or card background changes.
+
+A valid Dark-mode migration requires coordinated semantic foreground, background, border, control, focus, and status treatment. Light-mode Tailwind assumptions such as `text-slate-900`, `text-slate-700`, `bg-white`, `bg-slate-50`, and `border-slate-200` must not remain as structural defaults on a dark surface unless intentionally mapped through the semantic theme layer.
+
+This clarification does not change the approved sequence:
+
+`R4C Home + Project Portfolio -> R4D entity media -> R4E app-wide rollout + contrast/accessibility certification`.

@@ -1583,3 +1583,18 @@ The audit does not change the approved Round 4 sequence. It tightens R4C around 
 R4E should migrate the remaining legacy page-level light/slate/button grammar onto the R4B semantic/action system rather than introduce another design system. Suggested internal R4E ordering is: high-friction daily finance/communication/payroll workflows first, then operations registers, then full Light/Dark/System and responsive certification.
 
 Separate current reliability follow-ups remain the Payroll ownership-persistence error and Brevo connection/status failure; neither should be hidden by visual cleanup.
+
+
+### 2026-09-23 Dark-mode contrast correction — mandatory Round 4 acceptance
+
+Current deployed Dark mode is not accepted as complete. User review reports a background-first darkening effect with foreground text/control contrast that is not consistently usable, and the current-state audit shows substantial remaining hard-coded light-theme styling outside the R4B proving surfaces.
+
+The approved sequence remains unchanged, with stronger acceptance gates:
+
+- **UI-R4C — Home Dashboard + Project Portfolio:** next. All R4C-touched Home/Projects surfaces must be fully legible and visually coherent in both Light and Dark; no background-only theme treatment.
+- **UI-R4D — entity media:** media overlays/fallbacks/captions must respect both themes.
+- **UI-R4E — app-wide rollout + certification:** explicitly owns app-wide Dark-mode foreground/background/border/control/status/focus remediation and contrast certification. Low-contrast Dark UI is a P1 Round 4 blocker.
+
+Use the existing Astryx/HydroQualiSense semantic theme system. Do not introduce a separate dark palette or solve the app by scattering unrelated page-specific `dark:` utilities.
+
+Final R4E certification must visually inspect actual screenshots in Light and Dark across desktop, constrained laptop, tablet, and phone and apply WCAG AA contrast expectations to text and relevant non-text controls/focus states.
