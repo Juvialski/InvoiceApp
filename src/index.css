@@ -69,6 +69,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline: 2px solid var(--color-accent, #6366f1);
   outline-offset: 2px;
 }
+.hqs-search-control:focus-within {
+  outline: 2px solid var(--color-accent, #6366f1);
+  outline-offset: 2px;
+}
+.hqs-muted-fill { background: var(--color-background-muted, light-dark(#f1f5f9, #1e293b)); }
+.hqs-success-text { color: var(--color-success, light-dark(#047857, #34d399)); }
+.hqs-warning-text { color: var(--color-warning, light-dark(#b45309, #fbbf24)); }
+.hqs-danger-text { color: var(--color-error, light-dark(#be123c, #fb7185)); }
 .hqs-action-button { min-height: 2.5rem; border-radius: var(--radius-element, 0.5rem); }
 .hqs-choice {
   border: 1px solid var(--color-border, light-dark(#e2e8f0, #334155));
