@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B READY NEXT / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
-Date: **2026-09-21**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B STATIC FOUNDATION IMPLEMENTED WITH RESPONSIVE BROWSER EVIDENCE PENDING / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED**
+Date: **2026-09-22**
 Repository: `Juvialski/InvoiceApp`
 
 RI-0 Repository Intelligence planning was prepared from the earlier current
@@ -62,6 +62,59 @@ page-level Help action, accessible click/tap popovers for brief explanations,
 and visible task-critical state. It must not claim authenticated comparator
 parity, browse/edit certification, responsive product certification, or S3C/S3D
 completion.
+
+### 2026-09-22 UX-S3B — static foundation implemented; browser evidence qualified
+
+The implementation is on branch `codex/ux-s3b-help-center`, from synchronized
+`main` SHA `e5ae27c9c12ed0cab19902cd6cd53dc0626ed884`; application-bearing head
+before documentation synchronization is `2e9fa81815bdeaec11e39ba834e37860ddea64cf`.
+
+The canonical Help registry at `src/help/helpCatalog.ts` contains **35** current
+topics across **13** categories and **16** route-default mappings. The existing
+Assistant catalog is now a compatibility projection, so Help Center articles,
+contextual Help, page Help actions, and Assistant references do not maintain
+contradictory topic IDs or details. No deferred feature is documented as live.
+
+The known `/help` location is outside business `AppTab` permissions and uses
+stable `/help?topic=<id>` deep links plus optional search query state. The Help
+Center provides search, Start here, categories, one selected article,
+breadcrumbs, related topics, safe return links, and unknown-topic fallback.
+PageHeader provides one shared route-aware Help action, while the Help Center
+opts out and the shell does not highlight Dashboard as active. Three safe
+`ContextualHelp` exemplars cover Email attachment eligibility, Documents origin,
+and regional settings. The primitive is keyboard/click/tap accessible,
+Escape/outside dismissable, focus-restoring, non-trapping, and bounded for
+narrow layouts.
+
+Evidence for the application-bearing head:
+
+- focused S3B/routing/Assistant/shared-UI tests: **42/42**;
+- deterministic affected selector: **386/386** from **56/366** selected files,
+  database fallback disabled;
+- final integrated `npm.cmd test`: **2042 pass / 1 fail / 9 skipped**; the one
+  failure is the unchanged `tests/uiHardeningShared.test.ts` source-shape
+  assertion and is not in the S3B authority/routing surface;
+- lint/typecheck, production build, and Workflow Map consistency passed;
+- local CUA verified Help index, `invoice-review` deep link, browser back,
+  unknown-topic fallback, route-level Help on Projects, search query state, and
+  Email attachment popover click/Escape/focus behavior;
+- automated Demo Visual QA was attempted but Playwright is unavailable in this
+  clean worktree, so no automated browser PASS or promoted screenshot artifact
+  is claimed. Tablet/phone responsive certification remains pending.
+
+The single sanitized Jev completion checkpoint used `jev-1.13.0`, one request,
+**651 / 72** input/output tokens, **764 ms**, fallback `false`, and
+`mergeDecision: not-provided`. Expected evidence categories were present, but
+the advisory retained `unresolvedUncertainty=true` because documentation was
+not yet synchronized at the checkpoint and the browser validation string was
+descriptive. Deterministic evidence is authoritative. Database, provider,
+hosted-QA, and production checks were skipped as not applicable to this static
+UI/application diff; no migration/RLS/RPC/authority contract changed.
+
+UX-S3B is implementation-complete for the static foundation but remains
+qualified for responsive browser evidence. **Do not start UX-S3C mass copy
+simplification until the missing exact browser evidence is obtained or the user
+explicitly changes that gate.**
 
 ### UX-W4.5B — shared responsive shell and worksheet foundations
 
@@ -1364,7 +1417,7 @@ Preserve throughout resumed Wave 4D and subsequent work:
 3. **Excel Phase 0/readiness, original shared foundation, Procurement RFQ/PO, Projects/project controls, and bounded Phase 4A Expenses + Supplier Payables — implemented.**
 4. **Selective workbook editing UX correction — UX-W1 + UX-W2 + UX-W3 + UX-W4 RFQ/PO + Client Billing + Expenses IMPLEMENTED.** The shared worksheet foundation now powers the card-first Projects portfolio, Project Details worksheet, Cost Codes worksheet, source-first Supplier Invoice review, RFQ draft editing, Purchase Order draft editing, Client Billing draft editing, and direct Expense DRAFT editing. Preserve all existing workbook round-trip/concurrency/authority contracts.
 5. **UX-W4.5A through UX-W4.5E, UX-W5A, UX-W5B, and UX-W5C are implemented for their recorded scopes.** The durable visual evidence and authority limitations remain as documented; remaining UX-W5 workforce slices require separate bounded handoffs and remain subject to the Worker Registration/Wave 4D sequencing gate.
-6. **UX-S3A baseline comparative research, instruction-density audit, and UX-S3A2 Jev-browser comparative validation are complete for the recorded public research boundary; UX-S3B is ready and exact next.** Preserve the current report and its S3A baseline section. Implement only the bounded static Help Center/contextual-help foundation in S3B; retain authenticated product UI, browse/edit, mobile/tablet, and populated deeper-state gaps as later evidence/workflow review rather than claiming parity.
+6. **UX-S3A baseline research, UX-S3A2 Jev-browser validation, and the UX-S3B static Help Center/contextual-help foundation are implemented for the recorded boundary.** Preserve the current reports and S3B design/plan. The S3B head has focused/affected/lint/build/Workflow Map and local desktop CUA evidence, but automated Demo Visual QA is pending because Playwright is unavailable in the clean worktree; tablet/phone responsive certification is not claimed. Do not start UX-S3C mass copy simplification until that browser evidence gate is satisfied or explicitly changed.
 7. **Jev Workflow Intelligence v2A research/design is complete for this handoff.** The durable report records read-only X research, official/community source review, 48 controlled sanitized Jev requests, representative historical replay, and the prioritized v2B design. This remains developer tooling, not a product dependency or merge authority.
 8. **Jev Workflow Intelligence v2B — payload-safe foundation slice — is implemented for this handoff.** The shared request/diagnostic layer, deterministic seeding, budget-aware chunking, context integration, broad test triage, and deterministic must-keep/required-test unions are complete. Remaining v2B adjacency, requirement/evidence, replay, routing-advice, and other experimental work requires a later bounded handoff.
 9. **Complete remaining Wave 4D provider/readiness evidence** opportunistically when safe provider credentials/devices/QA prerequisites exist; it remains separate from the completed v2B foundation and bounded UX-W5C product work.
@@ -1391,9 +1444,9 @@ These phases are not cancelled. Preserve their historical contracts and backlog 
 
 ### Exact next implementation program
 
-The next implementation program is **UI Simplification Round 3 + workflow hardening**, continuing with **UX-S3B — Help Center/contextual-help foundation**. UX-S3A2 is complete for the recorded public research boundary. Read:
+The current implementation program is **UI Simplification Round 3 + workflow hardening**. UX-S3A2 is complete for the recorded public research boundary, and UX-S3B's static foundation is implemented with responsive browser evidence still pending. Read:
 
-The UX-S3A baseline report is `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md`. It is documentation/evidence only; no S3B implementation was started. Preserve it and validate/refine it rather than restarting the internal HydroQualiSense audit from zero.
+The UX-S3A baseline report is `artifacts/ui-ux-audit/UX-S3A-RESEARCH-AND-INSTRUCTION-DENSITY-AUDIT.md`. Preserve it and validate/refine it rather than restarting the internal HydroQualiSense audit from zero. The S3B design and plan are `docs/superpowers/specs/2026-09-21-ux-s3b-help-center-contextual-help-design.md` and `docs/superpowers/plans/2026-09-21-ux-s3b-help-center-contextual-help.md`.
 
 - `AGENTS.md`;
 - `docs/AGENTS_BASELINE_20260909.md`;
@@ -1418,9 +1471,9 @@ The internal audit must inspect representative HydroQualiSense routes/states and
 
 Do not put essential instructions only behind hover. Tooltips/popovers must be keyboard accessible and have click/tap behavior for touch devices.
 
-UX-S3A produced the baseline research/audit report and UX-S3A2 validated/refined it. No broad UI remediation was performed. Proceed through:
+UX-S3A produced the baseline research/audit report and UX-S3A2 validated/refined it. S3B now supplies the static Help Center/contextual-help foundation; no broad UI remediation was performed. Proceed through:
 
-`UX-S3A2 Jev-browser comparative validation (complete) -> UX-S3B Help Center/contextual-help foundation -> UX-S3C visible-copy simplification -> UX-S3D workflow-friction hardening -> UX-S3E accessibility/responsive/visual certification`.
+`UX-S3A2 Jev-browser comparative validation (complete) -> UX-S3B static foundation (implemented; browser evidence pending) -> responsive browser evidence gate -> UX-S3C visible-copy simplification -> UX-S3D workflow-friction hardening -> UX-S3E accessibility/responsive/visual certification`.
 
 Parallel hardening may continue for existing capabilities: provider/readiness certification, authenticated HSC/render certification, reliability/recovery, security/data-integrity, concurrency, performance, exact-SHA QA/release evidence, and bounded Jev/Repository Intelligence efficiency improvements.
 
