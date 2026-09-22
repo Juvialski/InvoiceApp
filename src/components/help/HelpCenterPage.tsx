@@ -88,6 +88,7 @@ export function HelpCenterPage({ search, onNavigatePath }: HelpCenterPageProps) 
         eyebrow="Workspace guidance"
         title="Help Center"
         description="Find task guidance, workflow boundaries, and safe recovery paths for the current workspace."
+        helpTopicId={null}
       />
 
       <form onSubmit={submitSearch} role="search" className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">

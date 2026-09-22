@@ -395,7 +395,7 @@ function InvoiceWorkspace() {
 
   useEffect(() => {
     if (typeof document !== "undefined") {
-      const tabLabel = route.kind === "tab" ? ROUTE_DEFINITIONS.find((candidate) => candidate.appTab === route.tab)?.label : undefined;
+      const tabLabel = route.kind === "help" ? "Help Center" : route.kind === "tab" ? ROUTE_DEFINITIONS.find((candidate) => candidate.appTab === route.tab)?.label : undefined;
       document.title = formatPageTitle(tabLabel);
     }
     const signature = `${route.kind}:${route.pathname}${route.search}`;
@@ -3526,6 +3526,7 @@ function InvoiceWorkspace() {
         onReturnToDashboard={() => navigateToPath(appPathForTab("dashboard"))}
         routeRecovery={routeRecovery}
         onRecoverRoute={() => navigateToPath(routeRecoveryPath, true)}
+        isHelpRoute={route.kind === "help"}
       >
         <AppRouter
           route={route}
