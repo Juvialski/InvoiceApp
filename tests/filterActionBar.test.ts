@@ -25,6 +25,8 @@ test("compact action bar exposes responsive and accessible disclosure contracts"
   assert.match(operationsUi, /role="dialog"/);
   assert.match(operationsUi, /event\.key === "Escape"/);
   assert.match(operationsUi, /triggerRef\.current\?\.focus/);
+  assert.match(operationsUi, /close\(false\)/);
+  assert.match(operationsUi, /hqs-search-control/);
   assert.match(operationsUi, /basis-full[^\"]*sm:basis-auto/);
   assert.match(operationsUi, /activeFilters\.length > 0/);
   assert.match(operationsUi, /Clear all/);
