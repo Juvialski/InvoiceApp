@@ -80,9 +80,9 @@ export function AdvancedFilterDisclosure({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = `advanced-filter-${useId().replace(/:/g, "")}`;
-  const close = useCallback(() => {
+  const close = useCallback((restoreFocus = true) => {
     setOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus());
+    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export function AdvancedFilterDisclosure({
     };
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target)) close();
+      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target)) close(false);
     };
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("pointerdown", handlePointerDown);
@@ -164,7 +164,7 @@ export function CompactActionBar({
     <section data-ui="compact-action-bar" aria-label={ariaLabel} className={`hqs-surface-raised rounded-xl p-2.5 sm:p-3 ${className}`}>
       <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-nowrap">
         {search && (
-          <label className="hqs-input hqs-focus-ring flex min-w-0 basis-full items-center rounded-lg px-3 sm:basis-auto sm:flex-1">
+          <label className="hqs-input hqs-search-control flex min-w-0 basis-full items-center rounded-lg px-3 sm:basis-auto sm:flex-1">
             <span className="sr-only">{search.ariaLabel}</span>
             <input type="search" value={search.value} onChange={(event) => search.onChange(event.currentTarget.value)} placeholder={search.placeholder} aria-label={search.ariaLabel} className="h-10 min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" />
           </label>
@@ -297,7 +297,7 @@ export function DisclosureSection({
           <span className="hqs-primary-text block text-sm font-black">{title}</span>
           {description && <span className="hqs-secondary-text mt-0.5 block text-xs leading-5">{description}</span>}
         </span>
-        <span aria-hidden="true" className={"shrink-0 text-lg leading-none text-slate-400 transition-transform " + (open ? "rotate-180" : "")}>⌄</span>
+        <span aria-hidden="true" className={"hqs-secondary-text shrink-0 text-lg leading-none transition-transform " + (open ? "rotate-180" : "")}>⌄</span>
       </button>
       {open && <div id={contentId} className="hqs-border border-t p-3.5">{children}</div>}
     </section>
@@ -332,9 +332,9 @@ export function MetricCard({
         {Icon && <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${metricClasses[tone]}`}><Icon aria-hidden="true" className="h-4 w-4" /></span>}
       </div>
       <p className="hqs-primary-text mt-2 max-w-full break-words whitespace-normal text-lg font-black tabular-nums tracking-tight sm:text-xl xl:text-[1.35rem]" title={valueTitle}>
-        {loading ? <span className="inline-block h-6 w-16 animate-pulse rounded-md bg-slate-200 align-middle" /> : value}
+        {loading ? <span className="hqs-muted-fill inline-block h-6 w-16 animate-pulse rounded-md align-middle" /> : value}
       </p>
-      <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 sm:text-sm">{label}</p>
+      <p className="hqs-secondary-text mt-1 text-xs font-semibold leading-5 sm:text-sm">{label}</p>
       {detail && <p className="hqs-secondary-text mt-0.5 text-xs leading-5 sm:min-h-5">{detail}</p>}
     </article>
   );
@@ -358,7 +358,7 @@ export function EmptyState({
       <AstryxEmptyState
         title={title}
         description={description}
-        icon={<Icon aria-hidden="true" className="mx-auto h-7 w-7 text-slate-400" />}
+        icon={<Icon aria-hidden="true" className="hqs-secondary-text mx-auto h-7 w-7" />}
         actions={action}
       />
     </div>
@@ -393,7 +393,7 @@ export function ErrorState({ title = "We could not load this view", description 
       <CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" />
       <div className="min-w-0">
         <h2 className="text-sm font-black">{title}</h2>
-        <p className="mt-1 text-sm leading-5 text-rose-900">{description}</p>
+        <p className="mt-1 text-sm leading-5">{description}</p>
         {(onRetry || onReload) && <div className="mt-3 flex flex-wrap gap-2">
           {onRetry && <button type="button" onClick={onRetry} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white hover:bg-rose-800"><RotateCcw aria-hidden="true" className="h-3.5 w-3.5" /> Try again</button>}
           {onReload && <button type="button" onClick={onReload} className="hqs-control inline-flex min-h-10 items-center rounded-lg px-3 py-2 text-xs font-bold">Reload page</button>}
