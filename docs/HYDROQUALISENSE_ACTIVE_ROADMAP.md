@@ -1572,3 +1572,14 @@ The following current deployed findings are now explicit follow-up blockers and 
 - **Brevo reliability:** Email / SMS currently reports that Brevo connection status could not be checked safely. Provider/runtime readiness is unverified until the status path and deployment configuration are investigated and controlled provider evidence is obtained.
 
 These findings do not resume deferred product domains and do not authorize production/provider mutation.
+
+
+### UI Round 4 current-state audit — 2026-09-22
+
+Durable audit: `artifacts/ui-ux-audit/UI-R4-CURRENT-STATE-AUDIT-2026-09-22.md`.
+
+The audit does not change the approved Round 4 sequence. It tightens R4C around one stable Dashboard/Home render path and records the remaining app-wide R4E migration/certification debt. In particular, the current Dashboard route deliberately switches from the simplified permission-scoped Home to the legacy analytics Dashboard once completeness changes, which matches the deployed reversion observed by the user.
+
+R4E should migrate the remaining legacy page-level light/slate/button grammar onto the R4B semantic/action system rather than introduce another design system. Suggested internal R4E ordering is: high-friction daily finance/communication/payroll workflows first, then operations registers, then full Light/Dark/System and responsive certification.
+
+Separate current reliability follow-ups remain the Payroll ownership-persistence error and Brevo connection/status failure; neither should be hidden by visual cleanup.
