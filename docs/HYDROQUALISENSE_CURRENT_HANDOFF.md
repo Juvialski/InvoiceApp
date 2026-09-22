@@ -1987,3 +1987,21 @@ The approved sequence is unchanged:
 `R4C Home + Project Portfolio -> R4D entity media -> R4E app-wide rollout/certification`.
 
 No runtime implementation, provider mutation, database work, or production certification was performed by the audit.
+
+
+## 2026-09-23 — Dark-mode contrast finding added to Round 4
+
+The current deployed Dark mode has an additional user-confirmed P1 visual problem: several routes appear to darken the background while foreground text/control/border colors remain based on light-theme assumptions, producing poor contrast.
+
+This is now documented in the Round 4 blueprint and current-state audit.
+
+Implementation boundary:
+
+- **Next phase remains UI-R4C.** It must make Home/Dashboard and Project Portfolio genuinely correct in Light and Dark on every touched state.
+- Do **not** turn R4C into an app-wide theme migration.
+- **UI-R4E owns the full remaining app-wide Dark contrast remediation**, including Supplier Invoices, Payroll, Email/SMS, Cash & Banking, Expenses, Procurement, Warehouse, Equipment, Documents, Reports, remaining project surfaces, Header/account controls, and sidebar.
+- Dark certification must inspect text, secondary text, controls, borders, status states, focus/selection, disabled/placeholder states, popovers/dialogs, charts/legends where applicable, and responsive screenshots. Background-only darkening is not completion.
+- Low-contrast Dark UI is a P1 blocker for final Round 4 certification.
+
+The existing R4B semantic `hqs-*`/Astryx token layer remains authoritative. Preserve the approved phase order:
+`R4C Home + Project Portfolio -> R4D media -> R4E app-wide rollout + contrast/accessibility certification`.
