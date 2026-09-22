@@ -178,6 +178,67 @@ const verifyCashExpenseTarget: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyCashBrowseAndChoice: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Cash & Banking");
+  const browseStage = await page.locator('[data-testid="cash-stage-browse"]').count();
+  const chooseStage = await page.locator('[data-testid="cash-stage-choose"]').count();
+  const intentionalChoice = await page.locator('[data-testid="cash-settlement-empty-selection"]').count();
+  const reviewLinks = await page.getByRole("link", { name: "Review allocation", exact: true }).count();
+  const queueConfirmButtons = await page.getByRole("button", { name: "Confirm match", exact: true }).count();
+  if (reviewLinks > 0) {
+    await page.getByRole("link", { name: "Review allocation", exact: true }).first().click();
+    await waitForVisible(page, '[data-testid="cash-settlement-workspace"]');
+  }
+  const resultAfterReview = await page.locator('[data-testid="cash-settlement-result"]').count();
+  return [
+    { id: "cash-browse-stage-visible", passed: browseStage >= 1, details: `browse stage markers: ${browseStage}` },
+    { id: "cash-choose-stage-visible", passed: chooseStage >= 1, details: `choose stage markers: ${chooseStage}` },
+    { id: "cash-settlement-requires-intentional-choice", passed: intentionalChoice === 1, details: `intentional empty selection states: ${intentionalChoice}` },
+    { id: "cash-queue-review-allocation-visible", passed: reviewLinks > 0, details: `non-mutating review links: ${reviewLinks}` },
+    { id: "cash-queue-confirm-match-removed", passed: queueConfirmButtons === 0, details: `queue-level Confirm match buttons: ${queueConfirmButtons}` },
+    { id: "cash-review-link-does-not-confirm", passed: resultAfterReview === 0, details: `settlement results after review navigation: ${resultAfterReview}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyCashSettlementResult: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[data-testid="cash-settlement-workspace"]');
+  const reviewStage = await page.locator('[data-testid="cash-stage-review"]').count();
+  const candidateCount = await page.locator('[data-testid="cash-settlement-candidate"]').count();
+  const allocate = page.getByRole("button", { name: "Allocate", exact: true }).first();
+  const allocateCount = await allocate.count();
+  if (allocateCount === 1) await allocate.click();
+  const confirm = page.getByRole("button", { name: "Confirm settlement", exact: true });
+  const confirmCount = await confirm.count();
+  if (allocateCount === 1 && confirmCount === 1) {
+    await confirm.click();
+    await waitForVisible(page, '[data-testid="cash-settlement-result"]');
+  }
+  const result = await page.locator('[data-testid="cash-settlement-result"]').count();
+  const sourceUnchanged = await page.locator("text=The source record was not changed").count();
+  const openTarget = await page.getByRole("link", { name: "Open target", exact: true }).count();
+  return [
+    { id: "cash-review-stage-visible", passed: reviewStage === 1, details: `review stage markers: ${reviewStage}` },
+    { id: "cash-candidate-visible", passed: candidateCount > 0, details: `eligible candidate cards: ${candidateCount}` },
+    { id: "cash-allocation-confirmed-explicitly", passed: allocateCount === 1 && confirmCount === 1, details: `allocate/confirm controls: ${allocateCount}/${confirmCount}` },
+    { id: "cash-settlement-result-visible", passed: result === 1, details: `settlement result panels: ${result}` },
+    { id: "cash-result-source-authority-visible", passed: sourceUnchanged > 0, details: `source-authority messages: ${sourceUnchanged}` },
+    { id: "cash-result-open-target-visible", passed: openTarget > 0, details: `open-target links: ${openTarget}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyCashTransferWorkflowSeparation: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Cash & Banking");
+  const transferWorkflow = await page.locator('[data-testid="cash-transfer-workflow"]').count();
+  const transferConfirm = await page.getByRole("button", { name: "Confirm transfer", exact: true }).count();
+  const transferReverse = await page.getByRole("button", { name: "Reverse transfer", exact: true }).count();
+  const transferCandidates = await page.locator('[data-testid="cash-settlement-candidate"][data-target-type="TRANSFER"]').count();
+  return [
+    { id: "cash-transfer-workflow-visible", passed: transferWorkflow === 1, details: `dedicated transfer workflow regions: ${transferWorkflow}` },
+    { id: "cash-transfer-confirmation-explicit", passed: transferConfirm > 0 || transferReverse > 0, details: `transfer confirm/reverse controls: ${transferConfirm}/${transferReverse}` },
+    { id: "cash-transfer-not-operating-candidate", passed: transferCandidates === 0, details: `transfer candidates in operating allocation: ${transferCandidates}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyClientReceivableLifecycle: QaScenarioAction = async (page) => {
   await waitForHeading(page, "Client Invoices & Collections");
   await waitForVisible(page, '[data-testid="client-invoice-collection-position"]');
@@ -197,9 +258,12 @@ const verifyClientReceivableLifecycle: QaScenarioAction = async (page) => {
   await page.locator('[data-testid="continue-client-collection-to-cash"]').first().click();
   await waitForVisible(page, '[data-testid="cash-target-context"]');
   const cashTargetContext = await page.locator('[data-testid="cash-target-context"]').count();
-  const requestedTarget = await page.locator("text=Requested target").count();
   const cashReturn = await page.locator('[data-testid="cash-return-to-client-invoice"]').count();
 
+  const transactionSelect = page.locator('select[aria-label="Transaction to reconcile"]').first();
+  await transactionSelect.selectOption("demo-transaction-client-collection-02");
+  await waitForVisible(page, '[data-testid="cash-settlement-candidate"]');
+  const requestedTarget = await page.locator("text=Requested target").count();
   const requestedAllocation = page.locator('article:has-text("COL-MEC-24-017-002") button:has-text("Allocate")').first();
   await requestedAllocation.click();
   await page.getByRole("button", { name: "Confirm settlement", exact: true }).click();
@@ -1025,8 +1089,12 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "site-logs", route: route("site-logs", "/projects/:projectId/site-logs"), path: `${PROJECT_ROOT}/site-logs`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.tablet }),
   defineQaScenario({ feature: "site-logs", route: route("site-logs", "/projects/:projectId/site-logs"), path: `${PROJECT_ROOT}/site-logs`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.mobile }),
   defineQaScenario({ feature: "cash-banking", route: route("cash", "/cash"), path: "/demo/app/cash", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "cash-banking", route: route("cash", "/cash"), path: "/demo/app/cash", interactionState: "cash browse with intentional allocation choice", viewport: QA_VIEWPORTS.desktop, action: verifyCashBrowseAndChoice }),
   defineQaScenario({ feature: "cash-banking", route: route("cash-settlement", "/cash?transactionId=:transactionId"), path: "/demo/app/cash?transactionId=demo-transaction-split-01", interactionState: "cash settlement workspace opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "cash-banking", route: route("cash", "/cash"), path: "/demo/app/cash", interactionState: "base route loaded", viewport: QA_VIEWPORTS.tablet }),
+  defineQaScenario({ feature: "cash-banking", route: route("cash-settlement", "/cash?transactionId=:transactionId"), path: "/demo/app/cash?transactionId=demo-transaction-19", interactionState: "cash settlement result and return context verified", viewport: QA_VIEWPORTS.desktop, action: verifyCashSettlementResult }),
+  defineQaScenario({ feature: "cash-banking", route: route("cash-settlement", "/cash?transactionId=:transactionId"), path: "/demo/app/cash?transactionId=demo-transaction-19", interactionState: "cash settlement result and return context verified", viewport: QA_VIEWPORTS.mobile, action: verifyCashSettlementResult }),
+  defineQaScenario({ feature: "cash-banking", route: route("cash", "/cash"), path: "/demo/app/cash", interactionState: "cash internal transfer workflow kept separate", viewport: QA_VIEWPORTS.desktop, action: verifyCashTransferWorkflowSeparation }),
   defineQaScenario({ feature: "invoice-extraction", route: route("extract", "/extract"), path: "/demo/app/extract", interactionState: "extractor screen rendered", viewport: QA_VIEWPORTS.desktop, action: verifyExtractorScreen }),
   defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms", interactionState: "Email / SMS workspace rendered with provider-gated compose and history", viewport: QA_VIEWPORTS.desktop, action: verifyEmailSmsWorkspace }),
   defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms", interactionState: "Email / SMS workspace rendered with provider-gated compose and history", viewport: QA_VIEWPORTS.tablet, action: verifyEmailSmsWorkspace }),

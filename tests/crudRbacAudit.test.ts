@@ -44,7 +44,7 @@ test("cross-domain UI actions are gated by their complete effective permission c
   assert.match(projectWorkspace, /const canManageInvoiceAllocations = canManageProject && hasPermission\(permissions, PERMISSION_KEYS\.invoicesWrite\)/);
   assert.match(projectWorkspace, /const canExtractInvoices = hasAllPermissions\(permissions, \[PERMISSION_KEYS\.invoicesWrite, PERMISSION_KEYS\.invoicesExtract, PERMISSION_KEYS\.invoicesVerify\]\)/);
   assert.match(cashRoute, /canSettleTarget=\{props\.canSettleTarget\}/);
-  assert.match(cashPage, /!canReconcile \|\| !canSettleTarget\(suggestion\.candidate\.targetType\)/);
+  assert.match(cashPage, /Review allocation/);
   assert.match(settlementWorkspace, /selectedDrafts\.some\(\(row\) => !canSettle\(row\.candidate\.targetType\)\)/);
   assert.match(workersTable, /canManageWorkforce && <button type="button" onClick=\{\(\) => setEditing\(worker\)\}/);
   assert.match(payrollPeriods, /canManage\?: boolean/);
