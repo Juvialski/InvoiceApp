@@ -88,7 +88,7 @@ export const EquipmentPage: React.FC<EquipmentPageProps> = ({ equipment, assignm
       <PageHeader
         eyebrow="Company operations"
         title="Equipment Registry"
-        description="One canonical company asset identity, with current state derived from auditable Project assignment history."
+        description="Canonical assets with auditable Project assignments."
         actions={canManage ? <button type="button" onClick={() => setAction({ type: "ADD" })} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2 text-xs font-black text-white"><Plus className="h-3.5 w-3.5" />Add Equipment</button> : undefined}
       />
       {unresolvedLegacyCount > 0 && <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
@@ -127,7 +127,7 @@ export const EquipmentPage: React.FC<EquipmentPageProps> = ({ equipment, assignm
           </div>;
         }) : <div className="p-12 text-center"><Truck className="mx-auto h-9 w-9 text-slate-300" /><p className="mt-3 text-sm font-black text-slate-700">{equipment.length ? "No Equipment matches this filter." : "No canonical Equipment yet."}</p><p className="mt-1 text-xs leading-5 text-slate-500">{equipment.length ? "Change the search or state filter." : canManage ? "Add a company Equipment asset, then assign it through the guarded workflow." : "Equipment records will appear here when authorized."}</p></div>}
       </div>
-      <DisclosureSection title="Assignment authority is separate from field evidence" description="Keep the asset register focused while preserving the distinction.">
+      <DisclosureSection title="Assignment authority is separate from field evidence" description="Open the distinction when needed.">
         <div className="flex items-start gap-3 text-xs leading-5 text-slate-700"><Cog className="mt-0.5 h-5 w-5 shrink-0 text-orange-700" /><p>Daily Site Log observations can be shown beside an asset, but never rewrite formal assignment history. Available, maintenance, out-of-service, and retired states remain explicit lifecycle controls.</p></div>
       </DisclosureSection>
       {selected && <Modal title={`${selected.assetReference || "Equipment"} · ${selected.equipmentName}`} onClose={() => setSelected(null)}>

@@ -295,7 +295,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       <PageHeader
         eyebrow="Project controls"
         title="Portfolio Management"
-        description="Scan project health and commercial position, then open the register for evidence and action."
+        description="Open project cards for current health and action."
         actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => { setFormError(""); setEditing(blankProject()); }} /> : undefined}
       />
 

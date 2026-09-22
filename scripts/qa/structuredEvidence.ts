@@ -50,10 +50,19 @@ export interface QaBrowserLocator {
   waitFor(options?: { state?: "attached" | "detached" | "visible" | "hidden"; timeout?: number }): Promise<void>;
 }
 
+export interface QaBrowserKeyboard {
+  press(key: string): Promise<void>;
+}
+
 export interface QaBrowserPage {
   getByRole(role: string, options?: { name?: string | RegExp; exact?: boolean }): QaBrowserLocator;
   locator(selector: string): QaBrowserLocator;
   waitForFunction: (...args: any[]) => Promise<unknown>;
+  evaluate<T>(pageFunction: () => T): Promise<T>;
+  goBack(): Promise<unknown>;
+  goForward(): Promise<unknown>;
+  reload(options?: { waitUntil?: "networkidle"; timeout?: number }): Promise<unknown>;
+  keyboard: QaBrowserKeyboard;
   url(): string;
 }
 

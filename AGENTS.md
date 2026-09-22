@@ -74,6 +74,7 @@ For a new Codex implementation task:
 
 1. **First repository action: synchronize to the latest remote `main`.** Prefer `git fetch origin main`, switch to `main`, then `git pull --ff-only origin main`, and create the task branch from that updated `main`.
 2. If the local worktree contains uncommitted work or local-only commits, do **not** discard or overwrite them. Preserve them and use a clean worktree/branch based on current `origin/main` instead.
+   When the synchronized existing checkout is clean, create the task branch in that checkout and reuse its existing dependencies. A fresh worktree is exceptional, reserved for preserved local work or genuinely concurrent isolation.
 3. After synchronization, record the resulting exact `main` SHA **once** (for example `git rev-parse HEAD`) and proceed. The successful pull/fetch is the normal freshness confirmation.
 4. Do **not** inspect open PRs, old CI runs, historical merge state, remote branch history, or the previous prompt SHA during implementation startup unless the task itself is PR review/release work or the prompt explicitly requires that evidence.
 5. Read `AGENTS.md`, then only the roadmap/handoff/phase/runbook documents materially needed for the assigned task. Do not re-read unrelated repository documentation by ritual.

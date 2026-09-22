@@ -815,6 +815,124 @@ const verifySettingsScreen: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyHelpIndex: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Help Center");
+  const helpCenter = await page.locator('[data-help-center="true"]').count();
+  const search = await page.getByRole("textbox", { name: "Search Help", exact: true }).count();
+  const categories = await page.locator('[data-help-category-list="true"]').count();
+  const startHere = await page.getByRole("heading", { name: "Start here", exact: true }).count();
+  const topics = await page.getByRole("region", { name: "Help topics", exact: true }).count();
+  return [
+    { id: "help-center-index-visible", passed: helpCenter === 1, details: `Help Center surfaces: ${helpCenter}` },
+    { id: "help-center-search-visible", passed: search === 1, details: `Help search inputs: ${search}` },
+    { id: "help-center-categories-visible", passed: categories === 1, details: `Help category lists: ${categories}` },
+    { id: "help-center-start-here-visible", passed: startHere === 1, details: `Start here headings: ${startHere}` },
+    { id: "help-center-topics-visible", passed: topics === 1, details: `Help topic regions: ${topics}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyHelpArticle: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Supplier Invoice review");
+  const article = await page.locator('[data-help-article="true"]').count();
+  const breadcrumbs = await page.locator('[data-help-breadcrumbs="true"]').count();
+  const returnToWorkspace = await page.getByRole("link", { name: "Return to workspace", exact: true }).count();
+  const articleText = await page.locator("text=Supplier Invoice evidence remains distinct from the authoritative linked Expense payable and cost record.").count();
+  await page.reload({ waitUntil: "networkidle", timeout: READY_TIMEOUT_MS });
+  await waitForHeading(page, "Supplier Invoice review");
+  const refreshedArticle = await page.locator('[data-help-article="true"]').count();
+  return [
+    { id: "help-invoice-review-article-visible", passed: article === 1, details: `invoice-review article surfaces: ${article}` },
+    { id: "help-invoice-review-breadcrumbs-visible", passed: breadcrumbs === 1, details: `Help breadcrumb regions: ${breadcrumbs}` },
+    { id: "help-invoice-review-return-visible", passed: returnToWorkspace === 1, details: `return-to-workspace links: ${returnToWorkspace}` },
+    { id: "help-invoice-review-boundary-visible", passed: articleText === 1, details: `invoice-review boundary statements: ${articleText}` },
+    { id: "help-invoice-review-refresh-stable", passed: refreshedArticle === 1, details: `refreshed invoice-review articles: ${refreshedArticle}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyHelpNavigation: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Help Center");
+  const search = page.getByRole("textbox", { name: "Search Help", exact: true });
+  await search.fill("supplier invoice");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await waitForHeading(page, "Search results");
+  const searchResult = await page.getByRole("link", { name: /Supplier Invoice review/ }).count();
+  const searchPath = page.url();
+
+  const category = page.getByRole("button", { name: /Supplier Invoices and Expenses/ }).first();
+  await category.click();
+  const activeCategory = await page.locator('button[aria-pressed="true"]').count();
+  const categoryResult = await page.getByRole("link", { name: /Supplier Invoice review/ }).count();
+
+  await page.getByRole("link", { name: /Supplier Invoice review/ }).first().click();
+  await waitForHeading(page, "Supplier Invoice review");
+  const articlePath = page.url();
+  await page.goBack();
+  await waitForHeading(page, "Search results");
+  const backPath = page.url();
+  await page.goForward();
+  await waitForHeading(page, "Supplier Invoice review");
+  const forwardPath = page.url();
+
+  return [
+    { id: "help-search-matching-result", passed: searchResult > 0 && searchPath.includes("q=supplier+invoice"), details: `matching results: ${searchResult}; path: ${searchPath}` },
+    { id: "help-category-selection", passed: activeCategory === 1 && categoryResult > 0, details: `active categories: ${activeCategory}; category results: ${categoryResult}` },
+    { id: "help-article-deep-link", passed: articlePath.includes("topic=invoice-review"), details: `article path: ${articlePath}` },
+    { id: "help-browser-back", passed: backPath.includes("/help") && !backPath.includes("topic=invoice-review"), details: `back path: ${backPath}` },
+    { id: "help-browser-forward", passed: forwardPath.includes("topic=invoice-review"), details: `forward path: ${forwardPath}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyHelpUnknownTopicFallback: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Help Center");
+  const invalidTopic = await page.locator('[data-help-invalid-topic="true"]').count();
+  const article = await page.locator('[data-help-article="true"]').count();
+  const index = await page.getByRole("heading", { name: "Start here", exact: true }).count();
+  return [
+    { id: "help-unknown-topic-fallback-visible", passed: invalidTopic === 1, details: `invalid-topic notices: ${invalidTopic}` },
+    { id: "help-unknown-topic-does-not-select-article", passed: article === 0, details: `selected articles: ${article}` },
+    { id: "help-unknown-topic-returns-to-index", passed: index === 1, details: `Start here headings: ${index}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyPageHeaderHelpAction: QaScenarioAction = async (page) => {
+  const isCash = page.url().includes("/cash");
+  const expectedTopic = isCash ? "Cash & Banking" : "Projects and project costing";
+  const expectedRoute = isCash ? "/cash" : "/projects";
+  const helpLink = page.getByRole("link", { name: `Help with ${expectedTopic}`, exact: true });
+  const before = await helpLink.count();
+  await helpLink.first().click();
+  await waitForHeading(page, expectedTopic);
+  const article = await page.getByRole("heading", { name: expectedTopic, exact: true }).count();
+  const articlePath = page.url();
+  await page.goBack();
+  await page.getByRole("link", { name: `Help with ${expectedTopic}`, exact: true }).first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  return [
+    { id: "page-header-help-action-visible", passed: before === 1, details: `route Help actions: ${before}` },
+    { id: "page-header-help-action-opens-topic", passed: article === 1 && articlePath.includes("/help?topic="), details: `article headings: ${article}; path: ${articlePath}` },
+    { id: "page-header-help-action-history-returns", passed: page.url().includes(expectedRoute), details: `returned path: ${page.url()}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyAttachmentContextualHelp: QaScenarioAction = async (page) => {
+  const trigger = page.getByRole("button", { name: "Attachment eligibility help", exact: true });
+  const triggerCount = await trigger.count();
+  await trigger.first().click();
+  const dialog = page.getByRole("dialog", { name: "Eligible document attachments", exact: true });
+  await dialog.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const dialogCount = await dialog.count();
+  const articleLink = await page.getByRole("link", { name: "Read more in Help Center", exact: true }).count();
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached", timeout: READY_TIMEOUT_MS });
+  const focusedLabel = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "");
+  return [
+    { id: "contextual-help-trigger-visible", passed: triggerCount === 1, details: `attachment-help triggers: ${triggerCount}` },
+    { id: "contextual-help-dialog-visible", passed: dialogCount === 1, details: `attachment-help dialogs: ${dialogCount}` },
+    { id: "contextual-help-article-link-visible", passed: articleLink === 1, details: `configured Help Center article links: ${articleLink}` },
+    { id: "contextual-help-escape-closes", passed: true, details: "Escape detached the contextual-help dialog" },
+    { id: "contextual-help-focus-restored", passed: focusedLabel === "Attachment eligibility help", details: `focused aria-label: ${focusedLabel || "none"}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyRfiMissingRecordRecovery: QaScenarioAction = async (page) => {
   await page.locator("text=RFI not available").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const unavailable = await page.locator("text=RFI not available").count();
@@ -948,5 +1066,19 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "reports", route: route("reports", "/reports"), path: "/demo/app/reports", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "settings", route: route("settings", "/settings"), path: "/demo/app/settings", interactionState: "settings product surface verified", viewport: QA_VIEWPORTS.desktop, action: verifySettingsScreen }),
   defineQaScenario({ feature: "assistant", route: route("assistant", "/assistant"), path: "/demo/app/assistant", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "help", route: route("help", "/help"), path: "/help", interactionState: "Help Center index rendered", viewport: QA_VIEWPORTS.desktop, action: verifyHelpIndex }),
+  defineQaScenario({ feature: "help", route: route("help", "/help"), path: "/help", interactionState: "Help Center index rendered", viewport: QA_VIEWPORTS.laptop, action: verifyHelpIndex }),
+  defineQaScenario({ feature: "help", route: route("help", "/help"), path: "/help", interactionState: "Help Center index rendered", viewport: QA_VIEWPORTS.tablet, action: verifyHelpIndex }),
+  defineQaScenario({ feature: "help", route: route("help", "/help"), path: "/help", interactionState: "Help Center index rendered", viewport: QA_VIEWPORTS.mobile, action: verifyHelpIndex }),
+  defineQaScenario({ feature: "help", route: route("help", "/help?topic=invoice-review"), path: "/help?topic=invoice-review", interactionState: "Help Center invoice-review article rendered", viewport: QA_VIEWPORTS.desktop, action: verifyHelpArticle }),
+  defineQaScenario({ feature: "help", route: route("help", "/help?topic=invoice-review"), path: "/help?topic=invoice-review", interactionState: "Help Center invoice-review article rendered", viewport: QA_VIEWPORTS.laptop, action: verifyHelpArticle }),
+  defineQaScenario({ feature: "help", route: route("help", "/help?topic=invoice-review"), path: "/help?topic=invoice-review", interactionState: "Help Center invoice-review article rendered", viewport: QA_VIEWPORTS.tablet, action: verifyHelpArticle }),
+  defineQaScenario({ feature: "help", route: route("help", "/help?topic=invoice-review"), path: "/help?topic=invoice-review", interactionState: "Help Center invoice-review article rendered", viewport: QA_VIEWPORTS.mobile, action: verifyHelpArticle }),
+  defineQaScenario({ feature: "help", route: route("help", "/help"), path: "/help", interactionState: "Help navigation interactions verified", viewport: QA_VIEWPORTS.desktop, action: verifyHelpNavigation }),
+  defineQaScenario({ feature: "help", route: route("help", "/help?topic=:topic"), path: "/help?topic=not-a-topic", interactionState: "unknown Help topic fallback verified", viewport: QA_VIEWPORTS.desktop, action: verifyHelpUnknownTopicFallback }),
+  defineQaScenario({ feature: "help-navigation", route: route("projects", "/projects"), path: "/projects", interactionState: "Projects PageHeader Help action verified", viewport: QA_VIEWPORTS.desktop, action: verifyPageHeaderHelpAction }),
+  defineQaScenario({ feature: "help-navigation", route: route("cash", "/cash"), path: "/cash", interactionState: "Cash & Banking PageHeader Help action verified", viewport: QA_VIEWPORTS.desktop, action: verifyPageHeaderHelpAction }),
+  defineQaScenario({ feature: "contextual-help", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "Email attachment contextual help verified", viewport: QA_VIEWPORTS.desktop, action: verifyAttachmentContextualHelp }),
+  defineQaScenario({ feature: "contextual-help", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "Email attachment contextual help verified", viewport: QA_VIEWPORTS.mobile, action: verifyAttachmentContextualHelp }),
   defineQaScenario({ feature: "demo", route: route("demo-tour", "/demo/app/dashboard"), path: "/demo/app/dashboard", interactionState: "demo tour opened", viewport: QA_VIEWPORTS.desktop, action: openDemoTour }),
 ];

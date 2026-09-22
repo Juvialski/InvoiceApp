@@ -84,7 +84,7 @@ export const Vendors: React.FC<VendorsProps> = ({ invoices, vendors: canonicalVe
     <PageHeader
       eyebrow="Supplier master"
       title="Vendors"
-      description="Browse canonical supplier records. Extracted supplier text remains evidence until a reviewer confirms the identity."
+      description="Canonical supplier records; extracted text stays evidence until confirmed."
       actions={canManage && onSaveVendor ? <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setWorksheet({ createNew: false })} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><Settings2 className="h-3.5 w-3.5" />Manage Vendors</button><button type="button" onClick={() => setWorksheet({ createNew: true })} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50"><Building2 className="h-3.5 w-3.5" />Add Vendor</button></div> : undefined}
     />
     <label className="flex max-w-xl items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">

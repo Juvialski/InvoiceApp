@@ -59,7 +59,7 @@ export function ManagedDocumentUploadView({ companyId, projects, demoMode = fals
 
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Upload a managed document" data-managed-document-upload="true">
-      <SectionHeader title="Upload a company document" description="Add a standalone file with a clear title and optional project context. The file becomes an immutable version after confirmation." />
+      <SectionHeader title="Upload a company document" description="Add a titled file; confirmation creates its immutable version." />
       {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</div>}
       {step === "FORM" ? (
         <div className="grid gap-3 md:grid-cols-2">

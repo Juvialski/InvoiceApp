@@ -72,6 +72,33 @@ test("demo scenario catalog is unique and covers the required product surfaces",
   assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.interactionState === "demo drawing preview opened"));
 });
 
+test("targeted Help evidence covers responsive index, articles, navigation, headers, and contextual help", () => {
+  const helpIndex = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "help" && scenario.path === "/help");
+  const helpArticle = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "help" && scenario.path === "/help?topic=invoice-review");
+  const expectedViewports = new Set(["desktop-1440", "laptop-1366", "tablet-768", "mobile-390"]);
+
+  assert.deepEqual(new Set(helpIndex.map((scenario) => scenario.viewport.name)), expectedViewports);
+  assert.deepEqual(new Set(helpArticle.map((scenario) => scenario.viewport.name)), expectedViewports);
+  assert.ok(helpIndex.every((scenario) => scenario.action), "Help index scenarios must assert the responsive surface");
+  assert.ok(helpArticle.every((scenario) => scenario.action), "Help article scenarios must assert the responsive surface");
+
+  const navigationScenario = DEMO_QA_SCENARIOS.find((scenario) => scenario.interactionState === "Help navigation interactions verified");
+  assert.ok(navigationScenario);
+  assert.equal(navigationScenario?.path, "/help");
+  assert.equal(navigationScenario?.viewport.name, "desktop-1440");
+  assert.ok(navigationScenario?.action);
+
+  const headerHelpScenarios = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "help-navigation");
+  assert.deepEqual(new Set(headerHelpScenarios.map((scenario) => scenario.path)), new Set(["/projects", "/cash"]));
+  assert.ok(headerHelpScenarios.every((scenario) => !scenario.path.startsWith("/demo/")));
+  assert.ok(headerHelpScenarios.every((scenario) => scenario.action));
+
+  const contextualHelpScenarios = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "contextual-help");
+  assert.deepEqual(new Set(contextualHelpScenarios.map((scenario) => scenario.viewport.name)), new Set(["desktop-1440", "mobile-390"]));
+  assert.ok(contextualHelpScenarios.every((scenario) => scenario.path === "/demo/app/email-sms?view=compose"));
+  assert.ok(contextualHelpScenarios.every((scenario) => scenario.action));
+});
+
 test("normalizes browser errors, redacts credential fragments, and keeps object leakage out", () => {
   assert.equal(normalizeErrorMessage(new Error("  request failed  with Bearer super-secret-token ")), "request failed with Bearer [REDACTED]");
   assert.equal(normalizeErrorMessage({ message: "failed?access_token=private-value" }), "failed?access_token=[REDACTED]");

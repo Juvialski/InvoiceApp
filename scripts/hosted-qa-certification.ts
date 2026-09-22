@@ -55,7 +55,7 @@ const ROUTE_CONTRACTS: readonly HostedRouteContract[] = [
   { route: "/payroll", heading: "Payroll & labor", requiredText: ["Active workers"] },
   { route: "/settings", heading: "Operational settings", requiredText: ["Regional display preferences", "AI configuration"] },
   { route: "/email-sms", heading: "Email / SMS", requiredText: ["Compose", "Email Provider Status"] },
-  { route: "/documents", heading: "Documents", requiredText: ["Find, preview, and continue work on document records", "Procurement"] },
+  { route: "/documents", heading: "Documents", requiredText: ["Find records, then continue to the owning workflow", "Procurement"] },
 ];
 
 interface HostedRouteEvidence {

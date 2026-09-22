@@ -26,7 +26,7 @@ test("ContextualHelp is used in three safe secondary-explanation exemplars", () 
   const documents = source("src/app/routes/DocumentsRoute.tsx");
   const settings = source("src/components/Settings.tsx");
   for (const content of [email, documents, settings]) assert.match(content, /ContextualHelp/);
-  assert.match(email, /Only issued Purchase Orders and issued Client Invoices are eligible/);
+  assert.match(email, /Only issued Purchase Orders and issued Client Invoices can use/);
   assert.match(documents, /Source \/ Received/);
   assert.match(settings, /presentation only/);
 });

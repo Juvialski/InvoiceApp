@@ -6,7 +6,7 @@ const source = readFileSync(new URL("../scripts/hosted-qa-certification.ts", imp
 
 test("hosted QA route contracts track current task-first Expenses and Documents copy", () => {
   assert.match(source, /\{ route: "\/expenses", heading: "Expenses", requiredText: \["Expense register"\] \}/);
-  assert.match(source, /\{ route: "\/documents", heading: "Documents", requiredText: \["Find, preview, and continue work on document records", "Procurement"\] \}/);
+  assert.match(source, /\{ route: "\/documents", heading: "Documents", requiredText: \["Find records, then continue to the owning workflow", "Procurement"\] \}/);
   assert.doesNotMatch(source, /Supplier invoices remain preserved evidence/);
   assert.doesNotMatch(source, /Unified access surface/);
 });

@@ -188,7 +188,7 @@ export function ProjectDetailsWorksheet({
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Project master data</p>
             <h2 id="project-details-worksheet-title" className="mt-1 text-lg font-black text-slate-950">{project.id && project.projectCode.trim() ? `Edit Project Details · ${project.projectCode}` : "Create New Project"}</h2>
-            <p className="mt-1 text-xs text-slate-500">Edit structured project details in one worksheet. Save still uses the project authority and validation owned by the parent.</p>
+            <p className="mt-1 text-xs text-slate-500">Edit project details in the worksheet; Save remains parent-validated.</p>
           </div>
           <button ref={closeButtonRef} type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" aria-label="Close project details worksheet"><X className="h-4 w-4" /></button>
         </div>

@@ -476,7 +476,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       <PageHeader
         eyebrow={project.projectCode || "Project reference missing"}
         title={project.projectName || "Unnamed project"}
-        description="One project context for financial, commercial, field, and engineering work."
+        description="Financial, commercial, field, and engineering work for this project."
         actions={(
           <>
             <Button variant="secondary" label="← Projects" onClick={onBack} />
