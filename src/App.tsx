@@ -2658,7 +2658,12 @@ function InvoiceWorkspace() {
           throw new Error([...approval.issues, ...allocationIssues].join(" "));
         }
       }
-      const saved = session && supabase ? await savePayrollRunToSupabase(run) : run;
+      const localRun = !session || !supabase
+        ? run.status === "APPROVED" && !run.approvedAt
+          ? { ...run, approvedAt: new Date().toISOString() }
+          : run
+        : run;
+      const saved = session && supabase ? await savePayrollRunToSupabase(run) : localRun;
       setPayrollData((current) => ({ ...current, runs: current.runs.map((item) => item.id === saved.id ? saved : item) }));
       showNotification("success", `Payroll run marked ${saved.status.toLowerCase()}.`);
       return saved;
