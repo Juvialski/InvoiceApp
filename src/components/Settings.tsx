@@ -79,38 +79,38 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
 
             <div className="grid sm:grid-cols-2 gap-3 mt-5">
               <div className="hqs-surface-muted rounded-xl p-3.5 flex items-center gap-2.5">
-                <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span className="text-xs font-medium text-slate-600">Country: <strong className="font-bold text-slate-900">{settings.country}</strong></span>
+                <MapPin className="hqs-accent-text w-4 h-4 shrink-0" />
+                <span className="hqs-secondary-text text-xs font-medium">Country: <strong className="hqs-primary-text font-bold">{settings.country}</strong></span>
               </div>
               <div className="hqs-surface-muted rounded-xl p-3.5 flex items-center gap-2.5">
-                <Globe2 className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span className="text-xs font-medium text-slate-600">Locale: <strong className="font-bold text-slate-900">{settings.locale}</strong></span>
+                <Globe2 className="hqs-accent-text w-4 h-4 shrink-0" />
+                <span className="hqs-secondary-text text-xs font-medium">Locale: <strong className="hqs-primary-text font-bold">{settings.locale}</strong></span>
               </div>
               <div className="hqs-surface-muted rounded-xl p-3.5 flex items-center gap-2.5">
-                <Coins className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span className="text-xs font-medium text-slate-600">Currency: <strong className="font-bold text-slate-900">{settings.currency}</strong></span>
+                <Coins className="hqs-accent-text w-4 h-4 shrink-0" />
+                <span className="hqs-secondary-text text-xs font-medium">Currency: <strong className="hqs-primary-text font-bold">{settings.currency}</strong></span>
               </div>
               <div className="hqs-surface-muted rounded-xl p-3.5 flex items-center gap-2.5">
-                <Clock3 className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span className="text-xs font-medium text-slate-600">Timezone: <strong className="font-bold text-slate-900">{settings.timezone}</strong></span>
+                <Clock3 className="hqs-accent-text w-4 h-4 shrink-0" />
+                <span className="hqs-secondary-text text-xs font-medium">Timezone: <strong className="hqs-primary-text font-bold">{settings.timezone}</strong></span>
               </div>
             </div>
 
-            <div className="mt-3 flex items-center gap-2 text-xs text-slate-500"><ContextualHelp label="Regional display preference help" title="Regional display preferences" articleTopicId="settings">These browser preferences control presentation only. They do not change company access, financial authority, or role permissions.</ContextualHelp><span>About display preferences</span></div>
+            <div className="hqs-secondary-text mt-3 flex items-center gap-2 text-xs"><ContextualHelp label="Regional display preference help" title="Regional display preferences" articleTopicId="settings">These browser preferences control presentation only. They do not change company access, financial authority, or role permissions.</ContextualHelp><span>About display preferences</span></div>
 
             <div className="mt-4 grid sm:grid-cols-2 gap-3">
               <div className="hqs-surface-muted hqs-border rounded-xl border p-3.5">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Currency handling</p>
-                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">Source currencies remain visible on imported invoices. No automatic conversion is applied.</p>
+                <p className="hqs-secondary-text text-xs font-bold uppercase tracking-wide">Currency handling</p>
+                <p className="hqs-secondary-text mt-1.5 text-xs leading-relaxed">Source currencies remain visible on imported invoices. No automatic conversion is applied.</p>
               </div>
               <div className="hqs-surface-muted hqs-border rounded-xl border p-3.5">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Review checks</p>
-                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">VAT, completeness, and reconciliation checks stay available for reviewer action.</p>
+                <p className="hqs-secondary-text text-xs font-bold uppercase tracking-wide">Review checks</p>
+                <p className="hqs-secondary-text mt-1.5 text-xs leading-relaxed">VAT, completeness, and reconciliation checks stay available for reviewer action.</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <div className="hqs-border mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <div className="inline-flex items-center gap-2">
               <StatusBadge tone={isDeploymentProfile ? "success" : "warning"}>
                 {isDeploymentProfile ? "Browser display defaults active" : "Custom regional preferences active"}
@@ -120,7 +120,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
               <button
                 type="button"
                 onClick={() => onChange({ country: DEFAULT_COUNTRY, locale: DEFAULT_LOCALE, currency: DEFAULT_CURRENCY, timezone: DEFAULT_TIMEZONE })}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition"
+                className="hqs-control hqs-focus-ring inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold shadow-xs transition hover:opacity-90"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Restore deployment defaults
