@@ -72,6 +72,7 @@ import {
 } from "./SubcontractRegisterSection.tsx";
 import { PurchaseOrderEditorModal } from "./PurchaseOrderEditorModal.tsx";
 import { RFQEditorModal } from "./RFQEditorModal.tsx";
+import { RFQIssueConfirmationModal } from "./RFQIssueConfirmationModal.tsx";
 import { SupplierQuotationModal } from "./SupplierQuotationModal.tsx";
 import { RFQComparisonModal } from "./RFQComparisonModal.tsx";
 import { SubcontractEditorModal } from "./SubcontractEditorModal.tsx";
@@ -383,6 +384,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   const [editingQuotation, setEditingQuotation] = useState<SupplierQuotation | null>(null);
   const [activeComparisonRfq, setActiveComparisonRfq] = useState<RFQ | null>(null);
   const [cancellationRfq, setCancellationRfq] = useState<RFQ | null>(null);
+  const [issueRfqTarget, setIssueRfqTarget] = useState<RFQ | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
 
   const vendorMap = useMemo(() => new Map(vendors.map((v) => [v.id, v])), [vendors]);
@@ -1280,7 +1282,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
             setEditingQuotation(null);
           }}
           onEditRfq={(rfq) => setActiveRfqModal(rfq)}
-          onIssueRfq={(rfq) => void handleTransitionRFQInternal(rfq.id, "ISSUED")}
+          onIssueRfq={(rfq) => setIssueRfqTarget(rfq)}
           onCancelRfq={(rfq) => {
             setCancellationRfq(rfq);
             setCancellationReason("");
@@ -1470,6 +1472,13 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           </div>
         </div>
       )}
+
+      <RFQIssueConfirmationModal
+        isOpen={Boolean(issueRfqTarget)}
+        rfq={issueRfqTarget}
+        onConfirm={(rfqId) => handleTransitionRFQInternal(rfqId, "ISSUED")}
+        onClose={() => setIssueRfqTarget(null)}
+      />
 
       {/* 6. Subcontract Editor Modal */}
       {activeSubcontractModal !== undefined && (

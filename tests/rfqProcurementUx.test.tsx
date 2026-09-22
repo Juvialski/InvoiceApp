@@ -7,6 +7,7 @@ import { RFQEditorModal, persistedRFQLineId } from "../src/components/procuremen
 import { PurchaseOrderEditorModal, persistedPurchaseOrderLineId } from "../src/components/procurement/PurchaseOrderEditorModal.tsx";
 import { SupplierQuotationModal } from "../src/components/procurement/SupplierQuotationModal.tsx";
 import { RFQComparisonModal } from "../src/components/procurement/RFQComparisonModal.tsx";
+import { RFQIssueConfirmationModal } from "../src/components/procurement/RFQIssueConfirmationModal.tsx";
 import { createDemoRFQs, createDemoSupplierQuotations } from "../src/demo/data/procurement.ts";
 import { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";
 import { defaultDemoAnchorDate } from "../src/demo/data/demoDates.ts";
@@ -345,6 +346,24 @@ test("Purchase Order non-draft worksheet keeps editing protected while workflows
   assert.match(markup, /Delivery &amp; Goods Receipts Tracking/);
   assert.match(markup, /Record Delivery \/ Receipt/);
   assert.doesNotMatch(markup, /Approve PO/);
+});
+
+test("RFQ Issue uses an explicit confirmation stage before sending the request out for quote", () => {
+  const rfq = demoRfqs.find((candidate) => candidate.status === "DRAFT") || demoRfqs[0];
+  const markup = renderToStaticMarkup(
+    <RFQIssueConfirmationModal
+      isOpen={true}
+      rfq={rfq}
+      onConfirm={async () => {}}
+      onClose={() => {}}
+    />,
+  );
+
+  assert.match(markup, /role="dialog"/);
+  assert.match(markup, new RegExp(rfq.rfqNumber));
+  assert.match(markup, /Confirm Issue/);
+  assert.match(markup, />Back</);
+  assert.match(markup, /does not select a supplier or create a Purchase Order/);
 });
 
 test("SupplierQuotationModal renders with vendor selection, terms, and auto-populated line items", () => {
