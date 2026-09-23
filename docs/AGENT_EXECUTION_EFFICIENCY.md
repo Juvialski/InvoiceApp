@@ -44,6 +44,14 @@ Codex is the lead implementation/integration owner. Default to **zero subagents*
 
 Do not use spare agent capacity for duplicate audits or speculative scope expansion.
 
+### No late review subagents
+
+Default remains **zero subagents** and the hard maximum remains **2**. A subagent is justified only for a genuinely independent bounded task that materially shortens the critical path while the lead continues useful implementation.
+
+Do not create a subagent solely for final review, final diff inspection, handoff/documentation review, duplicate-entry classification after implementation, rechecking already-tested behavior, PR preparation, waiting for validation, or a generic second opinion. The lead owns final review. Once implementation is substantially complete, do not add a new review agent; reaching final validation with zero active subagents should normally end with zero subagents.
+
+The lead never waits on a subagent review before continuing implementation or PR delivery. Stop stalled or low-value subagents rather than extending the critical path. This is model-independent policy.
+
 ### TypeSafe/Jev standard advisory workflow
 
 The repository uses the official `@typesafe-ai/sdk` 0.6.0 behind the
@@ -98,26 +106,36 @@ and application/runtime bundles remain TypeSafe-free.
 
 Validation is **final-diff-first**. While editing, run only the new/edited test or smallest focused domain check needed to prove the current change. Do not rerun the full applicable ladder after every small edit.
 
-On the integrated final diff, run the smallest applicable ladder once:
+On the integrated final executable/test diff, run the smallest applicable ladder once:
 
 1. new/edited tests;
 2. focused domain tests;
-3. `npm.cmd run test:affected:agent`;
+3. `npm.cmd run test:affected:agent` — normally **once** on the meaningful integrated final executable diff;
 4. lint/build/browser/Workflow Map only when the changed domain requires them;
 5. exact final diff review;
-6. push and open PR; Codex must not merge its own PR.
+6. reconcile roadmap/handoff and final hygiene;
+7. push and open PR; Codex must not merge its own PR.
 
 Do not run `test:full` unless impact selection falls back to it, a broad shared contract genuinely requires it, failures justify it, release/deep-regression work requires it, or the user explicitly requests it.
 
-Do not duplicate expensive evidence without a reason:
+### One expensive pass per meaningful final diff
 
-- never rerun an unchanged failing suite merely to see it fail again;
-- after a justified fix, rerun the narrow failing check first rather than restarting every broad gate;
-- if protected GitHub CI will perform the same expensive build/browser/database/workflow check on the exact pushed head, local Codex should normally run only the minimum useful pre-push subset;
-- duplicate a protected CI job locally only when the changed risk domain requires pre-push runtime evidence, repository policy explicitly requires it, or a CI failure needs local diagnosis;
-- database, browser, provider, hosted-QA, and production checks are never ritual follow-ups to unrelated application changes.
+- Narrow tests may run while editing.
+- Do not rerun `test:affected:agent` when no relevant executable/test change occurred.
+- Documentation or handoff edits after a successful executable validation do **not** justify another affected application run.
+- If affected tests fail, diagnose and rerun the narrow failing subset first. After fixing executable code/tests, one final affected run is allowed.
+- Do not repeatedly rerun the whole affected set while refining docs.
+- Lint, build, browser QA, Workflow Map, and comparable expensive checks follow the same principle: rerun only after a relevant change or a failure needing confirmation.
+- If protected GitHub CI will perform the equivalent expensive check on the exact pushed head, local Codex should normally run only the minimum useful pre-push evidence unless risk-specific policy requires otherwise.
+- Database, browser, provider, hosted-QA, and production checks are never ritual follow-ups to unrelated changes.
 
-This policy is intended to preserve more model budget for implementation and higher-capability reasoning while keeping exact-head CI and risk-appropriate safeguards authoritative.
+### No final-review loop
+
+Prepare roadmap/handoff synchronization before the final expensive validation where practical. Once the final executable diff has been reviewed, required validation has passed, roadmap/handoff are reconciled, and final hygiene such as `git diff --check` is clean, proceed to commit/push/PR.
+
+Do not cycle through `review -> docs -> affected tests -> review -> docs -> affected tests` unless an actual new executable change or validation failure occurred. If only documentation changes after executable validation, inspect the documentation directly and proceed.
+
+This policy preserves model budget for implementation and higher-capability reasoning while keeping exact-head CI and risk-appropriate safeguards authoritative.
 
 ## 4. Database validation
 
