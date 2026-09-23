@@ -49,7 +49,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Manage projects and bring commercial, financial, workforce, materials, equipment, and field context together in one project workspace.",
     details: [
       "Create and manage project records, managers, status, location, contract value, and approved budget.",
-      "Browse projects as visual cards or a compact list, edit project details in a structured worksheet, and maintain project cost codes with clear protected financial context.",
+      "Browse projects as visual cards or a compact list, add a project cover image for recognition, edit project details in a structured worksheet, and maintain project cost codes with clear protected financial context.",
       "Edit safe Project Material and Project Equipment register metadata in a spreadsheet-familiar worksheet while procurement receipts, warehouse movements/on-hand, canonical equipment identity/assignment, site observations, and lifecycle actions remain protected or purpose-built.",
       "Open project workspaces for budget control, cost codes, supplier documents, expenses, payroll, materials, equipment, engineering, billing, collections, and project reports.",
     ],
@@ -163,6 +163,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Track inventory items, on-hand quantities, warehouse movements, project issues and returns, and procurement receipt context.",
     details: [
       "Receive stock, issue material to a project, record returns, and review movement history.",
+      "Add a primary image to a canonical Warehouse item for visual identification in inventory and linked project material views.",
       "Project material requirements and field observations remain visible alongside stock without replacing movement history.",
       "Open the authoritative Procurement receipt from a warehouse movement when persisted source metadata is available.",
       "Maintain safe canonical item name, code, category, and eligible stock-unit metadata in a worksheet while status, balances, movement history, and stock actions remain protected or purpose-built.",
@@ -177,6 +178,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Maintain a company equipment register with current lifecycle state and auditable project assignment, transfer, and return history.",
     details: [
       "Equipment identity and formal assignment remain separate from daily site observations.",
+      "Add a primary image to a canonical Equipment asset to support physical identification in the registry and asset detail view.",
       "Maintain safe canonical asset reference, name, type, source, provider, and notes in a worksheet while lifecycle, current state, assignment, transfer, return, and history remain deliberate workflows.",
     ],
     sortOrder: 100,

@@ -79,6 +79,10 @@ interface QaBrowserLike {
 
 const BASE_URL = (process.env.DEMO_QA_BASE_URL || "http://127.0.0.1:4173").replace(/\/+$/, "");
 const OUTPUT_DIR = path.resolve(process.env.DEMO_QA_OUTPUT_DIR || "artifacts/demo-visual-qa");
+const FEATURE_FILTER = [...new Set((process.env.DEMO_QA_FEATURES || "").split(",").map((value) => value.trim()).filter(Boolean))];
+const SCENARIOS_TO_RUN = FEATURE_FILTER.length
+  ? DEMO_QA_SCENARIOS.filter((scenario) => FEATURE_FILTER.includes(scenario.feature))
+  : DEMO_QA_SCENARIOS;
 const NAVIGATION_TIMEOUT_MS = 60_000;
 const READY_TIMEOUT_MS = 30_000;
 const DEMO_LOADING_MARKERS = [
@@ -262,6 +266,11 @@ function logLinesFor(results: readonly ReturnType<typeof createScenarioEvidence>
 }
 
 async function main(): Promise<void> {
+  if (FEATURE_FILTER.length && !SCENARIOS_TO_RUN.length) {
+    console.error(`No demo QA scenarios matched DEMO_QA_FEATURES=${FEATURE_FILTER.join(",")}.`);
+    process.exitCode = 1;
+    return;
+  }
   await fs.mkdir(path.join(OUTPUT_DIR, "screenshots"), { recursive: true });
   await fs.mkdir(path.join(OUTPUT_DIR, "logs"), { recursive: true });
 
@@ -279,7 +288,7 @@ async function main(): Promise<void> {
 
   try {
     browser = await (chromium as unknown as { launch(options: { headless: boolean }): Promise<QaBrowserLike> }).launch({ headless: true });
-    for (const scenario of DEMO_QA_SCENARIOS) {
+    for (const scenario of SCENARIOS_TO_RUN) {
       try {
         results.push(await runScenario(browser, scenario));
       } catch (error) {

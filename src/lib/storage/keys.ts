@@ -19,6 +19,7 @@ export type StorageKeyKind =
   | "LEGACY_PAYROLL_IMPORT"
   | "LEGACY_ENGINEERING_REVISION"
   | "MANAGED_DOCUMENT_VERSION"
+  | "ENTITY_MEDIA"
   | "LEGACY_USER_SCOPED"
   | "UNKNOWN_COMPANY_SCOPED"
   | "INVALID";
@@ -30,10 +31,75 @@ export interface ParsedStorageKey {
   companyId?: string;
   legacyUserId?: string;
   documentId?: string;
+  entityId?: string;
+  entityType?: EntityMediaEntityType;
+  mediaId?: string;
   versionOrHash?: string;
   fileName?: string;
   subdomain?: string;
   segments: string[];
+}
+
+export type EntityMediaEntityType = "PROJECT" | "EQUIPMENT" | "MATERIAL";
+
+const ENTITY_MEDIA_KIND: Record<EntityMediaEntityType, string> = {
+  PROJECT: "project",
+  EQUIPMENT: "equipment",
+  MATERIAL: "material",
+};
+
+const ENTITY_MEDIA_EXTENSION: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function canonicalUuidSegment(value: string, label: string): string {
+  const safe = assertSafeStorageSegment(value, label);
+  if (!UUID_REGEX.test(safe)) throw new Error(`${label} must be a UUID.`);
+  return safe.toLowerCase();
+}
+
+/**
+ * Build a private entity image object key. The caller filename is deliberately
+ * excluded; only validated company/entity/media UUIDs and a MIME-derived
+ * extension can affect the key.
+ */
+export function buildEntityMediaStoragePath(options: {
+  companyId: string;
+  entityType: EntityMediaEntityType;
+  entityId: string;
+  mediaId: string;
+  contentType: string;
+}): string {
+  const kind = ENTITY_MEDIA_KIND[options.entityType];
+  const extension = ENTITY_MEDIA_EXTENSION[options.contentType.trim().toLowerCase()];
+  if (!kind) throw new Error("Entity media type is not supported.");
+  if (!extension) throw new Error("Entity media content type is not supported.");
+  return [
+    "companies",
+    canonicalUuidSegment(options.companyId, "Company ID"),
+    "entity-media",
+    kind,
+    canonicalUuidSegment(options.entityId, "Entity ID"),
+    `${canonicalUuidSegment(options.mediaId, "Media ID")}.${extension}`,
+  ].join("/");
+}
+
+/** Exact-path check used by entity-media server and storage boundaries. */
+export function isEntityMediaStoragePath(
+  path: string,
+  companyId: string,
+  entityType: EntityMediaEntityType,
+  entityId: string,
+  mediaId: string,
+  contentType: string,
+): boolean {
+  try {
+    return path.trim() === buildEntityMediaStoragePath({ companyId, entityType, entityId, mediaId, contentType });
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -192,6 +258,34 @@ export function parseStorageKey(rawPath: string): ParsedStorageKey {
   // 1. Company-scoped standard paths: companies/<companyId>/...
   if (segments[0] === "companies" && segments.length >= 2) {
     const companyId = segments[1];
+
+    // Entity media uses a strict company/entity/media UUID hierarchy and a
+    // MIME-derived raster extension. Malformed paths inside the reserved
+    // namespace are invalid rather than generic company-scoped objects.
+    if (segments[2] === "entity-media") {
+      const entityTypeBySegment: Record<string, EntityMediaEntityType> = {
+        project: "PROJECT",
+        equipment: "EQUIPMENT",
+        material: "MATERIAL",
+      };
+      const entityType = entityTypeBySegment[segments[3] || ""];
+      const imageFile = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.(jpg|png|webp)$/i.exec(segments[5] || "");
+      if (segments.length !== 6 || !UUID_REGEX.test(companyId) || !entityType || !UUID_REGEX.test(segments[4] || "") || !imageFile || !UUID_REGEX.test(imageFile[1])) {
+        return { kind: "INVALID", isValid: false, rawPath: normalized, companyId, subdomain: "entity-media", segments };
+      }
+      return {
+        kind: "ENTITY_MEDIA",
+        isValid: true,
+        rawPath: normalized,
+        companyId,
+        entityType,
+        entityId: segments[4],
+        mediaId: imageFile[1],
+        fileName: segments[5],
+        subdomain: "entity-media",
+        segments,
+      };
+    }
 
     // Canonical target key: companies/<companyId>/objects/<documentId>/<versionOrHash>[/<fileName>]
     if (segments[2] === "objects" && segments.length >= 5) {

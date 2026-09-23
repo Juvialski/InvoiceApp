@@ -3,10 +3,12 @@ import { X } from "lucide-react";
 import type { Project, ProjectStatus } from "../../types.ts";
 import { WorksheetEditor, type WorksheetColumn } from "../ui/WorksheetEditor.tsx";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
+import { EntityMediaControl } from "../ui/EntityMedia.tsx";
 
 export interface ProjectDetailsWorksheetProps {
   project: Project;
   projectStatuses: readonly ProjectStatus[];
+  canManageMedia?: boolean;
   errorMessage?: string;
   onClose: () => void;
   onSave: (project: Project) => Promise<boolean | void> | boolean | void;
@@ -34,6 +36,7 @@ function projectCurrency(row: Project) {
 export function ProjectDetailsWorksheet({
   project,
   projectStatuses,
+  canManageMedia = false,
   errorMessage,
   onClose,
   onSave,
@@ -183,17 +186,18 @@ export function ProjectDetailsWorksheet({
 
   return (
     <div ref={dialogRef} data-project-details-worksheet="true" data-worksheet-responsive-surface="project-details" className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="project-details-worksheet-title">
-      <section data-working-canvas="true" className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[95vw] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4 sm:p-5">
+      <section data-working-canvas="true" className="hqs-surface-raised hqs-border flex max-h-[calc(100dvh-1rem)] w-full max-w-[95vw] min-w-0 flex-col overflow-hidden rounded-2xl border shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+        <div className="hqs-border flex items-start justify-between gap-3 border-b p-4 sm:p-5">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Project master data</p>
-            <h2 id="project-details-worksheet-title" className="mt-1 text-lg font-black text-slate-950">{project.id && project.projectCode.trim() ? `Edit Project Details · ${project.projectCode}` : "Create New Project"}</h2>
-            <p className="mt-1 text-xs text-slate-500">Edit project details in the worksheet; Save remains parent-validated.</p>
+            <p className="hqs-accent-text text-[10px] font-black uppercase tracking-[0.16em]">Project master data</p>
+            <h2 id="project-details-worksheet-title" className="hqs-primary-text mt-1 text-lg font-black">{project.id && project.projectCode.trim() ? `Edit Project Details · ${project.projectCode}` : "Create New Project"}</h2>
+            <p className="hqs-secondary-text mt-1 text-xs">Edit project details in the worksheet; Save remains parent-validated.</p>
           </div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" aria-label="Close project details worksheet"><X className="h-4 w-4" /></button>
+          <button ref={closeButtonRef} type="button" onClick={onClose} className="hqs-control hqs-focus-ring shrink-0 rounded-lg p-2" aria-label="Close project details worksheet"><X className="h-4 w-4" /></button>
         </div>
-        {(errorMessage || saveError) && <p role="alert" className="mx-4 mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 sm:mx-5">{saveError || errorMessage}</p>}
+        {(errorMessage || saveError) && <p role="alert" className="hqs-attention-danger mx-4 mt-4 rounded-lg px-3 py-2 text-xs font-semibold sm:mx-5">{saveError || errorMessage}</p>}
         <div data-dialog-scroll-container="project-details" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
+          {canManageMedia && <EntityMediaControl entityType="PROJECT" entityId={project.id} label="Project" canManage className="mb-4" />}
           <WorksheetEditor
             ariaLabel="Project Details worksheet"
             rows={rows}

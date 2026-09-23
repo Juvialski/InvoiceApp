@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" role="img" aria-label="Synthetic industrial water pump illustration">
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#e7f1f6"/><stop offset="1" stop-color="#d8e1e6"/></linearGradient></defs>
+  <rect width="480" height="360" fill="url(#bg)"/><path d="M0 280h480v80H0z" fill="#aebec4"/>
+  <ellipse cx="245" cy="292" rx="151" ry="20" fill="#83989f" opacity=".35"/>
+  <path d="M110 153h91v104h-91z" rx="12" fill="#34738a"/><path d="M201 178h131v77H201z" fill="#286177"/>
+  <circle cx="195" cy="205" r="55" fill="#6aa3b3"/><circle cx="195" cy="205" r="32" fill="#d5e4e7"/><circle cx="195" cy="205" r="14" fill="#39768a"/>
+  <path d="M330 191h37v-29h42v19h-23v47h-56" fill="none" stroke="#cb764e" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M104 258h235v20H104zM134 278v23M301 278v23" stroke="#455f69" stroke-width="10" stroke-linecap="round"/>
+  <path d="M125 168h48v8h-48zM222 190h88v7h-88z" fill="#d3e0df" opacity=".8"/>
+  <circle cx="376" cy="110" r="29" fill="#f4c77f"/><path d="M365 110h22M376 99v22" stroke="#fff4d4" stroke-width="5" stroke-linecap="round"/>
+</svg>

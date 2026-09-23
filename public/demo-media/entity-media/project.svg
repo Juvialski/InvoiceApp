@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" role="img" aria-label="Synthetic water infrastructure project illustration">
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#dff3f4"/><stop offset="1" stop-color="#f3e8d2"/></linearGradient></defs>
+  <rect width="480" height="360" fill="url(#sky)"/><circle cx="382" cy="70" r="34" fill="#f4bf70"/>
+  <path d="M0 226 104 183l92 38 105-61 179 67v133H0Z" fill="#9bb9a5"/>
+  <path d="M0 270h480v90H0z" fill="#b58b62"/><path d="M50 296h380" stroke="#e8d5ad" stroke-width="7" stroke-dasharray="24 18"/>
+  <path d="M220 219V89h12v130M191 103h112v9H191zM219 97l-42-32 6-7 48 34M232 98l64-27 4 8-56 30" fill="#375e69"/>
+  <path d="M328 163V97h82v73h-9v-64h-64v57z" fill="#d9794f"/><path d="M338 105h62v12h-62z" fill="#f0c28b"/>
+  <path d="M106 232v-27h62v27M116 205v-20h42v20" fill="#e0c292"/><path d="M286 270v-34h8v34M320 270v-50h9v50" stroke="#446a70" stroke-width="7"/>
+</svg>
