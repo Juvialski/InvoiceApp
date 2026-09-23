@@ -13,6 +13,8 @@ import { isAssistantActionAllowed, sanitizeAssistantClientAction } from "../src/
 import { requireCompanyPermissions, routePermission } from "../src/server/assistant/toolAuthorization.ts";
 
 const dashboardRoute = readFileSync(new URL("../src/app/routes/DashboardRoute.tsx", import.meta.url), "utf8");
+const dashboardHome = readFileSync(new URL("../src/components/dashboard/HomeDashboard.tsx", import.meta.url), "utf8");
+const dashboardHomeModel = readFileSync(new URL("../src/utils/dashboardHomeModel.ts", import.meta.url), "utf8");
 const reportsRoute = readFileSync(new URL("../src/app/routes/ReportsRoute.tsx", import.meta.url), "utf8");
 const invoicesRoute = readFileSync(new URL("../src/app/routes/InvoicesRoute.tsx", import.meta.url), "utf8");
 const projectsPage = readFileSync(new URL("../src/components/projects/ProjectsPage.tsx", import.meta.url), "utf8");
@@ -153,12 +155,14 @@ test("Assistant project cost summary uses the safe labor aggregate permission", 
 });
 
 test("incomplete Dashboard, project Overview, and Reports suppress authoritative combined aggregates", () => {
-  assert.match(dashboardRoute, /transientRefreshGap = !completeness\.complete/);
-  assert.match(dashboardRoute, /workspaceDataPending/);
-  assert.match(dashboardRoute, /completeness\.reason === "load-error"/);
-  assert.match(dashboardRoute, /if \(!completeness\.complete && !transientRefreshGap\)/);
-  assert.match(dashboardRoute, /Combined company cost position withheld/);
-  assert.match(dashboardRoute, /filter\(\(\{ tab \}\) => canAccessAppTab\(tab, permissions\)\)/);
+  assert.match(dashboardRoute, /if \(view === "home"\)/);
+  assert.match(dashboardRoute, /<HomeDashboard/);
+  assert.match(dashboardHome, /data-dashboard-view="home"/);
+  assert.match(dashboardHome, /!completeness\.complete/);
+  assert.match(dashboardHome, /Some project cost insights are withheld/);
+  assert.ok(/getNavigationModel\(\{ permissions \}\)/.test(dashboardHomeModel), "Home destinations should honor effective route visibility");
+  assert.ok(/visibleTabs\.has\(item\.action\)/.test(dashboardHomeModel), "attention items should use the same visible-route boundary");
+  assert.ok(/input\.completeness\.complete/.test(dashboardHomeModel), "project-cost attention should fail closed on incomplete sources");
   assert.match(projectOverview, /if \(!completeness\.complete\)/);
   assert.match(projectOverview, /Combined project financial position withheld/);
   assert.match(projectOverview, /Actual cost, pending exposure, budget balance, utilization, health, composition, cost trend, and cumulative burn are not shown/);

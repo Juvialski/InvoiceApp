@@ -110,7 +110,7 @@ test("ProjectsPage keeps a visual card portfolio and optional compact register",
   // Cards are the default portfolio; the existing register remains optional.
   assert.match(projectRegisterSectionSource, /useState<"cards"\s*\|\s*"list">\("cards"\)/);
   assert.match(projectRegisterSectionSource, /Compact List/);
-  assert.match(projectRegisterSectionSource, /grid grid-cols-1/);
+  assert.match(projectRegisterSectionSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(min\(100%, 20rem\), 1fr\)\)"/);
   assert.match(projectsSurfaceSource, /aria-label="Projects table"/);
   assert.match(projectsSurfaceSource, /aria-label="Projects list cards"/);
   assert.match(projectRegisterSectionSource, /OperationsGrid/);
@@ -126,7 +126,7 @@ test("Projects portfolio defaults to cards and keeps compact list as an accessib
   assert.match(projectRegisterSectionSource, /Compact List/);
   assert.match(projectRegisterSectionSource, /Edit project details/);
   assert.match(projectRegisterSectionSource, /Open project workspace/i);
-  assert.match(projectRegisterSectionSource, /grid-cols-1/);
+  assert.match(projectRegisterSectionSource, /repeat\(auto-fit, minmax\(min\(100%, 20rem\), 1fr\)\)/);
   assert.match(projectRegisterSectionSource, /More actions/);
 });
 

@@ -183,11 +183,14 @@ test("PO and RFQ keep Save/Close in one stable modal action bar", () => {
   assert.doesNotMatch(rfq, /cancelLabel="Close editor"/);
 });
 
-test("restricted dashboard keeps its purpose visible before completeness warnings", () => {
+test("Dashboard keeps one Home purpose visible before any completeness warning", () => {
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
-  const incompleteBranch = dashboard.indexOf('data-dashboard-completeness="incomplete"');
-  assert.ok(incompleteBranch >= 0);
-  assert.ok(dashboard.indexOf("<PageHeader", incompleteBranch) > incompleteBranch);
+  const home = source("src/components/dashboard/HomeDashboard.tsx");
+  assert.match(dashboard, /if \(view === "home"\)/);
+  assert.match(dashboard, /<HomeDashboard/);
+  assert.match(home, /data-dashboard-view="home"/);
+  assert.match(home, /!completeness\.complete/);
+  assert.doesNotMatch(dashboard, /if \(!completeness\.complete/);
 });
 
 test("supplier invoice register precedes supporting settlement overview", () => {

@@ -96,3 +96,17 @@ test("projects portfolio and register presentation has explicit architectural bo
   assert.match(projectRegisterSection, /onRowActivate/);
   assert.match(projectRegisterSection, /protected:\s*true/);
 });
+
+test("Project cards keep identity prominent and cards/list share the same filtered, sorted views", () => {
+  const cardsAndList = readIfPresent(projectRegisterSectionPath);
+  assert.ok(/projectMonogram\(/.test(cardsAndList), "project cards should use a deterministic identity mark");
+  assert.ok(/data-project-identity-mark/.test(cardsAndList), "the identity mark should be accessible for visual QA");
+  assert.ok(/h3 className="hqs-primary-text[^"]*text-xl/.test(cardsAndList), "the project name should be visually dominant");
+  assert.ok(/line-clamp-2/.test(cardsAndList), "project names should wrap before truncating");
+  assert.ok(/aria-label="Project status and attention"/.test(cardsAndList), "status and attention should not compress project identity");
+  for (const label of ["Contract Value", "Approved Project Budget", "Actual Cost", "Committed Cost"]) {
+    assert.ok(cardsAndList.includes(label), `${label} should retain its distinct financial meaning`);
+  }
+  assert.ok(/<ProjectPortfolioOperationsGrid displayedViews=\{displayedViews\}/.test(cardsAndList), "Compact List should use the filtered views");
+  assert.ok(/displayedViews\.map\(\(view\) => <ProjectRegisterCard/.test(cardsAndList), "Cards should use the same filtered views");
+});

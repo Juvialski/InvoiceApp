@@ -15,6 +15,7 @@ import { HydroqualisenseThemeProvider } from "../src/ui/HydroqualisenseThemeProv
 import type { DashboardViewData } from "../src/components/engineering/EngineeringCostOperationsDashboard.tsx";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE } from "../src/config/regional.ts";
 import type { CompanySummary } from "../src/lib/companyAccess.ts";
+import { projectCostDataCompleteness } from "../src/utils/dataCompleteness.ts";
 
 test("CompanySwitcher renders short and long company names with multi-line wrapping and accessibility attributes", () => {
   const shortCompany: CompanySummary = {
@@ -99,7 +100,7 @@ test("MetricCard renders animate-pulse skeleton placeholder when loading is true
   assert.doesNotMatch(loadedMarkup, /animate-pulse/);
 });
 
-test("DashboardRoute renders RouteLoadingSkeleton during initial workspace hydration", () => {
+test("DashboardRoute keeps one Home composition through hydration and incomplete project-cost sources", () => {
   const blankData: DashboardViewData = {
     selectedCurrency: "PHP",
     currencies: ["PHP"],
@@ -160,7 +161,8 @@ test("DashboardRoute renders RouteLoadingSkeleton during initial workspace hydra
     },
   };
 
-  // During hydration (workspaceDataPending = true, empty projects) -> renders skeleton
+  // Home remains useful while workspace data hydrates instead of replacing the
+  // page with a different Dashboard composition.
   const hydratingMarkup = renderToStaticMarkup(
     <AppPermissionProvider permissions={["*"]} workspaceDataPending={true}>
       <DashboardRoute
@@ -174,12 +176,19 @@ test("DashboardRoute renders RouteLoadingSkeleton during initial workspace hydra
       />
     </AppPermissionProvider>
   );
-  assert.match(hydratingMarkup, /aria-label="Loading workspace page"/);
-  assert.match(hydratingMarkup, /animate-pulse/);
+  assert.match(hydratingMarkup, /data-dashboard-view="home"/);
+  assert.doesNotMatch(hydratingMarkup, /Executive Dashboard/);
 
-  // After hydration completes (workspaceDataPending = false, legitimate 0 projects) -> renders dashboard
+  // When project-cost sources remain incomplete after hydration, Home and its
+  // navigation still render while the affected aggregate stays withheld.
   const loadedMarkup = renderToStaticMarkup(
-    <AppPermissionProvider permissions={["*"]} workspaceDataPending={false}>
+    <AppPermissionProvider
+      permissions={["*"]}
+      workspaceDataPending={false}
+      projectCostCompleteness={projectCostDataCompleteness(["*"], {
+        sourceStates: { directExpenses: "incomplete" },
+      })}
+    >
       <DashboardRoute
         data={blankData}
         projects={[]}
@@ -191,8 +200,9 @@ test("DashboardRoute renders RouteLoadingSkeleton during initial workspace hydra
       />
     </AppPermissionProvider>
   );
-  assert.match(loadedMarkup, /Operations overview/);
-  assert.match(loadedMarkup, /Executive Dashboard/);
+  assert.match(loadedMarkup, /data-dashboard-view="home"/);
+  assert.match(loadedMarkup, /project cost insights/i);
+  assert.doesNotMatch(loadedMarkup, /Executive Dashboard/);
 });
 
 test("ProjectsPage and ExpensesPage render loading placeholders during hydration and real values after loading", () => {
