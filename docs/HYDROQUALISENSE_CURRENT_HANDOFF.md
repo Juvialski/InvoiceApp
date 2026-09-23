@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 IMPLEMENTED FOR RECORDED LOCAL STATE CONTRACT / UI-R4E NEXT AFTER REL-AUTH-1**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E NEXT / WEB-BRAND-1 PLANNED**
 Date: **2026-09-23**
 Repository: `Juvialski/InvoiceApp`
 
@@ -2147,9 +2147,9 @@ In addition, `src/App.tsx` renders technical access-load `error` using the same 
 
 These are likely technical boundaries, not a claim that either sequence has already been reproduced as the exact deployed root cause.
 
-### Next phase — REL-AUTH-1
+### Completed phase contract — REL-AUTH-1
 
-Implement **REL-AUTH-1 — Idle Session & Deployment Access Recovery** before broad UI-R4E.
+REL-AUTH-1 — Idle Session & Deployment Access Recovery was implemented and merged before broad UI-R4E. The following requirements are preserved here as the historical contract that the merged implementation must continue to satisfy.
 
 Required behavior:
 - same-user ready access + transient verification/network/access-check failure: retain the last confirmed access snapshot temporarily, expose at most a small non-blocking retry/connection warning, and recover safely;
@@ -2163,9 +2163,9 @@ Regression coverage must include same-user token refresh, transient load failure
 
 No DB migration is expected from the current evidence. If implementation investigation proves a database/RPC contract change is actually required, stop treating this as a client-only phase and run the full applicable local Supabase validation rather than substituting static tests.
 
-### R4E direction preserved but out of REL-AUTH-1
+### R4E direction — NEXT
 
-Do not implement the approved R4E shell cleanup in REL-AUTH-1. Preserve it for the next UI phase:
+REL-AUTH-1 is merged. The approved R4E shell cleanup is now the next active UI phase:
 - on desktop, remove the redundant global top row containing duplicate HydroQualiSense identity, duplicate page label, permanent successful `Synced`, global `Export`, and duplicate email/account identity;
 - the sidebar remains the product/navigation identity;
 - main content begins directly at page-level content;
@@ -2189,14 +2189,29 @@ The client-side recovery boundary now:
 - clears permissions on authoritative no-company, suspended-company, deployment mismatch, confirmed permission change, user identity change, and logout;
 - rejects stale/out-of-order results by request generation and user identity.
 
-The deployed trigger remains unproven. Controlled regression cases reproduce the resolver-failure and auth-refresh boundaries in the current client code; they do not establish which sequence occurred in the deployed session. The UI-R4E shell redesign remains queued after REL-AUTH-1 review/merge.
+The deployed trigger remains unproven. Controlled regression cases reproduce the resolver-failure and auth-refresh boundaries in the current client code; they do not establish which sequence occurred in the deployed session. PR #243 was reviewed, corrected, and merged as `9da3ada95934ab0f14d906ab766d5a8b71bb9dcf`. UI-R4E is now the next active UI phase.
 
-Validation:
-- focused auth/access/session/presentation tests: **67/67 passed**;
-- `npm.cmd run lint`: passed (ESLint and TypeScript);
-- `npm.cmd run build`: passed, with existing theme-font, chunk-size, and CJS `import.meta` warnings;
-- `npm.cmd run test:affected:agent`: **237 passed / 1 failed / 0 skipped** across 238 tests, selective 38/382, no database fallback. The sole failure is `profile and access UI expose truthful states and remain isolated from the demo route` in unchanged `tests/coreHardeningWave1.test.ts`: it expects `Production company profile controls are intentionally not mounted here`, while unchanged `src/components/Settings.tsx` says `Company profile controls are database-backed in production.` This unrelated Settings copy assertion is left outside REL-AUTH-1;
-- idle/background simulation uses controlled Document visibility and Window blur/focus targets with a fake clock. No authenticated browser/hosted QA session was configured for a live workspace scenario; no production access or database mutation was performed;
-- no database, RLS, RPC, migration, Workflow Map, provider, payroll, or UI-R4E changes were made.
+Validation and review closeout:
+- focused auth/access/session/presentation tests from the implementation run: **67/67 passed**;
+- the implementation run's affected set exposed one stale source-copy assertion in `tests/coreHardeningWave1.test.ts`; PR review corrected that test to the current unchanged Settings copy without changing REL-AUTH runtime behavior;
+- reviewer head `b2335539a7b9d08b1d29a33cf295d0694a322b1b` passed Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA;
+- the branch was then integrated with current `main` so the already-merged WEB-BRAND-1 spec could not be lost; integrated exact head `1fba4d01f9a8867fe1dbe84c5f6444b9bcfe1c73` again passed all four protected workflows before merge;
+- PR #243 merged as `9da3ada95934ab0f14d906ab766d5a8b71bb9dcf`;
+- idle/background simulation remains controlled Document visibility and Window blur/focus evidence. No authenticated hosted workspace reproduction has established the exact deployed trigger, and no production/database mutation was performed;
+- no database, RLS, RPC, migration, provider, payroll, or UI-R4E implementation change was introduced by REL-AUTH-1.
 
 Developer-intelligence evidence: the single deterministic `agent:context` packet selected 8/380 tests and had no curated primary source entries. Jev context preflight found zero candidates and made no live request. The one live test-triage call kept all 38 required test files, recommending auth/access tests first (`jev-1.13.0`, 38→38, 4,121 input / 564 output tokens, 836 ms, fallback=false); deterministic selection remained authoritative. The live completion check observed all four declared evidence categories, with unresolved uncertainty retained for the unchanged affected-test assertion and lack of live authenticated browser evidence (`jev-1.13.0`, 4 candidates, 677 input / 72 output tokens, 430 ms, fallback=false, unresolvedUncertainty=true).
+
+
+## 2026-09-23 — WEB-BRAND-1 public-site plan preserved
+
+Governing spec: `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md`
+
+Status: **PLANNED — NOT YET IMPLEMENTED**.
+
+- Production/canonical public branding represents **Hydroqualisense Solutions Corp. — the engineering company**, not the software product. Publish only verified company services and approved real project experience, with known high-level emphasis on water treatment, water management, and related confirmed engineering work.
+- Never use synthetic `/demo` projects as real corporate portfolio claims and never invent clients, metrics, certifications, awards, years, locations, services, or project history.
+- QA remains an explicit software/workspace showcase using synthetic/demo context and may demonstrate project management, procurement, invoices/expenses, finance, documents, payroll, inventory/equipment, communications, workflow/history, and software screenshots.
+- No permanent creator/software-vendor identity has been chosen. Do not invent one and do not present Hydroqualisense Solutions Corp. as the vendor of a multi-client SaaS product.
+- The authenticated Hydroqualisense deployment remains the client's dedicated workspace; WEB-BRAND-1 is not authorization for another broad authenticated-app rebrand.
+- WEB-BRAND-1 is a bounded public-site phase whose timing may be selected relative to UI-R4E. Under the currently reconciled priority, **UI-R4E is next** and WEB-BRAND-1 remains planned until explicitly reprioritized.
