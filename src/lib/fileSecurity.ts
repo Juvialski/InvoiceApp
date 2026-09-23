@@ -2,6 +2,7 @@ export const MAX_INVOICE_SOURCE_BYTES = 10 * 1024 * 1024;
 export const MAX_SOURCE_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_PAYROLL_IMPORT_BYTES = 15 * 1024 * 1024;
 export const MAX_MANAGED_DOCUMENT_BYTES = 10 * 1024 * 1024;
+export const MAX_ENTITY_MEDIA_BYTES = 5 * 1024 * 1024;
 export const MAX_EXTRACTION_TEXT_CHARS = 200_000;
 
 const SAFE_STORAGE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
@@ -156,6 +157,29 @@ export function validateManagedDocumentBytes(bytes: Uint8Array, mimeType: string
     return;
   }
   throw new Error("Managed documents must be PDF, JPEG, PNG, WebP, DOCX, XLSX, XLSM, CSV, or TXT files.");
+}
+
+/** Validate the deliberately small raster-only image set used by entity media. */
+export function validateEntityMediaBytes(bytes: Uint8Array, mimeType: string | undefined, fileName: string | undefined) {
+  assertNonEmptyWithinLimit(bytes, MAX_ENTITY_MEDIA_BYTES, "Entity image");
+  const mime = normalizedMime(mimeType);
+  const ext = extension(fileName);
+  const signature = startsWithBytes(bytes, JPEG) ? "jpeg"
+    : startsWithBytes(bytes, PNG) ? "png"
+      : isWebp(bytes) ? "webp"
+        : "unknown";
+  const expected = mime === "image/jpeg" ? "jpeg"
+    : mime === "image/png" ? "png"
+      : mime === "image/webp" ? "webp"
+        : undefined;
+
+  if (!expected) throw new Error("Entity images must be JPEG, PNG, or WebP files.");
+  if (signature !== expected) throw new Error("Entity image signature does not match its declared MIME type.");
+  if ((expected === "jpeg" && ext && !["jpg", "jpeg"].includes(ext))
+    || (expected === "png" && ext && ext !== "png")
+    || (expected === "webp" && ext && ext !== "webp")) {
+    throw new Error("Entity image filename extension does not match its declared file type.");
+  }
 }
 
 export function validateBankStatementBytes(bytes: Uint8Array, fileName: string, mimeType?: string) {

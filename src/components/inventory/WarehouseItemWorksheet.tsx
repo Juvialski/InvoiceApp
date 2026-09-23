@@ -22,6 +22,7 @@ import type {
   InventoryItemStatus,
   InventoryMovement,
 } from "../../lib/inventory.ts";
+import { EntityMediaControl } from "../ui/EntityMedia.tsx";
 
 export type WarehouseItemWorksheetRow = InventoryItem & {
   isNew?: boolean;
@@ -302,13 +303,14 @@ export function WarehouseItemWorksheetModal({
 
   return (
     <div ref={dialogRef} data-warehouse-item-worksheet="true" className="fixed inset-0 z-[70] flex items-end justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="warehouse-item-worksheet-title">
-      <section data-working-canvas="true" className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[96vw] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4 sm:p-5">
-          <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Warehouse item master</p><h2 id="warehouse-item-worksheet-title" className="mt-1 text-lg font-black text-slate-950">{createNew ? "Add" : "Edit"} canonical items</h2><p className="mt-1 max-w-5xl text-xs leading-5 text-slate-500">Edit safe item identity and classification. Stock units tied to movement or project usage history stay protected; status, balances, and movement history remain authoritative outside this worksheet.</p></div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} disabled={isSaving} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50" aria-label="Close Warehouse item worksheet"><X className="h-4 w-4" /></button>
+      <section data-working-canvas="true" className="hqs-surface-raised hqs-border flex max-h-[calc(100dvh-1rem)] w-full max-w-[96vw] min-w-0 flex-col overflow-hidden rounded-2xl border shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+        <div className="hqs-border flex items-start justify-between gap-3 border-b p-4 sm:p-5">
+          <div className="min-w-0"><p className="hqs-accent-text text-[10px] font-black uppercase tracking-[0.16em]">Warehouse item master</p><h2 id="warehouse-item-worksheet-title" className="hqs-primary-text mt-1 text-lg font-black">{createNew ? "Add" : "Edit"} canonical items</h2><p className="hqs-secondary-text mt-1 max-w-5xl text-xs leading-5">Edit safe item identity and classification. Stock units tied to movement or project usage history stay protected; status, balances, and movement history remain authoritative outside this worksheet.</p></div>
+          <button ref={closeButtonRef} type="button" onClick={onClose} disabled={isSaving} className="hqs-control hqs-focus-ring shrink-0 rounded-lg p-2 disabled:opacity-50" aria-label="Close Warehouse item worksheet"><X className="h-4 w-4" /></button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
           <section data-worksheet-responsive-surface="warehouse-item-master" aria-label="Warehouse item master worksheet" className="space-y-3">
+            {!createNew && initialItemId && <EntityMediaControl entityType="MATERIAL" entityId={initialItemId} label="Material" canManage={canManage} />}
             {saveError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{saveError}</p>}
             {saveMessage && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{saveMessage}</p>}
             <WorksheetEditor

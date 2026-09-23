@@ -3,6 +3,7 @@ import { DAILY_SITE_LOGS_STORAGE_KEY, writeDailySiteLogsToLocal } from "../lib/d
 import { ENGINEERING_COORDINATION_STORAGE_KEY, writeEngineeringCoordinationToLocal } from "../lib/engineeringCoordinationPersistence.ts";
 import type { DemoPreparedAssistantAction, DemoWorkspaceData } from "./demoTypes.ts";
 import { DEMO_STORAGE_KEY } from "./demoTypes.ts";
+import { resetDemoEntityMedia } from "../lib/entityMedia.ts";
 import { createDemoWorkspace } from "./data/createDemoWorkspace.ts";
 import { defaultDemoAnchorDate } from "./data/demoDates.ts";
 import {
@@ -110,6 +111,7 @@ export function DemoWorkspaceProvider({ children }: { children: ReactNode }) {
     setData(restored);
     setPreparedAction(null);
     setTourOpen(false);
+    resetDemoEntityMedia();
     seedCoordinationIfNeeded(restored, true);
     try { window.sessionStorage.removeItem(DEMO_STORAGE_KEY); } catch { /* optional session persistence */ }
   }, [anchorDate]);

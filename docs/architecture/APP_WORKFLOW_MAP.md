@@ -18,15 +18,15 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Field | Value |
 | --- | --- |
 | Schema version | `1` |
-| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration+client-productization` |
+| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration+client-productization+ui-r4d-entity-media` |
 | Product | HydroQualiSense Engineering Operations Platform |
 | Source classification | `mixed` |
 | Reviewed against | `fb3cdbbac3290396e7bac985a19287a091dc733c` |
 | Reviewed at | `2026-09-07` |
-| Node count | 262 |
-| Edge count | 346 |
-| Invariant count | 34 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `P5 Post-Warehouse Operational Integration`, `Client Productization`, `QA-1`, `WM-1` |
+| Node count | 266 |
+| Edge count | 355 |
+| Invariant count | 36 |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `P5 Post-Warehouse Operational Integration`, `Client Productization`, `UI-R4D Entity Media Foundation`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -218,7 +218,7 @@ flowchart LR
 
 ### Warehouse Inventory and Project Allocation flow
 
-Canonical company item master, append-only movement ledger, derived on-hand, explicit procurement provenance, project issues/returns, and history-preserving corrections.
+Canonical company item master, primary media identification, append-only movement ledger, derived on-hand, explicit procurement provenance, project issues/returns, and history-preserving corrections.
 
 ```mermaid
 flowchart LR
@@ -240,6 +240,12 @@ flowchart LR
   subgraph g_engineering["Engineering"]
     n_project_material_register[("Project Materials Register<br/><small>DATA · PLANNED → ACTIVE → ON_HOLD → CLOSED → CANCELLED</small>")]
   end
+  subgraph g_platformTenancy["Platform / Tenancy"]
+    n_entity_media_api[["Authenticated Entity Media API<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_entity_media_binding[("Current Entity Media binding<br/><small>DATA</small>")]
+    n_entity_media_storage[["Private Entity Media Storage boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_entity_media_cleanup{"Entity Media object cleanup queue<br/><small>WORKFLOW</small>"}
+  end
   n_route_warehouse_inventory -->|opens company Warehouse Inventory| n_warehouse_inventory_workspace
   n_warehouse_inventory_workspace -->|canonical item directory| n_inventory_item_master
   n_warehouse_inventory_workspace -->|movement history and actions| n_inventory_movement_ledger
@@ -251,6 +257,12 @@ flowchart LR
   n_inventory_movement_ledger -->|quantity/custody movement is not Actual Cost or Committed Cost| n_project_cost_aggregation
   n_inventory_movement_ledger -->|project inventory history blocks destructive deletion| n_project_correction_lifecycle
   n_project_material_register -->|planning metadata is not Actual Cost| n_project_cost_aggregation
+  n_warehouse_inventory_workspace -->|canonical Warehouse Material image read and management| n_entity_media_api
+  n_entity_media_api -->|resolve current company/entity image metadata| n_entity_media_binding
+  n_entity_media_api -->|server-validated current image binding with expected-id concurrency check| n_entity_media_binding
+  n_entity_media_binding -->|provider-neutral company-scoped image object| n_entity_media_storage
+  n_entity_media_binding -->|replacement, removal, failed upload, or entity cascade records cleanup| n_entity_media_cleanup
+  n_entity_media_cleanup -->|retry exact unbound company object deletion| n_entity_media_storage
   n_purchase_order_receipts -->|separate explicit Warehouse posting| n_inventory_movement_ledger
   classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
@@ -272,11 +284,15 @@ flowchart LR
   class n_inventory_current_balance inventory
   class n_project_material_inventory_link inventory
   class n_project_material_register engineering
+  class n_entity_media_api platformTenancy
+  class n_entity_media_binding platformTenancy
+  class n_entity_media_storage platformTenancy
+  class n_entity_media_cleanup platformTenancy
 ```
 
 ### Post-Warehouse operational integration flow
 
-Canonical supplier allocation reconciliation, human-reviewed purchased-material intake into existing Procurement receipts, explicit Warehouse posting, and company Equipment authority with auditable assignment history.
+Canonical supplier allocation reconciliation, human-reviewed purchased-material intake into existing Procurement receipts, explicit Warehouse posting, company Equipment authority with auditable assignment history, and shared canonical image identification.
 
 ```mermaid
 flowchart LR
@@ -304,9 +320,21 @@ flowchart LR
     n_equipment_assignment_history{"Auditable Equipment assignment history<br/><small>WORKFLOW · ASSIGNED → RETURNED → TRANSFERRED</small>"}
     n_equipment_current_state["Derived current Equipment state<br/><small>DERIVED-DATA</small>"]
   end
+  subgraph g_platformTenancy["Platform / Tenancy"]
+    n_entity_media_api[["Authenticated Entity Media API<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_entity_media_binding[("Current Entity Media binding<br/><small>DATA</small>")]
+    n_entity_media_storage[["Private Entity Media Storage boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_entity_media_cleanup{"Entity Media object cleanup queue<br/><small>WORKFLOW</small>"}
+  end
   n_invoice_project_allocation -->|verified supplier cost| n_project_cost_aggregation
   n_purchase_order_receipts -->|explicit Receive into Warehouse action; no automatic posting| n_inventory_movement_ledger
   n_inventory_movement_ledger -->|quantity/custody movement is not Actual Cost or Committed Cost| n_project_cost_aggregation
+  n_equipment_registry_workspace -->|canonical Equipment image read and management| n_entity_media_api
+  n_entity_media_api -->|resolve current company/entity image metadata| n_entity_media_binding
+  n_entity_media_api -->|server-validated current image binding with expected-id concurrency check| n_entity_media_binding
+  n_entity_media_binding -->|provider-neutral company-scoped image object| n_entity_media_storage
+  n_entity_media_binding -->|replacement, removal, failed upload, or entity cascade records cleanup| n_entity_media_cleanup
+  n_entity_media_cleanup -->|retry exact unbound company object deletion| n_entity_media_storage
   n_invoice_project_allocation -->|canonical allocations reconcile linked supplier Expense| n_supplier_invoice_expense_reconciliation
   n_supplier_invoice_expense_reconciliation -->|project attribution remains separate from amount/status history| n_project_cost_aggregation
   n_invoice_human_verification -->|review source document for financial or delivery meaning| n_purchased_material_intake_review
@@ -342,6 +370,10 @@ flowchart LR
   class n_canonical_equipment_registry engineering
   class n_equipment_assignment_history engineering
   class n_equipment_current_state engineering
+  class n_entity_media_api platformTenancy
+  class n_entity_media_binding platformTenancy
+  class n_entity_media_storage platformTenancy
+  class n_entity_media_cleanup platformTenancy
 ```
 
 ### Public funnel and isolated deployment productization flow
@@ -385,7 +417,7 @@ flowchart LR
 
 ### Projects and Engineering flow
 
-Project aggregate, Engineering Documents, RFIs, Submittals, and Daily Site Logs with lifecycle/history boundaries.
+Project aggregate, optional Project cover identity, linked canonical Equipment/Material visuals, Engineering Documents, RFIs, Submittals, and Daily Site Logs with lifecycle/history boundaries.
 
 ```mermaid
 flowchart LR
@@ -480,6 +512,12 @@ flowchart LR
   end
   subgraph g_procurement["Procurement"]
     n_material_procurement_receipt_progress["Derived material procurement and receipt progress<br/><small>DERIVED-DATA</small>"]
+  end
+  subgraph g_platformTenancy["Platform / Tenancy"]
+    n_entity_media_api[["Authenticated Entity Media API<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_entity_media_binding[("Current Entity Media binding<br/><small>DATA</small>")]
+    n_entity_media_storage[["Private Entity Media Storage boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_entity_media_cleanup{"Entity Media object cleanup queue<br/><small>WORKFLOW</small>"}
   end
   n_project_directory -->|selects project| n_project_selection
   n_project_selection -->|canonical project path| n_route_project_workspace
@@ -588,6 +626,13 @@ flowchart LR
   n_project_engineering_coordination_summary -->|project Daily Site Logs| n_site_log_register_screen
   n_project_engineering_coordination_summary -->|explicitly due RFI and Submittal signals| n_project_attention_signals
   n_production_p2_integration_parity -->|subcontract, claim, and variation context| n_project_workspace
+  n_project_directory -->|Project cover image read, upload, replace, and remove| n_entity_media_api
+  n_materials_equipment_workspace -->|linked canonical Inventory/Equipment image only when its read permission is present| n_entity_media_api
+  n_entity_media_api -->|resolve current company/entity image metadata| n_entity_media_binding
+  n_entity_media_api -->|server-validated current image binding with expected-id concurrency check| n_entity_media_binding
+  n_entity_media_binding -->|provider-neutral company-scoped image object| n_entity_media_storage
+  n_entity_media_binding -->|replacement, removal, failed upload, or entity cascade records cleanup| n_entity_media_cleanup
+  n_entity_media_cleanup -->|retry exact unbound company object deletion| n_entity_media_storage
   classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
@@ -681,6 +726,10 @@ flowchart LR
   class n_project_attention_signals projects
   class n_project_engineering_coordination_summary engineering
   class n_production_p2_integration_parity projects
+  class n_entity_media_api platformTenancy
+  class n_entity_media_binding platformTenancy
+  class n_entity_media_storage platformTenancy
+  class n_entity_media_cleanup platformTenancy
 ```
 
 ### Project Attention and Production Parity
@@ -800,6 +849,88 @@ flowchart LR
   class n_project_attention_signals projects
   class n_project_engineering_coordination_summary engineering
   class n_production_p2_integration_parity projects
+```
+
+### UI-R4D Entity Media Foundation
+
+Project cover, canonical Equipment, and canonical Warehouse Material images reuse existing authority through private company-bound Storage, entity permission checks, signed reads, replacement cleanup, and entity-cascade cleanup.
+
+```mermaid
+flowchart LR
+  subgraph g_projects["Projects"]
+    n_route_projects(["Projects directory route<br/><small>ROUTE · /projects</small>"])
+    n_route_project_workspace(["Project Workspace route<br/><small>ROUTE · /projects/:projectId</small>"])
+    n_project_directory["Project portfolio table<br/><small>SCREEN</small>"]
+    n_project_workspace["Project Workspace<br/><small>SCREEN</small>"]
+  end
+  subgraph g_inventory["Warehouse Inventory"]
+    n_route_warehouse_inventory(["Warehouse Inventory route<br/><small>ROUTE · /warehouse</small>"])
+    n_warehouse_inventory_workspace["Warehouse Inventory workspace<br/><small>SCREEN</small>"]
+    n_inventory_item_master[("Canonical Inventory Item master<br/><small>DATA · ACTIVE → INACTIVE</small>")]
+    n_project_material_inventory_link[("Project requirement to Inventory Item link<br/><small>DATA</small>")]
+  end
+  subgraph g_engineering["Engineering"]
+    n_route_project_materials_equipment(["Project Materials &amp; Equipment route<br/><small>ROUTE · /projects/:projectId/materials-equipment</small>"])
+    n_materials_equipment_workspace["Materials &amp; Equipment workspace<br/><small>SCREEN</small>"]
+    n_project_material_register[("Project Materials Register<br/><small>DATA · PLANNED → ACTIVE → ON_HOLD → CLOSED → CANCELLED</small>")]
+    n_project_equipment_register[("Project Equipment Register<br/><small>DATA · ACTIVE → INACTIVE → OUT_OF_SERVICE → RETURNED</small>")]
+    n_route_equipment_registry(["Equipment Registry route<br/><small>ROUTE · /equipment</small>"])
+    n_equipment_registry_workspace["Equipment Registry workspace<br/><small>SCREEN</small>"]
+    n_canonical_equipment_registry[("Canonical company Equipment Registry<br/><small>DATA · AVAILABLE → MAINTENANCE → OUT_OF_SERVICE → RETIRED</small>")]
+  end
+  subgraph g_platformTenancy["Platform / Tenancy"]
+    n_entity_media_api[["Authenticated Entity Media API<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_entity_media_binding[("Current Entity Media binding<br/><small>DATA</small>")]
+    n_entity_media_storage[["Private Entity Media Storage boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_entity_media_cleanup{"Entity Media object cleanup queue<br/><small>WORKFLOW</small>"}
+  end
+  n_route_project_workspace -->|opens| n_project_workspace
+  n_route_warehouse_inventory -->|opens company Warehouse Inventory| n_warehouse_inventory_workspace
+  n_warehouse_inventory_workspace -->|canonical item directory| n_inventory_item_master
+  n_project_material_register -->|optional exact-unit canonical item link| n_project_material_inventory_link
+  n_project_workspace -->|Materials &amp; Equipment tab| n_route_project_materials_equipment
+  n_route_project_materials_equipment -->|register| n_materials_equipment_workspace
+  n_materials_equipment_workspace -->|project materials| n_project_material_register
+  n_materials_equipment_workspace -->|project equipment| n_project_equipment_register
+  n_project_directory -->|Project cover image read, upload, replace, and remove| n_entity_media_api
+  n_equipment_registry_workspace -->|canonical Equipment image read and management| n_entity_media_api
+  n_warehouse_inventory_workspace -->|canonical Warehouse Material image read and management| n_entity_media_api
+  n_materials_equipment_workspace -->|linked canonical Inventory/Equipment image only when its read permission is present| n_entity_media_api
+  n_entity_media_api -->|resolve current company/entity image metadata| n_entity_media_binding
+  n_entity_media_api -->|server-validated current image binding with expected-id concurrency check| n_entity_media_binding
+  n_entity_media_binding -->|provider-neutral company-scoped image object| n_entity_media_storage
+  n_entity_media_binding -->|replacement, removal, failed upload, or entity cascade records cleanup| n_entity_media_cleanup
+  n_entity_media_cleanup -->|retry exact unbound company object deletion| n_entity_media_storage
+  n_route_equipment_registry -->|opens company Equipment Registry| n_equipment_registry_workspace
+  n_equipment_registry_workspace -->|canonical asset identity and lifecycle| n_canonical_equipment_registry
+  classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
+  classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
+  classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
+  classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
+  classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
+  classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
+  classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
+  classDef assistant fill:#fdf2f8,stroke:#db2777,color:#831843;
+  class n_route_projects projects
+  class n_route_project_workspace projects
+  class n_project_directory projects
+  class n_project_workspace projects
+  class n_route_warehouse_inventory inventory
+  class n_warehouse_inventory_workspace inventory
+  class n_inventory_item_master inventory
+  class n_project_material_inventory_link inventory
+  class n_route_project_materials_equipment engineering
+  class n_materials_equipment_workspace engineering
+  class n_project_material_register engineering
+  class n_project_equipment_register engineering
+  class n_route_equipment_registry engineering
+  class n_equipment_registry_workspace engineering
+  class n_canonical_equipment_registry engineering
+  class n_entity_media_api platformTenancy
+  class n_entity_media_binding platformTenancy
+  class n_entity_media_storage platformTenancy
+  class n_entity_media_cleanup platformTenancy
 ```
 
 ### Client Progress Billing flow
@@ -1199,6 +1330,8 @@ These invariants are intentionally explicit because generic import graphs cannot
 | --- | --- | --- | --- |
 | **Company and RBAC isolation is authoritative**<br/><small>`company-rbac-is-authoritative`</small> | Business records are scoped by company membership and permission; client visibility is not a substitute for PostgreSQL RLS/RPC authorization. | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/utils/accessControl.ts`<br/>`src/server/auth/serverAuthorization.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts`<br/>`tests/companyTenancyMigration.test.ts` |
 | **Demo mode is isolated from production writes**<br/><small>`demo-cannot-write-production`</small> | The public /demo runtime uses deterministic local/session state and cannot become a production company or Supabase write path. | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspaceProvider.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` |
+| **Entity images stay attached to canonical company entities**<br/><small>`entity-media-keeps-canonical-entity-authority`</small> | Project covers belong to Projects, Equipment images belong to the canonical Equipment Registry, and Material images belong to canonical Warehouse Inventory items; project requirement/assignment references reuse those images without duplicate ownership or changes to financial, movement, or lifecycle truth. | `src/lib/entityMediaTypes.ts`<br/>`src/server/storage/entityMediaRouter.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql` | `tests/materialsEquipmentPage.test.tsx`<br/>`tests/entityMediaRouter.test.ts`<br/>`supabase/tests/database/44_entity_media_foundation.test.sql` |
+| **Entity image Storage remains private and entity lifecycle independent**<br/><small>`entity-media-storage-is-private-and-nonblocking`</small> | Only company-scoped supported raster images are stored under server-built entity-media paths; reads require the existing entity read permission and short-lived signed access, failed writes are compensated, and entity deletion queues object cleanup without requiring the image to remain present. | `src/lib/fileSecurity.ts`<br/>`src/lib/storage/keys.ts`<br/>`src/server/storage/entityMediaRouter.ts`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql`<br/>`.env.example` | `tests/entityMediaSecurity.test.ts`<br/>`tests/entityMediaRuntime.test.ts`<br/>`supabase/tests/database/44_entity_media_foundation.test.sql` |
 | **Public prospect intake cannot provision operations**<br/><small>`public-funnel-cannot-provision`</small> | The unauthenticated HydroQualiSense landing and requirements intake accepts only bounded business context; it cannot create a company, deployment, privileged user, credential, secret, or operational record. | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/public/PublicFunnelRoot.tsx`<br/>`src/lib/publicProspect.ts`<br/>`server.ts`<br/>`src/server/publicProspects/publicProspectRouter.ts`<br/>`supabase/migrations/20260907024119_public_prospect_funnel.sql` | `tests/publicProspect.test.ts`<br/>`supabase/tests/database/29_public_prospect_funnel.test.sql` |
 | **Deployment inventory stores metadata, never secrets**<br/><small>`deployment-inventory-never-stores-secrets`</small> | Operator deployment inventory records identifiers, configuration status, release state, backup state, and verification evidence without duplicating provider passwords, tokens, API keys, credentials, or private keys. | `src/lib/deploymentManifest.ts`<br/>`scripts/deployment/validate-manifest.ts`<br/>`deployment/inventory.template.json`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` |
 | **Release promotion remains explicit per deployment**<br/><small>`isolated-release-promotion-is-explicit`</small> | Each isolated client deployment records its expected and observed repository SHA, migration level, configuration version, prerequisites, health result, and forward-recovery expectation before release handover. | `src/server/releaseMetadata.ts`<br/>`src/lib/deploymentManifest.ts`<br/>`scripts/deployment/verify-release.ts`<br/>`server.ts`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` |
@@ -1284,6 +1417,10 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Workspace cache and Realtime synchronization**<br/><small>`workspace-sync`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/lib/workspaceSync.ts`<br/>`src/lib/workspaceLoadCache.ts`<br/>`src/lib/workspaceSyncInstrumentation.ts`<br/>`supabase/migrations/20260823180000_workspace_sync_realtime.sql` | `tests/workspaceSync.test.ts`<br/>`tests/workspaceSyncRegression.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
 | **Demo landing route**<br/><small>`route-demo-landing`</small> | `route` | `demo-only`<br/>demo-only<br/>`/demo` | — | — | `code-derived` | `src/demo/demoRouting.ts`<br/>`src/demo/DemoLandingPage.tsx` | `tests/demoWorkspace.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |
 | **Settings route**<br/><small>`route-settings`</small> | `route` | `company`<br/>`settings`<br/>`/settings` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/SettingsRoute.tsx`<br/>`src/components/Settings.tsx`<br/>`src/components/access/CompanyProfileSettings.tsx`<br/>`src/components/access/DeploymentAccessManagement.tsx` | `tests/appRouting.test.ts`<br/>`tests/coreHardeningWave1.test.ts` | — |
+| **Authenticated Entity Media API**<br/><small>`entity-media-api`</small> | `external-boundary` | `company`<br/>— | — | `projects.read`<br/>`projects.manage`<br/>`equipment.read`<br/>`equipment.manage`<br/>`inventory.read`<br/>`inventory.manage` | `mixed` | `server.ts`<br/>`src/server/storage/entityMediaRouter.ts`<br/>`src/server/storage/storageRouter.ts`<br/>`src/lib/entityMedia.ts` | `tests/entityMediaRouter.test.ts`<br/>`tests/entityMediaRuntime.test.ts` | — |
+| **Current Entity Media binding**<br/><small>`entity-media-binding`</small> | `data` | `company`<br/>— | — | `projects.read`<br/>`projects.manage`<br/>`equipment.read`<br/>`equipment.manage`<br/>`inventory.read`<br/>`inventory.manage` | `mixed` | `src/lib/entityMediaTypes.ts`<br/>`src/lib/storage/keys.ts`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql` | `tests/entityMediaSecurity.test.ts`<br/>`supabase/tests/database/44_entity_media_foundation.test.sql` | — |
+| **Private Entity Media Storage boundary**<br/><small>`entity-media-storage`</small> | `external-boundary` | `company`<br/>— | — | — | `mixed` | `src/lib/storage/types.ts`<br/>`src/lib/storage/keys.ts`<br/>`src/lib/storage/providers/supabaseProvider.ts`<br/>`src/lib/storage/providers/s3Provider.ts`<br/>`src/server/storage/entityMediaRouter.ts`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql`<br/>`.env.example` | `tests/entityMediaSecurity.test.ts`<br/>`tests/entityMediaRuntime.test.ts`<br/>`supabase/tests/database/44_entity_media_foundation.test.sql` | — |
+| **Entity Media object cleanup queue**<br/><small>`entity-media-cleanup`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/server/storage/entityMediaRouter.ts`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql` | `tests/entityMediaRouter.test.ts`<br/>`tests/entityMediaRuntime.test.ts`<br/>`supabase/tests/database/44_entity_media_foundation.test.sql` | — |
 
 ### Dashboard
 
@@ -1298,9 +1435,9 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 
 | Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Projects directory route**<br/><small>`route-projects`</small> | `route` | `company`<br/>`projects`<br/>`/projects` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/projects.test.ts` | `projects--projects--portfolio-dashboard-verified--desktop-1440` |
-| **Project Workspace route**<br/><small>`route-project-workspace`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId`<br/>query: `view` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | `project-workspace--project-overview--project-selected--desktop-1440`<br/>`project-workspace--project-overview--base-route-loaded--tablet-768` |
-| **Project portfolio table**<br/><small>`project-directory`</small> | `screen` | `company`<br/>— | — | — | `code-derived` | `src/app/routes/ProjectsRoute.tsx`<br/>`src/components/projects/ProjectsPage.tsx` | `tests/projects.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | `projects--projects--portfolio-dashboard-verified--desktop-1440` |
+| **Projects directory route**<br/><small>`route-projects`</small> | `route` | `company`<br/>`projects`<br/>`/projects` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/projects.test.ts` | `projects--projects--portfolio-dashboard-verified--desktop-1440`<br/>`entity-media--projects--r4d-project-media-and-deterministic-fallback-light--desktop-1440`<br/>`entity-media--projects--r4d-project-media-and-deterministic-fallback-constrained-laptop--r4d-laptop-1280`<br/>`entity-media--projects--r4d-project-media-and-deterministic-fallback-dark-phone--mobile-390`<br/>`entity-media--projects--r4d-project-image-replace-remove-controls-dark--desktop-1440`<br/>`entity-media--projects--r4d-project-image-replace-remove-controls-dark-phone--mobile-390` |
+| **Project Workspace route**<br/><small>`route-project-workspace`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId`<br/>query: `view` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/projects/ProjectDetailsWorksheet.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | `project-workspace--project-overview--project-selected--desktop-1440`<br/>`project-workspace--project-overview--base-route-loaded--tablet-768`<br/>`entity-media--project-workspace--r4d-linked-project-material-media-and-text-context-light--desktop-1440` |
+| **Project portfolio table**<br/><small>`project-directory`</small> | `screen` | `company`<br/>— | — | `projects.read` | `code-derived` | `src/app/routes/ProjectsRoute.tsx`<br/>`src/components/projects/ProjectsPage.tsx`<br/>`src/components/projects/ProjectPortfolioRegisterSection.tsx`<br/>`src/components/ui/EntityMedia.tsx`<br/>`src/lib/entityMedia.ts` | `tests/projects.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts`<br/>`tests/entityMediaUi.test.tsx` | `projects--projects--portfolio-dashboard-verified--desktop-1440` |
 | **Project Financial Summary**<br/><small>`project-financial-summary`</small> | `derived-data` | `company-and-project`<br/>— | — | `projects.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/utils/projectFinancialSummary.ts`<br/>`src/utils/projectManagementViewModel.ts`<br/>`src/lib/clientBilling.ts`<br/>`src/lib/clientCollections.ts` | `tests/projectFinancialSummary.test.ts`<br/>`tests/projectManagementViewModel.test.ts`<br/>`tests/clientProgressBilling.test.ts`<br/>`tests/clientCollectionsDomain.test.ts` | — |
 | **Select project**<br/><small>`project-selection`</small> | `action` | `company`<br/>— | — | `projects.read` | `code-derived` | `src/features/projects/useProjectController.ts`<br/>`src/utils/appRouting.ts` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/appRouting.test.ts` | — |
 | **Project Workspace**<br/><small>`project-workspace`</small> | `screen` | `project`<br/>— | — | — | `mixed` | `src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/projects.test.ts` | `project-workspace--project-overview--project-selected--desktop-1440`<br/>`project-workspace--project-documents--base-route-loaded--desktop-1440` |
@@ -1338,9 +1475,9 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 
 | Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Warehouse Inventory route**<br/><small>`route-warehouse-inventory`</small> | `route` | `global`<br/>`warehouse`<br/>`/warehouse`<br/>query: `movementId`, `receiptId`, `from` | — | `inventory.read` | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/WarehouseInventoryRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/navigationRoutes.test.ts`<br/>`tests/demoQaRouteCoverage.test.ts` | `warehouse-inventory--warehouse--warehouse-ledger-rendered--desktop-1440` |
-| **Warehouse Inventory workspace**<br/><small>`warehouse-inventory-workspace`</small> | `screen` | `global`<br/>— | — | `inventory.read`<br/>`inventory.manage` | `mixed` | `src/components/inventory/WarehouseInventoryPage.tsx`<br/>`src/app/routes/WarehouseInventoryRoute.tsx`<br/>`src/App.tsx` | `tests/inventory.test.ts`<br/>`tests/inventoryRuntime.test.ts` | — |
-| **Canonical Inventory Item master**<br/><small>`inventory-item-master`</small> | `data` | `company`<br/>— | `ACTIVE` → `INACTIVE` | `inventory.read`<br/>`inventory.manage` | `mixed` | `src/lib/inventory.ts`<br/>`src/types.ts`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql` | `tests/inventory.test.ts`<br/>`tests/inventoryMigration.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` | — |
+| **Warehouse Inventory route**<br/><small>`route-warehouse-inventory`</small> | `route` | `global`<br/>`warehouse`<br/>`/warehouse`<br/>query: `movementId`, `receiptId`, `from` | — | `inventory.read` | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/WarehouseInventoryRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/navigationRoutes.test.ts`<br/>`tests/demoQaRouteCoverage.test.ts` | `warehouse-inventory--warehouse--warehouse-ledger-rendered--desktop-1440`<br/>`entity-media--warehouse--r4d-canonical-material-media-and-fallback-dark--desktop-1440`<br/>`entity-media--warehouse--r4d-canonical-material-media-and-fallback-tablet--r4d-tablet-768`<br/>`entity-media--warehouse--r4d-canonical-material-media-and-fallback-light-phone--mobile-390` |
+| **Warehouse Inventory workspace**<br/><small>`warehouse-inventory-workspace`</small> | `screen` | `global`<br/>— | — | `inventory.read`<br/>`inventory.manage` | `mixed` | `src/components/inventory/WarehouseInventoryPage.tsx`<br/>`src/components/inventory/WarehouseItemWorksheet.tsx`<br/>`src/components/ui/EntityMedia.tsx`<br/>`src/lib/entityMedia.ts`<br/>`src/app/routes/WarehouseInventoryRoute.tsx`<br/>`src/App.tsx` | `tests/inventory.test.ts`<br/>`tests/inventoryRuntime.test.ts`<br/>`tests/materialsEquipmentPage.test.tsx` | — |
+| **Canonical Inventory Item master**<br/><small>`inventory-item-master`</small> | `data` | `company`<br/>— | `ACTIVE` → `INACTIVE` | `inventory.read`<br/>`inventory.manage` | `mixed` | `src/lib/inventory.ts`<br/>`src/lib/entityMediaTypes.ts`<br/>`src/components/inventory/WarehouseInventoryPage.tsx`<br/>`src/components/inventory/WarehouseItemWorksheet.tsx`<br/>`src/types.ts`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql` | `tests/inventory.test.ts`<br/>`tests/inventoryMigration.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql`<br/>`supabase/tests/database/44_entity_media_foundation.test.sql` | — |
 | **Authoritative Inventory Movement Ledger**<br/><small>`inventory-movement-ledger`</small> | `workflow` | `company-and-project`<br/>— | `OPENING` → `RECEIPT` → `PROJECT_ISSUE` → `PROJECT_RETURN` → `REVERSAL` | `inventory.manage` | `mixed` | `src/lib/inventory.ts`<br/>`src/components/inventory/WarehouseInventoryPage.tsx`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql`<br/>`supabase/migrations/20260906114550_warehouse_inventory_realtime.sql` | `tests/inventory.test.ts`<br/>`tests/inventoryRuntime.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` | — |
 | **Derived current inventory balance**<br/><small>`inventory-current-balance`</small> | `derived-data` | `company`<br/>— | — | `inventory.read` | `mixed` | `src/lib/inventory.ts`<br/>`src/components/inventory/WarehouseInventoryPage.tsx`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql` | `tests/inventory.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` | — |
 | **Project requirement to Inventory Item link**<br/><small>`project-material-inventory-link`</small> | `data` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage`<br/>`inventory.read` | `mixed` | `src/types.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql` | `tests/materialsEquipment.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` | — |
@@ -1420,16 +1557,16 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Site Log lifecycle action**<br/><small>`site-log-lifecycle-action`</small> | `action` | `company-and-project`<br/>— | — | `engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed`<br/>confirmation: `human` | `src/features/engineering/useDailySiteLogsController.ts`<br/>`src/components/engineering/ProjectSiteLogs.tsx`<br/>`src/server/assistant/dailySiteLogsAssistant.ts`<br/>`supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql` | `tests/dailySiteLogs.test.ts`<br/>`tests/assistantBackend.test.ts`<br/>`tests/coreHardeningWave2C.test.ts` | — |
 | **Site Log guarded RPC boundary**<br/><small>`site-log-rpc-boundary`</small> | `external-boundary` | `company-and-project`<br/>— | — | `engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed` | `src/lib/dailySiteLogsPersistence.ts`<br/>`src/lib/engineeringLifecycle.ts`<br/>`supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql`<br/>`supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql` | `tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts`<br/>`tests/coreHardeningWave2C.test.ts` | — |
 | **Field observation / payroll boundary**<br/><small>`site-log-payroll-boundary`</small> | `guard` | `company-and-project`<br/>— | — | — | `curated` | `docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md`<br/>`src/lib/dailySiteLogs.ts`<br/>`src/lib/payrollWorkforce.ts` | `tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts` | — |
-| **Project Materials & Equipment route**<br/><small>`route-project-materials-equipment`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId/materials-equipment` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/utils/appRouteContracts.ts`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/materialsEquipmentRouting.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | — |
-| **Materials & Equipment workspace**<br/><small>`materials-equipment-workspace`</small> | `screen` | `project`<br/>— | — | `projects.read`<br/>`projects.manage`<br/>`procurement.read`<br/>`engineering.sitelogs.read` | `mixed` | `src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/lib/materialsEquipment.ts` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentRouting.test.ts` | — |
-| **Project Materials Register**<br/><small>`project-material-register`</small> | `data` | `company-and-project`<br/>— | `PLANNED` → `ACTIVE` → `ON_HOLD` → `CLOSED` → `CANCELLED` | `projects.read`<br/>`projects.manage` | `mixed` | `src/types.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
-| **Project Equipment Register**<br/><small>`project-equipment-register`</small> | `data` | `company-and-project`<br/>— | `ACTIVE` → `INACTIVE` → `OUT_OF_SERVICE` → `RETURNED` | `projects.read`<br/>`projects.manage` | `mixed` | `src/types.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
+| **Project Materials & Equipment route**<br/><small>`route-project-materials-equipment`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId/materials-equipment` | — | `projects.read`<br/>`inventory.read`<br/>`equipment.read` | `code-derived` | `src/utils/appRouting.ts`<br/>`src/utils/appRouteContracts.ts`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/materialsEquipmentRouting.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | — |
+| **Materials & Equipment workspace**<br/><small>`materials-equipment-workspace`</small> | `screen` | `project`<br/>— | — | `projects.read`<br/>`projects.manage`<br/>`procurement.read`<br/>`engineering.sitelogs.read`<br/>`inventory.read`<br/>`equipment.read` | `mixed` | `src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/ui/EntityMedia.tsx`<br/>`src/lib/entityMedia.ts`<br/>`src/lib/materialsEquipment.ts` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentRouting.test.ts` | — |
+| **Project Materials Register**<br/><small>`project-material-register`</small> | `data` | `company-and-project`<br/>— | `PLANNED` → `ACTIVE` → `ON_HOLD` → `CLOSED` → `CANCELLED` | `projects.read`<br/>`projects.manage`<br/>`inventory.read` | `mixed` | `src/types.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`src/components/ui/EntityMedia.tsx`<br/>`supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
+| **Project Equipment Register**<br/><small>`project-equipment-register`</small> | `data` | `company-and-project`<br/>— | `ACTIVE` → `INACTIVE` → `OUT_OF_SERVICE` → `RETURNED` | `projects.read`<br/>`projects.manage`<br/>`equipment.read` | `mixed` | `src/types.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`src/components/ui/EntityMedia.tsx`<br/>`supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
 | **Derived equipment field usage evidence**<br/><small>`equipment-field-usage-evidence`</small> | `derived-data` | `company-and-project`<br/>— | — | `engineering.sitelogs.read`<br/>`projects.read` | `mixed` | `src/lib/materialsEquipment.ts`<br/>`src/lib/dailySiteLogs.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx` | `tests/materialsEquipment.test.ts` | — |
 | **Structured Daily Site Log operations**<br/><small>`site-log-structured-operations`</small> | `data` | `company-and-project`<br/>— | — | `engineering.sitelogs.read`<br/>`engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed` | `src/lib/dailySiteLogs.ts`<br/>`src/lib/dailySiteLogsPersistence.ts`<br/>`src/components/engineering/ProjectSiteLogs.tsx`<br/>`supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/dailySiteLogsPersistence.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
 | **Project Engineering Coordination Summary**<br/><small>`project-engineering-coordination-summary`</small> | `derived-data` | `project`<br/>— | — | `engineering.documents.read`<br/>`engineering.rfis.read`<br/>`engineering.submittals.read`<br/>`engineering.sitelogs.read` | `mixed` | `src/utils/projectEngineeringCoordination.ts`<br/>`src/features/engineering/useProjectEngineeringCoordinationSummary.ts`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx` | `tests/p3a3P3dIntegration.test.ts`<br/>`tests/engineeringLifecycle.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | — |
-| **Equipment Registry route**<br/><small>`route-equipment-registry`</small> | `route` | `global`<br/>`equipment`<br/>`/equipment` | — | `equipment.read` | `code-derived` | `src/utils/routes.ts`<br/>`src/navigation/navigationModel.ts`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/EquipmentRoute.tsx` | `tests/navigationRoutes.test.ts`<br/>`tests/appRouting.test.ts`<br/>`tests/postWarehouseOperationalIntegration.test.ts` | — |
-| **Equipment Registry workspace**<br/><small>`equipment-registry-workspace`</small> | `screen` | `global`<br/>— | — | `equipment.read`<br/>`equipment.manage`<br/>`engineering.sitelogs.read` | `mixed` | `src/components/equipment/EquipmentPage.tsx`<br/>`src/lib/equipment.ts`<br/>`src/app/routes/EquipmentRoute.tsx`<br/>`src/App.tsx` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/postWarehouseRuntime.test.ts` | — |
-| **Canonical company Equipment Registry**<br/><small>`canonical-equipment-registry`</small> | `data` | `company`<br/>— | `AVAILABLE` → `MAINTENANCE` → `OUT_OF_SERVICE` → `RETIRED` | `equipment.read`<br/>`equipment.manage` | `mixed` | `src/types.ts`<br/>`src/lib/equipment.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` | — |
+| **Equipment Registry route**<br/><small>`route-equipment-registry`</small> | `route` | `global`<br/>`equipment`<br/>`/equipment` | — | `equipment.read` | `code-derived` | `src/utils/routes.ts`<br/>`src/navigation/navigationModel.ts`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/EquipmentRoute.tsx` | `tests/navigationRoutes.test.ts`<br/>`tests/appRouting.test.ts`<br/>`tests/postWarehouseOperationalIntegration.test.ts` | `entity-media--equipment--r4d-canonical-equipment-media-and-fallback-light--desktop-1440`<br/>`entity-media--equipment--r4d-canonical-equipment-media-and-fallback-constrained-laptop--r4d-laptop-1280`<br/>`entity-media--equipment--r4d-canonical-equipment-media-and-fallback-dark-phone--mobile-390` |
+| **Equipment Registry workspace**<br/><small>`equipment-registry-workspace`</small> | `screen` | `global`<br/>— | — | `equipment.read`<br/>`equipment.manage`<br/>`engineering.sitelogs.read` | `mixed` | `src/components/equipment/EquipmentPage.tsx`<br/>`src/components/ui/EntityMedia.tsx`<br/>`src/lib/entityMedia.ts`<br/>`src/lib/equipment.ts`<br/>`src/app/routes/EquipmentRoute.tsx`<br/>`src/App.tsx` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/postWarehouseRuntime.test.ts`<br/>`tests/entityMediaUi.test.tsx` | — |
+| **Canonical company Equipment Registry**<br/><small>`canonical-equipment-registry`</small> | `data` | `company`<br/>— | `AVAILABLE` → `MAINTENANCE` → `OUT_OF_SERVICE` → `RETIRED` | `equipment.read`<br/>`equipment.manage` | `mixed` | `src/types.ts`<br/>`src/lib/equipment.ts`<br/>`src/lib/entityMediaTypes.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`src/components/equipment/EquipmentPage.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql`<br/>`supabase/migrations/20260923031346_entity_media_foundation.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql`<br/>`supabase/tests/database/44_entity_media_foundation.test.sql` | — |
 | **Auditable Equipment assignment history**<br/><small>`equipment-assignment-history`</small> | `workflow` | `company-and-project`<br/>— | `ASSIGNED` → `RETURNED` → `TRANSFERRED` | `equipment.read`<br/>`equipment.manage` | `mixed`<br/>confirmation: `human` | `src/lib/equipment.ts`<br/>`src/components/equipment/EquipmentPage.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/postWarehouseRuntime.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` | — |
 | **Derived current Equipment state**<br/><small>`equipment-current-state`</small> | `derived-data` | `company`<br/>— | — | `equipment.read` | `mixed` | `src/lib/equipment.ts`<br/>`src/components/equipment/EquipmentPage.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` | — |
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Image, X } from "lucide-react";
 import type {
   Project,
   ProjectCostCode,
@@ -27,6 +27,8 @@ import type {
   ProjectEquipmentSaveInput,
   ProjectMaterialSaveInput,
 } from "../../lib/materialsEquipment.ts";
+import { EntityMediaThumbnail, useEntityMediaThumbnails } from "../ui/EntityMedia.tsx";
+import type { EntityMedia } from "../../lib/entityMediaTypes.ts";
 import {
   newWorksheetDraftId,
   retainWorksheetDraftRowsAfterSave,
@@ -345,7 +347,8 @@ function materialColumns({
   costCodes,
   inventoryItems,
   purchaseOrders,
-}: Pick<MaterialsWorksheetProps, "project" | "canManage" | "canReadProcurement" | "canReadInventory" | "costCodes" | "inventoryItems" | "purchaseOrders">): readonly WorksheetColumn<ProjectMaterialWorksheetRow>[] {
+  mediaByInventoryItemId,
+}: Pick<MaterialsWorksheetProps, "project" | "canManage" | "canReadProcurement" | "canReadInventory" | "costCodes" | "inventoryItems" | "purchaseOrders"> & { mediaByInventoryItemId: Readonly<Record<string, EntityMedia>> }): readonly WorksheetColumn<ProjectMaterialWorksheetRow>[] {
   const selectableCostCodes = getSelectableCostCodes(costCodes, project.id);
   const lineOptions = worksheetLineOptions(purchaseOrders);
   const costCodeOptions = selectableCostCodes.map((costCode) => ({ value: costCode.id, label: formatCostCodeOptionLabel(costCode) }));
@@ -403,7 +406,7 @@ function materialColumns({
       key: "inventoryItemId",
       header: "Warehouse Item",
       kind: "select",
-      minWidth: "15rem",
+      minWidth: "18rem",
       editable: canManage && canReadInventory,
       protected: !canReadInventory,
       options: (row) => optionsForCurrentValue([
@@ -420,9 +423,17 @@ function materialColumns({
           ? undefined
           : `Warehouse item unit ${linkedInventoryItem.stockUnit} must match material unit ${context.row.unit}.`;
       },
-      render: (_value, row) => !canReadInventory
-        ? row.inventoryItemId ? "Warehouse link (restricted)" : "No warehouse link"
-        : inventoryItems.find((item) => item.id === row.inventoryItemId)?.itemName || (row.inventoryItemId ? "Current warehouse link unavailable" : "No warehouse link"),
+      render: (_value, row) => {
+        if (!canReadInventory) return row.inventoryItemId ? "Warehouse link (restricted)" : "No warehouse link";
+        const linkedItem = inventoryItems.find((item) => item.id === row.inventoryItemId);
+        if (!row.inventoryItemId) return "No warehouse link";
+        return (
+          <div className="flex min-w-0 items-center gap-2">
+            <EntityMediaThumbnail media={mediaByInventoryItemId[row.inventoryItemId]} label="Material" alt={`${linkedItem?.itemName || "Warehouse item"} image`} className="h-8 w-10 aspect-[4/3]" fallback={<Image className="h-3.5 w-3.5" aria-hidden="true" />} />
+            <span className="min-w-0 truncate">{linkedItem?.itemName || "Current warehouse link unavailable"}</span>
+          </div>
+        );
+      },
     },
     {
       key: "projectCostCodeId",
@@ -588,7 +599,9 @@ function MaterialWorksheet({
   const sourceRows = useMemo(() => materials.filter((row) => row.projectId === project.id).map(projectMaterialWorksheetRow), [materials, project.id]);
   const makeNewRow = useCallback(() => newMaterialWorksheetRow(project.id), [project.id]);
   const draft = useDraftWorksheetRows(sourceRows, makeNewRow, createNew);
-  const columns = useMemo(() => materialColumns({ project, canManage, canReadProcurement, canReadInventory, costCodes, inventoryItems, purchaseOrders }), [canManage, canReadInventory, canReadProcurement, costCodes, inventoryItems, project, purchaseOrders]);
+  const inventoryItemIds = useMemo(() => inventoryItems.map((item) => item.id), [inventoryItems]);
+  const { byEntityId: mediaByInventoryItemId } = useEntityMediaThumbnails("MATERIAL", inventoryItemIds, canReadInventory);
+  const columns = useMemo(() => materialColumns({ project, canManage, canReadProcurement, canReadInventory, costCodes, inventoryItems, purchaseOrders, mediaByInventoryItemId }), [canManage, canReadInventory, canReadProcurement, costCodes, inventoryItems, mediaByInventoryItemId, project, purchaseOrders]);
   const [cellIssues, setCellIssues] = useState<WorksheetCellIssueMap>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -824,14 +837,14 @@ export function ProjectMaterialsEquipmentWorksheetModal({
   const isMaterial = kind === "material";
   return (
     <div ref={dialogRef} data-project-materials-equipment-worksheet="true" className="fixed inset-0 z-[70] flex items-end justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="project-materials-equipment-worksheet-title">
-      <section data-working-canvas="true" className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[96vw] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4 sm:p-5">
+      <section data-working-canvas="true" className="hqs-surface-raised hqs-border flex max-h-[calc(100dvh-1rem)] w-full max-w-[96vw] min-w-0 flex-col overflow-hidden rounded-2xl border shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+        <div className="hqs-border flex items-start justify-between gap-3 border-b p-4 sm:p-5">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Project register metadata</p>
-            <h2 id="project-materials-equipment-worksheet-title" className="mt-1 text-lg font-black text-slate-950">{createNew ? "Add" : "Edit"} project {isMaterial ? "materials" : "equipment"}</h2>
-            <p className="mt-1 max-w-4xl text-xs leading-5 text-slate-500">Edit safe structured register fields in a worksheet. {isMaterial ? "PO receiving and warehouse on-hand remain protected; procurement/site evidence is derived outside this editor." : "Canonical Equipment Registry identity and assignment/transfer/return remain purpose-built; these dates are project-register metadata only."}</p>
+            <p className="hqs-accent-text text-[10px] font-black uppercase tracking-[0.16em]">Project register metadata</p>
+            <h2 id="project-materials-equipment-worksheet-title" className="hqs-primary-text mt-1 text-lg font-black">{createNew ? "Add" : "Edit"} project {isMaterial ? "materials" : "equipment"}</h2>
+            <p className="hqs-secondary-text mt-1 max-w-4xl text-xs leading-5">Edit safe structured register fields in a worksheet. {isMaterial ? "PO receiving and warehouse on-hand remain protected; procurement/site evidence is derived outside this editor." : "Canonical Equipment Registry identity and assignment/transfer/return remain purpose-built; these dates are project-register metadata only."}</p>
           </div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" aria-label="Close project register worksheet"><X className="h-4 w-4" /></button>
+          <button ref={closeButtonRef} type="button" onClick={onClose} className="hqs-control hqs-focus-ring shrink-0 rounded-lg p-2" aria-label="Close project register worksheet"><X className="h-4 w-4" /></button>
         </div>
         <div data-dialog-scroll-container="project-materials-equipment" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
           {isMaterial ? (

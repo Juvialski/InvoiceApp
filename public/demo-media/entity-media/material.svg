@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" role="img" aria-label="Synthetic concrete pipe and construction material illustration">
+  <defs><linearGradient id="yard" x2="0" y2="1"><stop stop-color="#eff2ec"/><stop offset="1" stop-color="#d5d9ce"/></linearGradient></defs>
+  <rect width="480" height="360" fill="url(#yard)"/><path d="M0 258h480v102H0z" fill="#b9ae97"/>
+  <path d="M70 148h272v80H70z" fill="#9ca8a7"/><ellipse cx="342" cy="188" rx="40" ry="40" fill="#6d7e80"/><ellipse cx="342" cy="188" rx="24" ry="25" fill="#e5e4d8"/>
+  <path d="M88 160h248v54H88z" fill="#bcc4bd"/><path d="M78 228h278v16H78z" fill="#7f8f8e"/>
+  <path d="M124 112h244v74H124z" fill="#d08a5d"/><ellipse cx="368" cy="149" rx="35" ry="37" fill="#985f47"/><ellipse cx="368" cy="149" rx="19" ry="23" fill="#eed7b5"/>
+  <path d="M137 123h223v49H137z" fill="#e0a177"/><path d="M94 279h293" stroke="#e8dcc0" stroke-width="8" stroke-dasharray="25 17"/>
+  <path d="M116 248v20M337 248v20" stroke="#657977" stroke-width="12" stroke-linecap="round"/>
+  <path d="M56 93h55v8H56zM75 73h8v20M101 74h8v19" stroke="#758c86" stroke-width="7" stroke-linecap="round"/>
+</svg>

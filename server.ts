@@ -14,6 +14,7 @@ import { createMessagingRouter } from "./src/server/messaging/messagingRouter.ts
 import { createInvoiceExtractionRouter } from "./src/server/invoiceExtraction/invoiceExtractionRouter.ts";
 import { createIssuedDocumentRouter } from "./src/server/documentDelivery/issuedDocumentRouter.ts";
 import { createManagedDocumentRouter } from "./src/server/managedDocuments/managedDocumentRouter.ts";
+import { createEntityMediaRouter } from "./src/server/storage/entityMediaRouter.ts";
 import { DOCUMENT_PDF_UNAVAILABLE_MESSAGE, getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
 import { releaseMetadataFromEnv } from "./src/server/releaseMetadata.ts";
 
@@ -86,6 +87,7 @@ app.use("/api/assistant", createAssistantRateLimit());
 app.use("/api/assistant", createAssistantRouter());
 app.use("/api/document-templates", createDocumentTemplateRouter());
 app.use("/api/managed-documents", createManagedDocumentRouter());
+app.use("/api/entity-media", createEntityMediaRouter());
 app.use("/api/documents", createStorageRouter());
 app.use("/api", createDocumentDeliveryRouter());
 app.use("/api", createMessagingRouter());

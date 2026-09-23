@@ -387,6 +387,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         <ProjectDetailsWorksheet
           project={editing}
           projectStatuses={PROJECT_STATUSES}
+          canManageMedia={projects.some((project) => project.id === editing.id)}
           errorMessage={formError}
           onClose={() => setEditing(null)}
           onSave={saveProject}

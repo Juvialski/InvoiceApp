@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "graphId": "engoryx-product-workflow",
-  "version": "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration+client-productization",
+  "version": "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration+client-productization+ui-r4d-entity-media",
   "product": "HydroQualiSense Engineering Operations Platform",
   "purpose": "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   "canonicalSource": "scripts/workflow-map/graph.ts",
@@ -26,6 +26,7 @@
     "P4 Warehouse Inventory & Project Allocation",
     "P5 Post-Warehouse Operational Integration",
     "Client Productization",
+    "UI-R4D Entity Media Foundation",
     "QA-1",
     "WM-1"
   ],
@@ -84,6 +85,41 @@
       "testRefs": [
         "tests/demoWorkspace.test.ts",
         "tests/demoCleanup.test.ts"
+      ]
+    },
+    {
+      "id": "entity-media-keeps-canonical-entity-authority",
+      "label": "Entity images stay attached to canonical company entities",
+      "description": "Project covers belong to Projects, Equipment images belong to the canonical Equipment Registry, and Material images belong to canonical Warehouse Inventory items; project requirement/assignment references reuse those images without duplicate ownership or changes to financial, movement, or lifecycle truth.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/entityMediaTypes.ts",
+        "src/server/storage/entityMediaRouter.ts",
+        "src/components/projects/ProjectMaterialsEquipment.tsx",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/materialsEquipmentPage.test.tsx",
+        "tests/entityMediaRouter.test.ts",
+        "supabase/tests/database/44_entity_media_foundation.test.sql"
+      ]
+    },
+    {
+      "id": "entity-media-storage-is-private-and-nonblocking",
+      "label": "Entity image Storage remains private and entity lifecycle independent",
+      "description": "Only company-scoped supported raster images are stored under server-built entity-media paths; reads require the existing entity read permission and short-lived signed access, failed writes are compensated, and entity deletion queues object cleanup without requiring the image to remain present.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/fileSecurity.ts",
+        "src/lib/storage/keys.ts",
+        "src/server/storage/entityMediaRouter.ts",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql",
+        ".env.example"
+      ],
+      "testRefs": [
+        "tests/entityMediaSecurity.test.ts",
+        "tests/entityMediaRuntime.test.ts",
+        "supabase/tests/database/44_entity_media_foundation.test.sql"
       ]
     },
     {
@@ -1405,7 +1441,12 @@
         "tests/projects.test.ts"
       ],
       "qaScenarioIds": [
-        "projects--projects--portfolio-dashboard-verified--desktop-1440"
+        "projects--projects--portfolio-dashboard-verified--desktop-1440",
+        "entity-media--projects--r4d-project-media-and-deterministic-fallback-light--desktop-1440",
+        "entity-media--projects--r4d-project-media-and-deterministic-fallback-constrained-laptop--r4d-laptop-1280",
+        "entity-media--projects--r4d-project-media-and-deterministic-fallback-dark-phone--mobile-390",
+        "entity-media--projects--r4d-project-image-replace-remove-controls-dark--desktop-1440",
+        "entity-media--projects--r4d-project-image-replace-remove-controls-dark-phone--mobile-390"
       ]
     },
     {
@@ -1428,6 +1469,7 @@
       "fileRefs": [
         "src/utils/appRouting.ts",
         "src/components/projects/ProjectWorkspace.tsx",
+        "src/components/projects/ProjectDetailsWorksheet.tsx",
         "src/app/routes/ProjectsRoute.tsx"
       ],
       "testRefs": [
@@ -1436,7 +1478,8 @@
       ],
       "qaScenarioIds": [
         "project-workspace--project-overview--project-selected--desktop-1440",
-        "project-workspace--project-overview--base-route-loaded--tablet-768"
+        "project-workspace--project-overview--base-route-loaded--tablet-768",
+        "entity-media--project-workspace--r4d-linked-project-material-media-and-text-context-light--desktop-1440"
       ]
     },
     {
@@ -2227,14 +2270,21 @@
       "domain": "projects",
       "type": "screen",
       "scope": "company",
-      "description": "Responsive project register inside the portfolio management surface and entry point for selecting a project workspace.",
+      "description": "Responsive project portfolio cards/list with deterministic identity fallback, optional company-bound cover image, and entry point for selecting a project workspace.",
       "fileRefs": [
         "src/app/routes/ProjectsRoute.tsx",
-        "src/components/projects/ProjectsPage.tsx"
+        "src/components/projects/ProjectsPage.tsx",
+        "src/components/projects/ProjectPortfolioRegisterSection.tsx",
+        "src/components/ui/EntityMedia.tsx",
+        "src/lib/entityMedia.ts"
       ],
       "testRefs": [
         "tests/projects.test.ts",
-        "tests/projectWorkspaceNavigation.test.ts"
+        "tests/projectWorkspaceNavigation.test.ts",
+        "tests/entityMediaUi.test.tsx"
+      ],
+      "permissionKeys": [
+        "projects.read"
       ],
       "qaScenarioIds": [
         "projects--projects--portfolio-dashboard-verified--desktop-1440"
@@ -7250,7 +7300,10 @@
         "inventory.read"
       ],
       "qaScenarioIds": [
-        "warehouse-inventory--warehouse--warehouse-ledger-rendered--desktop-1440"
+        "warehouse-inventory--warehouse--warehouse-ledger-rendered--desktop-1440",
+        "entity-media--warehouse--r4d-canonical-material-media-and-fallback-dark--desktop-1440",
+        "entity-media--warehouse--r4d-canonical-material-media-and-fallback-tablet--r4d-tablet-768",
+        "entity-media--warehouse--r4d-canonical-material-media-and-fallback-light-phone--mobile-390"
       ]
     },
     {
@@ -7260,15 +7313,19 @@
       "domain": "inventory",
       "type": "screen",
       "scope": "global",
-      "description": "Responsive company-level inventory overview and item history with explicit opening, receipt, project issue, project return, and controlled reversal actions.",
+      "description": "Responsive company-level inventory overview with primary canonical Material images, item history, explicit opening/receipt/project issue/project return, and controlled reversal actions.",
       "fileRefs": [
         "src/components/inventory/WarehouseInventoryPage.tsx",
+        "src/components/inventory/WarehouseItemWorksheet.tsx",
+        "src/components/ui/EntityMedia.tsx",
+        "src/lib/entityMedia.ts",
         "src/app/routes/WarehouseInventoryRoute.tsx",
         "src/App.tsx"
       ],
       "testRefs": [
         "tests/inventory.test.ts",
-        "tests/inventoryRuntime.test.ts"
+        "tests/inventoryRuntime.test.ts",
+        "tests/materialsEquipmentPage.test.tsx"
       ],
       "permissionKeys": [
         "inventory.read",
@@ -7290,16 +7347,21 @@
         "ACTIVE",
         "INACTIVE"
       ],
-      "description": "Company-scoped canonical material identity with deterministic name/unit and item-code uniqueness, authoritative stock unit, actor provenance, and non-destructive inactive lifecycle.",
+      "description": "Company-scoped canonical material identity with deterministic name/unit and item-code uniqueness, authoritative stock unit, actor provenance, a shared primary media binding, and non-destructive inactive lifecycle.",
       "fileRefs": [
         "src/lib/inventory.ts",
+        "src/lib/entityMediaTypes.ts",
+        "src/components/inventory/WarehouseInventoryPage.tsx",
+        "src/components/inventory/WarehouseItemWorksheet.tsx",
         "src/types.ts",
-        "supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql"
+        "supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql"
       ],
       "testRefs": [
         "tests/inventory.test.ts",
         "tests/inventoryMigration.test.ts",
-        "supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql"
+        "supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql",
+        "supabase/tests/database/44_entity_media_foundation.test.sql"
       ],
       "permissionKeys": [
         "inventory.read",
@@ -7384,7 +7446,7 @@
       "domain": "inventory",
       "type": "data",
       "scope": "company-and-project",
-      "description": "A project material requirement may reference a canonical inventory item when the unit matches exactly; planned quantity remains a requirement and never becomes warehouse stock.",
+      "description": "A project material requirement may reference a canonical inventory item when the unit matches exactly; its visual thumbnail reuses that item's media only with inventory.read, while planned quantity remains separate from warehouse stock.",
       "fileRefs": [
         "src/types.ts",
         "src/lib/materialsEquipment.ts",
@@ -7429,6 +7491,11 @@
       "testRefs": [
         "tests/materialsEquipmentRouting.test.ts",
         "tests/projectWorkspaceNavigation.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "inventory.read",
+        "equipment.read"
       ]
     },
     {
@@ -7438,10 +7505,12 @@
       "domain": "engineering",
       "type": "screen",
       "scope": "project",
-      "description": "Dense selected-project management view for current material/equipment registers with permission-aware procurement and Daily Site Log evidence.",
+      "description": "Selected-project material/equipment registers with permission-aware source context and thumbnails reused only from linked canonical inventory/equipment authorities.",
       "fileRefs": [
         "src/components/projects/ProjectMaterialsEquipment.tsx",
         "src/components/projects/ProjectWorkspace.tsx",
+        "src/components/ui/EntityMedia.tsx",
+        "src/lib/entityMedia.ts",
         "src/lib/materialsEquipment.ts"
       ],
       "testRefs": [
@@ -7452,7 +7521,9 @@
         "projects.read",
         "projects.manage",
         "procurement.read",
-        "engineering.sitelogs.read"
+        "engineering.sitelogs.read",
+        "inventory.read",
+        "equipment.read"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -7473,11 +7544,14 @@
         "CLOSED",
         "CANCELLED"
       ],
-      "description": "Current project material planning/reference metadata with optional cost-code and deterministic PO/line linkage; receipt totals are not editable copies.",
+      "description": "Current project material planning/reference metadata with optional cost-code and deterministic PO/line linkage; linked Warehouse item images are reused only with inventory.read and receipt totals are not editable copies.",
       "fileRefs": [
         "src/types.ts",
         "src/lib/materialsEquipment.ts",
-        "supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql"
+        "src/components/projects/ProjectMaterialsEquipment.tsx",
+        "src/components/ui/EntityMedia.tsx",
+        "supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql"
       ],
       "testRefs": [
         "tests/materialsEquipment.test.ts",
@@ -7486,7 +7560,8 @@
       ],
       "permissionKeys": [
         "projects.read",
-        "projects.manage"
+        "projects.manage",
+        "inventory.read"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -7511,11 +7586,14 @@
         "OUT_OF_SERVICE",
         "RETURNED"
       ],
-      "description": "Current project equipment metadata for source, provider, assignment dates, and lifecycle state; historical usage is derived from stable Site Log links.",
+      "description": "Current project equipment metadata for source, provider, assignment dates, and lifecycle state; linked canonical Equipment images are reused only with equipment.read and historical usage is derived from stable Site Log links.",
       "fileRefs": [
         "src/types.ts",
         "src/lib/materialsEquipment.ts",
-        "supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql"
+        "src/components/projects/ProjectMaterialsEquipment.tsx",
+        "src/components/ui/EntityMedia.tsx",
+        "supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql"
       ],
       "testRefs": [
         "tests/materialsEquipment.test.ts",
@@ -7524,7 +7602,8 @@
       ],
       "permissionKeys": [
         "projects.read",
-        "projects.manage"
+        "projects.manage",
+        "equipment.read"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -7845,6 +7924,11 @@
       ],
       "permissionKeys": [
         "equipment.read"
+      ],
+      "qaScenarioIds": [
+        "entity-media--equipment--r4d-canonical-equipment-media-and-fallback-light--desktop-1440",
+        "entity-media--equipment--r4d-canonical-equipment-media-and-fallback-constrained-laptop--r4d-laptop-1280",
+        "entity-media--equipment--r4d-canonical-equipment-media-and-fallback-dark-phone--mobile-390"
       ]
     },
     {
@@ -7854,16 +7938,19 @@
       "domain": "engineering",
       "type": "screen",
       "scope": "global",
-      "description": "Responsive canonical company Equipment view with current Project, field evidence, assignment history, lifecycle controls, and guarded assign/transfer/return actions.",
+      "description": "Responsive canonical company Equipment view with compact primary asset images, current Project, field evidence, assignment history, lifecycle controls, and guarded assign/transfer/return actions.",
       "fileRefs": [
         "src/components/equipment/EquipmentPage.tsx",
+        "src/components/ui/EntityMedia.tsx",
+        "src/lib/entityMedia.ts",
         "src/lib/equipment.ts",
         "src/app/routes/EquipmentRoute.tsx",
         "src/App.tsx"
       ],
       "testRefs": [
         "tests/postWarehouseOperationalIntegration.test.ts",
-        "tests/postWarehouseRuntime.test.ts"
+        "tests/postWarehouseRuntime.test.ts",
+        "tests/entityMediaUi.test.tsx"
       ],
       "permissionKeys": [
         "equipment.read",
@@ -7889,16 +7976,20 @@
         "OUT_OF_SERVICE",
         "RETIRED"
       ],
-      "description": "Company-bound asset identity and lifecycle source, bridged deterministically from uniquely identifiable legacy project equipment without fuzzy merges.",
+      "description": "Company-bound asset identity, lifecycle, and primary-image source, bridged deterministically from uniquely identifiable legacy project equipment without fuzzy merges.",
       "fileRefs": [
         "src/types.ts",
         "src/lib/equipment.ts",
+        "src/lib/entityMediaTypes.ts",
         "src/lib/materialsEquipment.ts",
-        "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql"
+        "src/components/equipment/EquipmentPage.tsx",
+        "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql"
       ],
       "testRefs": [
         "tests/postWarehouseOperationalIntegration.test.ts",
-        "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"
+        "supabase/tests/database/27_post_warehouse_operational_integration.test.sql",
+        "supabase/tests/database/44_entity_media_foundation.test.sql"
       ],
       "permissionKeys": [
         "equipment.read",
@@ -7965,6 +8056,122 @@
       ],
       "invariantIds": [
         "equipment-registry-assignment-is-single-active-history"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "entity-media-api",
+      "label": "Authenticated Entity Media API",
+      "domain": "platform-tenancy",
+      "type": "external-boundary",
+      "scope": "company",
+      "description": "Server-only current-image read/upload/replace/remove boundary. The caller is authenticated against the configured deployment company and must hold the existing permission for the target Project, canonical Equipment asset, or Inventory Item.",
+      "fileRefs": [
+        "server.ts",
+        "src/server/storage/entityMediaRouter.ts",
+        "src/server/storage/storageRouter.ts",
+        "src/lib/entityMedia.ts"
+      ],
+      "testRefs": [
+        "tests/entityMediaRouter.test.ts",
+        "tests/entityMediaRuntime.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage",
+        "equipment.read",
+        "equipment.manage",
+        "inventory.read",
+        "inventory.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "demo-cannot-write-production",
+        "entity-media-keeps-canonical-entity-authority",
+        "entity-media-storage-is-private-and-nonblocking"
+      ],
+      "tags": [
+        "server API",
+        "/api/entity-media"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "entity-media-binding",
+      "label": "Current Entity Media binding",
+      "domain": "platform-tenancy",
+      "type": "data",
+      "scope": "company",
+      "description": "One current cover/primary image metadata row with typed company-composite foreign keys to Projects, canonical Equipment, or canonical Inventory Items; no public URL or duplicate assignment/material ownership.",
+      "fileRefs": [
+        "src/lib/entityMediaTypes.ts",
+        "src/lib/storage/keys.ts",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/entityMediaSecurity.test.ts",
+        "supabase/tests/database/44_entity_media_foundation.test.sql"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage",
+        "equipment.read",
+        "equipment.manage",
+        "inventory.read",
+        "inventory.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "entity-media-keeps-canonical-entity-authority"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "entity-media-storage",
+      "label": "Private Entity Media Storage boundary",
+      "domain": "platform-tenancy",
+      "type": "external-boundary",
+      "scope": "company",
+      "description": "Provider-neutral private image bytes under a company-prefixed entity-media key; Supabase uses its migration-managed private bucket, S3-compatible storage uses the dedicated private bucket configured by STORAGE_ENTITY_MEDIA_BUCKET, and reads are short-lived signed URLs.",
+      "fileRefs": [
+        "src/lib/storage/types.ts",
+        "src/lib/storage/keys.ts",
+        "src/lib/storage/providers/supabaseProvider.ts",
+        "src/lib/storage/providers/s3Provider.ts",
+        "src/server/storage/entityMediaRouter.ts",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql",
+        ".env.example"
+      ],
+      "testRefs": [
+        "tests/entityMediaSecurity.test.ts",
+        "tests/entityMediaRuntime.test.ts",
+        "supabase/tests/database/44_entity_media_foundation.test.sql"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "demo-cannot-write-production",
+        "entity-media-storage-is-private-and-nonblocking"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "entity-media-cleanup",
+      "label": "Entity Media object cleanup queue",
+      "domain": "platform-tenancy",
+      "type": "workflow",
+      "scope": "company",
+      "description": "Superseded, removed, failed-upload, and entity-cascade object references remain queued until server-side Storage deletion succeeds; entity deletion and the current image pointer do not wait on cleanup.",
+      "fileRefs": [
+        "src/server/storage/entityMediaRouter.ts",
+        "supabase/migrations/20260923031346_entity_media_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/entityMediaRouter.test.ts",
+        "tests/entityMediaRuntime.test.ts",
+        "supabase/tests/database/44_entity_media_foundation.test.sql"
+      ],
+      "invariantIds": [
+        "entity-media-storage-is-private-and-nonblocking"
       ]
     }
   ],
@@ -11429,6 +11636,127 @@
       ]
     },
     {
+      "id": "r4d-project-directory-to-media-api",
+      "source": "project-directory",
+      "target": "entity-media-api",
+      "type": "executes-through",
+      "kind": "mutation",
+      "label": "Project cover image read, upload, replace, and remove",
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "entity-media-keeps-canonical-entity-authority"
+      ]
+    },
+    {
+      "id": "r4d-equipment-workspace-to-media-api",
+      "source": "equipment-registry-workspace",
+      "target": "entity-media-api",
+      "type": "executes-through",
+      "kind": "mutation",
+      "label": "canonical Equipment image read and management",
+      "permissionKeys": [
+        "equipment.read",
+        "equipment.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "entity-media-keeps-canonical-entity-authority"
+      ]
+    },
+    {
+      "id": "r4d-warehouse-workspace-to-media-api",
+      "source": "warehouse-inventory-workspace",
+      "target": "entity-media-api",
+      "type": "executes-through",
+      "kind": "mutation",
+      "label": "canonical Warehouse Material image read and management",
+      "permissionKeys": [
+        "inventory.read",
+        "inventory.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "entity-media-keeps-canonical-entity-authority"
+      ]
+    },
+    {
+      "id": "r4d-project-register-to-linked-media",
+      "source": "materials-equipment-workspace",
+      "target": "entity-media-api",
+      "type": "reads",
+      "kind": "read-flow",
+      "label": "linked canonical Inventory/Equipment image only when its read permission is present",
+      "permissionKeys": [
+        "inventory.read",
+        "equipment.read"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "entity-media-keeps-canonical-entity-authority"
+      ]
+    },
+    {
+      "id": "r4d-media-api-reads-binding",
+      "source": "entity-media-api",
+      "target": "entity-media-binding",
+      "type": "reads",
+      "kind": "read-flow",
+      "label": "resolve current company/entity image metadata",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "entity-media-storage-is-private-and-nonblocking"
+      ]
+    },
+    {
+      "id": "r4d-media-api-writes-binding",
+      "source": "entity-media-api",
+      "target": "entity-media-binding",
+      "type": "writes",
+      "kind": "mutation",
+      "label": "server-validated current image binding with expected-id concurrency check",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "entity-media-keeps-canonical-entity-authority"
+      ]
+    },
+    {
+      "id": "r4d-binding-to-private-storage",
+      "source": "entity-media-binding",
+      "target": "entity-media-storage",
+      "type": "external",
+      "kind": "external-boundary",
+      "label": "provider-neutral company-scoped image object",
+      "invariantIds": [
+        "entity-media-storage-is-private-and-nonblocking"
+      ]
+    },
+    {
+      "id": "r4d-binding-to-cleanup",
+      "source": "entity-media-binding",
+      "target": "entity-media-cleanup",
+      "type": "preserves",
+      "kind": "history",
+      "label": "replacement, removal, failed upload, or entity cascade records cleanup",
+      "invariantIds": [
+        "entity-media-storage-is-private-and-nonblocking"
+      ]
+    },
+    {
+      "id": "r4d-cleanup-to-private-storage",
+      "source": "entity-media-cleanup",
+      "target": "entity-media-storage",
+      "type": "external",
+      "kind": "external-boundary",
+      "label": "retry exact unbound company object deletion",
+      "invariantIds": [
+        "entity-media-storage-is-private-and-nonblocking"
+      ]
+    },
+    {
       "id": "post-warehouse-invoice-to-expense-reconciliation",
       "source": "invoice-project-allocation",
       "target": "supplier-invoice-expense-reconciliation",
@@ -11640,7 +11968,7 @@
     {
       "id": "warehouse-inventory",
       "title": "Warehouse Inventory and Project Allocation flow",
-      "description": "Canonical company item master, append-only movement ledger, derived on-hand, explicit procurement provenance, project issues/returns, and history-preserving corrections.",
+      "description": "Canonical company item master, primary media identification, append-only movement ledger, derived on-hand, explicit procurement provenance, project issues/returns, and history-preserving corrections.",
       "nodeIds": [
         "route-warehouse-inventory",
         "warehouse-inventory-workspace",
@@ -11651,13 +11979,17 @@
         "project-material-register",
         "purchase-order-receipts",
         "project-correction-lifecycle",
-        "project-cost-aggregation"
+        "project-cost-aggregation",
+        "entity-media-api",
+        "entity-media-binding",
+        "entity-media-storage",
+        "entity-media-cleanup"
       ]
     },
     {
       "id": "post-warehouse-operational-integration",
       "title": "Post-Warehouse operational integration flow",
-      "description": "Canonical supplier allocation reconciliation, human-reviewed purchased-material intake into existing Procurement receipts, explicit Warehouse posting, and company Equipment authority with auditable assignment history.",
+      "description": "Canonical supplier allocation reconciliation, human-reviewed purchased-material intake into existing Procurement receipts, explicit Warehouse posting, company Equipment authority with auditable assignment history, and shared canonical image identification.",
       "nodeIds": [
         "route-invoices",
         "invoice-human-verification",
@@ -11672,7 +12004,11 @@
         "canonical-equipment-registry",
         "equipment-assignment-history",
         "equipment-current-state",
-        "equipment-field-usage-evidence"
+        "equipment-field-usage-evidence",
+        "entity-media-api",
+        "entity-media-binding",
+        "entity-media-storage",
+        "entity-media-cleanup"
       ]
     },
     {
@@ -11692,7 +12028,7 @@
     {
       "id": "projects-engineering",
       "title": "Projects and Engineering flow",
-      "description": "Project aggregate, Engineering Documents, RFIs, Submittals, and Daily Site Logs with lifecycle/history boundaries.",
+      "description": "Project aggregate, optional Project cover identity, linked canonical Equipment/Material visuals, Engineering Documents, RFIs, Submittals, and Daily Site Logs with lifecycle/history boundaries.",
       "nodeIds": [
         "route-projects",
         "project-directory",
@@ -11709,6 +12045,10 @@
         "production-p2-integration-parity",
         "project-cost-aggregation",
         "project-labor-aggregate-rpc",
+        "entity-media-api",
+        "entity-media-binding",
+        "entity-media-storage",
+        "entity-media-cleanup",
         "client-billing-workspace",
         "client-billing-lifecycle",
         "client-billing-issued",
@@ -11810,6 +12150,32 @@
         "material-procurement-receipt-progress",
         "equipment-field-usage-evidence",
         "site-log-structured-operations"
+      ]
+    },
+    {
+      "id": "ui-r4d-entity-media",
+      "title": "UI-R4D Entity Media Foundation",
+      "description": "Project cover, canonical Equipment, and canonical Warehouse Material images reuse existing authority through private company-bound Storage, entity permission checks, signed reads, replacement cleanup, and entity-cascade cleanup.",
+      "nodeIds": [
+        "route-projects",
+        "project-directory",
+        "route-project-workspace",
+        "project-workspace",
+        "route-equipment-registry",
+        "equipment-registry-workspace",
+        "canonical-equipment-registry",
+        "route-warehouse-inventory",
+        "warehouse-inventory-workspace",
+        "inventory-item-master",
+        "route-project-materials-equipment",
+        "materials-equipment-workspace",
+        "project-material-register",
+        "project-equipment-register",
+        "project-material-inventory-link",
+        "entity-media-api",
+        "entity-media-binding",
+        "entity-media-storage",
+        "entity-media-cleanup"
       ]
     },
     {

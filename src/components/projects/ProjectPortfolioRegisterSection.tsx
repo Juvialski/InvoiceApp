@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Archive,
   Coins,
@@ -26,6 +26,8 @@ import {
   type ProjectSortField,
 } from "../../utils/projectManagementViewModel.ts";
 import type { ProjectFinancialMetric } from "../../utils/projectFinancialSummary.ts";
+import { EntityMediaThumbnail, useEntityMediaThumbnails } from "../ui/EntityMedia.tsx";
+import type { EntityMedia } from "../../lib/entityMediaTypes.ts";
 
 
 function money(value: number | null | undefined, currency: string): string {
@@ -178,6 +180,7 @@ export interface ProjectPortfolioRegisterSectionProps {
 export interface ProjectRegisterCardProps {
   view: ProjectManagementView;
   canManage: boolean;
+  media?: EntityMedia;
   onOpenProject: (project: Project) => void;
   onEditProject: (project: Project) => void;
   onOpenLifecycle: (project: Project) => void;
@@ -186,6 +189,7 @@ export interface ProjectRegisterCardProps {
 export function ProjectRegisterCard({
   view,
   canManage,
+  media,
   onOpenProject,
   onEditProject,
   onOpenLifecycle,
@@ -202,8 +206,14 @@ export function ProjectRegisterCard({
         className="hqs-focus-ring group block w-full space-y-3 p-4 text-left"
       >
         <div className="hqs-surface-muted flex min-w-0 items-start gap-3 rounded-xl p-3">
-          <span data-project-identity-mark="true" className="hqs-attention-info flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-sm font-black tracking-wide">
-            {projectMonogram(project)}
+          <span data-project-identity-mark="true" className="h-12 w-16 shrink-0">
+            <EntityMediaThumbnail
+              media={media}
+              label="Project"
+              alt={`${project.projectName || project.projectCode} cover image`}
+              className="h-full w-full aspect-[4/3] rounded-lg"
+              fallback={<span className="hqs-attention-info flex h-full w-full items-center justify-center rounded-lg text-sm font-black tracking-wide">{projectMonogram(project)}</span>}
+            />
           </span>
           <div className="min-w-0 flex-1">
             <span className="hqs-secondary-text text-[11px] font-bold uppercase tracking-wide">{project.projectCode || "Project code not set"}</span>
@@ -262,10 +272,11 @@ export function ProjectRegisterCard({
 function ProjectPortfolioOperationsGrid({
   displayedViews,
   canManage,
+  mediaByEntityId,
   onOpenProject,
   onEditProject,
   onOpenLifecycle,
-}: Pick<ProjectPortfolioRegisterSectionProps, "displayedViews" | "canManage" | "onOpenProject" | "onEditProject" | "onOpenLifecycle">) {
+}: Pick<ProjectPortfolioRegisterSectionProps, "displayedViews" | "canManage" | "onOpenProject" | "onEditProject" | "onOpenLifecycle"> & { mediaByEntityId: Readonly<Record<string, EntityMedia>> }) {
   return (
     <div className="min-w-0" aria-label="Projects table">
       <OperationsGrid
@@ -283,17 +294,20 @@ function ProjectPortfolioOperationsGrid({
             value: (view) => {
               const project = view.project;
               return (
-                <button
-                  type="button"
-                  onClick={() => onOpenProject(project)}
-                  className="hqs-focus-ring hqs-accent-text rounded-sm text-left hover:underline"
-                >
-                  <span className="block text-[10px] font-black uppercase tracking-wide hqs-accent-text">{project.projectCode}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <EntityMediaThumbnail media={mediaByEntityId[project.id]} label="Project" alt={`${project.projectName || project.projectCode} cover image`} className="h-9 w-12 aspect-[4/3]" />
+                  <button
+                    type="button"
+                    onClick={() => onOpenProject(project)}
+                    className="hqs-focus-ring hqs-accent-text min-w-0 rounded-sm text-left hover:underline"
+                  >
+                    <span className="block text-[10px] font-black uppercase tracking-wide hqs-accent-text">{project.projectCode}</span>
                     <strong className="hqs-primary-text mt-0.5 block text-xs font-bold">{project.projectName}</strong>
                     <span className="hqs-secondary-text mt-0.5 block max-w-[22rem] truncate text-[10px]">
-                    {project.clientName || "No client set"} {project.location ? "· " + project.location : ""}
-                  </span>
-                </button>
+                      {project.clientName || "No client set"} {project.location ? "· " + project.location : ""}
+                    </span>
+                  </button>
+                </div>
               );
             },
           },
@@ -386,6 +400,8 @@ export function ProjectPortfolioRegisterSection({
   onOpenLifecycle,
 }: ProjectPortfolioRegisterSectionProps) {
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const projectIds = useMemo(() => displayedViews.map((view) => view.project.id), [displayedViews]);
+  const { byEntityId: mediaByEntityId } = useEntityMediaThumbnails("PROJECT", projectIds);
   const activeFilterValues = [statusFilter, managerFilter, currencyFilter, healthFilter, attentionCategoryFilter];
   const activeFilterCount = countActiveFilters(activeFilterValues);
   const activeFilters: FilterChip[] = [];
@@ -486,10 +502,10 @@ export function ProjectPortfolioRegisterSection({
       <div id="projects-results" data-ux45c="projects-primary-work" className="space-y-4">
       {displayedViews.length ? (
         viewMode === "list" ? (
-          <ProjectPortfolioOperationsGrid displayedViews={displayedViews} canManage={canManage} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />
+          <ProjectPortfolioOperationsGrid displayedViews={displayedViews} canManage={canManage} mediaByEntityId={mediaByEntityId} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />
         ) : (
           <div className="grid min-w-0 gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 20rem), 1fr))" }} aria-label="Projects list cards">
-            {displayedViews.map((view) => <ProjectRegisterCard key={view.project.id} view={view} canManage={canManage} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />)}
+            {displayedViews.map((view) => <ProjectRegisterCard key={view.project.id} view={view} canManage={canManage} media={mediaByEntityId[view.project.id]} onOpenProject={onOpenProject} onEditProject={onEditProject} onOpenLifecycle={onOpenLifecycle} />)}
           </div>
         )
       ) : (

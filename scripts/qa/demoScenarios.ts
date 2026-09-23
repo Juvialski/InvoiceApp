@@ -15,6 +15,8 @@ const R4C_VIEWPORTS = [
   { name: "r4c-tablet-768", width: 768, height: 1024 },
   { name: "r4c-phone-390", width: 390, height: 844 },
 ] as const;
+const R4D_CONSTRAINED_LAPTOP = { name: "r4d-laptop-1280", width: 1280, height: 800 } as const;
+const R4D_TABLET = { name: "r4d-tablet-768", width: 768, height: 1024 } as const;
 
 async function applyThemePreferenceForVisualQa(page: QaBrowserPage, theme: "light" | "dark"): Promise<readonly QaAssertion[]> {
   if (theme === "light") {
@@ -57,6 +59,76 @@ async function applyThemePreferenceForVisualQa(page: QaBrowserPage, theme: "ligh
 
 const applyLightTheme: QaScenarioAction = (page) => applyThemePreferenceForVisualQa(page, "light");
 const applyDarkTheme: QaScenarioAction = (page) => applyThemePreferenceForVisualQa(page, "dark");
+
+async function verifyEntityMediaThumbnails(page: QaBrowserPage, label: string): Promise<readonly QaAssertion[]> {
+  await page.locator('[data-entity-media-thumbnail="true"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.locator('[data-entity-media-thumbnail="true"][data-entity-media-fallback="false"] img').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const total = await page.locator('[data-entity-media-thumbnail="true"]').count();
+  const withImage = await page.locator('[data-entity-media-thumbnail="true"][data-entity-media-fallback="false"] img').count();
+  const fallback = await page.locator('[data-entity-media-thumbnail="true"][data-entity-media-fallback="true"]').count();
+  return [
+    { id: `${label}-media-thumbnail-visible`, passed: total > 0, details: `${label} thumbnail containers: ${total}` },
+    { id: `${label}-with-image-visible`, passed: withImage > 0, details: `${label} image previews: ${withImage}` },
+    { id: `${label}-fallback-visible`, passed: fallback > 0, details: `${label} fallback previews: ${fallback}` },
+  ];
+}
+
+const verifyProjectMediaLight: QaScenarioAction = async (page) => [
+  ...(await applyThemePreferenceForVisualQa(page, "light")),
+  ...(await verifyEntityMediaThumbnails(page, "project")),
+];
+const verifyProjectMediaDark: QaScenarioAction = async (page) => [
+  ...(await applyThemePreferenceForVisualQa(page, "dark")),
+  ...(await verifyEntityMediaThumbnails(page, "project")),
+];
+const verifyEquipmentMediaLight: QaScenarioAction = async (page) => [
+  ...(await applyThemePreferenceForVisualQa(page, "light")),
+  ...(await verifyEntityMediaThumbnails(page, "equipment")),
+];
+const verifyEquipmentMediaDark: QaScenarioAction = async (page) => [
+  ...(await applyThemePreferenceForVisualQa(page, "dark")),
+  ...(await verifyEntityMediaThumbnails(page, "equipment")),
+];
+const verifyMaterialMediaLight: QaScenarioAction = async (page) => [
+  ...(await applyThemePreferenceForVisualQa(page, "light")),
+  ...(await verifyEntityMediaThumbnails(page, "material")),
+];
+const verifyMaterialMediaDark: QaScenarioAction = async (page) => [
+  ...(await applyThemePreferenceForVisualQa(page, "dark")),
+  ...(await verifyEntityMediaThumbnails(page, "material")),
+];
+
+const verifyProjectMediaControls: QaScenarioAction = async (page) => {
+  const themeAssertions = await applyThemePreferenceForVisualQa(page, "dark");
+  await page.getByRole("button", { name: "Edit project details", exact: true }).first().click();
+  await page.locator('[data-entity-media-panel="true"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.getByRole("button", { name: "Replace", exact: true }).first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const panelCount = await page.locator('[data-entity-media-panel="true"]').count();
+  const replaceCount = await page.getByRole("button", { name: "Replace", exact: true }).count();
+  const removeCount = await page.getByRole("button", { name: "Remove", exact: true }).count();
+  return [
+    ...themeAssertions,
+    { id: "project-image-panel-visible", passed: panelCount === 1, details: `project image panels: ${panelCount}` },
+    { id: "project-image-replace-control-visible", passed: replaceCount === 1, details: `Replace controls: ${replaceCount}` },
+    { id: "project-image-remove-control-visible", passed: removeCount === 1, details: `Remove controls: ${removeCount}` },
+  ];
+};
+
+const verifyProjectMaterialImage: QaScenarioAction = async (page) => {
+  const themeAssertions = await applyThemePreferenceForVisualQa(page, "light");
+  await page.getByRole("tab", { name: "Materials & Equipment", exact: true }).click();
+  await waitForVisible(page, '[data-phase3b="materials-equipment"]');
+  await page.locator('[data-entity-media-thumbnail="true"][data-entity-media-fallback="false"] img').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const media = await page.locator('[data-entity-media-thumbnail="true"][data-entity-media-fallback="false"] img').count();
+  const materialName = await page.locator("text=110mm heavy-duty PVC conduit").count();
+  const plannedQty = await page.locator("text=800 pcs").count();
+  return [
+    ...themeAssertions,
+    { id: "linked-project-material-image-visible", passed: media > 0, details: `linked Warehouse image previews: ${media}` },
+    { id: "project-material-identity-visible", passed: materialName > 0, details: `linked material labels: ${materialName}` },
+    { id: "project-material-quantity-context-visible", passed: plannedQty > 0, details: `planned quantity context labels: ${plannedQty}` },
+  ];
+};
 
 async function waitForVisible(page: QaBrowserPage, selector: string, timeout = READY_TIMEOUT_MS) {
   await page.locator(selector).first().waitFor({ state: "visible", timeout });
@@ -1286,4 +1358,16 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4C Project Portfolio Dark filters and attention visual", viewport: R4C_VIEWPORTS[1], action: verifyPortfolioAttentionDark }),
   defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard?view=insights"), path: "/demo/app/dashboard?view=insights", interactionState: "R4C Operations Insights Light theme visual", viewport: R4C_VIEWPORTS[0], action: applyLightTheme }),
   defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard?view=insights"), path: "/demo/app/dashboard?view=insights", interactionState: "R4C Operations Insights Dark theme visual", viewport: R4C_VIEWPORTS[0], action: applyDarkTheme }),
+  defineQaScenario({ feature: "entity-media", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4D Project media and deterministic fallback · Light", viewport: QA_VIEWPORTS.desktop, action: verifyProjectMediaLight }),
+  defineQaScenario({ feature: "entity-media", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4D Project media and deterministic fallback · Constrained laptop", viewport: R4D_CONSTRAINED_LAPTOP, action: verifyProjectMediaLight }),
+  defineQaScenario({ feature: "entity-media", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4D Project media and deterministic fallback · Dark phone", viewport: QA_VIEWPORTS.mobile, action: verifyProjectMediaDark }),
+  defineQaScenario({ feature: "entity-media", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4D Project image Replace/Remove controls · Dark", viewport: QA_VIEWPORTS.desktop, action: verifyProjectMediaControls }),
+  defineQaScenario({ feature: "entity-media", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4D Project image Replace/Remove controls · Dark phone", viewport: QA_VIEWPORTS.mobile, action: verifyProjectMediaControls }),
+  defineQaScenario({ feature: "entity-media", route: route("project-workspace", "/projects/:projectId"), path: "/demo/app/projects/demo-project-solar", interactionState: "R4D linked Project Material media and text context · Light", viewport: QA_VIEWPORTS.desktop, action: verifyProjectMaterialImage }),
+  defineQaScenario({ feature: "entity-media", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "R4D canonical Equipment media and fallback · Light", viewport: QA_VIEWPORTS.desktop, action: verifyEquipmentMediaLight }),
+  defineQaScenario({ feature: "entity-media", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "R4D canonical Equipment media and fallback · Constrained laptop", viewport: R4D_CONSTRAINED_LAPTOP, action: verifyEquipmentMediaDark }),
+  defineQaScenario({ feature: "entity-media", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "R4D canonical Equipment media and fallback · Dark phone", viewport: QA_VIEWPORTS.mobile, action: verifyEquipmentMediaDark }),
+  defineQaScenario({ feature: "entity-media", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "R4D canonical Material media and fallback · Dark", viewport: QA_VIEWPORTS.desktop, action: verifyMaterialMediaDark }),
+  defineQaScenario({ feature: "entity-media", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "R4D canonical Material media and fallback · Tablet", viewport: R4D_TABLET, action: verifyMaterialMediaLight }),
+  defineQaScenario({ feature: "entity-media", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "R4D canonical Material media and fallback · Light phone", viewport: QA_VIEWPORTS.mobile, action: verifyMaterialMediaLight }),
 ];
