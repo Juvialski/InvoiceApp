@@ -139,4 +139,4 @@
 - [x] Open and inspect the actual final screenshots for hierarchy, spacing, alignment, density, Light/Dark contrast, repeated card chrome, clipping, action prominence, keyboard focus, and phone usability; fix any P0/P1 visual blocker before delivery.
 - [x] Record source SHA, local/demo environment, exact route/state/viewport/theme, screenshot paths, direct visual observations, tests/checks, and remaining hosted/provider/production limitations in the R4E evidence report.
 - [x] Reconcile roadmap and handoff to state only the scope actually delivered; run `git diff --check`; review the complete final diff for behavior, REL-AUTH-1, WEB-BRAND-1, financial, permission, lifecycle, and audit regressions.
-- [ ] Commit, push `codex/ui-r4e-app-wide-rollout`, open the focused PR, attach its URL to the task, and stop without merging.
+- [x] Commit, push `codex/ui-r4e-app-wide-rollout`, open the focused PR, attach its URL to the task, and stop without merging.
