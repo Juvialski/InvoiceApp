@@ -2060,3 +2060,26 @@ made. Jev provided no merge decision.
 The next approved Round 4 phase remains **UI-R4D — relevant entity media
 foundation**, with its bounded storage/security design and validation
 requirements. No media, storage, or schema work was started in R4C.
+
+## 2026-09-23 — UI-R4D Entity Media Foundation closeout
+
+UI-R4D source commit: `0a93f7c2fb79c5ece590aa87a416c32c8626d17b` on `codex/ui-r4d-entity-media`, based on synchronized `main` SHA `c057ffc9585ab6a890f260cbec8ae8def8d3081c`.
+
+The shared current-media binding covers Project covers, canonical Equipment Registry images, and canonical Warehouse Inventory item images. Existing `projects.read/manage`, `equipment.read/manage`, and `inventory.read/manage` permissions remain authoritative. Project material/equipment register rows reuse the referenced canonical item/asset image only when the corresponding read permission is present. Private Supabase Storage is migration-managed; S3-compatible storage uses the server-only dedicated `STORAGE_ENTITY_MEDIA_BUCKET`. JPEG/PNG/WebP images are capped at 5 MiB, server-validated, key-scoped by company/entity/media IDs, and served through 15-minute signed URLs. Authenticated direct writes are denied. Replacement, removal, failed upload, and entity-cascade metadata deletion feed nonblocking cleanup.
+
+Demo mode uses only synthetic repository SVG fixtures and browser-local object URLs; the upload boundary rejects SVG. Parent components retain project/equipment/inventory permissions, entity state, lifecycle, and persistence. No project-local duplicate material/equipment media ownership was added.
+
+Evidence report: `artifacts/ui-ux-audit/UI-R4D-ENTITY-MEDIA.md`. Twelve source-commit screenshots are under `artifacts/ui-ux-audit/screenshots/r4d/`; the lead inspected Project cards and edit controls, linked Project Material context, Equipment Registry, and Warehouse list states in light/dark across desktop, constrained laptop, tablet, and phone. The final local safe-demo run passed 12/12 with zero overflow, console/page errors, failed requests, or navigation failures. One shared-shell Demo Tour launcher overlap is recorded as a P2 R4E review item.
+
+Validation:
+
+- `npm.cmd run test:migrations:upgrade`: three historical upgrade fixtures passed. The combined `npm.cmd run test:migrations` command stopped before its DB phase on two old static phrase assertions in unchanged Settings/Expenses surfaces (`coreHardeningWave1` and `coreHardeningWave2B2`).
+- `npx.cmd supabase db reset --local --no-seed --yes` completed; `npx.cmd supabase test db --local` passed all 51 SQL files / 1,693 assertions, including the 28-assertion R4D contract.
+- Local Supabase Storage HTTP integration passed authorized upload/read, signed download, replace/remove, outsider denial, and failed-metadata cleanup compensation.
+- Focused entity-media/project/material tests passed 66 tests with one intentional runtime skip. Final post-fix runtime + browser evidence passed 14/14; final demo/security/scenario-catalog focus passed 17/17.
+- `npm.cmd run lint` passed (ESLint + TypeScript); `npm.cmd run build` passed with nonblocking theme-font, large-chunk, and CJS `import.meta` diagnostics.
+- Workflow Map generated and validated: 266 nodes, 355 edges, 36 invariants, 11 diagrams. `git diff --check` passed before documentation closeout.
+- `test:affected:agent` initially selected 160/380 files (42.1%), no fallback, and reported 1,062 pass / 3 fail / 2 skipped. It found an outdated exact viewport-set expectation for the two R4D scenarios; that expectation was updated and the structured browser-evidence tests passed. Remaining affected-run failures are stale exact-copy assertions in unchanged Expenses and Vendor tests. The separate old `coreHardeningWave1` phrase expectation also remains outside this affected selection. These unrelated assertions were not changed.
+- Narrow reproduction of the remaining Expenses/Vendor failures passed 8/10 assertions and confirmed each mismatch is an unchanged exact-copy expectation; both source pages and tests are outside the R4D change.
+
+The bounded Workflow Map context packet had zero candidates, so Jev was not called. No hosted QA, external S3 bucket, provider/device runtime, production migration, production data, or production deployment was accessed or certified. UI-R4E remains next after this change is safely merged.
