@@ -23,6 +23,7 @@ import type { PermissionKey } from "../../utils/accessControl.ts";
 import { projectCostMissingSourceLabels, type DataCompleteness, type ProjectCostSource } from "../../utils/dataCompleteness.ts";
 import type { AppTab } from "../../utils/routes.ts";
 import {
+  activateDashboardAttention,
   dashboardAttentionForHome,
   dashboardLaunchItemsForPermissions,
   dashboardSnapshotForHome,
@@ -201,7 +202,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => onNavigate(item.action)}
+                  onClick={() => activateDashboardAttention(item, onNavigate, onOpenProject)}
                   className="hqs-row-hover hqs-focus-ring flex w-full min-w-0 items-start gap-3 py-3 text-left"
                 >
                   <span className="hqs-attention-warning mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" aria-hidden="true">

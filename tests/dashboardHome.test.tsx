@@ -80,6 +80,10 @@ test("incomplete project-cost sources withhold affected insights without replaci
   assert.doesNotMatch(markup, /Executive Dashboard/);
 });
 
+test("project-specific Home attention is wired to the exact project opener", () => {
+  assert.match(homeSource, /activateDashboardAttention\(item,\s*onNavigate,\s*onOpenProject\)/);
+});
+
 test("Operations Insights framing retains the existing analytics dashboard", () => {
   const markup = renderToStaticMarkup(
     <AppPermissionProvider permissions={["*"]} workspaceDataPending={false}>

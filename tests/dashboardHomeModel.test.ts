@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { dashboardAttentionForHome, dashboardSnapshotForHome } from "../src/utils/dashboardHomeModel.ts";
+import { activateDashboardAttention, dashboardAttentionForHome, dashboardSnapshotForHome } from "../src/utils/dashboardHomeModel.ts";
 import { projectCostDataCompleteness } from "../src/utils/dataCompleteness.ts";
 import { buildDashboardViewData } from "../src/utils/dashboardViewModel.ts";
 import type { Project } from "../src/types.ts";
@@ -21,6 +21,30 @@ test("Dashboard launch items contain only destinations allowed by the effective 
   assert.equal(projectsOnly.some((item) => item.tab === "payroll"), false);
   assert.equal(invoicesAndCash.some((item) => item.tab === "payroll"), false);
   assert.deepEqual(noWorkflowPermissions, []);
+});
+
+test("project attention opens the exact project while general attention keeps its existing route", () => {
+  const calls: string[] = [];
+  const handlers = {
+    onNavigate: (tab: string) => calls.push(`tab:${tab}`),
+    onOpenProject: (projectId: string) => calls.push(`project:${projectId}`),
+  };
+
+  activateDashboardAttention({
+    id: "project-project-42",
+    label: "Project needs budget attention",
+    detail: "Budget threshold requires review.",
+    action: "projects",
+    projectId: "project-42",
+  }, handlers.onNavigate, handlers.onOpenProject);
+  activateDashboardAttention({
+    id: "invoice-review",
+    label: "Invoices need review",
+    detail: "Verify source documents.",
+    action: "review",
+  }, handlers.onNavigate, handlers.onOpenProject);
+
+  assert.deepEqual(calls, ["project:project-42", "tab:review"]);
 });
 
 test("Home withholds only attention items that depend on incomplete cost sources", () => {

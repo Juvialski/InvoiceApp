@@ -104,3 +104,15 @@ export function dashboardAttentionForHome(input: {
     .filter((item) => !attentionNeedsExpenseSource(item) || input.completeness.sourceStates.directExpenses === "detail")
     .slice(0, 5);
 }
+
+export function activateDashboardAttention(
+  item: DashboardAttentionItem,
+  onNavigate: (tab: AppTab) => void,
+  onOpenProject: (projectId: string) => void,
+): void {
+  if (item.projectId) {
+    onOpenProject(item.projectId);
+    return;
+  }
+  onNavigate(item.action);
+}
