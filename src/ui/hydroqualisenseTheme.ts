@@ -171,9 +171,6 @@ export const hydroqualisenseTheme = defineTheme({
     "--shadow-inset-error": "inset 0px 0px 0px 2px #e11d484D",
   },
 
-  localTokens: {
-    "--astryx-theme-hydroqualisense-border-control": ["#64748b", "#94a3b8"],
-  },
 
   components: {
     button: {
