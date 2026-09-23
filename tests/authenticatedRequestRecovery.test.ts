@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  publishSessionExpired,
   SESSION_EXPIRED_ERROR_CODE,
+  SESSION_EXPIRED_EVENT,
   SessionExpiredError,
   requestWithAuthRecovery,
 } from "../src/lib/authenticatedRequestRecovery.ts";
@@ -160,4 +162,95 @@ test("concurrent 401s share one in-flight refresh", async () => {
   assert.equal(firstResult.status, 200);
   assert.equal(secondResult.status, 200);
   assert.equal(refreshCount, 1);
+});
+
+test("a temporary refresh network failure is not reported as terminal session expiry", async () => {
+  await assert.rejects(
+    requestWithAuthRecovery({
+      initialAccessToken: "stale-token",
+      request: async () => response(401),
+      refreshAccessToken: async () => { throw new TypeError("Failed to fetch"); },
+      sessionExpiredMessage: "Your session expired. Sign in again.",
+    }),
+    (error: unknown) => {
+      assert.notEqual((error as Error).name, "SessionExpiredError");
+      assert.match((error as Error).message, /connection|refresh/i);
+      return true;
+    },
+  );
+});
+
+test("concurrent 401s for different users never share a refreshed access token", async () => {
+  const observed = new Map<string, string[]>();
+  const releases = new Map<string, (token: string) => void>();
+  const gates = new Map<string, Promise<string>>();
+
+  for (const userId of ["user-a", "user-b"]) {
+    gates.set(userId, new Promise<string>((resolve) => releases.set(userId, resolve)));
+    observed.set(userId, []);
+  }
+
+  const makeRequest = (userId: string) => requestWithAuthRecovery({
+    sessionUserId: userId,
+    initialAccessToken: `stale-${userId}`,
+    request: async (token) => {
+      observed.get(userId)!.push(token);
+      return response(observed.get(userId)!.length === 1 ? 401 : 200);
+    },
+    refreshAccessToken: () => gates.get(userId)!,
+    sessionExpiredMessage: "Session expired",
+  });
+
+  const first = makeRequest("user-a");
+  const second = makeRequest("user-b");
+  await Promise.resolve();
+  await Promise.resolve();
+
+  releases.get("user-a")!("fresh-user-a");
+  releases.get("user-b")!("fresh-user-b");
+  await Promise.all([first, second]);
+
+  assert.deepEqual(observed.get("user-a"), ["stale-user-a", "fresh-user-a"]);
+  assert.deepEqual(observed.get("user-b"), ["stale-user-b", "fresh-user-b"]);
+});
+
+test("terminal auth recovery reports expiry to the owner without reporting temporary network failures", async () => {
+  let expiryNotifications = 0;
+  await assert.rejects(requestWithAuthRecovery({
+    sessionUserId: "user-1",
+    initialAccessToken: "stale-token",
+    request: async () => response(401),
+    refreshAccessToken: async () => null,
+    onSessionExpired: () => { expiryNotifications += 1; },
+    sessionExpiredMessage: "Your session expired. Sign in again.",
+  }), SessionExpiredError);
+  assert.equal(expiryNotifications, 1);
+
+  await assert.rejects(requestWithAuthRecovery({
+    sessionUserId: "user-1",
+    initialAccessToken: "stale-token",
+    request: async () => response(401),
+    refreshAccessToken: async () => { throw new TypeError("Failed to fetch"); },
+    onSessionExpired: () => { expiryNotifications += 1; },
+    sessionExpiredMessage: "Your session expired. Sign in again.",
+  }));
+  assert.equal(expiryNotifications, 1);
+});
+
+test("session-expired notifications carry only the originating user identity", () => {
+  let dispatched: Event | undefined;
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { dispatchEvent: (event: Event) => { dispatched = event; return true; } },
+  });
+  try {
+    publishSessionExpired("user-1");
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
+
+  assert.equal(dispatched?.type, SESSION_EXPIRED_EVENT);
+  assert.deepEqual((dispatched as CustomEvent).detail, { sessionUserId: "user-1" });
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 import { Header, type AppTab } from "../components/Header";
-import { CompanySwitcher } from "../components/access/AccessStates.tsx";
+import { AccessRefreshNotice, CompanySwitcher } from "../components/access/AccessStates.tsx";
 import { BRAND } from "../config/brand";
 import type { CompanySummary } from "../lib/companyAccess";
 import type { WorkspaceSyncStatus } from "../lib/workspaceSync";
@@ -121,6 +121,9 @@ export interface AppShellProps {
   // Workspace status
   isSupabaseConfigured?: boolean;
   workspaceLoading?: boolean;
+  accessRefreshing?: boolean;
+  accessRefreshError?: string | null;
+  onRetryAccessRefresh?: () => void | Promise<void>;
 
   // Route error / not found
   routeNotFound?: boolean;
@@ -157,6 +160,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   onKeepEditingRemoteInvoice,
   isSupabaseConfigured = true,
   workspaceLoading = false,
+  accessRefreshing = false,
+  accessRefreshError = null,
+  onRetryAccessRefresh,
   routeNotFound = false,
   onReturnToDashboard,
   routeRecovery,
@@ -233,6 +239,14 @@ export const AppShell: React.FC<AppShellProps> = ({
           }`}
           style={{ scrollPaddingTop: "4.5rem" }}
         >
+          {(accessRefreshing || accessRefreshError) && (
+            <AccessRefreshNotice
+              isRefreshing={accessRefreshing}
+              refreshError={accessRefreshError}
+              onRetry={onRetryAccessRefresh || (() => undefined)}
+            />
+          )}
+
           {remoteInvoiceUpdate && selectedInvoiceId === remoteInvoiceUpdate.invoiceId && (
             <div
               role="status"

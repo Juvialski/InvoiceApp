@@ -35,9 +35,19 @@ import {
   type UpdateCompanyMemberPermissionsInput,
   type UpdateCompanyRoleInput,
 } from "../lib/companyAccess.ts";
-import { isCurrentCompanyAccessRequest, shouldPreserveCompanyAccessDuringRefresh } from "../lib/companyAccessRefresh.ts";
+import {
+  bindIdleSessionRecovery,
+  recoverSessionBeforeAccessRefresh,
+  refreshCompanyAccessState,
+} from "../lib/companyAccessRecovery.ts";
+import { shouldPreserveCompanyAccessDuringRefresh } from "../lib/companyAccessRefresh.ts";
+import {
+  refreshAccessTokenSingleFlight,
+  isTerminalSessionRefreshFailure,
+  SESSION_EXPIRED_EVENT,
+} from "../lib/authenticatedRequestRecovery.ts";
 import { clearCompanyContext, setDeploymentCompanyId } from "../lib/companyContext.ts";
-import { assertDeploymentCompanyId, loadDeploymentCompanyId, resolveDeploymentCompanyAccess } from "../lib/deploymentCompany.ts";
+import { assertDeploymentCompanyId, loadDeploymentCompanyId } from "../lib/deploymentCompany.ts";
 import { isSupabaseConfigured, signOutWorkspace, supabase } from "../lib/supabase.ts";
 import { hasPermission, type PermissionKey } from "../utils/accessControl.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
@@ -56,6 +66,7 @@ export interface CompanyAccessContextValue {
   isSwitching: boolean;
   isRefreshing: boolean;
   refreshError: string | null;
+  sessionExpiredNotice: boolean;
   can: (permission: PermissionKey) => boolean;
   refreshAccess: () => Promise<void>;
   /** Compatibility callback. It validates the deployment company and never changes tenants. */
@@ -103,11 +114,16 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   const [isSwitching, setIsSwitching] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
   const accessRef = useRef(access);
   const sessionRef = useRef<Session | null>(null);
   const deploymentCompanyIdRef = useRef<string | null>(null);
   const loadGenerationRef = useRef(0);
   const accessLoadRef = useRef<{ userId: string; promise: Promise<void> } | null>(null);
+  const activeAccessRefreshUserRef = useRef<string | null>(null);
+  const explicitSignOutRef = useRef(false);
+  const applySessionRef = useRef<(event: string, nextSession: Session | null) => void>(() => undefined);
+  const refreshAccessRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const setAccessSnapshot = useCallback((next: CompanyAccessSnapshot) => {
     accessRef.current = next;
@@ -129,20 +145,25 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       setAuthResolved(true);
       setIsRefreshing(false);
       setRefreshError(null);
+      setSessionExpiredNotice(false);
       resetAuthenticatedContext("guest");
       return undefined;
     }
 
     let mounted = true;
-    const applySession = (nextSession: Session | null) => {
+    const applySession = (event: string, nextSession: Session | null) => {
       if (!mounted) return;
       const previousUserId = sessionRef.current?.user?.id || null;
       const nextUserId = nextSession?.user?.id || null;
       if (previousUserId !== nextUserId) {
+        const refreshWasForPreviousUser = activeAccessRefreshUserRef.current === previousUserId;
         loadGenerationRef.current += 1;
         accessLoadRef.current = null;
+        activeAccessRefreshUserRef.current = null;
         setIsRefreshing(false);
         setRefreshError(null);
+        if (nextUserId || explicitSignOutRef.current) setSessionExpiredNotice(false);
+        else if (previousUserId && (event === "SIGNED_OUT" || refreshWasForPreviousUser)) setSessionExpiredNotice(true);
         resetAuthenticatedContext(nextUserId ? "loading" : "signed-out", nextUserId || undefined, nextSession?.user?.email || undefined);
         setIsSwitching(Boolean(nextUserId));
       }
@@ -150,12 +171,40 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       setGuestMode(false);
       setAuthResolved(true);
+      if (event === "TOKEN_REFRESHED" && previousUserId && previousUserId === nextUserId) {
+        void refreshAccessRef.current();
+      }
     };
 
-    void supabase.auth.getSession().then(({ data }) => applySession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => applySession(nextSession));
+    applySessionRef.current = applySession;
+    let authEventReceived = false;
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      authEventReceived = true;
+      applySession(event, nextSession);
+    });
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (authEventReceived) {
+        if (error && isTerminalSessionRefreshFailure(error) && !sessionRef.current?.user?.id && !explicitSignOutRef.current) {
+          setSessionExpiredNotice(true);
+        }
+        return;
+      }
+      applySession("INITIAL_SESSION", data.session);
+      if (!data.session && error && isTerminalSessionRefreshFailure(error)) setSessionExpiredNotice(true);
+    }).catch((error) => {
+      if (authEventReceived) {
+        if (isTerminalSessionRefreshFailure(error) && !sessionRef.current?.user?.id && !explicitSignOutRef.current) {
+          setSessionExpiredNotice(true);
+        }
+        return;
+      }
+      setAuthResolved(true);
+      setGuestMode(false);
+      if (isTerminalSessionRefreshFailure(error)) setSessionExpiredNotice(true);
+    });
     return () => {
       mounted = false;
+      applySessionRef.current = () => undefined;
       listener.subscription.unsubscribe();
     };
   }, [resetAuthenticatedContext]);
@@ -177,56 +226,92 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const preserveCurrentAccess = shouldPreserveCompanyAccessDuringRefresh(accessRef.current, userId);
     const generation = ++loadGenerationRef.current;
-    setRefreshError(null);
-    if (preserveCurrentAccess) {
-      setIsSwitching(false);
-      setIsRefreshing(true);
-    } else {
-      setIsRefreshing(false);
-      setIsSwitching(true);
-      resetAuthenticatedContext("loading", userId, activeSession.user.email || undefined);
-    }
-
-    const loadFailure = (error: unknown) => {
-      if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
-      const message = safeErrorMessage(error, "Deployment company access could not be loaded.");
-      if (preserveCurrentAccess) {
-        setRefreshError(message);
-      } else {
-        resetAuthenticatedContext("error", userId, activeSession.user.email || undefined, message);
-      }
-    };
 
     const request = (async () => {
+      activeAccessRefreshUserRef.current = userId;
       try {
-        let loaded: CompanyAccessSnapshot;
-        let deploymentCompanyId: string;
-        try {
-          [loaded, deploymentCompanyId] = await Promise.all([
-            loadCompanyAccess(supabase),
-            loadDeploymentCompanyId(supabase),
-          ]);
-        } catch (error) {
-          loadFailure(error);
-          return;
-        }
+        const result = await refreshCompanyAccessState({
+          access: accessRef.current,
+          isSwitching: false,
+          isRefreshing: false,
+          refreshError: null,
+          sessionExpired: false,
+        }, {
+          userId,
+          userEmail: activeSession.user.email || undefined,
+          requestGeneration: generation,
+          currentGeneration: () => loadGenerationRef.current,
+          currentUserId: () => sessionRef.current?.user?.id || null,
+          knownDeploymentCompanyId: deploymentCompanyIdRef.current,
+          loadAccess: () => loadCompanyAccess(supabase),
+          loadDeploymentCompanyId: () => loadDeploymentCompanyId(supabase),
+          refreshAccessToken: () => refreshAccessTokenSingleFlight(userId, async () => {
+            const { data: refreshData, error: refreshErrorValue } = await supabase.auth.refreshSession();
+            if (refreshErrorValue) throw refreshErrorValue;
+            if (refreshData.session?.user.id !== userId) return null;
+            return refreshData.session.access_token || null;
+          }),
+          getSession: async () => {
+            const { data, error } = await supabase.auth.getSession();
+            return { session: data.session, error };
+          },
+        }, (nextState) => {
+          setAccessSnapshot(nextState.access);
+          setIsSwitching(nextState.isSwitching);
+          setIsRefreshing(nextState.isRefreshing);
+          setRefreshError(nextState.refreshError);
+          setSessionExpiredNotice(nextState.sessionExpired);
+        });
 
-        if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
-        try {
-          const resolved = resolveDeploymentCompanyAccess(loaded, deploymentCompanyId);
-          deploymentCompanyIdRef.current = deploymentCompanyId;
-          setAccessSnapshot(resolved);
-          setRefreshError(null);
-        } catch (error) {
-          if (!isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) return;
-          const message = safeErrorMessage(error, "Deployment company access is no longer available.");
-          setRefreshError(null);
-          resetAuthenticatedContext("error", userId, activeSession.user.email || undefined, message);
+        if (!result) return;
+        if (result.outcome.kind === "resolved") {
+          deploymentCompanyIdRef.current = result.outcome.access.status === "ready"
+            ? result.outcome.deploymentCompanyId
+            : null;
+          const refreshedSession = result.outcome.refreshedSession;
+          if (refreshedSession && sessionRef.current?.user?.id === userId) {
+            sessionRef.current = refreshedSession;
+            setSession(refreshedSession);
+          }
+        } else if (result.outcome.kind === "deployment-mismatch") {
+          deploymentCompanyIdRef.current = null;
+        } else if (result.outcome.kind === "session-expired") {
+          if (sessionRef.current?.user?.id === userId) {
+            loadGenerationRef.current += 1;
+            accessLoadRef.current = null;
+            sessionRef.current = null;
+            setSession(null);
+            resetAuthenticatedContext("signed-out");
+            setSessionExpiredNotice(true);
+            void supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+          }
+        } else if (result.outcome.kind === "identity-changed") {
+          const { data, error } = await supabase.auth.getSession();
+          if (data.session && data.session.user.id !== userId) {
+            applySessionRef.current("SIGNED_IN", data.session);
+          } else if (error && isTerminalSessionRefreshFailure(error) && sessionRef.current?.user?.id === userId) {
+            loadGenerationRef.current += 1;
+            sessionRef.current = null;
+            setSession(null);
+            resetAuthenticatedContext("signed-out");
+            setSessionExpiredNotice(true);
+            void supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+          } else if (!error && !data.session && sessionRef.current?.user?.id === userId) {
+            loadGenerationRef.current += 1;
+            sessionRef.current = null;
+            setSession(null);
+            resetAuthenticatedContext("signed-out");
+            setSessionExpiredNotice(true);
+          } else if (sessionRef.current?.user?.id === userId) {
+            resetAuthenticatedContext("error", userId, activeSession.user.email || undefined, "The signed-in identity changed during access verification.");
+            setIsSwitching(false);
+            setIsRefreshing(false);
+          }
         }
       } finally {
-        if (isCurrentCompanyAccessRequest(loadGenerationRef.current, generation, sessionRef.current?.user?.id, userId)) {
+        if (activeAccessRefreshUserRef.current === userId) activeAccessRefreshUserRef.current = null;
+        if (loadGenerationRef.current === generation && sessionRef.current?.user?.id === userId) {
           setIsSwitching(false);
           setIsRefreshing(false);
         }
@@ -240,6 +325,79 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       if (accessLoadRef.current?.promise === request) accessLoadRef.current = null;
     }
   }, [resetAuthenticatedContext, setAccessSnapshot]);
+  refreshAccessRef.current = refreshAccess;
+
+  useEffect(() => {
+    if (!supabase || !session?.user?.id || typeof document === "undefined" || typeof window === "undefined") return undefined;
+    const userId = session.user.id;
+    return bindIdleSessionRecovery({
+      documentTarget: document,
+      windowTarget: window,
+      recover: async () => {
+        if (sessionRef.current?.user?.id !== userId) return;
+        const result = await recoverSessionBeforeAccessRefresh({
+          userId,
+          currentUserId: () => sessionRef.current?.user?.id || null,
+          getSession: async () => {
+            const { data, error } = await supabase.auth.getSession();
+            return { session: data.session, error };
+          },
+          onSameUserSession: (nextSession) => {
+            sessionRef.current = nextSession;
+            setSession(nextSession);
+          },
+          refreshAccess,
+        });
+
+        if (explicitSignOutRef.current) return;
+        if (result.kind === "recovered") return;
+        if (result.kind === "transient-failure") {
+          if (sessionRef.current?.user?.id === userId && shouldPreserveCompanyAccessDuringRefresh(accessRef.current, userId)) {
+            setRefreshError(safeErrorMessage(result.error, "Connection interrupted while checking your session."));
+          }
+          return;
+        }
+        if (result.kind === "session-expired") {
+          if (sessionRef.current?.user?.id === userId) {
+            loadGenerationRef.current += 1;
+            accessLoadRef.current = null;
+            sessionRef.current = null;
+            setSession(null);
+            resetAuthenticatedContext("signed-out");
+            void supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+          }
+          setSessionExpiredNotice(true);
+          return;
+        }
+        if (result.kind === "identity-changed") {
+          if (result.session) applySessionRef.current("SIGNED_IN", result.session);
+          return;
+        }
+        if (sessionRef.current?.user?.id === userId) applySessionRef.current("SIGNED_OUT", null);
+      },
+    });
+  }, [refreshAccess, resetAuthenticatedContext, session?.user?.id]);
+
+  useEffect(() => {
+    if (!supabase || typeof window === "undefined") return undefined;
+    const onSessionExpired = (event: Event) => {
+      const expiredUserId = (event as CustomEvent<{ sessionUserId?: string }>).detail?.sessionUserId;
+      if (!expiredUserId || sessionRef.current?.user?.id !== expiredUserId) return;
+      loadGenerationRef.current += 1;
+      accessLoadRef.current = null;
+      activeAccessRefreshUserRef.current = null;
+      sessionRef.current = null;
+      setSession(null);
+      setIsSwitching(false);
+      setIsRefreshing(false);
+      setRefreshError(null);
+      resetAuthenticatedContext("signed-out");
+      setSessionExpiredNotice(true);
+      void supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, [resetAuthenticatedContext]);
 
   useEffect(() => {
     if (!authResolved) return undefined;
@@ -286,17 +444,27 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     setGuestMode(true);
     setIsRefreshing(false);
     setRefreshError(null);
+    setSessionExpiredNotice(false);
     resetAuthenticatedContext("guest");
   }, [resetAuthenticatedContext]);
 
   const signOut = useCallback(async () => {
+    explicitSignOutRef.current = true;
     loadGenerationRef.current += 1;
     accessLoadRef.current = null;
+    activeAccessRefreshUserRef.current = null;
+    sessionRef.current = null;
+    setSession(null);
     setIsRefreshing(false);
     setRefreshError(null);
+    setSessionExpiredNotice(false);
     resetAuthenticatedContext(isSupabaseConfigured ? "signed-out" : "guest");
     setIsSwitching(false);
-    await signOutWorkspace();
+    try {
+      await signOutWorkspace();
+    } finally {
+      explicitSignOutRef.current = false;
+    }
   }, [resetAuthenticatedContext]);
 
   const createCompany = useCallback(async (_input: CreateCompanyInput): Promise<CompanySummary> => {
@@ -393,6 +561,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       isSwitching,
       isRefreshing,
       refreshError,
+      sessionExpiredNotice,
       can: (permission) => hasPermission(access.permissions, permission),
       refreshAccess,
       selectCompany,
@@ -415,7 +584,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       loadCompanyPermissionCatalog,
       loadCompanyAccessAudit,
     };
-  }, [access, archiveCompanyRole, authResolved, authorizeCompanyMemberEmail, createCompany, createCompanyRole, enterGuestMode, guestMode, inviteCompanyMember, isRefreshing, isSwitching, loadCompanyAccessAudit, loadCompanyInvitations, loadCompanyMembers, loadCompanyPermissionCatalog, loadCompanyRoles, refreshAccess, refreshError, revokeCompanyInvitation, selectCompany, session, signOut, updateCompany, updateCompanyInvitationPermissions, updateCompanyMember, updateCompanyMemberPermissions, updateCompanyRole]);
+  }, [access, archiveCompanyRole, authResolved, authorizeCompanyMemberEmail, createCompany, createCompanyRole, enterGuestMode, guestMode, inviteCompanyMember, isRefreshing, isSwitching, loadCompanyAccessAudit, loadCompanyInvitations, loadCompanyMembers, loadCompanyPermissionCatalog, loadCompanyRoles, refreshAccess, refreshError, revokeCompanyInvitation, selectCompany, session, sessionExpiredNotice, signOut, updateCompany, updateCompanyInvitationPermissions, updateCompanyMember, updateCompanyMemberPermissions, updateCompanyRole]);
 
   return <CompanyAccessContext.Provider value={value}>{children}</CompanyAccessContext.Provider>;
 }

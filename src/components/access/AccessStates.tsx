@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Building2, KeyRound, ShieldCheck } from "lucide-react";
+import { AlertCircle, Building2, KeyRound, RefreshCw, ShieldCheck } from "lucide-react";
 import { BRAND } from "../../config/brand.ts";
 import { BrandMark } from "../BrandMark.tsx";
 import { permissionDisplayName, type PermissionKey } from "../../utils/accessControl.ts";
@@ -44,6 +44,40 @@ export function CompanySwitcher({ companies, activeCompanyId, collapsed = false 
 
 export function NoCompanyAccess({ onSignOut, children }: { onSignOut?: () => void | Promise<void>; children?: ReactNode }) {
   return <main className="flex min-h-[70vh] items-center justify-center px-4 py-10"><section role="alert" className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_60px_-32px_rgba(15,23,42,0.42)] sm:p-8"><div className="flex items-start gap-4"><BrandMark variant="compact" decorative /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Deployment access</p><h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Company access unavailable</h1><p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">This email has not been authorized for this {BRAND.productName} deployment, or its existing access is inactive. Contact your company administrator.</p></div></div><div className="mt-6 flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><span>{BRAND.productName} only opens company data after authenticated membership resolution. It does not select or switch between unrelated client companies inside one deployment.</span></div>{children}{onSignOut && <button type="button" onClick={() => void onSignOut()} className="mt-6 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">Sign out</button>}</section></main>;
+}
+
+export function AccessVerificationError({ onRetry, onSignOut }: { onRetry: () => void | Promise<void>; onSignOut?: () => void | Promise<void> }) {
+  return (
+    <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
+      <section role="alert" className="w-full max-w-xl rounded-3xl border border-amber-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex items-start gap-3">
+          <AlertCircle aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Connection check</p>
+            <h1 className="mt-1 text-xl font-black text-slate-950">We couldn’t verify company access</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Your access could not be checked right now. Try again when the connection is available.</p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button type="button" onClick={() => void onRetry()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white hover:bg-indigo-700">
+            <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+            Try again
+          </button>
+          {onSignOut && <button type="button" onClick={() => void onSignOut()} className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Sign out</button>}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+export function AccessRefreshNotice({ isRefreshing, refreshError, onRetry }: { isRefreshing: boolean; refreshError?: string | null; onRetry: () => void | Promise<void> }) {
+  if (!isRefreshing && !refreshError) return null;
+  return (
+    <div role="status" aria-live="polite" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+      <span>{refreshError ? "Connection interrupted. Your last verified workspace is still open while access is rechecked." : "Rechecking company access…"}</span>
+      {refreshError && <button type="button" onClick={() => void onRetry()} className="hqs-control inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 font-bold">Retry</button>}
+    </div>
+  );
 }
 
 export function AccessDenied({ permission, companyName, onReturn }: { permission?: PermissionKey | null; companyName?: string; onReturn?: () => void }) {

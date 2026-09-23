@@ -51,9 +51,24 @@ test("suspended deployment is not opened as an empty or selectable workspace", (
   assert.deepEqual(resolved.permissions, []);
 });
 
-test("missing, unknown, and duplicate deployment-company access fail clearly", () => {
+test("a successfully loaded snapshot without the configured company confirms no-company access", () => {
+  const resolved = resolveDeploymentCompanyAccess(snapshot({
+    companies: [{ id: OTHER, name: "Other Co", status: "ACTIVE" }],
+    memberships: [{ companyId: DEPLOYMENT, roleKey: "COMPANY_ADMIN", status: "ACTIVE", permissions: ["dashboard.read"] }],
+  }), DEPLOYMENT);
+
+  assert.equal(resolved.status, "no-company");
+  assert.equal(resolved.activeCompanyId, null);
+  assert.deepEqual(resolved.permissions, []);
+  assert.deepEqual(resolved.memberships, []);
+});
+
+test("missing deployment configuration and duplicate access data fail clearly while unknown company denies access", () => {
   assert.throws(() => assertDeploymentCompanyId(null), /does not have a configured company/i);
-  assert.throws(() => resolveDeploymentCompanyAccess(snapshot(), "00000000-0000-4000-8000-000000000099"), /not available/i);
+  const unknown = resolveDeploymentCompanyAccess(snapshot(), "00000000-0000-4000-8000-000000000099");
+  assert.equal(unknown.status, "no-company");
+  assert.equal(unknown.activeCompanyId, null);
+  assert.deepEqual(unknown.permissions, []);
   assert.throws(() => resolveDeploymentCompanyAccess(snapshot({ memberships: [
     { companyId: DEPLOYMENT, status: "ACTIVE", permissions: [] },
     { companyId: DEPLOYMENT, status: "ACTIVE", permissions: [] },
@@ -79,11 +94,13 @@ test("browser company context cannot switch directly between non-null companies"
 
 test("frontend has no authoritative stored company selection or company-picker UI", () => {
   const context = readFileSync(new URL("../src/context/CompanyAccessContext.tsx", import.meta.url), "utf8");
+  const recovery = readFileSync(new URL("../src/lib/companyAccessRecovery.ts", import.meta.url), "utf8");
   const accessStates = readFileSync(new URL("../src/components/access/AccessStates.tsx", import.meta.url), "utf8");
   const api = readFileSync(new URL("../src/lib/companyApi.ts", import.meta.url), "utf8");
   assert.doesNotMatch(context, /sessionStorage|localStorage|activeCompanyStorageKey|readStoredCompanyId|chooseCompany|bootstrapPlatformAdmin/);
   assert.match(context, /loadDeploymentCompanyId/);
-  assert.match(context, /resolveDeploymentCompanyAccess/);
+  assert.match(context, /refreshCompanyAccessState/);
+  assert.match(recovery, /resolveDeploymentCompanyAccess/);
   assert.match(context, /Creating another company is disabled/);
   assert.doesNotMatch(accessStates, /Choose company|role="listbox"|ChevronDown/);
   assert.match(accessStates, /Deployment company:/);

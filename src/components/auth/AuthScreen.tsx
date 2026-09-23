@@ -49,6 +49,7 @@ export interface AuthScreenProps {
   allowBrowserOnly?: boolean;
   /** Clarifies that an invitation is required for company access. */
   invitationRequired?: boolean;
+  sessionExpiredNotice?: boolean;
   onModeChange?: (mode: AuthMode) => void;
   className?: string;
 }
@@ -141,6 +142,7 @@ export function AuthScreen({
   onContinueInBrowser,
   allowBrowserOnly = false,
   invitationRequired = false,
+  sessionExpiredNotice = false,
   onModeChange,
   className = "",
 }: AuthScreenProps) {
@@ -151,12 +153,18 @@ export function AuthScreen({
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [pending, setPending] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(() => sessionExpiredNotice
+    ? { kind: "error", message: "Your session expired. Sign in again." }
+    : null);
   const [signupState, setSignupState] = useState<SignupState | null>(null);
 
   useEffect(() => {
     if (requestedMode === undefined && recoveryLinkIsActive()) setMode("reset-password");
   }, [requestedMode]);
+
+  useEffect(() => {
+    if (sessionExpiredNotice) setNotice({ kind: "error", message: "Your session expired. Sign in again." });
+  }, [sessionExpiredNotice]);
 
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);

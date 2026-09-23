@@ -43,7 +43,16 @@ export function resolveDeploymentCompanyAccess(
   const companyId = assertDeploymentCompanyId(deploymentCompanyId);
   const company = snapshot.companies.find((item) => item.id === companyId);
   if (!company) {
-    throw new Error("The configured deployment company is not available to this authenticated session.");
+    return {
+      ...snapshot,
+      status: "no-company",
+      isPlatformOwner: false,
+      companies: [],
+      memberships: [],
+      activeCompanyId: null,
+      permissions: [],
+      error: undefined,
+    };
   }
 
   const memberships = snapshot.memberships.filter((item) => item.companyId === companyId);
