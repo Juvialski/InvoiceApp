@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E IMPLEMENTED FOR LOCAL/DEMO SCOPE, PR #245 OPEN / WEB-BRAND-1 PLANNED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 NEXT / WEB-BRAND-1 PLANNED**
 Date: **2026-09-23**
 Repository: `Juvialski/InvoiceApp`
 
@@ -2163,7 +2163,7 @@ Regression coverage must include same-user token refresh, transient load failure
 
 No DB migration is expected from the current evidence. If implementation investigation proves a database/RPC contract change is actually required, stop treating this as a client-only phase and run the full applicable local Supabase validation rather than substituting static tests.
 
-### R4E direction — IMPLEMENTED FOR RECORDED LOCAL/DEMO SCOPE; PR #245 OPEN
+### R4E direction — MERGED FOR RECORDED LOCAL/DEMO SCOPE
 
 REL-AUTH-1 is merged. The approved R4E app-wide rollout is implemented on `codex/ui-r4e-app-wide-rollout`:
 - desktop no longer shows the redundant upper row with repeated product/page identity, permanent successful `Synced`, global `Export`, or duplicate account identity;
@@ -2200,6 +2200,20 @@ Validation and review closeout:
 - no database, RLS, RPC, migration, provider, payroll, or UI-R4E implementation change was introduced by REL-AUTH-1.
 
 Developer-intelligence evidence: the single deterministic `agent:context` packet selected 8/380 tests and had no curated primary source entries. Jev context preflight found zero candidates and made no live request. The one live test-triage call kept all 38 required test files, recommending auth/access tests first (`jev-1.13.0`, 38→38, 4,121 input / 564 output tokens, 836 ms, fallback=false); deterministic selection remained authoritative. At implementation-run time, the live completion check observed all four declared evidence categories and retained uncertainty for the then-stale affected-test assertion plus the lack of live authenticated hosted-browser evidence (`jev-1.13.0`, 4 candidates, 677 input / 72 output tokens, 430 ms, fallback=false, unresolvedUncertainty=true). PR review later resolved the stale assertion; the hosted runtime evidence gap remains.
+
+
+## 2026-09-23 — UI-R4E merge closeout and CI-EFF-1 priority
+
+PR #245 merged as `30a42e926cb0f82948a6d7a217b809f22efc77e8`. Its exact reviewed head was `67ba197782b802d51d456bd941b7ecce297dc71c`, and all four protected checks passed on that exact head before merge: Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA.
+
+PR review classified the earlier browser failure precisely:
+- the two Payroll normal-cycle failures were stale QA copy assertions after the approved R4E simplification; the corrected probe now verifies the actual stage-boundary semantics (approval/payment remain separate and payment routes through Cash & Banking) rather than the removed sentence;
+- the Payroll and invoice-filter dark-mode failures were genuine non-text contrast defects: legacy input borders had fallen to 1.93:1 against the dark surface; the final head restored the intended control boundary and the protected visual run passed;
+- Demo Visual QA now prints concise failed assertion IDs/details directly in the Actions log and uses workflow/ref concurrency with `cancel-in-progress: true` so newer PR heads stop superseded browser work.
+
+**CI-EFF-1 is the next implementation phase by explicit owner priority.** Keep it bounded to protected-CI execution efficiency: measured small browser parallelism, conservative affected-feature selection with full-suite fallback for shared/global/ambiguous changes, exhaustive regression on appropriate main/scheduled/release runs, safe reduction of duplicated setup/lint/build work, and reproducible Playwright installation/caching. Do not weaken database validation or change the required protected check names.
+
+WEB-BRAND-1 remains planned and separate after this CI-efficiency phase.
 
 
 ## 2026-09-23 — WEB-BRAND-1 public-site plan preserved

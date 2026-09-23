@@ -3,10 +3,16 @@
 Date: 2026-09-23
 Repository: `Juvialski/InvoiceApp`
 Branch: `codex/ui-r4e-app-wide-rollout`
-Pull request: [#245](https://github.com/Juvialski/InvoiceApp/pull/245) (open; not merged)
+Pull request: [#245](https://github.com/Juvialski/InvoiceApp/pull/245) — merged as `30a42e926cb0f82948a6d7a217b809f22efc77e8`
 Synchronized base: `bbd633f4709b36a1e0bc42d6cced202615aaa2d0`
-Application source commit: `3ea57c1904a2ff3eb21296ab0149e00928fbc829`
+Application source commit used for the recorded local certification: `3ea57c1904a2ff3eb21296ab0149e00928fbc829`
+Final reviewed PR head: `67ba197782b802d51d456bd941b7ecce297dc71c`
+Merge commit: `30a42e926cb0f82948a6d7a217b809f22efc77e8`
 Environment: local Windows development server, Chromium browser, synthetic HydroQualiSense demo workspace. No hosted, provider, live customer, QA deployment, or production environment was used.
+
+## Review closeout
+
+The exact reviewed PR head passed all four protected checks before merge. Review corrected one stale Payroll normal-cycle copy assertion to verify the approved stage-boundary semantics, fixed a real dark-mode control-boundary regression measured at 1.93:1 so the protected contrast assertions passed, added concise failed-assertion details to normal Actions output, and added cancel-in-progress workflow concurrency for superseded Demo Visual QA runs. These review changes did not alter database, auth-state-machine, financial/lifecycle, or payroll-persistence semantics.
 
 ## Scope delivered
 

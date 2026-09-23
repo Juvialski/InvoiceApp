@@ -66,7 +66,9 @@ For a substantial bounded phase with `TYPESAFE_API_KEY` available:
    live `context` call before edits;
 2. after deterministic affected-test selection, run one live `test-triage`
    only when the candidate test set is broad enough to benefit from ordering;
-3. before PR delivery, run one live `completion` evidence check;
+3. use at most one live `completion` evidence check while it can still change
+   the evidence plan; skip it when required evidence is already complete, and
+   never let it gate PR delivery or trigger another review/validation cycle;
 4. run `ci-triage` only when a real noisy CI failure exists.
 
 Do not repeatedly rerun equivalent Jev requests. Do not use routine
@@ -134,6 +136,17 @@ Do not run `test:full` unless impact selection falls back to it, a broad shared 
 Prepare roadmap/handoff synchronization before the final expensive validation where practical. Once the final executable diff has been reviewed, required validation has passed, roadmap/handoff are reconciled, and final hygiene such as `git diff --check` is clean, proceed to commit/push/PR.
 
 Do not cycle through `review -> docs -> affected tests -> review -> docs -> affected tests` unless an actual new executable change or validation failure occurred. If only documentation changes after executable validation, inspect the documentation directly and proceed.
+
+### Terminal delivery cutoff
+
+Once the meaningful executable/test diff is frozen, required risk-appropriate validation has passed, and no concrete blocker remains:
+
+- stop starting new subagents, Jev completion passes, context packets, repository-wide searches, screenshot matrices, broad test runs, or generic second reviews;
+- push/open the PR immediately rather than using remaining time for speculative assurance work;
+- while protected CI runs, do not duplicate its expensive work locally unless a concrete failure needs diagnosis;
+- treat a completed browser/visual matrix as reusable until relevant UI/browser code changes; docs/evidence metadata/PR text do not invalidate it;
+- for browser assertion-only fixes, prefer the exact failing scenarios plus one exact-head protected browser run instead of replaying the full local matrix;
+- do not regenerate the bounded context packet or broadly reread docs after implementation begins unless a concrete contradiction, merge conflict, or source-of-truth question requires it.
 
 This policy preserves model budget for implementation and higher-capability reasoning while keeping exact-head CI and risk-appropriate safeguards authoritative.
 
