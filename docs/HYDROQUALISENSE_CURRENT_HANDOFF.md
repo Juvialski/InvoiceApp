@@ -2012,7 +2012,7 @@ The existing R4B semantic `hqs-*`/Astryx token layer remains authoritative. Pres
 R4C started from synchronized `main` SHA
 `aa665150d1dabd7f09352f2d157408b55506824a` on branch
 `codex/ui-r4c-home-project-portfolio`. The final source SHA used by visual QA
-was `fc886e5342661149a78b38e6fb1be316b8790b77`.
+was `e55e15d917e0f072d60238d651fe14c7f77ff405`.
 
 `/dashboard` now always renders the simplified Home composition, independent
 of workspace hydration and project-cost completeness. The preserved
@@ -2021,6 +2021,8 @@ of workspace hydration and project-cost completeness. The preserved
 are ready. Home launch links follow the effective permission-visible route
 model. Attention is capped at five existing source-backed signals, and
 unavailable snapshot values are omitted rather than shown as zero.
+Project-specific attention opens the exact project workspace; general signals
+keep their existing destination.
 
 Project cards now foreground deterministic project identity and keep status /
 attention below the name. Contract Value, Approved Project Budget, Actual Cost,
@@ -2034,10 +2036,11 @@ screenshots are stored in `artifacts/ui-ux-audit/screenshots/r4c/`. The lead
 visually inspected Home and Projects in Light/Dark at 1440, 1280, 768, and 390
 pixels, Dark Projects filters at 1280, and Operations Insights in both themes
 at 1440. The demo catalog passed 150/150 scenarios across 36 routes and 131
-interactions with zero console/page/request/navigation/overflow failures.
+interactions with zero console/page/request/navigation/overflow failures at
+source SHA `e55e15d917e0f072d60238d651fe14c7f77ff405`.
 
-Validation: focused Dashboard/routing/Projects/theme tests 32/32; deterministic
-affected selection 810/810 across 121/374 selected test files, no database
+Validation: focused Dashboard/routing/Projects/theme tests 34/34; deterministic
+affected selection 812/812 across 121/374 selected test files, no database
 impact and no fallback; `npm.cmd run lint` passed; `npm.cmd run build` passed
 with existing Inter font, large-chunk, and CJS `import.meta` warnings;
 `git diff --check` passed before documentation closeout. No database, provider,
@@ -2047,9 +2050,12 @@ follow-up for R4E, outside the changed R4C product surfaces.
 
 Jev context had zero candidates and made zero requests. The single test-triage
 attempt returned `TypeError`; deterministic required tests were retained. The
-live completion checkpoint found all four expected evidence categories
-present: Jev `jev-1.13.0`, 4 candidates / 4 selected, 732 input tokens, 72
-output tokens, 492 ms, no fallback. It provided no merge decision.
+single live completion checkpoint ran before the final review correction and
+found all four expected evidence categories present: Jev `jev-1.13.0`, 4
+candidates / 4 selected, 732 input tokens, 72 output tokens, 492 ms, no
+fallback. The direct-project navigation correction was validated by focused
+and affected tests plus the final browser recapture; no second live call was
+made. Jev provided no merge decision.
 
 The next approved Round 4 phase remains **UI-R4D — relevant entity media
 foundation**, with its bounded storage/security design and validation

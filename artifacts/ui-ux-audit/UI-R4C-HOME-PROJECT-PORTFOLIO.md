@@ -7,7 +7,7 @@
 | Repository | `Juvialski/InvoiceApp` |
 | Branch | `codex/ui-r4c-home-project-portfolio` |
 | Starting `main` | `aa665150d1dabd7f09352f2d157408b55506824a` |
-| Implementation/source SHA captured by final demo run | `fc886e5342661149a78b38e6fb1be316b8790b77` |
+| Implementation/source SHA captured by final demo run | `e55e15d917e0f072d60238d651fe14c7f77ff405` |
 
 ## Boundary and implementation
 
@@ -21,8 +21,9 @@ incomplete.
 Home is composed from existing permission-filtered route state: a task
 launchpad, up to five source-backed attention items, a compact snapshot that
 omits unavailable counts instead of rendering false zeros, a small active
-project list, and a secondary Operations Insights link. It does not introduce a
-cross-domain workflow engine or change source authority.
+project list, and a secondary Operations Insights link. Project-specific
+attention opens the exact project; general signals keep their existing route.
+It does not introduce a cross-domain workflow engine or change source authority.
 
 Project cards use deterministic monograms and project identity as the primary
 open target. Status/attention sits below identity; Contract Value and Approved
@@ -42,15 +43,15 @@ authority were not changed.
 ## Visual evidence
 
 Environment: local production preview of the isolated safe-demo app at
-`http://127.0.0.1:4173`, synthetic seeded data only. The run used source SHA
-`fc886e5342661149a78b38e6fb1be316b8790b77`. No real account/company data was
+`http://127.0.0.1:4173`, synthetic seeded data only. The final run used source
+SHA `e55e15d917e0f072d60238d651fe14c7f77ff405`. No real account/company data was
 saved, and no external account was mutated.
 
 The final demo catalog captured **150 screenshots across 36 routes and 131
 interaction scenarios** with **0** console errors, page errors, failed
 requests, navigation failures, overflow failures, or failed scenarios. The 19
 R4C-specific screenshots each passed their theme and page assertions and were
-visually inspected by the lead:
+visually inspected by the lead at the final source SHA:
 
 | Viewport | Home | Project Portfolio |
 | --- | --- | --- |
@@ -77,8 +78,8 @@ behavior.
 
 ## Validation
 
-- Focused Dashboard, routing, Projects, and shared-theme tests: **32/32 pass**.
-- `npm.cmd run test:affected:agent`: **810/810 pass** across 121/374 selected
+- Focused Dashboard, routing, Projects, and shared-theme tests: **34/34 pass**.
+- `npm.cmd run test:affected:agent`: **812/812 pass** across 121/374 selected
   test files; database impact unaffected; deterministic fallback off.
 - `npm.cmd run lint`: passed (ESLint and TypeScript typecheck).
 - `npm.cmd run build`: passed. Existing Inter font, large-chunk, and CJS
@@ -100,9 +101,12 @@ behavior.
 - Live Jev context found zero candidates and made zero requests. The single
   live test-triage attempt returned `TypeError`; deterministic required tests
   were retained unchanged.
-- The live completion checkpoint found all four expected evidence categories
-  present. Jev `jev-1.13.0`: 4 candidates / 4 selected, 732 input tokens, 72
-  output tokens, 492 ms, no fallback. The advisory provided no merge decision.
+- The single live completion checkpoint ran before the final review correction
+  and found all four expected evidence categories present. Jev `jev-1.13.0`:
+  4 candidates / 4 selected, 732 input tokens, 72 output tokens, 492 ms, no
+  fallback. The direct-project navigation correction was covered by focused /
+  affected tests and final browser recapture; no second live call was made.
+  The advisory provided no merge decision.
 
 ## Next phase
 
