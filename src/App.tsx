@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { isPasswordRecoveryPath } from "./app/applicationMode.ts";
 import { Header, AppTab } from "./components/Header";
-import { AccessDenied, NoCompanyAccess } from "./components/access/AccessStates.tsx";
+import { AccessDenied, AccessVerificationError, NoCompanyAccess } from "./components/access/AccessStates.tsx";
 import { AuthScreen } from "./components/auth";
 import { BRAND, formatPageTitle } from "./config/brand";
 import type { ExtractPayload } from "./components/UploadZone";
@@ -306,6 +306,9 @@ function InvoiceWorkspace() {
     permissions,
     can,
     refreshAccess,
+    isRefreshing: accessRefreshing,
+    refreshError: accessRefreshError,
+    sessionExpiredNotice,
     enterGuestMode,
     signOut: signOutFromAccess,
   } = companyAccess;
@@ -3454,13 +3457,13 @@ function InvoiceWorkspace() {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-700"><Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />Loading company access…</div>;
   }
   if (isSupabaseConfigured && session && companyAccess.access.status === "error") {
-    return <NoCompanyAccess onSignOut={handleSignOut}><div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs leading-5 text-rose-900">We couldn’t load deployment access. Refresh the page or contact a company administrator.</div></NoCompanyAccess>;
+    return <AccessVerificationError onRetry={refreshAccess} onSignOut={handleSignOut} />;
   }
   if (isSupabaseConfigured && session && (companyAccess.access.status === "no-company" || companyAccess.access.status === "company-suspended")) {
     return <NoCompanyAccess onSignOut={handleSignOut} />;
   }
   if (isSupabaseConfigured && session && companyAccess.access.status === "ready" && !companyAccess.activeCompanyId) {
-    return <NoCompanyAccess onSignOut={handleSignOut} />;
+    return <AccessVerificationError onRetry={refreshAccess} onSignOut={handleSignOut} />;
   }
   const emailRedirectTo = typeof window === "undefined" ? undefined : new URL(authRedirectPath, window.location.origin).toString();
   const resetRedirectTo = typeof window === "undefined" ? undefined : new URL("/reset-password", window.location.origin).toString();
@@ -3468,10 +3471,10 @@ function InvoiceWorkspace() {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-700"><Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />Checking your workspace session…</div>;
   }
   if (isSupabaseConfigured && (isResetPasswordRoute || (!session && !guestModeState))) {
-    if (isResetPasswordRoute && session) {
+    if (isResetPasswordRoute && session && !sessionExpiredNotice) {
       return <AuthScreen initialMode="reset-password" resetRedirectTo={resetRedirectTo} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} allowBrowserOnly={!isSupabaseConfigured} invitationRequired={isSupabaseConfigured} />;
     }
-    return <AuthScreen initialMode={isResetPasswordRoute ? "reset-password" : "sign-in"} emailRedirectTo={emailRedirectTo} resetRedirectTo={resetRedirectTo} onAuthenticated={handleAuthenticated} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} allowBrowserOnly={!isSupabaseConfigured} invitationRequired={isSupabaseConfigured} />;
+    return <AuthScreen initialMode={isResetPasswordRoute && !sessionExpiredNotice ? "reset-password" : "sign-in"} emailRedirectTo={emailRedirectTo} resetRedirectTo={resetRedirectTo} onAuthenticated={handleAuthenticated} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} allowBrowserOnly={!isSupabaseConfigured} invitationRequired={isSupabaseConfigured} sessionExpiredNotice={sessionExpiredNotice} />;
   }
 
   const engineeringDocumentsGuestMode = !isSupabaseConfigured || guestModeState;
@@ -3523,6 +3526,9 @@ function InvoiceWorkspace() {
         onDismissNotification={() => setNotification(null)}
         isSupabaseConfigured={isSupabaseConfigured}
         workspaceLoading={workspaceLoading}
+        accessRefreshing={accessRefreshing}
+        accessRefreshError={accessRefreshError}
+        onRetryAccessRefresh={refreshAccess}
         routeNotFound={routeNotFound}
         onReturnToDashboard={() => navigateToPath(appPathForTab("dashboard"))}
         routeRecovery={routeRecovery}

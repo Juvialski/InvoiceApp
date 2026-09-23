@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D NEXT**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 IMPLEMENTED FOR RECORDED LOCAL STATE CONTRACT / UI-R4E NEXT AFTER REL-AUTH-1**
 Date: **2026-09-23**
 Repository: `Juvialski/InvoiceApp`
 
@@ -2175,3 +2175,28 @@ Do not implement the approved R4E shell cleanup in REL-AUTH-1. Preserve it for t
 - mobile/tablet may keep a minimal top bar for the menu trigger.
 
 Keep the Payroll ownership-persistence bug, Brevo connection/status issue, broad R4E Dark-mode cleanup, Worker Registration, attendance, Face Recognition, and unrelated product domains separate from REL-AUTH-1.
+
+## 2026-09-23 — REL-AUTH-1 implementation closeout
+
+Implementation branch: `codex/rel-auth-1-idle-session-recovery`
+
+Synchronized base: `30178994c5f513afc8d37f6198beea6eaf30e97a`
+
+The client-side recovery boundary now:
+- retains the last confirmed same-user ready access snapshot during transient access/deployment verification failures and leaves the workspace mounted with a compact retry status;
+- resolves the Supabase session when returning after a meaningful hidden or unfocused interval, then revalidates deployment access with visibility/focus debounce, per-user refresh deduplication, and one auth retry;
+- distinguishes transient connection failure from terminal session expiry, with `Your session expired. Sign in again.` on the sign-in view;
+- clears permissions on authoritative no-company, suspended-company, deployment mismatch, confirmed permission change, user identity change, and logout;
+- rejects stale/out-of-order results by request generation and user identity.
+
+The deployed trigger remains unproven. Controlled regression cases reproduce the resolver-failure and auth-refresh boundaries in the current client code; they do not establish which sequence occurred in the deployed session. The UI-R4E shell redesign remains queued after REL-AUTH-1 review/merge.
+
+Validation:
+- focused auth/access/session/presentation tests: **67/67 passed**;
+- `npm.cmd run lint`: passed (ESLint and TypeScript);
+- `npm.cmd run build`: passed, with existing theme-font, chunk-size, and CJS `import.meta` warnings;
+- `npm.cmd run test:affected:agent`: **237 passed / 1 failed / 0 skipped** across 238 tests, selective 38/382, no database fallback. The sole failure is `profile and access UI expose truthful states and remain isolated from the demo route` in unchanged `tests/coreHardeningWave1.test.ts`: it expects `Production company profile controls are intentionally not mounted here`, while unchanged `src/components/Settings.tsx` says `Company profile controls are database-backed in production.` This unrelated Settings copy assertion is left outside REL-AUTH-1;
+- idle/background simulation uses controlled Document visibility and Window blur/focus targets with a fake clock. No authenticated browser/hosted QA session was configured for a live workspace scenario; no production access or database mutation was performed;
+- no database, RLS, RPC, migration, Workflow Map, provider, payroll, or UI-R4E changes were made.
+
+Developer-intelligence evidence: the single deterministic `agent:context` packet selected 8/380 tests and had no curated primary source entries. Jev context preflight found zero candidates and made no live request. The one live test-triage call kept all 38 required test files, recommending auth/access tests first (`jev-1.13.0`, 38→38, 4,121 input / 564 output tokens, 836 ms, fallback=false); deterministic selection remained authoritative. The live completion check observed all four declared evidence categories, with unresolved uncertainty retained for the unchanged affected-test assertion and lack of live authenticated browser evidence (`jev-1.13.0`, 4 candidates, 677 input / 72 output tokens, 430 ms, fallback=false, unresolvedUncertainty=true).

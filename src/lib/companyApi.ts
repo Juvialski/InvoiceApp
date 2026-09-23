@@ -2,7 +2,13 @@ import { supabase } from "./supabase.ts";
 import { BRAND } from "../config/brand.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
 import { assertDeploymentCompanyId } from "./deploymentCompany.ts";
-import { requestWithAuthRecovery, SessionExpiredError } from "./authenticatedRequestRecovery.ts";
+import {
+  isTerminalSessionRefreshFailure,
+  publishSessionExpired,
+  requestWithAuthRecovery,
+  SessionExpiredError,
+  SessionRefreshTemporarilyUnavailableError,
+} from "./authenticatedRequestRecovery.ts";
 
 export interface CompanyApiRequestOptions extends RequestInit {
   /** Compatibility input. It must match the deployment company when supplied. */
@@ -21,8 +27,14 @@ function sessionExpiredMessage(): string {
 export async function companyApiRequest(path: string, options: CompanyApiRequestOptions) {
   if (!supabase) throw new Error(`Sign in to ${BRAND.productName} before using this service.`);
   const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.access_token) {
+  if (error) {
+    if (!isTerminalSessionRefreshFailure(error)) throw new SessionRefreshTemporarilyUnavailableError(error);
+    if (data.session?.user?.id) publishSessionExpired(data.session.user.id);
     throw new SessionExpiredError(sessionExpiredMessage(), error ?? undefined);
+  }
+  if (!data.session?.access_token) {
+    if (data.session?.user?.id) publishSessionExpired(data.session.user.id);
+    throw new SessionExpiredError(sessionExpiredMessage());
   }
 
   const deploymentCompanyId = requireActiveCompanyId();
@@ -32,6 +44,8 @@ export async function companyApiRequest(path: string, options: CompanyApiRequest
 
   return requestWithAuthRecovery({
     initialAccessToken: data.session.access_token,
+    sessionUserId: data.session.user.id,
+    onSessionExpired: () => publishSessionExpired(data.session.user.id),
     sessionExpiredMessage: sessionExpiredMessage(),
     request: async (accessToken) => {
       const headers = new Headers(options.headers || {});
@@ -41,7 +55,8 @@ export async function companyApiRequest(path: string, options: CompanyApiRequest
     },
     refreshAccessToken: async () => {
       const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData.session?.access_token) return null;
+      if (refreshError) throw refreshError;
+      if (!refreshData.session?.access_token || refreshData.session.user.id !== data.session.user.id) return null;
       return refreshData.session.access_token;
     },
   });

@@ -68,7 +68,7 @@ test("profile and access UI expose truthful states and remain isolated from the 
   assert.match(profile, /companyAccess\.refreshAccess/);
   assert.match(settings, /\{showDeploymentAccessManagement \? \([\s\S]*?<CompanyProfileSettings \/>[\s\S]*?\) : \(/);
   assert.match(settings, /\{showDeploymentAccessManagement && <DeploymentAccessManagement \/>\}/);
-  assert.match(settings, /Production company profile controls are intentionally not mounted here/);
+  assert.match(settings, /Company profile controls are database-backed in production/);
   assert.match(accessManagement, /Role default/);
   assert.match(accessManagement, /Custom grant/);
   assert.match(accessManagement, /Custom deny/);

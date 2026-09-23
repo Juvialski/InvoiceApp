@@ -394,7 +394,9 @@ export async function claimCompanyInvitations(client: SupabaseClient | null = su
 export async function loadCompanyAccess(client: SupabaseClient | null = supabase): Promise<CompanyAccessSnapshot> {
   const activeClient = requireSupabaseClient(client);
   const { data: userData, error: userError } = await activeClient.auth.getUser();
-  if (userError || !userData.user) throw new Error("Your session is no longer active. Please sign in again.");
+  if (userError || !userData.user) {
+    throw new Error("Your session is no longer active. Please sign in again.", userError ? { cause: userError } : undefined);
+  }
   await claimCompanyInvitations(activeClient);
   const { data, error } = await activeClient.rpc(COMPANY_ACCESS_RPC);
   if (error) throw error;

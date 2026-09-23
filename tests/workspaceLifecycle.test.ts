@@ -4,6 +4,7 @@ import test from "node:test";
 
 const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const access = readFileSync(new URL("../src/context/CompanyAccessContext.tsx", import.meta.url), "utf8");
+const accessRecovery = readFileSync(new URL("../src/lib/companyAccessRecovery.ts", import.meta.url), "utf8");
 
 test("normal route changes do not belong to the full workspace lifecycle effect", () => {
   const effect = app.match(/useEffect\(\(\) => \{\r?\n    if \(!authResolved\)[\s\S]*?\r?\n  \}, \[[^\]]+\]\);/);
@@ -15,10 +16,10 @@ test("normal route changes do not belong to the full workspace lifecycle effect"
   assert.match(app, /reason: context\.reason/);
 });
 
-test("access revalidation clears stale company permissions before resolving the configured deployment", () => {
-  assert.match(access, /resetAuthenticatedContext\("loading", userId/);
-  assert.match(access, /Promise\.all\(\[\s*loadCompanyAccess\(supabase\),\s*loadDeploymentCompanyId\(supabase\)/);
-  assert.match(access, /resolveDeploymentCompanyAccess\(loaded, deploymentCompanyId\)/);
+test("access revalidation routes through the bounded deployment recovery helper", () => {
+  assert.match(access, /refreshCompanyAccessState/);
+  assert.match(accessRecovery, /Promise\.all\(\[\s*options\.loadAccess\(\),\s*options\.loadDeploymentCompanyId\(\)/);
+  assert.match(accessRecovery, /resolveDeploymentCompanyAccess/);
   assert.match(access, /const result = await updateCompanyApi\(deploymentCompanyId, patch\);\r?\n\s+await refreshAccess\(\);/);
   assert.match(access, /authorizeCompanyMemberEmailApi/);
   assert.match(access, /updateCompanyInvitationPermissionsApi/);
