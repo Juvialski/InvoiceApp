@@ -64,6 +64,27 @@ test("Projects attention-filter QA opens the shared Filters disclosure", () => {
   assert.doesNotMatch(attentionAction, /More filters/);
 });
 
+test("R4C browser catalog captures Home and Project Portfolio in Light and Dark at all four standard widths", () => {
+  const r4c = DEMO_QA_SCENARIOS.filter((scenario) => scenario.interactionState.startsWith("R4C "));
+  const expectedViewports = new Set([1440, 1280, 768, 390]);
+  const surfaces = ["Home", "Project Portfolio"];
+
+  for (const surface of surfaces) {
+    for (const theme of ["Light", "Dark"]) {
+      const scenarios = r4c.filter((scenario) => scenario.interactionState === `R4C ${surface} ${theme} theme visual`);
+      assert.equal(scenarios.length, 4, `${surface} ${theme} should have four viewport captures`);
+      assert.deepEqual(new Set(scenarios.map((scenario) => scenario.viewport.width)), expectedViewports);
+      assert.ok(scenarios.every((scenario) => typeof scenario.action === "function"));
+    }
+  }
+
+  assert.ok(r4c.some((scenario) => scenario.interactionState === "R4C Operations Insights Dark theme visual"));
+  assert.ok(r4c.some((scenario) => scenario.path.endsWith("?view=insights")));
+  const darkFilters = r4c.find((scenario) => scenario.interactionState === "R4C Project Portfolio Dark filters and attention visual");
+  assert.equal(darkFilters?.viewport.width, 1280);
+  assert.equal(typeof darkFilters?.action, "function");
+});
+
 test("Procurement draft QA keeps approval hidden until the new PO is persisted", () => {
   const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
   const procurementActionStart = scenariosSource.indexOf("const verifyProcurementDraftWorksheets");

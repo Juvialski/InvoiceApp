@@ -12,6 +12,7 @@ export interface AppRouteContract {
 }
 
 const BASE_ROUTE_QUERY_KEYS: Partial<Record<RouteId, readonly string[]>> = {
+  dashboard: ["view"],
   cash: ["transactionId", "fromTargetType", "fromTargetId", "returnTo"],
   procurement: ["poId", "receiptId", "subcontractId", "subcontractClaimId", "from"],
   warehouse: ["movementId", "receiptId", "from"],

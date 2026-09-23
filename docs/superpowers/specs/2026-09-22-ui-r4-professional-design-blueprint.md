@@ -1,6 +1,6 @@
 # HydroQualiSense UI Improvement Round 4 — Professional Design Blueprint
 
-Status: **APPROVED BY UI-R4A RESEARCH — R4B READY, NOT IMPLEMENTED**  
+Status: **APPROVED BY UI-R4A RESEARCH — R4A/R4B COMPLETE FOR RECORDED SCOPE — R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE — R4D NEXT**
 Date: **2026-09-22**  
 Repository baseline: `8215dd632fbb33def0485fd92988000e659cea98`
 
@@ -562,7 +562,7 @@ Deliverables:
 
 No runtime UI implementation.
 
-### UI-R4B — Theme + shared controls — NEXT
+### UI-R4B — Theme + shared controls — COMPLETE FOR RECORDED SCOPE
 
 Implement only:
 
@@ -583,7 +583,7 @@ Validation:
 - Light/Dark visual inspection at applicable viewports;
 - no Docker unless a DB change is unexpectedly introduced, which should normally be avoided.
 
-### UI-R4C — Home + Project Portfolio
+### UI-R4C — Home + Project Portfolio — IMPLEMENTED FOR LOCAL/DEMO SCOPE
 
 Implement:
 
@@ -597,7 +597,15 @@ Implement:
 
 No image-storage migration yet.
 
-### UI-R4D — Entity media foundation
+Closeout evidence: `artifacts/ui-ux-audit/UI-R4C-HOME-PROJECT-PORTFOLIO.md`.
+The lead visually inspected safe-demo Home and Project Portfolio screenshots in
+Light and Dark at 1440, 1280, 768, and 390 pixels; Operations Insights in both
+themes at 1440; and the Dark Projects filter/attention state at 1280. The local
+demo catalog passed 150/150 scenarios with zero console, page, request,
+navigation, or overflow failures. This is local/demo evidence, not hosted,
+provider, authenticated-customer, or production certification.
+
+### UI-R4D — Entity media foundation — NEXT APPROVED ROUND 4 PHASE
 
 Implement:
 

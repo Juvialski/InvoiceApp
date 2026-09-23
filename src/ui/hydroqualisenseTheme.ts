@@ -115,7 +115,7 @@ export const hydroqualisenseTheme = defineTheme({
     "--color-background-yellow": ["#fef9c3", "#a162073D"],
     "--color-border-yellow": ["#fde047", "#eab308"],
     "--color-icon-yellow": ["#ca8a04", "#facc15"],
-    "--color-text-yellow": ["#a16207", "#fde047"],
+    "--color-text-yellow": ["#854d0e", "#fde047"],
 
     "--color-background-red": ["#ffe4e6", "#be123c3D"],
     "--color-border-red": ["#fecdd3", "#fb7185"],

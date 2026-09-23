@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A RESEARCH + PROFESSIONAL DESIGN BLUEPRINT COMPLETE / UI-R4B IMPLEMENTED FOR RECORDED SHARED-FOUNDATION SCOPE / UI-R4C NEXT**
-Date: **2026-09-22**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D NEXT**
+Date: **2026-09-23**
 Repository: `Juvialski/InvoiceApp`
 
 RI-0 Repository Intelligence planning was prepared from the earlier current
@@ -2005,3 +2005,58 @@ Implementation boundary:
 
 The existing R4B semantic `hqs-*`/Astryx token layer remains authoritative. Preserve the approved phase order:
 `R4C Home + Project Portfolio -> R4D media -> R4E app-wide rollout + contrast/accessibility certification`.
+
+
+## 2026-09-23 — UI-R4C Home + Project Portfolio implementation closeout
+
+R4C started from synchronized `main` SHA
+`aa665150d1dabd7f09352f2d157408b55506824a` on branch
+`codex/ui-r4c-home-project-portfolio`. The final source SHA used by visual QA
+was `e55e15d917e0f072d60238d651fe14c7f77ff405`.
+
+`/dashboard` now always renders the simplified Home composition, independent
+of workspace hydration and project-cost completeness. The preserved
+`EngineeringCostOperationsDashboard` is reachable through
+`/dashboard?view=insights`; it withholds combined analysis until its sources
+are ready. Home launch links follow the effective permission-visible route
+model. Attention is capped at five existing source-backed signals, and
+unavailable snapshot values are omitted rather than shown as zero.
+Project-specific attention opens the exact project workspace; general signals
+keep their existing destination.
+
+Project cards now foreground deterministic project identity and keep status /
+attention below the name. Contract Value, Approved Project Budget, Actual Cost,
+and Committed Cost remain distinct. Cards and Compact List continue to share
+the existing filter/sort state and parent-owned permission, lifecycle, edit,
+financial, and workbook behavior.
+
+The R4C evidence report is
+`artifacts/ui-ux-audit/UI-R4C-HOME-PROJECT-PORTFOLIO.md`; 19 synthetic safe-demo
+screenshots are stored in `artifacts/ui-ux-audit/screenshots/r4c/`. The lead
+visually inspected Home and Projects in Light/Dark at 1440, 1280, 768, and 390
+pixels, Dark Projects filters at 1280, and Operations Insights in both themes
+at 1440. The demo catalog passed 150/150 scenarios across 36 routes and 131
+interactions with zero console/page/request/navigation/overflow failures at
+source SHA `e55e15d917e0f072d60238d651fe14c7f77ff405`.
+
+Validation: focused Dashboard/routing/Projects/theme tests 34/34; deterministic
+affected selection 812/812 across 121/374 selected test files, no database
+impact and no fallback; `npm.cmd run lint` passed; `npm.cmd run build` passed
+with existing Inter font, large-chunk, and CJS `import.meta` warnings;
+`git diff --check` passed before documentation closeout. No database, provider,
+hosted QA, production, or full-suite certification is claimed. The safe-demo
+wrapper notice remains bright in Dark mode and is recorded as shared shell
+follow-up for R4E, outside the changed R4C product surfaces.
+
+Jev context had zero candidates and made zero requests. The single test-triage
+attempt returned `TypeError`; deterministic required tests were retained. The
+single live completion checkpoint ran before the final review correction and
+found all four expected evidence categories present: Jev `jev-1.13.0`, 4
+candidates / 4 selected, 732 input tokens, 72 output tokens, 492 ms, no
+fallback. The direct-project navigation correction was validated by focused
+and affected tests plus the final browser recapture; no second live call was
+made. Jev provided no merge decision.
+
+The next approved Round 4 phase remains **UI-R4D — relevant entity media
+foundation**, with its bounded storage/security design and validation
+requirements. No media, storage, or schema work was started in R4C.

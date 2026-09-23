@@ -145,7 +145,7 @@ export const hydroqualisenseTheme = {
     "--color-background-yellow": "light-dark(#fef9c3, #a162073D)",
     "--color-border-yellow": "light-dark(#fde047, #eab308)",
     "--color-icon-yellow": "light-dark(#ca8a04, #facc15)",
-    "--color-text-yellow": "light-dark(#a16207, #fde047)",
+    "--color-text-yellow": "light-dark(#854d0e, #fde047)",
     "--color-background-red": "light-dark(#ffe4e6, #be123c3D)",
     "--color-border-red": "light-dark(#fecdd3, #fb7185)",
     "--color-icon-red": "light-dark(#e11d48, #fb7185)",

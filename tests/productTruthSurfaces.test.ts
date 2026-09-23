@@ -10,7 +10,7 @@ test("Email / SMS describes the supported outbound and provider boundaries", () 
   const workspace = source("src/app/routes/EmailSmsRoute.tsx");
   const compose = source("src/components/EmailComposePanel.tsx");
   const provider = source("src/components/EmailProviderStatusPanel.tsx");
-  const dashboard = source("src/app/routes/DashboardRoute.tsx");
+  const dashboard = source("src/utils/dashboardHomeModel.ts");
   assert.match(workspace, /<EmailComposePanel/);
   assert.match(workspace, /<CommunicationHistoryPanel/);
   assert.match(workspace, /<EmailProviderStatusPanel/);

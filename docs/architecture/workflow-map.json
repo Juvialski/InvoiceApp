@@ -1320,6 +1320,9 @@
         "routeId": "dashboard",
         "canonicalPath": "/dashboard",
         "pathPattern": "/dashboard",
+        "queryKeys": [
+          "view"
+        ],
         "scope": "production-and-demo"
       },
       "description": "Canonical Operations Dashboard route; / is normalized to this route.",

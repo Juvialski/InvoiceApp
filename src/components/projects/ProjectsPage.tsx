@@ -31,7 +31,7 @@ import {
 } from "../../app/AppPermissionContext.tsx";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { isClassifiedProjectTaxTreatment } from "../../utils/projectTaxTreatment.ts";
-import { PageHeader } from "../ui/OperationsUI.tsx";
+import { ActionButton, PageHeader } from "../ui/OperationsUI.tsx";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
 import {
   buildPortfolioManagementSummary,
@@ -300,7 +300,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       />
 
       {isHydrating && (
-        <div role="status" aria-live="polite" className="animate-pulse rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold text-slate-600">
+        <div role="status" aria-live="polite" className="hqs-surface-muted hqs-secondary-text animate-pulse rounded-xl p-4 text-sm font-semibold">
           Loading projects…
         </div>
       )}
@@ -345,19 +345,19 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       />
 
       {unclassifiedProjectCount > 0 && (
-        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-          <p><strong>{unclassifiedProjectCount} project{unclassifiedProjectCount === 1 ? " is" : "s are"} unclassified.</strong> An authorized project manager must confirm VAT or Non-VAT before the project is used for client billing context.</p>
+        <div role="status" className="hqs-exception-warning flex items-start gap-2.5 rounded-xl p-3 text-sm leading-5">
+          <ShieldAlert className="hqs-warning-text mt-0.5 h-4 w-4 shrink-0" />
+          <p className="hqs-primary-text"><strong>{unclassifiedProjectCount} project{unclassifiedProjectCount === 1 ? " is" : "s are"} unclassified.</strong> An authorized project manager must confirm VAT or Non-VAT before the project is used for client billing context.</p>
         </div>
       )}
 
       {!costDataComplete && !workspaceDataPending && (
-        <Card className="border-dashed border-amber-200 bg-amber-50/70 p-4" elevation="low">
+        <Card className="hqs-exception-warning border-dashed p-4" elevation="low">
           <div className="flex items-start gap-3">
-            <ShieldAlert className="h-5 w-5 shrink-0 text-amber-700" />
+            <ShieldAlert className="hqs-warning-text h-5 w-5 shrink-0" />
             <div className="min-w-0 text-xs">
-              <strong className="block font-bold text-amber-950">Some project cost metrics are unavailable</strong>
-              <p className="mt-0.5 text-amber-900">
+              <strong className="hqs-primary-text block font-bold">Some project cost metrics are unavailable</strong>
+              <p className="hqs-secondary-text mt-0.5">
                 Required cost sources are unavailable for this role: {hiddenCostSources.join(", ")}. Cost values are marked
                 unavailable in the portfolio rather than shown as zero; contract and commercial source records remain separate.
               </p>
@@ -366,12 +366,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         </Card>
       )}
 
-      <details aria-label="Excel import/export" data-ux45c="projects-workbook" className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 [&::-webkit-details-marker]:hidden">
+      <details aria-label="Excel import/export" data-ux45c="projects-workbook" className="hqs-surface rounded-xl shadow-sm">
+        <summary className="hqs-focus-ring flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-bold [&::-webkit-details-marker]:hidden">
           <span>Excel import/export</span>
-          <span className="text-[11px] font-semibold text-slate-500">Optional workbook tools · review before Apply</span>
+          <span className="hqs-secondary-text text-xs font-semibold">Optional workbook tools · review before Apply</span>
         </summary>
-        <div className="border-t border-slate-100 p-3">
+        <div className="hqs-border border-t p-3">
           <ProjectsWorkbookPanel
             projects={projects}
             costCodes={costCodes}
@@ -403,14 +403,14 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           aria-labelledby="project-lifecycle-title"
           aria-busy={lifecycleLoading}
         >
-          <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+          <section className="hqs-surface-raised hqs-border max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Project Correction</p>
-                <h2 id="project-lifecycle-title" className="mt-1 text-lg font-black text-slate-950">
+                <p className="hqs-accent-text text-xs font-bold uppercase tracking-wide">Project lifecycle</p>
+                <h2 id="project-lifecycle-title" className="hqs-primary-text mt-1 text-lg font-black">
                   {lifecycleProject.projectCode} · Lifecycle Options
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="hqs-secondary-text mt-1 text-sm">
                   {lifecycleProject.projectName} · current state: {lifecycleProject.status.replaceAll("_", " ")}
                 </p>
               </div>
@@ -419,7 +419,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 type="button"
                 onClick={closeLifecycle}
                 disabled={lifecycleLoading}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                className="hqs-control hqs-focus-ring rounded-lg p-2 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Close project lifecycle dialog"
               >
                 <X className="h-4 w-4" />
@@ -427,20 +427,20 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             </div>
 
             {lifecycleLoading && !lifecyclePreview && (
-              <p role="status" className="mt-5 rounded-xl bg-slate-50 p-4 text-xs font-semibold text-slate-600">
+              <p role="status" className="hqs-surface-muted hqs-secondary-text mt-5 rounded-xl p-4 text-sm font-semibold">
                 Checking project dependencies…
               </p>
             )}
 
             {lifecycleError && (
-              <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">
+              <p role="alert" className="hqs-exception-danger mt-4 rounded-xl p-3 text-sm font-bold">
                 {lifecycleError}
               </p>
             )}
 
             {lifecyclePreview && (
               <div className="mt-5 space-y-4">
-                <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-xs text-indigo-950">
+                <div className="hqs-exception-info rounded-xl p-3 text-sm">
                   <p className="font-black">
                     {lifecyclePreview.source === "database"
                       ? "Database-checked dependency summary"
@@ -468,70 +468,49 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 </div>
 
                 {lifecyclePreview.canDelete && (
-                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
-                    <p className="text-xs font-black text-rose-950">Delete Unused Project</p>
-                    <p className="mt-1 text-[10px] leading-4 text-rose-900">
+                  <div className="hqs-exception-danger rounded-xl p-3">
+                    <p className="hqs-primary-text text-sm font-black">Delete Unused Project</p>
+                    <p className="hqs-secondary-text mt-1 text-xs leading-5">
                       This permanently deletes the project because no operational or financial history exists.
                     </p>
-                    <button
-                      type="button"
-                      disabled={lifecycleLoading}
-                      onClick={() => void applyLifecycle("DELETE_UNUSED")}
-                      className="mt-3 rounded-lg bg-rose-700 px-3 py-2 text-[10px] font-black text-white disabled:opacity-40"
-                    >
-                      {lifecycleLoading ? "Deleting…" : "Delete unused project"}
-                    </button>
+                    <ActionButton className="mt-3" variant="destructive" size="sm" isDisabled={lifecycleLoading} label={lifecycleLoading ? "Deleting…" : "Delete unused project"} onClick={() => void applyLifecycle("DELETE_UNUSED")} />
                   </div>
                 )}
 
                 {lifecyclePreview.status !== "ARCHIVED" && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs font-black text-amber-950">Archive Project</p>
-                    <p className="mt-1 text-[10px] leading-4 text-amber-900">
+                  <div className="hqs-exception-warning rounded-xl p-3">
+                    <p className="hqs-primary-text text-sm font-black">Archive Project</p>
+                    <p className="hqs-secondary-text mt-1 text-xs leading-5">
                       This keeps the project and its historical records but removes it from active workflows.
                     </p>
                     <input
                       value={lifecycleReason}
                       onChange={(e) => setLifecycleReason(e.target.value)}
                       placeholder="Reason for archive"
-                      className="mt-3 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs"
+                      className="hqs-input hqs-focus-ring mt-3 w-full rounded-lg px-3 py-2 text-sm"
                     />
-                    <button
-                      type="button"
-                      disabled={lifecycleLoading || lifecycleReason.trim().length < 3}
-                      onClick={() => void applyLifecycle("ARCHIVE")}
-                      className="mt-3 rounded-lg bg-amber-700 px-3 py-2 text-[10px] font-black text-white disabled:opacity-40"
-                    >
-                      {lifecycleLoading ? "Archiving…" : "Archive project"}
-                    </button>
+                    <ActionButton className="mt-3" variant="secondary" size="sm" isDisabled={lifecycleLoading || lifecycleReason.trim().length < 3} label={lifecycleLoading ? "Archiving…" : "Archive project"} onClick={() => void applyLifecycle("ARCHIVE")} />
                   </div>
                 )}
 
                 {lifecyclePreview.status === "ARCHIVED" && lifecyclePreview.canReactivate && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                    <p className="text-xs font-black text-emerald-950">Reactivate Project</p>
-                    <p className="mt-1 text-[10px] leading-4 text-emerald-900">
+                  <div className="hqs-exception-success rounded-xl p-3">
+                    <p className="hqs-primary-text text-sm font-black">Reactivate Project</p>
+                    <p className="hqs-secondary-text mt-1 text-xs leading-5">
                       This returns the project to its prior non-terminal workflow state. Historical records remain unchanged.
                     </p>
                     <input
                       value={lifecycleReason}
                       onChange={(e) => setLifecycleReason(e.target.value)}
                       placeholder="Reason for reactivation"
-                      className="mt-3 w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs"
+                      className="hqs-input hqs-focus-ring mt-3 w-full rounded-lg px-3 py-2 text-sm"
                     />
-                    <button
-                      type="button"
-                      disabled={lifecycleLoading || lifecycleReason.trim().length < 3}
-                      onClick={() => void applyLifecycle("REACTIVATE")}
-                      className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-[10px] font-black text-white disabled:opacity-40"
-                    >
-                      {lifecycleLoading ? "Reactivating…" : "Reactivate project"}
-                    </button>
+                    <ActionButton className="mt-3" variant="secondary" size="sm" isDisabled={lifecycleLoading || lifecycleReason.trim().length < 3} label={lifecycleLoading ? "Reactivating…" : "Reactivate project"} onClick={() => void applyLifecycle("REACTIVATE")} />
                   </div>
                 )}
 
                 {lifecyclePreview.status === "ARCHIVED" && !lifecyclePreview.canReactivate && (
-                  <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[10px] leading-4 text-slate-600">
+                  <p className="hqs-surface-muted hqs-secondary-text rounded-xl p-3 text-xs leading-5">
                     {lifecyclePreview.blockedReason || "This archived project cannot be reactivated because its prior state is unavailable or terminal."}
                   </p>
                 )}

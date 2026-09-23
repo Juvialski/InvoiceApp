@@ -67,7 +67,10 @@ test("demo scenario catalog is unique and covers the required product surfaces",
   for (const feature of ["dashboard", "projects", "project-workspace", "engineering-documents", "rfis", "submittals", "site-logs", "cash-banking", "invoices", "payroll", "expenses", "reports", "warehouse-inventory", "assistant"]) {
     assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.feature === feature), `missing ${feature} coverage`);
   }
-  assert.deepEqual(new Set(DEMO_QA_SCENARIOS.map((scenario) => scenario.viewport.name)), new Set(["desktop-1440", "laptop-1366", "tablet-768", "mobile-390"]));
+  assert.deepEqual(new Set(DEMO_QA_SCENARIOS.map((scenario) => scenario.viewport.name)), new Set([
+    "desktop-1440", "laptop-1366", "tablet-768", "mobile-390",
+    "r4c-desktop-1440", "r4c-laptop-1280", "r4c-tablet-768", "r4c-phone-390",
+  ]));
   assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.interactionState === "cash settlement workspace opened"));
   assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.interactionState === "demo drawing preview opened"));
 });

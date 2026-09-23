@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { cashSettlementTargetContextFromSearch, documentWorkspaceContextFromSearch, emailWorkspaceContextFromSearch, financialTransactionIdFromSearch, procurementContextFromSearch, warehouseContextFromSearch, type AppLocation } from "../../utils/appRouting";
+import { cashSettlementTargetContextFromSearch, dashboardViewFromSearch, documentWorkspaceContextFromSearch, emailWorkspaceContextFromSearch, financialTransactionIdFromSearch, procurementContextFromSearch, warehouseContextFromSearch, type AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
 import type {
@@ -902,6 +902,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onCustomRangeChange={onDashboardCustomRangeChange}
         onCurrencyChange={onDashboardCurrencyChange}
         onNavigate={onNavigateTab}
+        onNavigatePath={onNavigatePath}
+        view={dashboardViewFromSearch(route.search)}
         onOpenProject={(projectId) => {
           const project = projects.find((p) => p.id === projectId);
           if (project) onOpenProject(project);

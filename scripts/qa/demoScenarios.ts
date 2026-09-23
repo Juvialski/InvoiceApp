@@ -9,6 +9,54 @@ import {
 
 const PROJECT_ROOT = "/demo/app/projects/demo-project-warehouse";
 const READY_TIMEOUT_MS = 30_000;
+const R4C_VIEWPORTS = [
+  { name: "r4c-desktop-1440", width: 1440, height: 1000 },
+  { name: "r4c-laptop-1280", width: 1280, height: 800 },
+  { name: "r4c-tablet-768", width: 768, height: 1024 },
+  { name: "r4c-phone-390", width: 390, height: 844 },
+] as const;
+
+async function applyThemePreferenceForVisualQa(page: QaBrowserPage, theme: "light" | "dark"): Promise<readonly QaAssertion[]> {
+  if (theme === "light") {
+    await page.evaluate(() => window.localStorage.setItem("hydroqualisense_theme_preference", "light"));
+  } else {
+    await page.evaluate(() => window.localStorage.setItem("hydroqualisense_theme_preference", "dark"));
+  }
+  await page.reload({ waitUntil: "networkidle", timeout: READY_TIMEOUT_MS });
+  await page.getByRole("heading").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+
+  const palette = await page.evaluate(() => {
+    const surface = document.querySelector(".hqs-surface, .hqs-surface-raised");
+    const canvas = document.querySelector(".hqs-app-canvas");
+    const primaryText = document.querySelector(".hqs-primary-text");
+    const secondaryText = document.querySelector('[data-ui="page-header"] p.hqs-secondary-text');
+    const control = document.querySelector(".hqs-input, .hqs-control");
+    return {
+      theme: document.documentElement.getAttribute("data-theme"),
+      canvasBackground: canvas ? getComputedStyle(canvas).backgroundColor : "missing",
+      surfaceBackground: surface ? getComputedStyle(surface).backgroundColor : "missing",
+      primaryText: primaryText ? getComputedStyle(primaryText).color : "missing",
+      secondaryText: secondaryText ? getComputedStyle(secondaryText).color : "missing",
+      controlBorder: control ? getComputedStyle(control).borderColor : "missing",
+    };
+  });
+  const expectedCanvas = theme === "dark" ? "rgb(15, 23, 42)" : "rgb(248, 250, 252)";
+  const expectedSurface = theme === "dark" ? "rgb(30, 41, 59)" : "rgb(255, 255, 255)";
+  const expectedPrimary = theme === "dark" ? "rgb(248, 250, 252)" : "rgb(15, 23, 42)";
+  const expectedSecondary = theme === "dark" ? "rgb(148, 163, 184)" : "rgb(71, 85, 105)";
+  const expectedBorder = theme === "dark" ? "rgb(51, 65, 85)" : "rgb(226, 232, 240)";
+  return [
+    { id: `${theme}-theme-root-preference`, passed: palette.theme === theme, details: `data-theme=${palette.theme || "system"}` },
+    { id: `${theme}-theme-app-canvas`, passed: palette.canvasBackground === expectedCanvas, details: `app canvas: ${palette.canvasBackground}` },
+    { id: `${theme}-theme-primary-surface`, passed: palette.surfaceBackground === expectedSurface, details: `surface background: ${palette.surfaceBackground}` },
+    { id: `${theme}-theme-primary-text`, passed: palette.primaryText === expectedPrimary, details: `primary text: ${palette.primaryText}` },
+    { id: `${theme}-theme-secondary-text`, passed: palette.secondaryText === expectedSecondary, details: `secondary text: ${palette.secondaryText}` },
+    { id: `${theme}-theme-control-border`, passed: palette.controlBorder === expectedBorder, details: `control border: ${palette.controlBorder}` },
+  ];
+}
+
+const applyLightTheme: QaScenarioAction = (page) => applyThemePreferenceForVisualQa(page, "light");
+const applyDarkTheme: QaScenarioAction = (page) => applyThemePreferenceForVisualQa(page, "dark");
 
 async function waitForVisible(page: QaBrowserPage, selector: string, timeout = READY_TIMEOUT_MS) {
   await page.locator(selector).first().waitFor({ state: "visible", timeout });
@@ -783,6 +831,15 @@ const verifyPortfolioAttention: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyPortfolioAttentionDark: QaScenarioAction = async (page) => {
+  const themeResult = await applyDarkTheme(page);
+  const filterResult = await verifyPortfolioAttention(page);
+  return [
+    ...(Array.isArray(themeResult) ? themeResult : []),
+    ...(Array.isArray(filterResult) ? filterResult : []),
+  ];
+};
+
 const verifyProjectAttentionAndEngineering: QaScenarioAction = async (page) => {
   const managementAttention = await page.getByRole("heading", { name: "Management Attention", exact: true }).count();
   const engineeringSummary = await page.getByRole("heading", { name: "Engineering Coordination", exact: true }).count();
@@ -1220,4 +1277,13 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "contextual-help", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "Email attachment contextual help verified", viewport: QA_VIEWPORTS.desktop, action: verifyAttachmentContextualHelp }),
   defineQaScenario({ feature: "contextual-help", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "Email attachment contextual help verified", viewport: QA_VIEWPORTS.mobile, action: verifyAttachmentContextualHelp }),
   defineQaScenario({ feature: "demo", route: route("demo-tour", "/demo/app/dashboard"), path: "/demo/app/dashboard", interactionState: "demo tour opened", viewport: QA_VIEWPORTS.desktop, action: openDemoTour }),
+  ...R4C_VIEWPORTS.flatMap((viewport) => [
+    defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4C Home Light theme visual", viewport, action: applyLightTheme }),
+    defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4C Home Dark theme visual", viewport, action: applyDarkTheme }),
+    defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4C Project Portfolio Light theme visual", viewport, action: applyLightTheme }),
+    defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4C Project Portfolio Dark theme visual", viewport, action: applyDarkTheme }),
+  ]),
+  defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "R4C Project Portfolio Dark filters and attention visual", viewport: R4C_VIEWPORTS[1], action: verifyPortfolioAttentionDark }),
+  defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard?view=insights"), path: "/demo/app/dashboard?view=insights", interactionState: "R4C Operations Insights Light theme visual", viewport: R4C_VIEWPORTS[0], action: applyLightTheme }),
+  defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard?view=insights"), path: "/demo/app/dashboard?view=insights", interactionState: "R4C Operations Insights Dark theme visual", viewport: R4C_VIEWPORTS[0], action: applyDarkTheme }),
 ];

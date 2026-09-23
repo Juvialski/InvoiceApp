@@ -37,6 +37,7 @@ export type EmailWorkspaceChannel = "email" | "sms";
 export type EmailWorkspaceDocumentType = "PURCHASE_ORDER" | "CLIENT_INVOICE";
 
 export type DocumentWorkspaceView = "library" | "create" | "templates";
+export type DashboardWorkspaceView = "home" | "insights";
 
 export interface DocumentWorkspaceContext {
   readonly view: DocumentWorkspaceView;
@@ -199,6 +200,17 @@ export function isKnownWorkspaceLocation(location: AppLocation): location is Exc
 
 export function appPathForTab(tab: AppTab) {
   return getRouteForAppTab(tab)?.path || "/dashboard";
+}
+
+export function dashboardViewFromSearch(search: string): DashboardWorkspaceView {
+  const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  return query.get("view") === "insights" ? "insights" : "home";
+}
+
+export function appPathForOperationsInsights() {
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "dashboard", "view", "insights", true);
+  return `${appPathForTab("dashboard")}?${query.toString()}`;
 }
 
 export function documentWorkspaceContextFromSearch(search: string): DocumentWorkspaceContext {

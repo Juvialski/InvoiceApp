@@ -35,6 +35,8 @@ import {
 import { pathForAssistantAction } from "../src/assistant/assistantNavigation.ts";
 
 const payrollRouteSource = readFileSync(new URL("../src/app/routes/PayrollRoute.tsx", import.meta.url), "utf8");
+const appRoutingSource = readFileSync(new URL("../src/utils/appRouting.ts", import.meta.url), "utf8");
+const appRouterSource = readFileSync(new URL("../src/app/routes/AppRouter.tsx", import.meta.url), "utf8");
 
 test("Documents workspace view links default safely to Library", () => {
   assert.deepEqual(documentWorkspaceContextFromSearch(""), { view: "library" });
@@ -264,4 +266,21 @@ test("assistant navigation generates correct routes for project documents and vi
   assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT", entityId: "proj-101", view: "documents" }), "/projects/proj-101/documents");
   assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT", entityId: "proj-101", view: "expenses" }), "/projects/proj-101/expenses");
   assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT", entityId: "proj-101" }), "/projects/proj-101");
+});
+
+test("Operations Insights is a shareable secondary Dashboard mode", async () => {
+  assert.ok(/export function dashboardViewFromSearch/.test(appRoutingSource), "Dashboard should parse its selected view");
+  assert.ok(/export function appPathForOperationsInsights/.test(appRoutingSource), "Home should link to a shareable Insights URL");
+  assert.ok(/dashboardViewFromSearch\(route\.search\)/.test(appRouterSource), "the router should select Home or Insights from the shareable URL");
+
+  const { appPathForOperationsInsights, dashboardViewFromSearch } = await import("../src/utils/appRouting.ts");
+  const insightsPath = appPathForOperationsInsights();
+  const [pathname, search = ""] = insightsPath.split("?", 2);
+  const location = parseAppLocation(pathname, search);
+
+  assert.equal(insightsPath, "/dashboard?view=insights");
+  assert.equal(location.kind, "tab");
+  assert.equal(location.routeId, "dashboard");
+  assert.equal(dashboardViewFromSearch(location.search), "insights");
+  assert.equal(dashboardViewFromSearch("?view=unknown"), "home");
 });
