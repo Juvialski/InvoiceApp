@@ -572,7 +572,7 @@ const nodes: readonly WorkflowNode[] = [
     domain: "dashboard",
     type: "route",
     scope: "company",
-    route: route({ routeId: "dashboard", canonicalPath: "/dashboard", pathPattern: "/dashboard", scope: "production-and-demo" }),
+    route: route({ routeId: "dashboard", canonicalPath: "/dashboard", pathPattern: "/dashboard", queryKeys: ["view"], scope: "production-and-demo" }),
     description: "Canonical Operations Dashboard route; / is normalized to this route.",
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/routes.ts", "src/utils/appRouting.ts", "src/app/routes/AppRouter.tsx"],
