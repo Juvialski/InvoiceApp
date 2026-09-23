@@ -1801,6 +1801,29 @@ const R4E_VISUAL_ROUTES = [
 ] as const;
 
 const R4E_SYSTEM_THEME_ROUTES = R4E_VISUAL_ROUTES.filter((candidate) => ["dashboard", "invoices", "payroll"].includes(candidate.id));
+const R4E_DARK_ROUTE_AUDIT = [
+  { id: "project-overview", canonicalPath: "/projects/:projectId", path: "/demo/app/projects/demo-project-warehouse", label: "Project overview" },
+  { id: "project-financial-control", canonicalPath: "/projects/:projectId", path: "/demo/app/projects/demo-project-solar", label: "Project financial control" },
+  { id: "project-documents", canonicalPath: "/projects/:projectId/documents", path: "/demo/app/projects/demo-project-warehouse/documents", label: "Project documents" },
+  { id: "blueprint-viewer", canonicalPath: "/projects/:projectId/documents", path: "/demo/app/projects/demo-project-warehouse/documents", label: "Blueprint viewer" },
+  { id: "engineering-documents", canonicalPath: "/documents", path: "/demo/app/documents", label: "Engineering documents" },
+  { id: "rfi-detail", canonicalPath: "/projects/:projectId/rfis?rfiId=:rfiId", path: "/demo/app/projects/demo-project-warehouse/rfis?rfiId=demo-rfi-missing-s3e", label: "RFI detail recovery" },
+  { id: "submittal-detail", canonicalPath: "/projects/:projectId/submittals?submittalId=:submittalId&roundId=:roundId", path: "/demo/app/projects/demo-project-warehouse/submittals?submittalId=demo-sub-missing-s3e&roundId=demo-round-missing-s3e", label: "Submittal detail recovery" },
+  { id: "site-log-detail", canonicalPath: "/projects/:projectId/site-logs?siteLogId=:siteLogId", path: "/demo/app/projects/demo-project-warehouse/site-logs?siteLogId=demo-site-log-wh-concrete", label: "Site Log detail" },
+  { id: "cash-settlement", canonicalPath: "/cash?transactionId=:transactionId", path: "/demo/app/cash?transactionId=demo-transaction-19", label: "Cash settlement" },
+  { id: "extract", canonicalPath: "/extract", path: "/demo/app/extract", label: "Invoice extraction" },
+  { id: "invoice-detail", canonicalPath: "/invoices/:invoiceId", path: "/demo/app/invoices/demo-invoice-01", label: "Supplier invoice detail" },
+  { id: "payroll-run", canonicalPath: "/payroll?runId=:runId", path: "/demo/app/payroll?runId=demo-payroll-run-9", label: "Payroll run" },
+  { id: "project-billing", canonicalPath: "/projects/:projectId/billing?billingId=:billingId", path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", label: "Client billing" },
+  { id: "assistant", canonicalPath: "/assistant", path: "/demo/app/assistant", label: "Assistant" },
+  { id: "help", canonicalPath: "/help?topic=invoice-review", path: "/help?topic=invoice-review", label: "Help Center article" },
+] as const;
+
+const verifyR4eDarkRouteAudit: QaScenarioAction = async (page) => {
+  const themeAssertions = (await applyDarkTheme(page)) || [];
+  const shellAssertions = (await verifyR4eResponsiveShell(page)) || [];
+  return [...themeAssertions, ...shellAssertions];
+};
 
 function r4eThemeAction(preference: "light" | "dark" | "system-light" | "system-dark"): QaScenarioAction {
   return async (page) => {
@@ -2007,6 +2030,14 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
       action: r4eThemeAction(systemTheme),
     })
   ))),
+  ...R4E_DARK_ROUTE_AUDIT.map((auditRoute) => defineQaScenario({
+    feature: "ui-r4e-route-audit",
+    route: route(auditRoute.id, auditRoute.canonicalPath),
+    path: auditRoute.path,
+    interactionState: `R4E Dark route audit · ${auditRoute.label}`,
+    viewport: R4E_VIEWPORTS[0],
+    action: verifyR4eDarkRouteAudit,
+  })),
   defineQaScenario({ feature: "ui-r4e-keyboard-touch", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4E desktop keyboard focus and account menu verified", viewport: R4E_VIEWPORTS[0], action: verifyR4eKeyboardAccountNavigation }),
   defineQaScenario({ feature: "ui-r4e-keyboard-touch", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4E mobile navigation and account menu verified", viewport: R4E_VIEWPORTS[3], action: verifyR4eMobileNavigationAndAccount }),
 ];
