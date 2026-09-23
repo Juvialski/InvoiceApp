@@ -33,9 +33,11 @@ Use Jev at these checkpoints when applicable:
 2. **Test prioritization:** after deterministic affected-test selection, use one
    live `test-triage` call only when the set is meaningfully broad. Jev may
    reorder required tests for earlier feedback; it may not remove required tests.
-3. **Completion/evidence:** before PR delivery, use one live `completion` call
-   over sanitized task/evidence metadata to flag potentially missing evidence.
-   It does not make a merge decision.
+3. **Completion/evidence:** use at most one live `completion` call while the
+   evidence plan can still change. Skip it when required evidence is already
+   complete or when it would only restate/re-audit completed work. It does not
+   make a merge decision, does not gate commit/push/PR, and must not start a new
+   review or validation cycle.
 4. **CI triage:** use `ci-triage` only for a real noisy failure where
    classification saves time. Do not call it for green CI.
 
@@ -358,6 +360,14 @@ These rules tighten the zero-subagent/final-diff-first policy after REL-AUTH-1 e
 Once the final executable diff has been reviewed, required validation has passed, roadmap/handoff are reconciled, and final hygiene such as `git diff --check` is clean, proceed to commit/push/PR. Do not cycle through `review -> docs -> affected tests -> review -> docs -> affected tests` unless an actual new executable change or validation failure occurred.
 
 Prepare documentation synchronization before the final expensive validation where practical. If only documentation changes after executable validation, inspect that documentation directly and proceed.
+
+**Terminal delivery cutoff**
+
+- Once the meaningful executable/test diff is frozen, the required risk-appropriate validation has passed, and no concrete blocker remains, stop expanding the task. Do not start a new subagent, Jev completion pass, repository-wide search, context packet, screenshot matrix, broad test run, or generic re-review merely because time remains.
+- Push/open the PR as soon as the local delivery gate is satisfied. While exact-head protected CI is running, do not invent duplicate local work; react only to a concrete CI failure or newly discovered blocker.
+- A completed browser/visual matrix remains valid until relevant UI/browser code changes. Documentation, handoff, evidence-metadata, or PR-description edits do not justify recapturing it.
+- After a browser assertion-only correction, run the exact failing scenario(s) when practical, then use one exact-head protected browser run as final authority. Do not replay a large local matrix by ritual.
+- Do not regenerate the bounded context packet or broadly re-read repository docs after implementation has started unless a concrete contradiction, merge conflict, or source-of-truth question requires it.
 
 These rules are model-independent. Do not encode Luna-specific, or any other model-specific, workarounds into repository execution policy.
 
