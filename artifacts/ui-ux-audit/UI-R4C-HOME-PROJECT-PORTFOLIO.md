@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **IMPLEMENTED FOR LOCAL SAFE-DEMO SCOPE; PR DELIVERY PENDING** |
+| Status | **IMPLEMENTED FOR LOCAL SAFE-DEMO SCOPE** |
 | Date | **2026-09-23** |
 | Repository | `Juvialski/InvoiceApp` |
 | Branch | `codex/ui-r4c-home-project-portfolio` |
