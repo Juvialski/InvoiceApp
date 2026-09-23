@@ -9,6 +9,7 @@ import {
   createQaManifest,
   createScenarioEvidence,
   defineQaScenario,
+  formatFailedQaAssertions,
   normalizeArtifactPath,
   normalizeBrowserPath,
   normalizeConsoleError,
@@ -122,6 +123,21 @@ test("normalizes browser errors, redacts credential fragments, and keeps object 
   assert.equal(normalizeErrorMessage({ message: "failed?access_token=private-value" }), "failed?access_token=[REDACTED]");
   assert.equal(normalizeErrorMessage({ details: "internal object" }, "safe fallback"), "safe fallback");
   assert.doesNotMatch(normalizeErrorMessage({ message: "[object Object]" }), /\[object Object\]/);
+});
+
+test("formats failed deterministic assertions for concise CI diagnosis", () => {
+  const lines = formatFailedQaAssertions([
+    { id: "passing-check", passed: true, details: "fine" },
+    { id: "contrast-check", passed: false, details: " boundary   contrast 1.93:1 " },
+    { id: "secret-check", passed: false, details: "Bearer private-token" },
+  ], 1);
+  assert.deepEqual(lines, [
+    "assertion=contrast-check details=boundary contrast 1.93:1",
+    "assertions_omitted=1",
+  ]);
+  assert.deepEqual(formatFailedQaAssertions([{ id: "secret-check", passed: false, details: "Bearer private-token" }]), [
+    "assertion=secret-check details=Bearer [REDACTED]",
+  ]);
 });
 
 test("captures explicit allowlisted browser noise without hiding other errors", () => {

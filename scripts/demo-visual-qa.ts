@@ -10,6 +10,7 @@ import {
   createOverflowResult,
   createQaManifest,
   createScenarioEvidence,
+  formatFailedQaAssertions,
   normalizeBranchName,
   normalizeCommitSha,
   normalizeConsoleError,
@@ -259,6 +260,7 @@ function logLinesFor(results: readonly ReturnType<typeof createScenarioEvidence>
     const blockingRequests = result.failedRequests.filter((request) => !request.ignored).length;
     lines.push(`${result.status} ${result.scenarioId} route=${result.route.id} viewport=${result.viewport.name} durationMs=${result.durationMs} consoleErrors=${result.consoleErrors.length} pageErrors=${result.pageErrors.length} failedRequests=${blockingRequests} overflowPx=${result.overflow.pixels}`);
     if (result.failureReasons.length) lines.push(`  reasons=${result.failureReasons.join(",")}`);
+    for (const assertionLine of formatFailedQaAssertions(result.assertions)) lines.push(`  ${assertionLine}`);
     const firstError = result.consoleErrors.find((error) => !error.ignored)?.message || result.pageErrors[0]?.message || result.interactionError || result.navigation.error;
     if (firstError) lines.push(`  evidence=${firstError}`);
   }
@@ -326,6 +328,10 @@ async function main(): Promise<void> {
 
   for (const result of results) {
     console.log(`${result.status} ${result.scenarioId}: HTTP ${result.navigation.status ?? 0}, overflow ${result.overflow.pixels}px, consoleErrors=${result.consoleErrors.length}, pageErrors=${result.pageErrors.length}, failedRequests=${result.failedRequests.length}`);
+    if (result.status === "FAIL") {
+      if (result.failureReasons.length) console.error(`  reasons=${result.failureReasons.join(",")}`);
+      for (const assertionLine of formatFailedQaAssertions(result.assertions)) console.error(`  ${assertionLine}`);
+    }
   }
   if (runError) console.error(`FAIL QA runner: ${runError}`);
   if (manifest.summary.failedScenarios > 0 || runError) process.exitCode = 1;

@@ -743,7 +743,7 @@ div[role="dialog"][aria-labelledby="po-modal-title"]
 [data-app-shell="true"] [role="dialog"] input.field-input,
 [data-app-shell="true"] [role="dialog"] select.field-input,
 [data-app-shell="true"] [role="dialog"] textarea.field-input {
-  border-color: var(--color-border-emphasized);
+  border-color: light-dark(#64748b, #94a3b8);
 }
 
 [data-app-shell-main="true"] [class~="hover:bg-slate-50"]:hover,

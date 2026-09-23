@@ -865,12 +865,19 @@ const verifyPayrollNormalCycleOverview: QaScenarioAction = async (page) => {
   const nextStep = await page.getByRole("heading", { name: "Next step", exact: true }).count();
   const reviewOrPrepare = await page.getByRole("button", { name: /Review payroll|Import workbook/ }).count();
   const calculateFromOverview = await page.getByRole("button", { name: "Calculate payroll", exact: true }).count();
-  const stageCopy = await page.locator("text=Calculation, approval, and payment remain separate stages").count();
+  const stageBoundary = await page.evaluate(() => {
+    const panel = document.querySelector<HTMLElement>('[data-payroll-next-step="true"]');
+    const text = panel?.innerText || "";
+    return {
+      approvalAndPaymentSeparated: text.includes("Approval and payment stay separate"),
+      paymentRoutedToCash: text.includes("record payment through Cash & Banking"),
+    };
+  });
   return [
     { id: "payroll-normal-cycle-next-step-visible", passed: nextStep === 1, details: `next-step panels: ${nextStep}` },
     { id: "payroll-normal-cycle-review-or-prepare-action-visible", passed: reviewOrPrepare >= 1, details: `review/prepare actions: ${reviewOrPrepare}` },
     { id: "payroll-overview-does-not-calculate-directly", passed: calculateFromOverview === 0, details: `overview Calculate payroll buttons: ${calculateFromOverview}` },
-    { id: "payroll-normal-cycle-stage-boundary-visible", passed: stageCopy === 1, details: `stage-boundary copy: ${stageCopy}` },
+    { id: "payroll-normal-cycle-stage-boundary-visible", passed: stageBoundary.approvalAndPaymentSeparated && stageBoundary.paymentRoutedToCash, details: `approval/payment separated: ${stageBoundary.approvalAndPaymentSeparated}; Cash & Banking handoff: ${stageBoundary.paymentRoutedToCash}` },
   ] satisfies readonly QaAssertion[];
 };
 
