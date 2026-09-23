@@ -9,6 +9,7 @@ import {
   createQaManifest,
   createScenarioEvidence,
   defineQaScenario,
+  formatFailedQaAssertions,
   normalizeArtifactPath,
   normalizeBrowserPath,
   normalizeConsoleError,
@@ -71,6 +72,7 @@ test("demo scenario catalog is unique and covers the required product surfaces",
     "desktop-1440", "laptop-1366", "tablet-768", "mobile-390",
     "r4c-desktop-1440", "r4c-laptop-1280", "r4c-tablet-768", "r4c-phone-390",
     "r4d-laptop-1280", "r4d-tablet-768",
+    "r4e-desktop-1440", "r4e-laptop-1280", "r4e-tablet-768", "r4e-phone-390",
   ]));
   assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.interactionState === "cash settlement workspace opened"));
   assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.interactionState === "demo drawing preview opened"));
@@ -121,6 +123,21 @@ test("normalizes browser errors, redacts credential fragments, and keeps object 
   assert.equal(normalizeErrorMessage({ message: "failed?access_token=private-value" }), "failed?access_token=[REDACTED]");
   assert.equal(normalizeErrorMessage({ details: "internal object" }, "safe fallback"), "safe fallback");
   assert.doesNotMatch(normalizeErrorMessage({ message: "[object Object]" }), /\[object Object\]/);
+});
+
+test("formats failed deterministic assertions for concise CI diagnosis", () => {
+  const lines = formatFailedQaAssertions([
+    { id: "passing-check", passed: true, details: "fine" },
+    { id: "contrast-check", passed: false, details: " boundary   contrast 1.93:1 " },
+    { id: "secret-check", passed: false, details: "Bearer private-token" },
+  ], 1);
+  assert.deepEqual(lines, [
+    "assertion=contrast-check details=boundary contrast 1.93:1",
+    "assertions_omitted=1",
+  ]);
+  assert.deepEqual(formatFailedQaAssertions([{ id: "secret-check", passed: false, details: "Bearer private-token" }]), [
+    "assertion=secret-check details=Bearer [REDACTED]",
+  ]);
 });
 
 test("captures explicit allowlisted browser noise without hiding other errors", () => {

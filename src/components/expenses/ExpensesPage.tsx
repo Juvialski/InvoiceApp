@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../../types";
 import { ExpenseDraftWorksheet, isEditableExpenseDraft } from "./ExpenseDraftWorksheet.tsx";
-import { EmptyState, MetricCard, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
+import { ActionButton, EmptyState, MetricCard, PageActionBar, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 import { useAppPermissions, useWorkspaceDataPending } from "../../app/AppPermissionContext.tsx";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { FinancialCorrectionDialog } from "../financial/FinancialCorrectionDialog.tsx";
@@ -411,28 +411,29 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       eyebrow="Supplier payables and project cost"
       title="Expenses"
       description="Linked supplier documents support the Expense record. Archive changes visibility; void changes active cost."
-      actions={canManage ? <div className="flex flex-wrap gap-2">
-        {canUploadSupplierInvoice && onUploadSupplierInvoice && <button type="button" onClick={onUploadSupplierInvoice} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100"><ExternalLink className="h-3.5 w-3.5" /> Upload supplier invoice</button>}
-        <button type="button" onClick={openNewExpenseEditor} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><Plus className="h-3.5 w-3.5" /> Add expense</button>
-      </div> : canUploadSupplierInvoice && onUploadSupplierInvoice ? <button type="button" onClick={onUploadSupplierInvoice} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100"><ExternalLink className="h-3.5 w-3.5" /> Upload supplier invoice</button> : undefined}
+      actions={canManage ? <PageActionBar>
+        {canUploadSupplierInvoice && onUploadSupplierInvoice && <ActionButton size="sm" variant="secondary" icon={<ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />} label="Upload supplier invoice" onClick={onUploadSupplierInvoice} />}
+        <ActionButton size="sm" variant="primary" icon={<Plus aria-hidden="true" className="h-3.5 w-3.5" />} label="Add expense" onClick={openNewExpenseEditor} />
+      </PageActionBar> : canUploadSupplierInvoice && onUploadSupplierInvoice ? <ActionButton size="sm" variant="secondary" icon={<ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />} label="Upload supplier invoice" onClick={onUploadSupplierInvoice} /> : undefined}
     />
 
     <section data-ux45c="expenses-primary-controls" className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4" aria-label="Expense filters"><div className="mb-3 flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-black text-slate-950">Expense register</p><p className="mt-0.5 text-[10px] text-slate-500">Search expenses by description, project, payee, or status.</p></div><p className="text-xs font-semibold text-slate-500" role="status" aria-live="polite">Showing <span className="text-slate-900">{expenseResultLabel}</span></p></div><div className="flex flex-col gap-2 sm:flex-row"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"><Search aria-hidden="true" className="h-4 w-4 text-slate-400" /><span className="sr-only">Search expenses</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search expense, project, payee…" className="w-full bg-transparent text-xs outline-none placeholder:text-slate-400 focus-visible:outline-none" /></label><label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5"><Filter aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" /><span className="sr-only">Expense status</span><select value={status} onChange={(event) => setStatus(event.target.value)} className="bg-transparent text-xs font-semibold outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"><option value="ALL">All statuses</option>{["DRAFT", "APPROVED", "PAID", "VOID"].map((value) => <option key={value} value={value}>{value === "DRAFT" ? "Draft" : value === "APPROVED" ? "Approved" : value === "PAID" ? "Paid" : "Void"}</option>)}</select></label></div></section>
 
     {rows.length ? <section id="expenses-results" data-ux45c="expenses-primary-register" className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Expense register">
-      <div className="space-y-2 p-3 lg:hidden" aria-label="Expense register cards">
+      <div className="grid gap-2 p-3 lg:grid-cols-2 min-[1920px]:hidden" aria-label="Expense register cards">
         {rows.map((expense) => {
           const project = projects.find((item) => item.id === expense.projectId);
           const invoice = expense.supplierInvoiceId ? invoiceMap.get(expense.supplierInvoiceId) : undefined;
           const purchaseOrder = expense.purchaseOrderId ? purchaseOrderMap.get(expense.purchaseOrderId) : undefined;
           const vendor = expense.vendorId ? vendorMap.get(expense.vendorId) : undefined;
           const phpAmount = expenseAmountForPhp(expense, invoice, financialFxSnapshots);
+          const settlement = settlementForExpenseWorkbook(expense, { invoices, settlementProjections, settlementMatches });
           const invoicePath = invoice ? appPathForInvoice(invoice.id, appPathForExpense(expense.id)) : undefined;
           const purchaseOrderPath = purchaseOrder ? appPathForPurchaseOrder(purchaseOrder.id, appPathForExpense(expense.id)) : undefined;
-          return <ExpenseRegisterCard key={expense.id} expense={expense} project={project} invoice={invoice} purchaseOrder={purchaseOrder} vendor={vendor} phpAmount={phpAmount} baseCurrency={baseCurrency} canManage={canManage} canManageFx={canManageFx && Boolean(onSaveFinancialFxSnapshot)} onEditDraft={openExpenseEditor} onConfirmFx={openFxConfirmation} onReviewCorrection={(item) => void openCorrection(item)} onNavigatePath={onNavigatePath} invoicePath={invoicePath} purchaseOrderPath={purchaseOrderPath} />;
+          return <ExpenseRegisterCard key={expense.id} expense={expense} project={project} invoice={invoice} purchaseOrder={purchaseOrder} vendor={vendor} phpAmount={phpAmount} settlement={settlement} baseCurrency={baseCurrency} canManage={canManage} canManageFx={canManageFx && Boolean(onSaveFinancialFxSnapshot)} onEditDraft={openExpenseEditor} onConfirmFx={openFxConfirmation} onReviewCorrection={(item) => void openCorrection(item)} onNavigatePath={onNavigatePath} invoicePath={invoicePath} purchaseOrderPath={purchaseOrderPath} />;
         })}
       </div>
-      <div className="hidden lg:block">
+      <div className="hidden min-[1920px]:block">
         <OperationsGrid
           ariaLabel="Expense register results"
           rows={rows}
@@ -533,6 +534,7 @@ interface ExpenseRegisterCardProps {
   purchaseOrder?: PurchaseOrder;
   vendor?: Vendor;
   phpAmount: ReturnType<typeof displayFinancialAmountInPhp>;
+  settlement: ReturnType<typeof settlementForExpenseWorkbook>;
   baseCurrency: string;
   canManage: boolean;
   canManageFx: boolean;
@@ -551,6 +553,7 @@ function ExpenseRegisterCard({
   purchaseOrder,
   vendor,
   phpAmount,
+  settlement,
   baseCurrency,
   canManage,
   canManageFx,
@@ -580,11 +583,12 @@ function ExpenseRegisterCard({
       </div>
     </div>
 
-    <dl className="mt-3 grid gap-2 text-xs">
+    <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
       <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Project</dt><dd className="mt-0.5 break-words font-semibold text-indigo-700">{project?.projectCode || "Unallocated"}<span className="block text-[10px] font-normal text-slate-500">{project?.projectName || "Needs project confirmation"}</span></dd></div>
       <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Payee</dt><dd className="mt-0.5 break-words text-slate-700">{vendor?.name || expense.payee || expense.referenceNumber || "No payee / reference"}</dd></div>
       <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Source</dt><dd className="mt-0.5 flex flex-col items-start gap-1 break-words text-slate-700">{invoicePath && <a href={expenseRouteHref(invoicePath, invoice?.id || expense.id)} onClick={(event) => navigateSource(event, invoicePath)} className="font-black text-indigo-700 hover:underline">Supplier invoice {invoice?.invoiceNumber || invoice?.id?.slice(0, 8)}</a>}{purchaseOrderPath && <a href={expenseRouteHref(purchaseOrderPath, purchaseOrder?.id || expense.id)} onClick={(event) => navigateSource(event, purchaseOrderPath)} className="font-black text-indigo-700 hover:underline">PO {purchaseOrder?.poNumber || purchaseOrder?.id?.slice(0, 8)}</a>}{!invoicePath && !purchaseOrderPath && (invoice?.sourceMetadata?.subject ? `From email: ${invoice.sourceMetadata.subject}` : expense.supplierInvoiceId ? "Source invoice on file" : "No linked source")}</dd></div>
       <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Amount</dt><dd className="mt-0.5 font-black tabular-nums text-slate-950">{phpAmount.baseLabel}{phpAmount.sourceLabel && <span className="ml-1 text-[9px] font-normal text-slate-400">{phpAmount.sourceLabel}</span>}{expense.currency.toUpperCase() !== baseCurrency.toUpperCase() && <span className={`ml-1 text-[9px] ${needsFx ? "font-bold text-amber-700" : "text-emerald-700"}`}>{needsFx ? "FX rate required" : `≈ ${money(phpAmount.baseAmount || 0, baseCurrency)}`}</span>}</dd></div>
+      <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Settlement</dt><dd className="mt-0.5 font-semibold text-slate-700">{settlement.settlementState}<span className="block text-[10px] font-normal text-slate-500">Outstanding {money(settlement.outstanding, settlement.currency)}</span></dd></div>
     </dl>
 
     {canManage && <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">{isEditableExpenseDraft(expense) && <button type="button" onClick={() => onEditDraft(expense)} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1">Edit draft worksheet</button>}{needsFx && canManageFx && <button type="button" onClick={() => onConfirmFx(expense)} className="inline-flex min-h-10 items-center rounded-lg px-2.5 py-2 text-[10px] font-bold text-amber-800 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1">Confirm FX</button>}<button type="button" onClick={() => onReviewCorrection(expense)} className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 py-2 text-[10px] font-bold text-amber-800 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"><Archive className="h-3 w-3" aria-hidden="true" />Review correction</button></div>}

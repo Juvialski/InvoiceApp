@@ -97,7 +97,6 @@ export interface AppShellProps {
   setActiveTab: (tab: AppTab) => void;
   invoicesCount: number;
   reviewCount: number;
-  onBatchExportExcel: () => void;
   workspaceSyncStatus?: WorkspaceSyncStatus;
   accountEmail?: string;
   onSignOut?: () => Promise<void> | void;
@@ -142,7 +141,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   setActiveTab,
   invoicesCount,
   reviewCount,
-  onBatchExportExcel,
   workspaceSyncStatus = "guest",
   accountEmail,
   onSignOut,
@@ -218,7 +216,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           setActiveTab={setActiveTab}
           invoicesCount={invoicesCount}
           reviewCount={reviewCount}
-          onBatchExportExcel={onBatchExportExcel}
           workspaceSyncStatus={workspaceSyncStatus}
           accountEmail={accountEmail}
           onSignOut={onSignOut}

@@ -15,6 +15,12 @@ const R4C_VIEWPORTS = [
   { name: "r4c-tablet-768", width: 768, height: 1024 },
   { name: "r4c-phone-390", width: 390, height: 844 },
 ] as const;
+const R4E_VIEWPORTS = [
+  { name: "r4e-desktop-1440", width: 1440, height: 1000 },
+  { name: "r4e-laptop-1280", width: 1280, height: 800 },
+  { name: "r4e-tablet-768", width: 768, height: 1024 },
+  { name: "r4e-phone-390", width: 390, height: 844 },
+] as const;
 const R4D_CONSTRAINED_LAPTOP = { name: "r4d-laptop-1280", width: 1280, height: 800 } as const;
 const R4D_TABLET = { name: "r4d-tablet-768", width: 768, height: 1024 } as const;
 
@@ -29,16 +35,20 @@ async function applyThemePreferenceForVisualQa(page: QaBrowserPage, theme: "ligh
 
   const palette = await page.evaluate(() => {
     const surface = document.querySelector(".hqs-surface, .hqs-surface-raised");
-    const canvas = document.querySelector(".hqs-app-canvas");
-    const primaryText = document.querySelector(".hqs-primary-text");
-    const secondaryText = document.querySelector('[data-ui="page-header"] p.hqs-secondary-text');
+    const canvas = document.querySelector<HTMLElement>(".hqs-app-canvas");
     const control = document.querySelector(".hqs-input, .hqs-control");
+    const secondaryProbe = document.createElement("span");
+    secondaryProbe.className = "hqs-secondary-text";
+    secondaryProbe.textContent = "temporary secondary text probe";
+    canvas?.append(secondaryProbe);
+    const secondaryTextColor = canvas ? getComputedStyle(secondaryProbe).color : "missing";
+    secondaryProbe.remove();
     return {
       theme: document.documentElement.getAttribute("data-theme"),
       canvasBackground: canvas ? getComputedStyle(canvas).backgroundColor : "missing",
       surfaceBackground: surface ? getComputedStyle(surface).backgroundColor : "missing",
-      primaryText: primaryText ? getComputedStyle(primaryText).color : "missing",
-      secondaryText: secondaryText ? getComputedStyle(secondaryText).color : "missing",
+      primaryText: canvas ? getComputedStyle(canvas).color : "missing",
+      secondaryText: secondaryTextColor,
       controlBorder: control ? getComputedStyle(control).borderColor : "missing",
     };
   });
@@ -46,7 +56,7 @@ async function applyThemePreferenceForVisualQa(page: QaBrowserPage, theme: "ligh
   const expectedSurface = theme === "dark" ? "rgb(30, 41, 59)" : "rgb(255, 255, 255)";
   const expectedPrimary = theme === "dark" ? "rgb(248, 250, 252)" : "rgb(15, 23, 42)";
   const expectedSecondary = theme === "dark" ? "rgb(148, 163, 184)" : "rgb(71, 85, 105)";
-  const expectedBorder = theme === "dark" ? "rgb(51, 65, 85)" : "rgb(226, 232, 240)";
+  const expectedBorder = theme === "dark" ? "rgb(148, 163, 184)" : "rgb(100, 116, 139)";
   return [
     { id: `${theme}-theme-root-preference`, passed: palette.theme === theme, details: `data-theme=${palette.theme || "system"}` },
     { id: `${theme}-theme-app-canvas`, passed: palette.canvasBackground === expectedCanvas, details: `app canvas: ${palette.canvasBackground}` },
@@ -59,6 +69,537 @@ async function applyThemePreferenceForVisualQa(page: QaBrowserPage, theme: "ligh
 
 const applyLightTheme: QaScenarioAction = (page) => applyThemePreferenceForVisualQa(page, "light");
 const applyDarkTheme: QaScenarioAction = (page) => applyThemePreferenceForVisualQa(page, "dark");
+
+async function applySystemThemeForVisualQa(page: QaBrowserPage, systemScheme: "light" | "dark"): Promise<readonly QaAssertion[]> {
+  await page.emulateMedia({ colorScheme: systemScheme });
+  await page.evaluate(() => window.localStorage.setItem("hydroqualisense_theme_preference", "system"));
+  await page.reload({ waitUntil: "networkidle", timeout: READY_TIMEOUT_MS });
+  await page.getByRole("heading").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+
+  const palette = await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLElement>(".hqs-app-canvas");
+    const surface = document.querySelector<HTMLElement>(".hqs-surface, .hqs-surface-raised");
+    const probe = document.createElement("span");
+    probe.className = "hqs-secondary-text";
+    canvas?.append(probe);
+    const secondaryText = canvas ? getComputedStyle(probe).color : "missing";
+    probe.remove();
+    return {
+      preference: window.localStorage.getItem("hydroqualisense_theme_preference"),
+      rootTheme: document.documentElement.getAttribute("data-theme"),
+      osScheme: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+      canvasBackground: canvas ? getComputedStyle(canvas).backgroundColor : "missing",
+      surfaceBackground: surface ? getComputedStyle(surface).backgroundColor : "missing",
+      primaryText: canvas ? getComputedStyle(canvas).color : "missing",
+      secondaryText,
+    };
+  });
+  const expectedCanvas = systemScheme === "dark" ? "rgb(15, 23, 42)" : "rgb(248, 250, 252)";
+  const expectedSurface = systemScheme === "dark" ? "rgb(30, 41, 59)" : "rgb(255, 255, 255)";
+  const expectedPrimary = systemScheme === "dark" ? "rgb(248, 250, 252)" : "rgb(15, 23, 42)";
+  const expectedSecondary = systemScheme === "dark" ? "rgb(148, 163, 184)" : "rgb(71, 85, 105)";
+  return [
+    { id: `system-${systemScheme}-preference-retained`, passed: palette.preference === "system", details: `stored preference: ${palette.preference || "missing"}` },
+    { id: `system-${systemScheme}-root-follows-os`, passed: palette.rootTheme === null && palette.osScheme === systemScheme, details: `data-theme=${palette.rootTheme || "unset"}; OS=${palette.osScheme}` },
+    { id: `system-${systemScheme}-canvas-follows-os`, passed: palette.canvasBackground === expectedCanvas, details: `app canvas: ${palette.canvasBackground}` },
+    { id: `system-${systemScheme}-surface-follows-os`, passed: palette.surfaceBackground === expectedSurface, details: `surface background: ${palette.surfaceBackground}` },
+    { id: `system-${systemScheme}-primary-text-follows-os`, passed: palette.primaryText === expectedPrimary, details: `primary text: ${palette.primaryText}` },
+    { id: `system-${systemScheme}-secondary-text-follows-os`, passed: palette.secondaryText === expectedSecondary, details: `secondary text: ${palette.secondaryText}` },
+  ];
+}
+
+const verifyR4eSystemLight: QaScenarioAction = (page) => applySystemThemeForVisualQa(page, "light");
+const verifyR4eSystemDark: QaScenarioAction = (page) => applySystemThemeForVisualQa(page, "dark");
+
+const verifyR4eResponsiveShell: QaScenarioAction = async (page) => {
+  const shell = await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>('[data-app-shell-header="true"]');
+    const main = document.querySelector<HTMLElement>('[data-app-shell-main="true"]');
+    const nav = document.querySelector<HTMLElement>('[data-app-shell-header="true"] button[aria-label="Open navigation"]');
+    const navRect = nav?.getBoundingClientRect();
+    return {
+      headerDisplay: header ? getComputedStyle(header).display : "missing",
+      mainPresent: Boolean(main && main.getBoundingClientRect().width > 0),
+      navigationTargetWidth: navRect?.width ?? 0,
+      navigationTargetHeight: navRect?.height ?? 0,
+      viewportWidth: document.documentElement.clientWidth,
+    };
+  });
+  const mobileHeaderExpected = shell.viewportWidth < 1024;
+  return [
+    { id: "r4e-app-main-visible", passed: shell.mainPresent, details: `main content visible at ${shell.viewportWidth}px` },
+    { id: "r4e-shell-header-breakpoint", passed: shell.headerDisplay !== "missing" && (mobileHeaderExpected ? shell.headerDisplay !== "none" : shell.headerDisplay === "none"), details: `header display: ${shell.headerDisplay} at ${shell.viewportWidth}px` },
+    ...(mobileHeaderExpected ? [{ id: "r4e-mobile-navigation-touch-target", passed: shell.navigationTargetWidth >= 40 && shell.navigationTargetHeight >= 40, details: `navigation target: ${shell.navigationTargetWidth}x${shell.navigationTargetHeight}px` }] : []),
+  ];
+};
+
+const verifyR4eKeyboardAccountNavigation: QaScenarioAction = async (page) => {
+  await page.keyboard.press("Tab");
+  const focus = await page.evaluate(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) return { tag: "none", focusVisible: false, outline: "none" };
+    const style = getComputedStyle(active);
+    return {
+      tag: active.tagName,
+      focusVisible: active.matches(":focus-visible"),
+      outline: `${style.outlineStyle} ${style.outlineWidth}`,
+      boxShadow: style.boxShadow,
+    };
+  });
+  const accountTrigger = page.locator('[aria-controls="sidebar-account-menu"]').first();
+  await accountTrigger.click();
+  const accountMenu = page.getByRole("menu", { name: "Account menu", exact: true });
+  await accountMenu.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const settingsItem = await page.getByRole("menuitem", { name: "Workspace Settings", exact: true }).count();
+  await page.keyboard.press("Escape");
+  await accountMenu.waitFor({ state: "detached", timeout: READY_TIMEOUT_MS });
+  const restoredFocus = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "");
+  return [
+    { id: "r4e-keyboard-visible-focus", passed: focus.focusVisible && (focus.outline.includes("2px") || focus.boxShadow !== "none"), details: `Tab focused ${focus.tag}; focus-visible=${focus.focusVisible}; outline=${focus.outline}` },
+    { id: "r4e-sidebar-account-menu", passed: settingsItem === 1, details: `workspace settings menu items: ${settingsItem}` },
+    { id: "r4e-account-menu-escape-focus-return", passed: restoredFocus.startsWith("Account"), details: `restored focus aria-label: ${restoredFocus || "missing"}` },
+  ];
+};
+
+const verifyR4eMobileNavigationAndAccount: QaScenarioAction = async (page) => {
+  const nav = page.getByRole("button", { name: "Open navigation", exact: true });
+  const target = await page.evaluate(() => {
+    const element = document.querySelector<HTMLElement>('[data-app-shell-header="true"] button[aria-label="Open navigation"]');
+    const rect = element?.getBoundingClientRect();
+    return { width: rect?.width ?? 0, height: rect?.height ?? 0 };
+  });
+  await nav.click();
+  const drawer = page.getByRole("dialog", { name: "Workspace navigation", exact: true });
+  await drawer.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const accountTrigger = page.locator('#workspace-navigation-drawer [aria-controls="sidebar-account-menu"]').first();
+  await accountTrigger.click();
+  const menu = page.getByRole("menu", { name: "Account menu", exact: true });
+  await menu.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const settingsItem = await page.getByRole("menuitem", { name: "Workspace Settings", exact: true }).count();
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "detached", timeout: READY_TIMEOUT_MS });
+  const accountFocus = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "");
+  const drawerRemainsOpen = await drawer.count();
+  await page.keyboard.press("Escape");
+  await drawer.waitFor({ state: "detached", timeout: READY_TIMEOUT_MS });
+  const navigationFocus = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "");
+  return [
+    { id: "r4e-mobile-nav-touch-target", passed: target.width >= 40 && target.height >= 40, details: `navigation target: ${target.width}x${target.height}px` },
+    { id: "r4e-mobile-navigation-drawer-opens", passed: true, details: "navigation drawer opened as a labelled modal dialog" },
+    { id: "r4e-mobile-account-settings-reachable", passed: settingsItem === 1, details: `workspace settings menu items: ${settingsItem}` },
+    { id: "r4e-mobile-account-escape-focus-return", passed: accountFocus.startsWith("Account"), details: `restored focus aria-label: ${accountFocus || "missing"}` },
+    { id: "r4e-mobile-account-menu-does-not-close-drawer", passed: drawerRemainsOpen === 1, details: `drawer dialog count after closing account menu: ${drawerRemainsOpen}` },
+    { id: "r4e-mobile-navigation-escape-focus-return", passed: navigationFocus === "Open navigation", details: `restored focus aria-label: ${navigationFocus || "missing"}` },
+  ];
+};
+
+function relativeLuminance(color: string): number {
+  const channels = color.match(/\d+(?:\.\d+)?/g)?.slice(0, 3).map(Number);
+  if (!channels || channels.length !== 3) return 0;
+  const linear = channels.map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
+}
+
+function compositeCssColor(foreground: string, background: string): string {
+  const parse = (value: string) => {
+    const numbers = value.match(/\d+(?:\.\d+)?/g)?.map(Number);
+    if (!numbers || numbers.length < 3) return null;
+    const isSrgbFunction = value.startsWith("color(srgb");
+    const channels = numbers.slice(0, 3).map((channel) => isSrgbFunction ? channel * 255 : channel);
+    const alpha = numbers.length > 3 ? numbers[3]! : 1;
+    return { channels, alpha };
+  };
+  const front = parse(foreground);
+  const back = parse(background);
+  if (!front || !back) return "missing";
+  const alpha = front.alpha + back.alpha * (1 - front.alpha);
+  const channels = front.channels.map((channel, index) => Math.round((channel * front.alpha + back.channels[index]! * back.alpha * (1 - front.alpha)) / alpha));
+  return `rgb(${channels.join(", ")})`;
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const first = relativeLuminance(foreground);
+  const second = relativeLuminance(background);
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}
+
+const verifyR4eLegacySurfaceContrast: QaScenarioAction = async (page) => {
+  const themeAssertions = await applyThemePreferenceForVisualQa(page, "dark");
+  const colors = await page.evaluate(() => {
+    const app = document.querySelector<HTMLElement>('[data-app-shell="true"]');
+    if (!app) return null;
+    const surface = Array.from(app.querySelectorAll<HTMLElement>(".hqs-surface, .hqs-surface-raised, section.bg-white, article.bg-white, div.bg-white")).find((candidate) => getComputedStyle(candidate).display !== "none" && candidate.getClientRects().length > 0);
+    const main = app.querySelector<HTMLElement>('[data-app-shell-main="true"]');
+    const control = app.querySelector<HTMLElement>("input, select, textarea");
+    if (!surface || !main || !control) return null;
+    const semanticProbe = document.createElement("span");
+    semanticProbe.className = "hqs-primary-text";
+    semanticProbe.textContent = "temporary theme contrast probe";
+    surface.prepend(semanticProbe);
+    const swatchSurface = document.createElement("div");
+    swatchSurface.className = "bg-white";
+    const successFill = document.createElement("div");
+    successFill.className = "bg-emerald-50";
+    const successText = document.createElement("span");
+    successText.className = "text-emerald-950";
+    successText.textContent = "status";
+    successFill.append(successText);
+    const accentFill = document.createElement("div");
+    accentFill.className = "bg-indigo-50";
+    const accentText = document.createElement("span");
+    accentText.className = "text-indigo-950";
+    accentText.textContent = "selected";
+    accentFill.append(accentText);
+    swatchSurface.append(successFill, accentFill);
+    main.append(swatchSurface);
+    const swatchBackground = getComputedStyle(swatchSurface).backgroundColor;
+    const successBackground = getComputedStyle(successFill).backgroundColor;
+    const accentBackground = getComputedStyle(accentFill).backgroundColor;
+    const colors = {
+      surface: getComputedStyle(surface).backgroundColor,
+      foreground: getComputedStyle(semanticProbe).color,
+      controlBackground: getComputedStyle(control).backgroundColor,
+      controlBorder: getComputedStyle(control).borderTopColor,
+      successForeground: getComputedStyle(successText).color,
+      successBackground,
+      successBackdrop: swatchBackground,
+      accentForeground: getComputedStyle(accentText).color,
+      accentBackground,
+    };
+    swatchSurface.remove();
+    semanticProbe.remove();
+    return colors;
+  });
+  const headingContrast = colors ? contrastRatio(colors.foreground, colors.surface) : 0;
+  const controlContrast = colors ? contrastRatio(colors.controlBorder, colors.controlBackground) : 0;
+  const successComposite = colors ? compositeCssColor(colors.successBackground, colors.successBackdrop) : "missing";
+  const successContrast = colors ? contrastRatio(colors.successForeground, successComposite) : 0;
+  const accentContrast = colors ? contrastRatio(colors.accentForeground, colors.accentBackground) : 0;
+  return [...themeAssertions,
+    { id: "r4e-dark-legacy-surface-uses-theme", passed: colors?.surface === "rgb(30, 41, 59)", details: `legacy white surface: ${colors?.surface || "missing"}` },
+    { id: "r4e-dark-semantic-heading-aa", passed: headingContrast >= 4.5, details: `semantic heading contrast: ${headingContrast.toFixed(2)}:1 (${colors?.foreground || "missing"} on ${colors?.surface || "missing"})` },
+    { id: "r4e-dark-success-status-aa", passed: successContrast >= 4.5, details: `success status contrast: ${successContrast.toFixed(2)}:1 (${colors?.successForeground || "missing"} on ${colors?.successBackground || "missing"})` },
+    { id: "r4e-dark-selected-accent-aa", passed: accentContrast >= 4.5, details: `selected accent contrast: ${accentContrast.toFixed(2)}:1 (${colors?.accentForeground || "missing"} on ${colors?.accentBackground || "missing"})` },
+    { id: "r4e-dark-input-boundary-nontext", passed: controlContrast >= 3, details: `input boundary contrast: ${controlContrast.toFixed(2)}:1 (${colors?.controlBorder || "missing"} on ${colors?.controlBackground || "missing"})` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyR4eProcurementMetricContrast: QaScenarioAction = async (page) => {
+  const themeAssertions = await applyThemePreferenceForVisualQa(page, "dark");
+  const colors = await page.evaluate(() => {
+    const card = Array.from(document.querySelectorAll<HTMLElement>('[data-app-shell-main="true"] .bg-gradient-to-br')).find((candidate) => candidate.innerText.toLowerCase().includes("active committed"));
+    if (!card) return null;
+    const label = card.querySelector<HTMLElement>(".text-indigo-700");
+    const value = card.querySelector<HTMLElement>(".text-lg");
+    const backgroundImage = getComputedStyle(card).backgroundImage;
+    return {
+      backgroundImage,
+      stops: backgroundImage.match(/rgba?\([^)]*\)/g) || [],
+      label: label ? getComputedStyle(label).color : "missing",
+      value: value ? getComputedStyle(value).color : "missing",
+    };
+  });
+  const labelContrast = colors?.stops.map((stop) => contrastRatio(colors.label, stop)) || [];
+  const valueContrast = colors?.stops.map((stop) => contrastRatio(colors.value, stop)) || [];
+  const minimumLabelContrast = labelContrast.length ? Math.min(...labelContrast) : 0;
+  const minimumValueContrast = valueContrast.length ? Math.min(...valueContrast) : 0;
+  return [...themeAssertions,
+    { id: "r4e-procurement-active-committed-tile-present", passed: Boolean(colors && colors.stops.length >= 2), details: `gradient stops: ${colors?.backgroundImage || "missing"}` },
+    { id: "r4e-procurement-active-committed-label-aa", passed: minimumLabelContrast >= 4.5, details: `minimum label contrast across gradient stops: ${minimumLabelContrast.toFixed(2)}:1` },
+    { id: "r4e-procurement-active-committed-value-aa", passed: minimumValueContrast >= 4.5, details: `minimum value contrast across gradient stops: ${minimumValueContrast.toFixed(2)}:1` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyR4eExpenseRegisterFit: QaScenarioAction = async (page) => {
+  const layout = await page.evaluate(() => {
+    const section = document.querySelector<HTMLElement>('[data-ux45c="expenses-primary-register"]');
+    const cardList = section?.querySelector<HTMLElement>('[aria-label="Expense register cards"]');
+    const table = section?.querySelector<HTMLTableElement>('[data-operations-grid] table');
+    const scroller = table?.parentElement;
+    const actionHeader = table ? Array.from(table.querySelectorAll<HTMLElement>("thead th")).find((header) => header.innerText.trim() === "Actions") : undefined;
+    const scrollerRect = scroller?.getBoundingClientRect();
+    const actionRect = actionHeader?.getBoundingClientRect();
+    return {
+      cardsVisible: Boolean(cardList && getComputedStyle(cardList).display !== "none" && cardList.getClientRects().length > 0),
+      cardCount: cardList?.querySelectorAll("[data-expense-register-card]").length ?? 0,
+      cardDetailsText: cardList?.querySelector<HTMLElement>("[data-expense-register-card]")?.innerText.toLocaleLowerCase() || "",
+      tableVisible: Boolean(table && table.getClientRects().length > 0),
+      actionColumnVisible: Boolean(scrollerRect && actionRect && actionRect.right <= scrollerRect.right + 1),
+      scrollerWidth: scroller?.clientWidth ?? 0,
+      tableWidth: table?.scrollWidth ?? 0,
+      mode: cardList && getComputedStyle(cardList).display !== "none" ? "cards" : "table",
+    };
+  });
+  return [
+    { id: "r4e-expense-register-uses-visible-responsive-path", passed: layout.cardsVisible || (layout.tableVisible && layout.actionColumnVisible), details: `register mode: ${layout.mode}; table ${layout.tableWidth}px inside ${layout.scrollerWidth}px; actions visible: ${layout.actionColumnVisible}` },
+    ...(layout.cardsVisible ? [
+      { id: "r4e-expense-card-rows-readable", passed: layout.cardCount > 0, details: `expense record cards visible: ${layout.cardCount}` },
+      { id: "r4e-expense-card-retains-financial-and-source-detail", passed: ["project", "payee", "source", "amount", "settlement"].every((label) => layout.cardDetailsText.includes(label)), details: `card fields: ${layout.cardDetailsText.replaceAll("\n", " · ").slice(0, 220)}` },
+    ] : []),
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyR4ePrimaryButtonContrast: QaScenarioAction = async (page) => {
+  const themeAssertions = await applyThemePreferenceForVisualQa(page, "dark");
+  const button = page.getByRole("button", { name: "Upload supplier invoice", exact: true }).first();
+  await button.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const colors = await page.evaluate(() => {
+    const element = Array.from(document.querySelectorAll<HTMLElement>('[data-ui="page-header-actions"] button')).find((candidate) => candidate.textContent?.trim() === "Upload supplier invoice");
+    return {
+      background: element ? getComputedStyle(element).backgroundColor : "missing",
+      foreground: element ? getComputedStyle(element).color : "missing",
+    };
+  });
+  const contrast = contrastRatio(colors.foreground, colors.background);
+  return [
+    ...themeAssertions,
+    { id: "r4e-dark-primary-action-uses-accent", passed: colors.background === "rgb(129, 140, 248)", details: `primary action background: ${colors.background}` },
+    { id: "r4e-dark-primary-action-uses-on-accent-text", passed: colors.foreground === "rgb(15, 23, 42)", details: `primary action foreground: ${colors.foreground}` },
+    { id: "r4e-dark-primary-action-aa", passed: contrast >= 4.5, details: `primary action contrast: ${contrast.toFixed(2)}:1 (${colors.foreground} on ${colors.background})` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyInvoiceRegisterCompactFilters: QaScenarioAction = async (page) => {
+  const toolbarCount = await page.locator('[data-ui="compact-action-bar"]').count();
+  const searchCount = await page.getByRole("searchbox", { name: "Search invoices", exact: true }).count()
+    + await page.getByRole("textbox", { name: "Search invoices", exact: true }).count();
+  const uploadCount = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('[data-ui="page-header-actions"] button')).filter((button) => button.textContent?.trim() === "Upload supplier invoice").length);
+  const filterButton = page.getByRole("button", { name: /^Filters/ }).first();
+  const filterButtonCount = await filterButton.count();
+  let activeChipCount = 0;
+  let rowsBefore = 0;
+  let rowsFiltered = 0;
+  let rowsRestored = 0;
+  if (filterButtonCount === 1) {
+    await filterButton.click();
+    const panel = page.getByRole("dialog", { name: "Filters options", exact: true });
+    await panel.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+    const reviewFilter = page.getByRole("combobox", { name: "Review status", exact: true });
+    rowsBefore = await page.locator("#invoice-directory-results tbody tr").count();
+    await reviewFilter.selectOption("NEEDS_REVIEW");
+    const removable = page.getByRole("button", { name: "Remove filter: Review: Needs review", exact: true });
+    activeChipCount = await removable.count();
+    rowsFiltered = await page.locator("#invoice-directory-results tbody tr").count();
+    if (activeChipCount === 1) await removable.click();
+    rowsRestored = await page.locator("#invoice-directory-results tbody tr").count();
+  }
+  return [
+    { id: "invoice-register-one-compact-action-bar", passed: toolbarCount === 1, details: `compact action bars: ${toolbarCount}` },
+    { id: "invoice-register-search-available", passed: searchCount === 1, details: `invoice search controls: ${searchCount}` },
+    { id: "invoice-register-filters-disclosed", passed: filterButtonCount === 1, details: `Filters triggers: ${filterButtonCount}` },
+    { id: "invoice-register-upload-primary", passed: uploadCount === 1, details: `Upload primary actions: ${uploadCount}` },
+    { id: "invoice-register-active-filter-removable", passed: activeChipCount === 1 && rowsBefore > rowsFiltered && rowsRestored === rowsBefore, details: `rows before/filter/restored: ${rowsBefore}/${rowsFiltered}/${rowsRestored}; removable chips: ${activeChipCount}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyInvoiceRegisterPhoneCards: QaScenarioAction = async (page) => {
+  const layout = await page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-invoice-mobile-card="true"]'));
+    const firstCard = cards[0];
+    const table = document.querySelector<HTMLElement>('section[aria-label="Invoice directory table"]');
+    const actionLabels = firstCard ? Array.from(firstCard.querySelectorAll("button")).map((button) => button.getAttribute("aria-label") || button.innerText) : [];
+    return {
+      cardCount: cards.length,
+      firstText: firstCard?.innerText || "",
+      openActionCount: actionLabels.filter((label) => /Open invoice/.test(label)).length,
+      correctionActionCount: actionLabels.filter((label) => /Review correction options/.test(label)).length,
+      tableVisible: Boolean(table && getComputedStyle(table).display !== "none" && table.getClientRects().length),
+    };
+  });
+  return [
+    { id: "invoice-register-phone-cards-visible", passed: layout.cardCount > 0, details: `responsive invoice cards: ${layout.cardCount}` },
+    { id: "invoice-register-phone-key-fields-visible", passed: /Amount|Project|Date/.test(layout.firstText) && /Needs review|Verified/.test(layout.firstText), details: layout.firstText.slice(0, 240) || "first invoice card is missing" },
+    { id: "invoice-register-phone-actions-touchable", passed: layout.openActionCount === 1 && layout.correctionActionCount <= 1, details: `open/correction actions: ${layout.openActionCount}/${layout.correctionActionCount}` },
+    { id: "invoice-register-phone-hides-wide-table", passed: !layout.tableVisible, details: `wide invoice table visible: ${layout.tableVisible}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyInvoiceFilterSheetPhone: QaScenarioAction = async (page) => {
+  const filterButton = page.getByRole("button", { name: /^Filters/ }).first();
+  await filterButton.click();
+  const panel = page.getByRole("dialog", { name: "Filters options", exact: true });
+  await panel.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const closeButton = page.getByRole("button", { name: "Close filters", exact: true });
+  const closeButtonCount = await closeButton.count();
+  const layout = await page.evaluate(() => {
+    const element = document.querySelector<HTMLElement>('[role="dialog"][aria-label="Filters options"]');
+    if (!element) return null;
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportWidth: document.documentElement.clientWidth,
+      viewportHeight: window.innerHeight,
+      containsFocus: element.contains(document.activeElement),
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      overflowY: style.overflowY,
+    };
+  });
+  let panelClosedByButton = false;
+  let focusReturnedToTrigger = false;
+  if (closeButtonCount === 1) {
+    await closeButton.click();
+    panelClosedByButton = await page.getByRole("dialog", { name: "Filters options", exact: true }).count() === 0;
+    await page.waitForFunction(() => document.activeElement?.getAttribute("aria-controls")?.startsWith("advanced-filter-") === true, [], { timeout: READY_TIMEOUT_MS });
+    focusReturnedToTrigger = await page.evaluate(() => document.activeElement?.getAttribute("aria-controls")?.startsWith("advanced-filter-") === true);
+    await filterButton.click();
+    await panel.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  }
+  return [
+    { id: "invoice-filter-phone-panel-within-viewport", passed: Boolean(layout && layout.left >= 0 && layout.right <= layout.viewportWidth && layout.top >= 0 && layout.bottom <= layout.viewportHeight), details: layout ? `panel bounds ${Math.round(layout.left)},${Math.round(layout.top)}–${Math.round(layout.right)},${Math.round(layout.bottom)} within ${layout.viewportWidth}×${layout.viewportHeight}` : "filter panel is missing" },
+    { id: "invoice-filter-phone-first-control-focused", passed: layout?.containsFocus === true, details: `focus inside filter panel: ${layout?.containsFocus ?? false}` },
+    { id: "invoice-filter-phone-long-panel-scrollable", passed: Boolean(layout && (layout.scrollHeight <= layout.clientHeight || layout.overflowY === "auto" || layout.overflowY === "scroll")), details: layout ? `panel scroll ${layout.clientHeight}/${layout.scrollHeight}px, overflow-y=${layout.overflowY}` : "filter panel is missing" },
+    { id: "invoice-filter-phone-close-button-visible", passed: closeButtonCount === 1, details: `Close filters controls: ${closeButtonCount}` },
+    { id: "invoice-filter-phone-close-restores-focus", passed: panelClosedByButton && focusReturnedToTrigger, details: `closed: ${panelClosedByButton}; focus returned: ${focusReturnedToTrigger}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyDarkInvoiceFilterSheet: QaScenarioAction = async (page) => {
+  const themeAssertions = await applyThemePreferenceForVisualQa(page, "dark");
+  const filterAssertions = (await verifyInvoiceFilterSheetPhone(page)) || [];
+  const colors = await page.evaluate(() => {
+    const panel = document.querySelector<HTMLElement>('[role="dialog"][aria-label="Filters options"]');
+    const control = panel?.querySelector<HTMLElement>("input, select, textarea");
+    if (!panel || !control) return null;
+    const panelStyle = getComputedStyle(panel);
+    const controlStyle = getComputedStyle(control);
+    return {
+      panelBackground: panelStyle.backgroundColor,
+      panelText: panelStyle.color,
+      controlBackground: controlStyle.backgroundColor,
+      controlText: controlStyle.color,
+      controlBorder: controlStyle.borderTopColor,
+    };
+  });
+  const panelTextContrast = colors ? contrastRatio(colors.panelText, colors.panelBackground) : 0;
+  const controlTextContrast = colors ? contrastRatio(colors.controlText, colors.controlBackground) : 0;
+  const controlBorderContrast = colors ? contrastRatio(colors.controlBorder, colors.controlBackground) : 0;
+  return [...themeAssertions, ...filterAssertions,
+    { id: "r4e-dark-phone-filter-surface", passed: colors?.panelBackground === "rgb(30, 41, 59)", details: `filter surface: ${colors?.panelBackground || "missing"}` },
+    { id: "r4e-dark-phone-filter-text-aa", passed: panelTextContrast >= 4.5, details: `filter text contrast: ${panelTextContrast.toFixed(2)}:1` },
+    { id: "r4e-dark-phone-filter-control-aa", passed: controlTextContrast >= 4.5, details: `filter control text contrast: ${controlTextContrast.toFixed(2)}:1` },
+    { id: "r4e-dark-phone-filter-control-boundary", passed: controlBorderContrast >= 3, details: `filter control boundary contrast: ${controlBorderContrast.toFixed(2)}:1` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyPayrollFirstView: QaScenarioAction = async (page) => {
+  const layout = await page.evaluate(() => {
+    const nextStep = Array.from(document.querySelectorAll<HTMLElement>("h1,h2,h3,h4")).find((element) => element.textContent?.trim() === "Next step");
+    const review = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find((element) => element.textContent?.trim() === "Review payroll");
+    const reviewRect = review?.getBoundingClientRect();
+    const summary = document.querySelector<HTMLElement>("[data-payroll-period-summary]");
+    return {
+      nextStepTop: nextStep?.getBoundingClientRect().top ?? null,
+      reviewButtonInFirstView: Boolean(reviewRect && reviewRect.top >= 0 && reviewRect.bottom <= window.innerHeight),
+      navigationButtons: document.querySelectorAll('[data-payroll-navigation="true"] button').length,
+      periodSummaryCollapsed: summary?.querySelector("button")?.getAttribute("aria-expanded") === "false",
+    };
+  });
+  return [
+    { id: "payroll-next-step-first-view", passed: layout.nextStepTop !== null && layout.nextStepTop < 800, details: `Next step top: ${layout.nextStepTop ?? "missing"}px in 390×844 view` },
+    { id: "payroll-primary-next-step-visible", passed: layout.reviewButtonInFirstView, details: `Review payroll button fits first view: ${layout.reviewButtonInFirstView}` },
+    { id: "payroll-compact-navigation-preserved", passed: layout.navigationButtons === 7, details: `Payroll navigation buttons: ${layout.navigationButtons}` },
+    { id: "payroll-period-summary-progressively-disclosed", passed: layout.periodSummaryCollapsed, details: `Period summary collapsed: ${layout.periodSummaryCollapsed}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyEmailComposeFirstView: QaScenarioAction = async (page) => {
+  const layout = await page.evaluate(() => {
+    const compose = document.querySelector<HTMLElement>('[data-email-compose="true"]');
+    const toolbar = compose?.querySelector<HTMLElement>("[data-email-compose-toolbar]");
+    const to = compose?.querySelector<HTMLElement>('input[placeholder^="recipient"]');
+    const provider = compose?.querySelector<HTMLElement>('[aria-label="Brevo email provider status"]');
+    const buttons = compose ? Array.from(compose.querySelectorAll<HTMLButtonElement>("button")).map((button) => button.textContent?.trim() || "") : [];
+    const send = buttons.find((label) => label.includes("Confirm & Send"));
+    const sendButton = send && compose ? Array.from(compose.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === send) : undefined;
+    return {
+      toTop: to?.getBoundingClientRect().top ?? null,
+      toolbarHeight: toolbar?.getBoundingClientRect().height ?? null,
+      providerVisible: Boolean(provider && getComputedStyle(provider).display !== "none"),
+      providerText: provider?.innerText || "",
+      emailSetupInCompose: buttons.filter((label) => label === "Email setup").length,
+      browseDocuments: buttons.filter((label) => label.includes("Browse Documents")).length,
+      composeSms: buttons.filter((label) => label.includes("Compose SMS")).length,
+      sendDisabledUntilReview: sendButton?.disabled ?? false,
+      providerStatusTab: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-email-sms-tabs] button")).some((button) => button.getAttribute("aria-label") === "Email Provider Status"),
+    };
+  });
+  const composeTools = page.locator('[data-email-compose-tools] summary');
+  const composeToolsCount = await composeTools.count();
+  let composeToolLabels = "";
+  if (composeToolsCount === 1) {
+    await composeTools.click();
+    composeToolLabels = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>("[data-email-compose-tools] button"))
+      .filter((button) => button.getClientRects().length > 0)
+      .map((button) => button.innerText.trim())
+      .join(" | "));
+    await composeTools.click();
+  }
+  return [
+    { id: "email-compose-fields-appear-first-view", passed: layout.toTop !== null && layout.toTop < 800, details: `To field top: ${layout.toTop ?? "missing"}px in 390×844 view` },
+    { id: "email-compose-toolbar-compact", passed: layout.toolbarHeight !== null && layout.toolbarHeight <= 72, details: `compose toolbar height: ${layout.toolbarHeight ?? "missing"}px` },
+    { id: "email-compose-provider-error-remains-visible", passed: layout.providerVisible && /Connection problem|Ready|Sender setup required|Not configured/.test(layout.providerText), details: `provider state: ${layout.providerText.trim() || "missing"}` },
+    { id: "email-compose-status-navigation-remains-reachable", passed: layout.providerStatusTab && layout.emailSetupInCompose === 0, details: `provider tab: ${layout.providerStatusTab}; duplicate setup buttons in compose: ${layout.emailSetupInCompose}` },
+    { id: "email-compose-document-and-sms-actions-remain", passed: layout.browseDocuments === 1 && layout.composeSms === 1, details: `Browse Documents / Compose SMS: ${layout.browseDocuments}/${layout.composeSms}` },
+    { id: "email-compose-secondary-actions-touch-reachable", passed: composeToolsCount === 1 && /Browse Documents/.test(composeToolLabels) && /Compose SMS/.test(composeToolLabels), details: `More actions options: ${composeToolLabels || "missing"}` },
+    { id: "email-send-remains-review-gated", passed: layout.sendDisabledUntilReview, details: `Confirm & Send disabled until review: ${layout.sendDisabledUntilReview}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+function verifyPageHeaderActionVariants(expected: readonly { label: string; variant: "primary" | "secondary" | "ghost" | "destructive" }[]): QaScenarioAction {
+  return async (page) => {
+    const actions = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLButtonElement>('[data-ui="page-header-actions"] button')).map((button) => ({
+      label: (button.innerText || button.textContent || "").replace(/\s+/g, " ").trim(),
+      variant: button.getAttribute("data-variant"),
+    })));
+    const primaryCount = actions.filter((action) => action.variant === "primary").length;
+    return [
+      ...expected.map((entry) => {
+        const button = actions.find((action) => action.label === entry.label);
+        return { id: `page-header-${entry.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${entry.variant}`, passed: button?.variant === entry.variant, details: `${entry.label}: ${button?.variant || "unclassified"}` } satisfies QaAssertion;
+      }),
+      { id: "page-header-at-most-one-primary", passed: primaryCount <= 1, details: `primary-filled actions: ${primaryCount}` },
+    ];
+  };
+}
+
+const verifyDemoWorkspaceChrome: QaScenarioAction = async (page) => {
+  const banner = await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>("[data-demo-workspace-banner]");
+    const safeStatus = document.querySelector<HTMLElement>("[data-demo-safe-status]");
+    return {
+      height: header?.getBoundingClientRect().height ?? null,
+      bannerText: header?.innerText || "",
+      safeStatusText: safeStatus?.innerText || "",
+      viewportWidth: window.innerWidth,
+      tourTriggerCount: Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
+        const label = button.getAttribute("aria-label") || button.innerText.trim();
+        return ["Open demo tour", "Demo Tour"].includes(label) && button.getClientRects().length > 0;
+      }).length,
+    };
+  });
+  const toolsSummary = page.locator('[data-demo-tools="true"] summary');
+  const toolsCount = await toolsSummary.count();
+  if (toolsCount === 1) await toolsSummary.click();
+  const options = await page.evaluate(() => {
+    const menu = document.querySelector<HTMLElement>("[data-demo-tools-menu]");
+    return menu ? (menu.innerText || "") : "";
+  });
+  return [
+    { id: "demo-workspace-banner-compact", passed: banner.height !== null && banner.height <= 100, details: `demo banner height: ${banner.height ?? "missing"}px` },
+    { id: "demo-workspace-banner-does-not-repeat-sidebar-company", passed: !/Hydroqualisense Solutions Corp/i.test(banner.bannerText), details: `company identity in demo toolbar: ${/Hydroqualisense Solutions Corp/i.test(banner.bannerText) ? "repeated" : "sidebar only"}` },
+    { id: "demo-data-boundary-stays-visible", passed: /Isolated demo/.test(banner.safeStatusText) && /production authentication/i.test(banner.safeStatusText), details: banner.safeStatusText || "demo safety status missing" },
+    { id: "demo-tools-actions-remain-accessible", passed: toolsCount === 1 && /Documents/.test(options) && /AI Assistant/.test(options) && /Reset/.test(options), details: `tools disclosure: ${toolsCount}; options: ${options.replace(/\s+/g, " ").trim() || "missing"}` },
+    { id: "demo-tour-remains-reachable-without-duplicate-launchers", passed: banner.viewportWidth < 640 ? /Tour/.test(options) : banner.tourTriggerCount === 1, details: `visible Tour launchers: ${banner.tourTriggerCount}; phone menu includes Tour: ${/Tour/.test(options)}` },
+  ] satisfies readonly QaAssertion[];
+};
 
 async function verifyEntityMediaThumbnails(page: QaBrowserPage, label: string): Promise<readonly QaAssertion[]> {
   await page.locator('[data-entity-media-thumbnail="true"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
@@ -112,6 +653,27 @@ const verifyProjectMediaControls: QaScenarioAction = async (page) => {
     { id: "project-image-replace-control-visible", passed: replaceCount === 1, details: `Replace controls: ${replaceCount}` },
     { id: "project-image-remove-control-visible", passed: removeCount === 1, details: `Remove controls: ${removeCount}` },
   ];
+};
+
+const verifyPayrollSummaryDisclosure: QaScenarioAction = async (page) => {
+  const trigger = page.getByRole("button", { name: /Payroll period summary/ }).first();
+  const triggerCount = await trigger.count();
+  const initialState = await page.evaluate(() => document.querySelector<HTMLElement>("[data-payroll-period-summary] [data-ui=disclosure-section] > button")?.getAttribute("aria-expanded") || "missing");
+  await trigger.click();
+  const expanded = await page.evaluate(() => {
+    const section = document.querySelector<HTMLElement>("[data-payroll-period-summary] [data-ui=disclosure-section]");
+    return {
+      state: section?.querySelector("button")?.getAttribute("aria-expanded") || "missing",
+      text: section?.innerText || "",
+    };
+  });
+  await trigger.click();
+  const restoredState = await page.evaluate(() => document.querySelector<HTMLElement>("[data-payroll-period-summary] [data-ui=disclosure-section] > button")?.getAttribute("aria-expanded") || "missing");
+  return [
+    { id: "r4e-payroll-summary-disclosure-present", passed: triggerCount === 1 && initialState === "false", details: `trigger count: ${triggerCount}; initial state: ${initialState}` },
+    { id: "r4e-payroll-summary-details-retained", passed: expanded.state === "true" && ["Active workers", "Current period", "Estimated gross", "Project labor", "Admin / overhead"].every((label) => expanded.text.includes(label)), details: `expanded metrics: ${expanded.text.replaceAll("\n", " · ").slice(0, 240)}` },
+    { id: "r4e-payroll-summary-collapses", passed: restoredState === "false", details: `restored disclosure state: ${restoredState}` },
+  ] satisfies readonly QaAssertion[];
 };
 
 const verifyProjectMaterialImage: QaScenarioAction = async (page) => {
@@ -303,12 +865,19 @@ const verifyPayrollNormalCycleOverview: QaScenarioAction = async (page) => {
   const nextStep = await page.getByRole("heading", { name: "Next step", exact: true }).count();
   const reviewOrPrepare = await page.getByRole("button", { name: /Review payroll|Import workbook/ }).count();
   const calculateFromOverview = await page.getByRole("button", { name: "Calculate payroll", exact: true }).count();
-  const stageCopy = await page.locator("text=Calculation, approval, and payment remain separate stages").count();
+  const stageBoundary = await page.evaluate(() => {
+    const panel = document.querySelector<HTMLElement>('[data-payroll-next-step="true"]');
+    const text = panel?.innerText || "";
+    return {
+      approvalAndPaymentSeparated: text.includes("Approval and payment stay separate"),
+      paymentRoutedToCash: text.includes("record payment through Cash & Banking"),
+    };
+  });
   return [
     { id: "payroll-normal-cycle-next-step-visible", passed: nextStep === 1, details: `next-step panels: ${nextStep}` },
     { id: "payroll-normal-cycle-review-or-prepare-action-visible", passed: reviewOrPrepare >= 1, details: `review/prepare actions: ${reviewOrPrepare}` },
     { id: "payroll-overview-does-not-calculate-directly", passed: calculateFromOverview === 0, details: `overview Calculate payroll buttons: ${calculateFromOverview}` },
-    { id: "payroll-normal-cycle-stage-boundary-visible", passed: stageCopy === 1, details: `stage-boundary copy: ${stageCopy}` },
+    { id: "payroll-normal-cycle-stage-boundary-visible", passed: stageBoundary.approvalAndPaymentSeparated && stageBoundary.paymentRoutedToCash, details: `approval/payment separated: ${stageBoundary.approvalAndPaymentSeparated}; Cash & Banking handoff: ${stageBoundary.paymentRoutedToCash}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -1217,6 +1786,66 @@ function route(id: string, canonicalPath: string) {
   return { id, canonicalPath } as const;
 }
 
+const R4E_VISUAL_ROUTES = [
+  { id: "dashboard", canonicalPath: "/dashboard", path: "/demo/app/dashboard", label: "Home" },
+  { id: "invoices", canonicalPath: "/invoices", path: "/demo/app/invoices", label: "Supplier Invoices" },
+  { id: "review", canonicalPath: "/review?invoiceId=:invoiceId", path: "/demo/app/review?invoiceId=demo-invoice-07", label: "Invoice Review" },
+  { id: "payroll", canonicalPath: "/payroll", path: "/demo/app/payroll", label: "Payroll" },
+  { id: "inbox", canonicalPath: "/email-sms", path: "/demo/app/email-sms?view=compose", label: "Email and SMS" },
+  { id: "cash", canonicalPath: "/cash", path: "/demo/app/cash", label: "Cash and Banking" },
+  { id: "expenses", canonicalPath: "/expenses", path: "/demo/app/expenses", label: "Expenses" },
+  { id: "procurement", canonicalPath: "/procurement", path: "/demo/app/procurement", label: "Procurement" },
+  { id: "warehouse", canonicalPath: "/warehouse", path: "/demo/app/warehouse", label: "Warehouse" },
+  { id: "equipment", canonicalPath: "/equipment", path: "/demo/app/equipment", label: "Equipment" },
+  { id: "documents", canonicalPath: "/documents", path: "/demo/app/documents", label: "Documents" },
+  { id: "reports", canonicalPath: "/reports", path: "/demo/app/reports", label: "Reports" },
+  { id: "project-materials-equipment", canonicalPath: "/projects/:projectId/materials-equipment", path: "/demo/app/projects/demo-project-warehouse/materials-equipment", label: "Project Materials and Equipment" },
+  { id: "rfis", canonicalPath: "/projects/:projectId/rfis", path: "/demo/app/projects/demo-project-warehouse/rfis", label: "RFIs" },
+  { id: "submittals", canonicalPath: "/projects/:projectId/submittals", path: "/demo/app/projects/demo-project-warehouse/submittals", label: "Submittals" },
+  { id: "site-logs", canonicalPath: "/projects/:projectId/site-logs", path: "/demo/app/projects/demo-project-warehouse/site-logs", label: "Site Logs" },
+  { id: "vendors", canonicalPath: "/vendors", path: "/demo/app/vendors", label: "Vendors" },
+  { id: "settings", canonicalPath: "/settings", path: "/demo/app/settings", label: "Settings" },
+] as const;
+
+const R4E_SYSTEM_THEME_ROUTES = R4E_VISUAL_ROUTES.filter((candidate) => ["dashboard", "invoices", "payroll"].includes(candidate.id));
+const R4E_DARK_ROUTE_AUDIT = [
+  { id: "project-overview", canonicalPath: "/projects/:projectId", path: "/demo/app/projects/demo-project-warehouse", label: "Project overview" },
+  { id: "project-financial-control", canonicalPath: "/projects/:projectId", path: "/demo/app/projects/demo-project-solar", label: "Project financial control" },
+  { id: "project-documents", canonicalPath: "/projects/:projectId/documents", path: "/demo/app/projects/demo-project-warehouse/documents", label: "Project documents" },
+  { id: "blueprint-viewer", canonicalPath: "/projects/:projectId/documents", path: "/demo/app/projects/demo-project-warehouse/documents", label: "Blueprint viewer" },
+  { id: "engineering-documents", canonicalPath: "/documents", path: "/demo/app/documents", label: "Engineering documents" },
+  { id: "rfi-detail", canonicalPath: "/projects/:projectId/rfis?rfiId=:rfiId", path: "/demo/app/projects/demo-project-warehouse/rfis?rfiId=demo-rfi-missing-s3e", label: "RFI detail recovery" },
+  { id: "submittal-detail", canonicalPath: "/projects/:projectId/submittals?submittalId=:submittalId&roundId=:roundId", path: "/demo/app/projects/demo-project-warehouse/submittals?submittalId=demo-sub-missing-s3e&roundId=demo-round-missing-s3e", label: "Submittal detail recovery" },
+  { id: "site-log-detail", canonicalPath: "/projects/:projectId/site-logs?siteLogId=:siteLogId", path: "/demo/app/projects/demo-project-warehouse/site-logs?siteLogId=demo-site-log-wh-concrete", label: "Site Log detail" },
+  { id: "cash-settlement", canonicalPath: "/cash?transactionId=:transactionId", path: "/demo/app/cash?transactionId=demo-transaction-19", label: "Cash settlement" },
+  { id: "extract", canonicalPath: "/extract", path: "/demo/app/extract", label: "Invoice extraction" },
+  { id: "invoice-detail", canonicalPath: "/invoices/:invoiceId", path: "/demo/app/invoices/demo-invoice-01", label: "Supplier invoice detail" },
+  { id: "payroll-run", canonicalPath: "/payroll?runId=:runId", path: "/demo/app/payroll?runId=demo-payroll-run-9", label: "Payroll run" },
+  { id: "project-billing", canonicalPath: "/projects/:projectId/billing?billingId=:billingId", path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", label: "Client billing" },
+  { id: "assistant", canonicalPath: "/assistant", path: "/demo/app/assistant", label: "Assistant" },
+  { id: "help", canonicalPath: "/help?topic=invoice-review", path: "/help?topic=invoice-review", label: "Help Center article" },
+] as const;
+
+const verifyR4eDarkRouteAudit: QaScenarioAction = async (page) => {
+  const themeAssertions = (await applyDarkTheme(page)) || [];
+  const shellAssertions = (await verifyR4eResponsiveShell(page)) || [];
+  return [...themeAssertions, ...shellAssertions];
+};
+
+function r4eThemeAction(preference: "light" | "dark" | "system-light" | "system-dark"): QaScenarioAction {
+  return async (page) => {
+    const themeAssertions = preference === "system-light"
+      ? await verifyR4eSystemLight(page)
+      : preference === "system-dark"
+        ? await verifyR4eSystemDark(page)
+        : preference === "dark"
+          ? await applyDarkTheme(page)
+          : await applyLightTheme(page);
+    const shellAssertions = (await verifyR4eResponsiveShell(page)) || [];
+    return [...(themeAssertions || []), ...shellAssertions];
+  };
+}
+
 export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "demo", route: route("landing", "/demo"), path: "/demo", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
@@ -1370,4 +1999,52 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "entity-media", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "R4D canonical Material media and fallback · Dark", viewport: QA_VIEWPORTS.desktop, action: verifyMaterialMediaDark }),
   defineQaScenario({ feature: "entity-media", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "R4D canonical Material media and fallback · Tablet", viewport: R4D_TABLET, action: verifyMaterialMediaLight }),
   defineQaScenario({ feature: "entity-media", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "R4D canonical Material media and fallback · Light phone", viewport: QA_VIEWPORTS.mobile, action: verifyMaterialMediaLight }),
+  defineQaScenario({ feature: "ui-r4e-theme", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "R4E Dark surface and legacy neutral contrast inspected", viewport: QA_VIEWPORTS.desktop, action: verifyR4eLegacySurfaceContrast }),
+  defineQaScenario({ feature: "ui-r4e-theme", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "R4E Dark procurement committed metric contrast inspected", viewport: QA_VIEWPORTS.desktop, action: verifyR4eProcurementMetricContrast }),
+  defineQaScenario({ feature: "ui-r4e-responsive-density", route: route("expenses", "/expenses"), path: "/demo/app/expenses", interactionState: "R4E Expenses register fits or exposes the complete responsive record path", viewport: R4E_VIEWPORTS[0], action: verifyR4eExpenseRegisterFit }),
+  defineQaScenario({ feature: "ui-r4e-theme", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "R4E Dark primary action contrast inspected", viewport: QA_VIEWPORTS.desktop, action: verifyR4ePrimaryButtonContrast }),
+  defineQaScenario({ feature: "ui-r4e-invoice-directory", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "R4E compact invoice filters and removable active chip verified", viewport: QA_VIEWPORTS.desktop, action: verifyInvoiceRegisterCompactFilters }),
+  defineQaScenario({ feature: "ui-r4e-invoice-directory", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "R4E readable invoice cards verified at phone width", viewport: QA_VIEWPORTS.mobile, action: verifyInvoiceRegisterPhoneCards }),
+  defineQaScenario({ feature: "ui-r4e-invoice-directory", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "R4E filter disclosure opened at phone width", viewport: QA_VIEWPORTS.mobile, action: verifyInvoiceFilterSheetPhone }),
+  defineQaScenario({ feature: "ui-r4e-theme-overlays", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "R4E Dark phone filter sheet contrast and focus inspected", viewport: R4E_VIEWPORTS[3], action: verifyDarkInvoiceFilterSheet }),
+  defineQaScenario({ feature: "ui-r4e-payroll-hierarchy", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "R4E Payroll next step prioritized at phone width", viewport: QA_VIEWPORTS.mobile, action: verifyPayrollFirstView }),
+  defineQaScenario({ feature: "ui-r4e-payroll-hierarchy", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "R4E secondary Payroll period details remain available by disclosure", viewport: R4E_VIEWPORTS[0], action: verifyPayrollSummaryDisclosure }),
+  defineQaScenario({ feature: "ui-r4e-email-compose", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "R4E Email compose task-first phone view", viewport: QA_VIEWPORTS.mobile, action: verifyEmailComposeFirstView }),
+  defineQaScenario({ feature: "ui-r4e-demo-chrome", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4E safe-demo chrome compact at phone width", viewport: QA_VIEWPORTS.mobile, action: verifyDemoWorkspaceChrome }),
+  defineQaScenario({ feature: "ui-r4e-demo-chrome", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4E safe-demo chrome compact at desktop width", viewport: QA_VIEWPORTS.desktop, action: verifyDemoWorkspaceChrome }),
+  defineQaScenario({ feature: "ui-r4e-action-grammar", route: route("cash", "/cash"), path: "/demo/app/cash", interactionState: "R4E Cash header action variants verified", viewport: QA_VIEWPORTS.desktop, action: verifyPageHeaderActionVariants([{ label: "Executive Dashboard", variant: "ghost" }, { label: "Add account", variant: "primary" }]) }),
+  defineQaScenario({ feature: "ui-r4e-action-grammar", route: route("expenses", "/expenses"), path: "/demo/app/expenses", interactionState: "R4E Expenses header action variants verified", viewport: QA_VIEWPORTS.desktop, action: verifyPageHeaderActionVariants([{ label: "Upload supplier invoice", variant: "secondary" }, { label: "Add expense", variant: "primary" }]) }),
+  defineQaScenario({ feature: "ui-r4e-action-grammar", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "R4E Equipment header action variant verified", viewport: QA_VIEWPORTS.desktop, action: verifyPageHeaderActionVariants([{ label: "Add Equipment", variant: "primary" }]) }),
+  defineQaScenario({ feature: "ui-r4e-action-grammar", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "R4E Warehouse header action variants verified", viewport: QA_VIEWPORTS.desktop, action: verifyPageHeaderActionVariants([{ label: "Add item", variant: "primary" }, { label: "Opening stock", variant: "secondary" }]) }),
+  defineQaScenario({ feature: "ui-r4e-action-grammar", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "R4E Procurement header action variant verified", viewport: QA_VIEWPORTS.desktop, action: verifyPageHeaderActionVariants([{ label: "New Purchase Order", variant: "primary" }]) }),
+  ...R4E_VISUAL_ROUTES.flatMap((visualRoute) => R4E_VIEWPORTS.flatMap((viewport) => (["light", "dark"] as const).map((theme) =>
+    defineQaScenario({
+      feature: "ui-r4e-visual-matrix",
+      route: route(visualRoute.id, visualRoute.canonicalPath),
+      path: visualRoute.path,
+      interactionState: `R4E ${theme} theme visual · ${visualRoute.label}`,
+      viewport,
+      action: r4eThemeAction(theme),
+    })
+  ))),
+  ...R4E_SYSTEM_THEME_ROUTES.flatMap((visualRoute) => R4E_VIEWPORTS.flatMap((viewport) => (["system-light", "system-dark"] as const).map((systemTheme) =>
+    defineQaScenario({
+      feature: "ui-r4e-visual-matrix",
+      route: route(visualRoute.id, visualRoute.canonicalPath),
+      path: visualRoute.path,
+      interactionState: `R4E ${systemTheme === "system-light" ? "System/OS Light" : "System/OS Dark"} · ${visualRoute.label}`,
+      viewport,
+      action: r4eThemeAction(systemTheme),
+    })
+  ))),
+  ...R4E_DARK_ROUTE_AUDIT.map((auditRoute) => defineQaScenario({
+    feature: "ui-r4e-route-audit",
+    route: route(auditRoute.id, auditRoute.canonicalPath),
+    path: auditRoute.path,
+    interactionState: `R4E Dark route audit · ${auditRoute.label}`,
+    viewport: R4E_VIEWPORTS[0],
+    action: verifyR4eDarkRouteAudit,
+  })),
+  defineQaScenario({ feature: "ui-r4e-keyboard-touch", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4E desktop keyboard focus and account menu verified", viewport: R4E_VIEWPORTS[0], action: verifyR4eKeyboardAccountNavigation }),
+  defineQaScenario({ feature: "ui-r4e-keyboard-touch", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4E mobile navigation and account menu verified", viewport: R4E_VIEWPORTS[3], action: verifyR4eMobileNavigationAndAccount }),
 ];

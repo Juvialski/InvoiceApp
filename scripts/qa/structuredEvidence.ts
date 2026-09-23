@@ -63,6 +63,7 @@ export interface QaBrowserPage {
   goBack(): Promise<unknown>;
   goForward(): Promise<unknown>;
   reload(options?: { waitUntil?: "networkidle"; timeout?: number }): Promise<unknown>;
+  emulateMedia(options: { colorScheme: "light" | "dark" }): Promise<void>;
   keyboard: QaBrowserKeyboard;
   url(): string;
 }
@@ -234,6 +235,19 @@ export function normalizeErrorMessage(value: unknown, fallback = "Unknown browse
   const normalized = message ? truncate(redactSensitiveText(message).replace(/\s+/g, " ").trim()) : "";
   if (normalized === "[object Object]") return fallback;
   return normalized || fallback;
+}
+
+/** Keep failed deterministic assertions concise and actionable in CI logs. */
+export function formatFailedQaAssertions(assertions: readonly QaAssertion[], maxItems = 5): string[] {
+  const failed = assertions.filter((assertion) => !assertion.passed);
+  const requestedLimit = Number.isFinite(maxItems) ? Math.floor(maxItems) : 5;
+  const limit = Math.max(1, requestedLimit);
+  const lines = failed.slice(0, limit).map((assertion) => {
+    const details = assertion.details ? normalizeErrorMessage(assertion.details, "Assertion failed.") : "Assertion failed.";
+    return `assertion=${assertion.id} details=${details}`;
+  });
+  if (failed.length > limit) lines.push(`assertions_omitted=${failed.length - limit}`);
+  return lines;
 }
 
 function normalizeSafeSearch(search: string): string {

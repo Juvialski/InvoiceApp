@@ -48,6 +48,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: var(--color-background-popover, light-dark(#ffffff, #1e293b));
   box-shadow: var(--shadow-high, 0 10px 15px rgb(15 23 42 / 0.08));
 }
+.hqs-popover-header { background: var(--color-background-popover, light-dark(#ffffff, #1e293b)); }
 .hqs-shell-header {
   background: color-mix(in srgb, var(--color-background-surface, light-dark(#ffffff, #1e293b)) 95%, transparent);
   border-color: var(--color-border, light-dark(#e2e8f0, #334155));
@@ -58,12 +59,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hqs-border { border-color: var(--color-border, light-dark(#e2e8f0, #334155)); }
 .hqs-control,
 .hqs-input {
-  border: 1px solid var(--color-border, light-dark(#e2e8f0, #334155));
+  border: 1px solid light-dark(#64748b, #94a3b8);
   background: var(--color-background-surface, light-dark(#ffffff, #1e293b));
   color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
 }
 .hqs-control:hover,
-.hqs-input:hover { border-color: var(--color-border-emphasized, light-dark(#cbd5e1, #475569)); }
+.hqs-input:hover { border-color: var(--color-accent, light-dark(#4f46e5, #818cf8)); }
+.hqs-control:focus-visible,
+.hqs-input:focus-visible { border-color: var(--color-accent, light-dark(#4f46e5, #818cf8)); }
 .hqs-input::placeholder { color: var(--color-text-secondary, light-dark(#475569, #94a3b8)); }
 .hqs-focus-ring:focus-visible {
   outline: 2px solid var(--color-accent, #6366f1);
@@ -79,7 +82,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hqs-danger-text { color: var(--color-text-red, var(--color-error, light-dark(#be123c, #fb7185))); }
 .hqs-action-button { min-height: 2.5rem; border-radius: var(--radius-element, 0.5rem); }
 .hqs-choice {
-  border: 1px solid var(--color-border, light-dark(#e2e8f0, #334155));
+  border: 1px solid light-dark(#64748b, #94a3b8);
   background: var(--color-background-muted, light-dark(#f1f5f9, #1e293b));
   color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
 }
@@ -150,30 +153,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .field-label { display: block; font-size: 0.8125rem; line-height: 1.15rem; font-weight: 700; color: var(--color-text-secondary, #475569); }
-.field-input { width: 100%; min-height: 2.625rem; border: 1px solid var(--color-border, #e2e8f0); border-radius: 0.75rem; background: var(--color-background-surface, #fff); padding: 0.625rem 0.8rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--color-text-primary, #1e293b); }
+.field-input { width: 100%; min-height: 2.625rem; border: 1px solid light-dark(#64748b, #94a3b8); border-radius: 0.75rem; background: var(--color-background-surface, #fff); padding: 0.625rem 0.8rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--color-text-primary, #1e293b); }
 .field-input:focus { outline: 2px solid color-mix(in srgb, var(--color-accent, #6366f1) 25%, transparent); border-color: var(--color-accent, #818cf8); }
 
 /* Permission risk must not look like access denial. Sensitive permissions keep
    a thin amber cue, while access state is carried by the explicit status text. */
 [data-permission-editor] .border-amber-200.bg-amber-50\/45,
 [data-access-authorization-editor] .border-amber-200.bg-amber-50\/45 {
-  border-color: #e2e8f0 !important;
-  background: #fff !important;
-  box-shadow: inset 3px 0 0 #f59e0b;
+  border-color: light-dark(#64748b, #94a3b8) !important;
+  background: var(--color-background-surface) !important;
+  box-shadow: inset 3px 0 0 var(--color-warning);
 }
 
 [data-permission-editor] .flex.shrink-0.items-center.gap-2 > span:first-child {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--color-border-emphasized);
   border-radius: 9999px;
-  background: #f8fafc;
+  background: var(--color-background-muted);
   padding: 0.2rem 0.5rem;
   line-height: 1rem !important;
 }
 
 [data-permission-editor] .flex.shrink-0.items-center.gap-2 > span.text-emerald-700 {
-  border-color: #a7f3d0;
-  background: #ecfdf5;
-  color: #047857 !important;
+  border-color: var(--color-border-green);
+  background: var(--color-background-green);
+  color: var(--color-text-green) !important;
 }
 
 /* Seven cash metrics need the wide workspace; keep values single-line on
@@ -201,4 +204,598 @@ div[role="dialog"][aria-labelledby="po-modal-title"]
   > .grid.grid-cols-2.gap-3.sm\:grid-cols-4
   > div:nth-child(-n+3) {
   display: none;
+}
+
+/*
+ * R4E authenticated-workspace theme bridge.
+ * Legacy utility names in existing routes resolve through the Astryx theme
+ * tokens here. Scope the bridge to the authenticated app so the separate
+ * public-site design remains untouched.
+ */
+[data-app-shell-main="true"] .bg-white,
+[data-app-shell="true"] [role="dialog"] .bg-white {
+  background-color: var(--color-background-surface);
+}
+[data-app-shell-main="true"] .bg-slate-50,
+[data-app-shell-main="true"] .bg-slate-100,
+[data-app-shell-main="true"] .bg-slate-200,
+[data-app-shell-main="true"] .bg-slate-300,
+[data-app-shell-main="true"] .bg-gray-50,
+[data-app-shell-main="true"] .bg-gray-100,
+[data-app-shell="true"] [role="dialog"] .bg-slate-50,
+[data-app-shell="true"] [role="dialog"] .bg-slate-100,
+[data-app-shell="true"] [role="dialog"] .bg-gray-50,
+[data-app-shell="true"] [role="dialog"] .bg-gray-100 {
+  background-color: var(--color-background-muted);
+}
+
+[data-app-shell-main="true"] [class~="bg-white/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-white/70"] {
+  background-color: color-mix(in srgb, var(--color-background-surface) 70%, transparent);
+}
+[data-app-shell-main="true"] [class~="bg-white/80"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-white/80"] {
+  background-color: color-mix(in srgb, var(--color-background-surface) 80%, transparent);
+}
+[data-app-shell-main="true"] [class~="bg-white/95"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-white/95"] {
+  background-color: color-mix(in srgb, var(--color-background-surface) 95%, transparent);
+}
+
+[data-app-shell-main="true"] [class~="bg-slate-50/40"],
+[data-app-shell-main="true"] [class~="bg-slate-50/50"],
+[data-app-shell-main="true"] [class~="bg-slate-50/60"],
+[data-app-shell-main="true"] [class~="bg-slate-50/70"],
+[data-app-shell-main="true"] [class~="bg-slate-50/80"],
+[data-app-shell-main="true"] [class~="bg-slate-50/90"],
+[data-app-shell-main="true"] [class~="bg-slate-100/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-slate-50/40"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-slate-50/50"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-slate-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-slate-50/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-slate-50/80"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-slate-50/90"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-slate-100/70"] {
+  background-color: color-mix(in srgb, var(--color-background-muted) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .bg-indigo-50,
+[data-app-shell-main="true"] .bg-indigo-100,
+[data-app-shell="true"] [role="dialog"] .bg-indigo-50,
+[data-app-shell="true"] [role="dialog"] .bg-indigo-100 {
+  background-color: var(--color-accent-muted);
+}
+[data-app-shell-main="true"] [class~="bg-indigo-50/20"],
+[data-app-shell-main="true"] [class~="bg-indigo-50/30"],
+[data-app-shell-main="true"] [class~="bg-indigo-50/40"],
+[data-app-shell-main="true"] [class~="bg-indigo-50/50"],
+[data-app-shell-main="true"] [class~="bg-indigo-50/60"],
+[data-app-shell-main="true"] [class~="bg-indigo-50/70"],
+[data-app-shell-main="true"] [class~="bg-indigo-50/80"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-indigo-50/20"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-indigo-50/30"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-indigo-50/40"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-indigo-50/50"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-indigo-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-indigo-50/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-indigo-50/80"] {
+  background-color: color-mix(in srgb, var(--color-accent-muted) 78%, transparent);
+}
+
+[data-app-shell-main="true"] [class~="bg-gradient-to-br"][class~="from-indigo-50/50"][class~="to-white"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-gradient-to-br"][class~="from-indigo-50/50"][class~="to-white"] {
+  background-image: linear-gradient(to bottom right, var(--color-accent-muted), var(--color-background-surface));
+  border-color: var(--color-border-emphasized);
+}
+
+[data-app-shell-main="true"] .bg-emerald-50,
+[data-app-shell-main="true"] .bg-emerald-100,
+[data-app-shell-main="true"] .bg-emerald-200,
+[data-app-shell-main="true"] .bg-green-50,
+[data-app-shell-main="true"] .bg-green-100,
+[data-app-shell="true"] [role="dialog"] .bg-emerald-50,
+[data-app-shell="true"] [role="dialog"] .bg-emerald-100,
+[data-app-shell="true"] [role="dialog"] .bg-green-50,
+[data-app-shell="true"] [role="dialog"] .bg-green-100 {
+  background-color: var(--color-background-green);
+}
+[data-app-shell-main="true"] [class~="bg-emerald-50/20"],
+[data-app-shell-main="true"] [class~="bg-emerald-50/30"],
+[data-app-shell-main="true"] [class~="bg-emerald-50/40"],
+[data-app-shell-main="true"] [class~="bg-emerald-50/50"],
+[data-app-shell-main="true"] [class~="bg-emerald-50/60"],
+[data-app-shell-main="true"] [class~="bg-emerald-50/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-emerald-50/20"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-emerald-50/30"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-emerald-50/40"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-emerald-50/50"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-emerald-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-emerald-50/70"] {
+  background-color: color-mix(in srgb, var(--color-background-green) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .bg-amber-50,
+[data-app-shell-main="true"] .bg-amber-100,
+[data-app-shell-main="true"] .bg-yellow-50,
+[data-app-shell-main="true"] .bg-yellow-100,
+[data-app-shell="true"] [role="dialog"] .bg-amber-50,
+[data-app-shell="true"] [role="dialog"] .bg-yellow-50 {
+  background-color: var(--color-background-yellow);
+}
+[data-app-shell-main="true"] [class~="bg-amber-50/20"],
+[data-app-shell-main="true"] [class~="bg-amber-50/30"],
+[data-app-shell-main="true"] [class~="bg-amber-50/40"],
+[data-app-shell-main="true"] [class~="bg-amber-50/45"],
+[data-app-shell-main="true"] [class~="bg-amber-50/50"],
+[data-app-shell-main="true"] [class~="bg-amber-50/60"],
+[data-app-shell-main="true"] [class~="bg-amber-50/70"],
+[data-app-shell-main="true"] [class~="bg-amber-50/80"],
+[data-app-shell-main="true"] [class~="bg-amber-50/90"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/20"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/30"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/40"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/45"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/50"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/80"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-amber-50/90"] {
+  background-color: color-mix(in srgb, var(--color-background-yellow) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .bg-rose-50,
+[data-app-shell-main="true"] .bg-rose-100,
+[data-app-shell-main="true"] .bg-red-50,
+[data-app-shell="true"] [role="dialog"] .bg-rose-50,
+[data-app-shell="true"] [role="dialog"] .bg-red-50 {
+  background-color: var(--color-background-red);
+}
+[data-app-shell-main="true"] [class~="bg-rose-50/50"],
+[data-app-shell-main="true"] [class~="bg-rose-50/60"],
+[data-app-shell-main="true"] [class~="bg-rose-50/70"],
+[data-app-shell-main="true"] [class~="bg-rose-50/90"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-rose-50/50"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-rose-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-rose-50/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-rose-50/90"] {
+  background-color: color-mix(in srgb, var(--color-background-red) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .bg-blue-50,
+[data-app-shell-main="true"] .bg-blue-100,
+[data-app-shell-main="true"] .bg-sky-50,
+[data-app-shell-main="true"] .bg-sky-100,
+[data-app-shell-main="true"] [class~="bg-blue-50/40"],
+[data-app-shell-main="true"] [class~="bg-blue-50/70"],
+[data-app-shell-main="true"] [class~="bg-sky-50/60"],
+[data-app-shell-main="true"] [class~="bg-sky-50/70"],
+[data-app-shell-main="true"] [class~="bg-cyan-50/40"],
+[data-app-shell="true"] [role="dialog"] .bg-blue-50,
+[data-app-shell="true"] [role="dialog"] .bg-sky-50 {
+  background-color: var(--color-background-blue);
+}
+[data-app-shell-main="true"] [class~="bg-blue-50/40"],
+[data-app-shell-main="true"] [class~="bg-blue-50/70"],
+[data-app-shell-main="true"] [class~="bg-sky-50/60"],
+[data-app-shell-main="true"] [class~="bg-sky-50/70"],
+[data-app-shell-main="true"] [class~="bg-cyan-50/40"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-blue-50/40"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-blue-50/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-sky-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-sky-50/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-cyan-50/40"] {
+  background-color: color-mix(in srgb, var(--color-background-blue) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .bg-purple-50,
+[data-app-shell-main="true"] .bg-purple-100,
+[data-app-shell-main="true"] .bg-violet-50,
+[data-app-shell-main="true"] .bg-violet-100,
+[data-app-shell-main="true"] [class~="bg-purple-50/70"],
+[data-app-shell-main="true"] [class~="bg-violet-50/50"],
+[data-app-shell-main="true"] [class~="bg-violet-50/60"],
+[data-app-shell="true"] [role="dialog"] .bg-purple-50,
+[data-app-shell="true"] [role="dialog"] .bg-violet-50 {
+  background-color: var(--color-background-purple);
+}
+[data-app-shell-main="true"] [class~="bg-purple-50/70"],
+[data-app-shell-main="true"] [class~="bg-violet-50/50"],
+[data-app-shell-main="true"] [class~="bg-violet-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-purple-50/70"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-violet-50/50"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-violet-50/60"] {
+  background-color: color-mix(in srgb, var(--color-background-purple) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .bg-orange-50,
+[data-app-shell-main="true"] .bg-orange-100,
+[data-app-shell-main="true"] [class~="bg-orange-50/40"],
+[data-app-shell-main="true"] [class~="bg-orange-50/60"],
+[data-app-shell="true"] [role="dialog"] .bg-orange-50 {
+  background-color: var(--color-background-orange);
+}
+[data-app-shell-main="true"] [class~="bg-orange-50/40"],
+[data-app-shell-main="true"] [class~="bg-orange-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-orange-50/40"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-orange-50/60"] {
+  background-color: color-mix(in srgb, var(--color-background-orange) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .bg-teal-50,
+[data-app-shell-main="true"] .bg-cyan-50,
+[data-app-shell-main="true"] .bg-teal-100,
+[data-app-shell-main="true"] .bg-cyan-100,
+[data-app-shell-main="true"] [class~="bg-teal-50/60"],
+[data-app-shell="true"] [role="dialog"] .bg-teal-50,
+[data-app-shell="true"] [role="dialog"] .bg-cyan-50 {
+  background-color: var(--color-background-teal);
+}
+[data-app-shell-main="true"] [class~="bg-teal-50/60"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-teal-50/60"] {
+  background-color: color-mix(in srgb, var(--color-background-teal) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .bg-pink-50,
+[data-app-shell-main="true"] .bg-pink-100,
+[data-app-shell="true"] [role="dialog"] .bg-pink-50 {
+  background-color: var(--color-background-pink);
+}
+
+[data-app-shell-main="true"] .bg-cyan-50,
+[data-app-shell-main="true"] .bg-cyan-100,
+[data-app-shell-main="true"] [class~="bg-cyan-50/40"],
+[data-app-shell="true"] [role="dialog"] .bg-cyan-50,
+[data-app-shell="true"] [role="dialog"] [class~="bg-cyan-50/40"] {
+  background-color: var(--color-background-cyan);
+}
+[data-app-shell-main="true"] [class~="bg-cyan-50/40"],
+[data-app-shell="true"] [role="dialog"] [class~="bg-cyan-50/40"] {
+  background-color: color-mix(in srgb, var(--color-background-cyan) 78%, transparent);
+}
+
+[data-app-shell-main="true"] .text-slate-950,
+[data-app-shell-main="true"] .text-slate-900,
+[data-app-shell-main="true"] .text-slate-800,
+[data-app-shell-main="true"] .text-gray-900,
+[data-app-shell-main="true"] [role="dialog"] .text-slate-950,
+[data-app-shell-main="true"] [role="dialog"] .text-slate-900,
+[data-app-shell-main="true"] [role="dialog"] .text-slate-800,
+[data-app-shell-main="true"] [role="dialog"] .text-gray-900 {
+  color: var(--color-text-primary);
+}
+[data-app-shell-main="true"] .text-slate-700,
+[data-app-shell-main="true"] .text-slate-600,
+[data-app-shell-main="true"] .text-slate-500,
+[data-app-shell-main="true"] .text-slate-400,
+[data-app-shell-main="true"] .text-gray-800,
+[data-app-shell-main="true"] .text-gray-700,
+[data-app-shell-main="true"] .text-gray-600,
+[data-app-shell-main="true"] .text-gray-500,
+[data-app-shell="true"] [role="dialog"] .text-slate-700,
+[data-app-shell="true"] [role="dialog"] .text-slate-600,
+[data-app-shell="true"] [role="dialog"] .text-slate-500,
+[data-app-shell="true"] [role="dialog"] .text-slate-400,
+[data-app-shell="true"] [role="dialog"] .text-gray-800,
+[data-app-shell="true"] [role="dialog"] .text-gray-700,
+[data-app-shell="true"] [role="dialog"] .text-gray-600,
+[data-app-shell="true"] [role="dialog"] .text-gray-500 {
+  color: var(--color-text-secondary);
+}
+[data-app-shell-main="true"] [class~="placeholder:text-slate-400"]::placeholder,
+[data-app-shell="true"] [role="dialog"] [class~="placeholder:text-slate-400"]::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 1;
+}
+
+[data-app-shell-main="true"] .text-indigo-900,
+[data-app-shell-main="true"] .text-indigo-950,
+[data-app-shell-main="true"] .text-indigo-800,
+[data-app-shell-main="true"] .text-indigo-700,
+[data-app-shell-main="true"] .text-indigo-600,
+[data-app-shell="true"] [role="dialog"] .text-indigo-900,
+[data-app-shell="true"] [role="dialog"] .text-indigo-800,
+[data-app-shell="true"] [role="dialog"] .text-indigo-700,
+[data-app-shell="true"] [role="dialog"] .text-indigo-600 {
+  color: var(--color-text-accent);
+}
+[data-app-shell-main="true"] .text-emerald-900,
+[data-app-shell-main="true"] .text-emerald-950,
+[data-app-shell-main="true"] .text-emerald-800,
+[data-app-shell-main="true"] .text-emerald-700,
+[data-app-shell-main="true"] .text-emerald-600,
+[data-app-shell-main="true"] .text-green-900,
+[data-app-shell-main="true"] .text-green-950,
+[data-app-shell-main="true"] .text-green-800,
+[data-app-shell-main="true"] .text-green-700,
+[data-app-shell-main="true"] .text-green-600,
+[data-app-shell="true"] [role="dialog"] .text-emerald-900,
+[data-app-shell="true"] [role="dialog"] .text-emerald-800,
+[data-app-shell="true"] [role="dialog"] .text-emerald-700,
+[data-app-shell="true"] [role="dialog"] .text-emerald-600,
+[data-app-shell="true"] [role="dialog"] .text-green-900,
+[data-app-shell="true"] [role="dialog"] .text-green-800,
+[data-app-shell="true"] [role="dialog"] .text-green-700,
+[data-app-shell="true"] [role="dialog"] .text-green-600 {
+  color: var(--color-text-green);
+}
+[data-app-shell-main="true"] .text-amber-950,
+[data-app-shell-main="true"] .text-amber-900,
+[data-app-shell-main="true"] .text-amber-800,
+[data-app-shell-main="true"] .text-amber-700,
+[data-app-shell-main="true"] .text-amber-600,
+[data-app-shell-main="true"] .text-yellow-950,
+[data-app-shell-main="true"] .text-yellow-900,
+[data-app-shell-main="true"] .text-yellow-800,
+[data-app-shell-main="true"] .text-yellow-700,
+[data-app-shell-main="true"] .text-yellow-600,
+[data-app-shell="true"] [role="dialog"] .text-amber-950,
+[data-app-shell="true"] [role="dialog"] .text-amber-900,
+[data-app-shell="true"] [role="dialog"] .text-amber-800,
+[data-app-shell="true"] [role="dialog"] .text-amber-700,
+[data-app-shell="true"] [role="dialog"] .text-amber-600,
+[data-app-shell="true"] [role="dialog"] .text-yellow-950,
+[data-app-shell="true"] [role="dialog"] .text-yellow-900,
+[data-app-shell="true"] [role="dialog"] .text-yellow-800,
+[data-app-shell="true"] [role="dialog"] .text-yellow-700,
+[data-app-shell="true"] [role="dialog"] .text-yellow-600 {
+  color: var(--color-text-yellow);
+}
+[data-app-shell-main="true"] .text-rose-950,
+[data-app-shell-main="true"] .text-rose-900,
+[data-app-shell-main="true"] .text-rose-800,
+[data-app-shell-main="true"] .text-rose-700,
+[data-app-shell-main="true"] .text-rose-600,
+[data-app-shell-main="true"] .text-red-900,
+[data-app-shell-main="true"] .text-red-800,
+[data-app-shell-main="true"] .text-red-700,
+[data-app-shell-main="true"] .text-red-600,
+[data-app-shell="true"] [role="dialog"] .text-rose-950,
+[data-app-shell="true"] [role="dialog"] .text-rose-900,
+[data-app-shell="true"] [role="dialog"] .text-rose-800,
+[data-app-shell="true"] [role="dialog"] .text-rose-700,
+[data-app-shell="true"] [role="dialog"] .text-rose-600,
+[data-app-shell="true"] [role="dialog"] .text-red-900,
+[data-app-shell="true"] [role="dialog"] .text-red-800,
+[data-app-shell="true"] [role="dialog"] .text-red-700,
+[data-app-shell="true"] [role="dialog"] .text-red-600 {
+  color: var(--color-text-red);
+}
+[data-app-shell-main="true"] .text-blue-900,
+[data-app-shell-main="true"] .text-blue-950,
+[data-app-shell-main="true"] .text-blue-800,
+[data-app-shell-main="true"] .text-blue-700,
+[data-app-shell-main="true"] .text-blue-600,
+[data-app-shell-main="true"] .text-sky-900,
+[data-app-shell-main="true"] .text-sky-950,
+[data-app-shell-main="true"] .text-sky-800,
+[data-app-shell-main="true"] .text-sky-700,
+[data-app-shell-main="true"] .text-sky-600,
+[data-app-shell="true"] [role="dialog"] .text-blue-900,
+[data-app-shell="true"] [role="dialog"] .text-blue-800,
+[data-app-shell="true"] [role="dialog"] .text-blue-700,
+[data-app-shell="true"] [role="dialog"] .text-blue-600,
+[data-app-shell="true"] [role="dialog"] .text-sky-900,
+[data-app-shell="true"] [role="dialog"] .text-sky-800,
+[data-app-shell="true"] [role="dialog"] .text-sky-700,
+[data-app-shell="true"] [role="dialog"] .text-sky-600 {
+  color: var(--color-text-blue);
+}
+[data-app-shell-main="true"] .text-purple-900,
+[data-app-shell-main="true"] .text-purple-950,
+[data-app-shell-main="true"] .text-purple-800,
+[data-app-shell-main="true"] .text-purple-700,
+[data-app-shell-main="true"] .text-violet-900,
+[data-app-shell-main="true"] .text-violet-950,
+[data-app-shell-main="true"] .text-violet-800,
+[data-app-shell-main="true"] .text-violet-700,
+[data-app-shell="true"] [role="dialog"] .text-purple-900,
+[data-app-shell="true"] [role="dialog"] .text-purple-800,
+[data-app-shell="true"] [role="dialog"] .text-purple-700,
+[data-app-shell="true"] [role="dialog"] .text-violet-900,
+[data-app-shell="true"] [role="dialog"] .text-violet-800,
+[data-app-shell="true"] [role="dialog"] .text-violet-700 {
+  color: var(--color-text-purple);
+}
+[data-app-shell-main="true"] .text-orange-900,
+[data-app-shell-main="true"] .text-orange-950,
+[data-app-shell-main="true"] .text-orange-800,
+[data-app-shell-main="true"] .text-orange-700,
+[data-app-shell="true"] [role="dialog"] .text-orange-900,
+[data-app-shell="true"] [role="dialog"] .text-orange-800,
+[data-app-shell="true"] [role="dialog"] .text-orange-700 {
+  color: var(--color-text-orange);
+}
+[data-app-shell-main="true"] .text-teal-900,
+[data-app-shell-main="true"] .text-teal-950,
+[data-app-shell-main="true"] .text-teal-800,
+[data-app-shell-main="true"] .text-teal-700,
+[data-app-shell="true"] [role="dialog"] .text-teal-900,
+[data-app-shell="true"] [role="dialog"] .text-teal-800,
+[data-app-shell="true"] [role="dialog"] .text-teal-700 {
+  color: var(--color-text-teal);
+}
+[data-app-shell-main="true"] .text-cyan-900,
+[data-app-shell-main="true"] .text-cyan-950,
+[data-app-shell-main="true"] .text-cyan-800,
+[data-app-shell-main="true"] .text-cyan-700,
+[data-app-shell="true"] [role="dialog"] .text-cyan-900,
+[data-app-shell="true"] [role="dialog"] .text-cyan-800,
+[data-app-shell="true"] [role="dialog"] .text-cyan-700 {
+  color: var(--color-text-cyan);
+}
+
+[data-app-shell-main="true"] .border-slate-50,
+[data-app-shell-main="true"] .border-slate-100,
+[data-app-shell-main="true"] .border-slate-200,
+[data-app-shell-main="true"] .border-gray-100,
+[data-app-shell-main="true"] .border-gray-200,
+[data-app-shell="true"] [role="dialog"] .border-slate-50,
+[data-app-shell="true"] [role="dialog"] .border-slate-100,
+[data-app-shell="true"] [role="dialog"] .border-slate-200,
+[data-app-shell="true"] [role="dialog"] .border-gray-100,
+[data-app-shell="true"] [role="dialog"] .border-gray-200 {
+  border-color: var(--color-border);
+}
+[data-app-shell-main="true"] .border-slate-300,
+[data-app-shell-main="true"] .border-slate-400,
+[data-app-shell-main="true"] .border-indigo-100,
+[data-app-shell-main="true"] .border-indigo-200,
+[data-app-shell="true"] [role="dialog"] .border-slate-300,
+[data-app-shell="true"] [role="dialog"] .border-slate-400,
+[data-app-shell="true"] [role="dialog"] .border-indigo-100,
+[data-app-shell="true"] [role="dialog"] .border-indigo-200 {
+  border-color: var(--color-border-emphasized);
+}
+[data-app-shell-main="true"] .border-emerald-100,
+[data-app-shell-main="true"] .border-emerald-200,
+[data-app-shell-main="true"] .border-emerald-300,
+[data-app-shell-main="true"] .border-green-100,
+[data-app-shell-main="true"] .border-green-200,
+[data-app-shell="true"] [role="dialog"] .border-emerald-100,
+[data-app-shell="true"] [role="dialog"] .border-emerald-200,
+[data-app-shell="true"] [role="dialog"] .border-emerald-300,
+[data-app-shell="true"] [role="dialog"] .border-green-100,
+[data-app-shell="true"] [role="dialog"] .border-green-200 {
+  border-color: var(--color-border-green);
+}
+[data-app-shell-main="true"] .border-amber-100,
+[data-app-shell-main="true"] .border-amber-200,
+[data-app-shell-main="true"] .border-amber-300,
+[data-app-shell-main="true"] .border-yellow-200,
+[data-app-shell="true"] [role="dialog"] .border-amber-100,
+[data-app-shell="true"] [role="dialog"] .border-amber-200,
+[data-app-shell="true"] [role="dialog"] .border-amber-300,
+[data-app-shell="true"] [role="dialog"] .border-yellow-200 {
+  border-color: var(--color-border-yellow);
+}
+[data-app-shell-main="true"] .border-rose-100,
+[data-app-shell-main="true"] .border-rose-200,
+[data-app-shell-main="true"] .border-rose-300,
+[data-app-shell-main="true"] .border-red-500,
+[data-app-shell="true"] [role="dialog"] .border-rose-100,
+[data-app-shell="true"] [role="dialog"] .border-rose-200,
+[data-app-shell="true"] [role="dialog"] .border-rose-300,
+[data-app-shell="true"] [role="dialog"] .border-red-500 {
+  border-color: var(--color-border-red);
+}
+[data-app-shell-main="true"] .border-blue-100,
+[data-app-shell-main="true"] .border-blue-200,
+[data-app-shell-main="true"] .border-blue-300,
+[data-app-shell-main="true"] .border-sky-100,
+[data-app-shell-main="true"] .border-sky-200,
+[data-app-shell="true"] [role="dialog"] .border-blue-100,
+[data-app-shell="true"] [role="dialog"] .border-blue-200,
+[data-app-shell="true"] [role="dialog"] .border-blue-300,
+[data-app-shell="true"] [role="dialog"] .border-sky-100,
+[data-app-shell="true"] [role="dialog"] .border-sky-200 {
+  border-color: var(--color-border-blue);
+}
+[data-app-shell-main="true"] .border-cyan-100,
+[data-app-shell-main="true"] .border-cyan-200,
+[data-app-shell="true"] [role="dialog"] .border-cyan-100,
+[data-app-shell="true"] [role="dialog"] .border-cyan-200 {
+  border-color: var(--color-border-cyan);
+}
+[data-app-shell-main="true"] .border-purple-200,
+[data-app-shell-main="true"] .border-purple-300,
+[data-app-shell-main="true"] .border-violet-100,
+[data-app-shell-main="true"] .border-violet-200,
+[data-app-shell="true"] [role="dialog"] .border-purple-200,
+[data-app-shell="true"] [role="dialog"] .border-purple-300,
+[data-app-shell="true"] [role="dialog"] .border-violet-100,
+[data-app-shell="true"] [role="dialog"] .border-violet-200 {
+  border-color: var(--color-border-purple);
+}
+[data-app-shell-main="true"] .border-orange-100,
+[data-app-shell-main="true"] .border-orange-200,
+[data-app-shell-main="true"] [role="dialog"] .border-orange-100,
+[data-app-shell="true"] [role="dialog"] .border-orange-200 {
+  border-color: var(--color-border-orange);
+}
+[data-app-shell-main="true"] .border-teal-100,
+[data-app-shell-main="true"] .border-teal-200,
+[data-app-shell="true"] [role="dialog"] .border-teal-100,
+[data-app-shell="true"] [role="dialog"] .border-teal-200 {
+  border-color: var(--color-border-teal);
+}
+[data-app-shell-main="true"] .border-indigo-300,
+[data-app-shell-main="true"] .border-indigo-400,
+[data-app-shell-main="true"] .border-indigo-500,
+[data-app-shell-main="true"] .border-indigo-600,
+[data-app-shell="true"] [role="dialog"] .border-indigo-300,
+[data-app-shell="true"] [role="dialog"] .border-indigo-400,
+[data-app-shell="true"] [role="dialog"] .border-indigo-500,
+[data-app-shell="true"] [role="dialog"] .border-indigo-600 {
+  border-color: var(--color-accent);
+}
+[data-app-shell-main="true"] input.border-slate-200,
+[data-app-shell-main="true"] select.border-slate-200,
+[data-app-shell-main="true"] textarea.border-slate-200,
+[data-app-shell-main="true"] input.border-slate-300,
+[data-app-shell-main="true"] select.border-slate-300,
+[data-app-shell-main="true"] textarea.border-slate-300,
+[data-app-shell-main="true"] input.field-input,
+[data-app-shell-main="true"] select.field-input,
+[data-app-shell-main="true"] textarea.field-input,
+[data-app-shell="true"] [role="dialog"] input.border-slate-200,
+[data-app-shell="true"] [role="dialog"] select.border-slate-200,
+[data-app-shell="true"] [role="dialog"] textarea.border-slate-200,
+[data-app-shell="true"] [role="dialog"] input.field-input,
+[data-app-shell="true"] [role="dialog"] select.field-input,
+[data-app-shell="true"] [role="dialog"] textarea.field-input {
+  border-color: light-dark(#64748b, #94a3b8);
+}
+
+[data-app-shell-main="true"] [class~="hover:bg-slate-50"]:hover,
+[data-app-shell="true"] [role="dialog"] [class~="hover:bg-slate-50"]:hover {
+  background-color: var(--color-background-muted);
+}
+[data-app-shell-main="true"] [class~="hover:bg-indigo-50"]:hover,
+[data-app-shell="true"] [role="dialog"] [class~="hover:bg-indigo-50"]:hover {
+  background-color: var(--color-accent-muted);
+}
+[data-app-shell-main="true"] [class~="focus:border-indigo-400"]:focus,
+[data-app-shell="true"] [role="dialog"] [class~="focus:border-indigo-400"]:focus {
+  border-color: var(--color-accent);
+}
+
+[data-app-shell-main="true"] .bg-indigo-600.text-white,
+[data-app-shell-main="true"] .bg-indigo-700.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-indigo-600.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-indigo-700.text-white {
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+[data-app-shell-main="true"] .bg-emerald-600.text-white,
+[data-app-shell-main="true"] .bg-green-600.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-emerald-600.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-green-600.text-white {
+  background-color: var(--color-success);
+  color: var(--color-on-success);
+}
+[data-app-shell-main="true"] .bg-rose-600.text-white,
+[data-app-shell-main="true"] .bg-rose-700.text-white,
+[data-app-shell-main="true"] .bg-red-600.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-rose-600.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-rose-700.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-red-600.text-white {
+  background-color: var(--color-error);
+  color: var(--color-on-error);
+}
+[data-app-shell-main="true"] .bg-amber-600.text-white,
+[data-app-shell-main="true"] .bg-amber-700.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-amber-600.text-white,
+[data-app-shell="true"] [role="dialog"] .bg-amber-700.text-white {
+  background-color: var(--color-warning);
+  color: var(--color-on-warning);
+}
+
+@media (max-width: 1023px), (max-width: 1535px) and (max-height: 850px) {
+  [data-app-shell="true"] [data-ui="advanced-filter-panel"] {
+    position: fixed;
+    inset: 4rem 1rem 0.75rem;
+    width: auto;
+    max-height: none;
+    z-index: 60;
+  }
 }

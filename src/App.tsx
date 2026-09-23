@@ -3508,7 +3508,6 @@ function InvoiceWorkspace() {
         setActiveTab={setActiveTab}
         invoicesCount={invoices.length}
         reviewCount={reviewCount}
-        onBatchExportExcel={() => { void handleBatchExportExcel(); }}
         workspaceSyncStatus={workspaceSyncStatus}
         accountEmail={session?.user?.email || undefined}
         onSignOut={handleSignOut}
@@ -3539,6 +3538,7 @@ function InvoiceWorkspace() {
           route={route}
           activeTab={activeTab}
           onNavigatePath={navigateToPath}
+          onExportInvoicesExcel={() => { void handleBatchExportExcel(); }}
           workspaceRouteVisible={workspaceRouteVisible}
           workspaceLoading={workspaceLoading}
           dashboardData={dashboardViewData}

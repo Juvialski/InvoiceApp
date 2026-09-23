@@ -4,10 +4,8 @@ import {
   BarChart3,
   Building2,
   BriefcaseBusiness,
-  CheckCircle2,
   ClipboardCheck,
   Cog,
-  Download,
   FilePlus2,
   Files,
   FolderOpen,
@@ -50,7 +48,6 @@ export interface HeaderProps {
   setActiveTab: (tab: AppTab) => void;
   invoicesCount: number;
   reviewCount: number;
-  onBatchExportExcel: () => void;
   workspaceSyncStatus?: WorkspaceSyncStatus;
   accountEmail?: string;
   onSignOut?: () => Promise<void> | void;
@@ -102,7 +99,7 @@ function workspaceSyncLabel(status: WorkspaceSyncStatus) {
   if (status === "offline") return "Offline";
   if (status === "degraded") return "Reconnecting";
   if (status === "error") return "Sync issue";
-  return "Synced";
+  return "";
 }
 
 function workspaceSyncClasses(status: WorkspaceSyncStatus) {
@@ -273,7 +270,6 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   invoicesCount,
   reviewCount,
-  onBatchExportExcel,
   workspaceSyncStatus = "guest",
   accountEmail,
   onSignOut,
@@ -295,7 +291,14 @@ export const Header: React.FC<HeaderProps> = ({
   const mobileCloseButtonRef = useRef<HTMLButtonElement>(null);
   const mobileDrawerRef = useDialogFocus({
     open: mobileOpen,
-    onClose: () => setMobileOpen(false),
+    onClose: () => {
+      if (accountOpen) {
+        setAccountOpen(false);
+        accountButtonRef.current?.focus();
+        return;
+      }
+      setMobileOpen(false);
+    },
     initialFocusRef: mobileCloseButtonRef,
   });
   const activeRoute = isHelpRoute ? undefined : getRouteForAppTab(activeTab);
@@ -308,24 +311,17 @@ export const Header: React.FC<HeaderProps> = ({
   const navigation = useMemo(() => getNavigationModel(navigationFilter), [navigationFilter]);
   const activeModule = activeModuleDefinition ? navigation.modules.find((module) => module.id === activeModuleDefinition.id) : undefined;
   const syncLabel = workspaceSyncLabel(syncStatus);
-  const SyncIcon = syncStatus === "synced"
-    ? CheckCircle2
-    : syncStatus === "syncing"
-      ? RefreshCw
-      : syncStatus === "offline"
-        ? WifiOff
-        : syncStatus === "degraded" || syncStatus === "error"
-          ? AlertTriangle
-          : MoreHorizontal;
+  const SyncIcon = syncStatus === "syncing"
+    ? RefreshCw
+    : syncStatus === "offline"
+      ? WifiOff
+      : syncStatus === "degraded" || syncStatus === "error"
+        ? AlertTriangle
+        : MoreHorizontal;
   const syncTitle = syncStatus === "guest"
     ? "Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in."
     : syncLabel;
-  const accountHasActions = Boolean(accountEmail || onSignOut || navigation.settingsRoute);
-  const routeContext = activeModule
-    ? activeRouteId && activeRouteId !== activeModule.defaultRouteId
-      ? `${activeModule.label} / ${activeRoute?.label || "Workspace"}`
-      : activeModule.label
-    : isHelpRoute ? "Help Center" : activeRoute?.label || "Workspace";
+  const showCompactSyncStatus = syncStatus !== "synced" && syncStatus !== "guest";
 
   useEffect(() => {
     setMobileOpen(false);
@@ -497,65 +493,80 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {collapsed && !mobileOpen ? (
-          <div className="border-t border-white/10 px-2 py-3 flex flex-col items-center gap-2">
+        <div className={`relative border-t border-white/10 ${collapsed && !mobileOpen ? "px-2 py-3" : "px-3 py-3"}`}>
+          {syncStatus !== "synced" && (collapsed && !mobileOpen ? (
             <div
-              className={`flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold ${workspaceSyncClasses(syncStatus)}`}
+              role={syncStatus === "error" ? "alert" : "status"}
+              className={`mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold ${workspaceSyncClasses(syncStatus)}`}
               title={syncTitle}
-              aria-label={syncTitle}
+              aria-label={syncLabel}
+              aria-live="polite"
             >
               <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
             </div>
+          ) : (
             <div
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-200 transition"
-              title={accountEmail || activeCompany?.name || "Local workspace"}
-              aria-label={accountEmail || activeCompany?.name || "Local workspace"}
+              role={syncStatus === "error" ? "alert" : "status"}
+              className={`mb-2 flex min-h-8 items-center gap-2 rounded-lg border px-2 py-1.5 text-[11px] font-semibold ${workspaceSyncClasses(syncStatus)}`}
+              title={syncTitle}
+              aria-live="polite"
             >
-              <UserCircle2 aria-hidden="true" className="h-5 w-5 shrink-0" />
+              <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+              <span className="min-w-0 truncate">{syncLabel}</span>
             </div>
+          ))}
+          <div className={`flex items-center gap-1 ${collapsed && !mobileOpen ? "flex-col" : ""}`}>
+            <button
+              ref={accountButtonRef}
+              type="button"
+              onClick={() => setAccountOpen((open) => !open)}
+              aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"}
+              aria-expanded={accountOpen}
+              aria-controls="sidebar-account-menu"
+              className={`hqs-focus-ring flex min-h-10 min-w-0 items-center gap-2 rounded-lg text-left text-slate-300 transition hover:bg-white/10 hover:text-white ${collapsed && !mobileOpen ? "h-10 w-10 justify-center" : "flex-1 px-1.5 py-1"}`}
+              title={accountEmail || activeCompany?.name || "Local workspace"}
+            >
+              <UserCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" />
+              {(!collapsed || mobileOpen) && <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-bold">{accountEmail || activeCompany?.name || "Local workspace"}</span>
+                <span className="block truncate text-[10px] text-slate-500">{activeCompany?.name && accountEmail ? activeCompany.name : "Workspace context"}</span>
+              </span>}
+            </button>
+            {onSignOut && (!collapsed || mobileOpen) && <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              disabled={accountBusy}
+              className="hqs-focus-ring inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Log out"
+              title="Log out"
+            ><LogOut aria-hidden="true" className="h-3.5 w-3.5" /></button>}
           </div>
-        ) : (
-          <div className="border-t border-white/10 px-3 py-3">
-            <div className="flex items-center justify-between gap-2 px-1">
-              <div className="flex min-w-0 items-center gap-2" title={accountEmail || activeCompany?.name || "Local workspace"}>
-                <UserCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-slate-300">{accountEmail || activeCompany?.name || "Local workspace"}</p>
-                  <p className="truncate text-[10px] text-slate-500">{activeCompany?.name && accountEmail ? activeCompany.name : "Workspace context"}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+          {accountOpen && <div
+            id="sidebar-account-menu"
+            ref={accountMenuRef}
+            role="menu"
+            aria-label="Account menu"
+            className={`hqs-popover absolute z-[60] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl p-2 ${collapsed && !mobileOpen ? "bottom-2 left-[calc(100%+0.5rem)] w-64" : "bottom-[calc(100%+0.5rem)] left-2 right-2"}`}
+          >
+            {accountEmail && <p className="hqs-primary-text truncate px-2 py-1.5 text-xs font-bold">{accountEmail}</p>}
+            {activeCompany?.name && <p className="hqs-secondary-text truncate px-2 pb-1.5 text-[10px] font-semibold">{activeCompany.name}</p>}
+            {navigation.settingsRoute && <button type="button" role="menuitem" data-tour="route:settings" aria-current={activeTab === navigation.settingsRoute.appTab ? "page" : undefined} onClick={() => selectRoute(navigation.settingsRoute!)} className="hqs-control flex min-h-10 w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-bold"><SettingsIcon aria-hidden="true" className="h-3.5 w-3.5" />Workspace Settings</button>}
+            {navigation.settingsRoute && onSignOut && <div className="hqs-border my-1 border-t" />}
+            {onSignOut && <button type="button" role="menuitem" onClick={() => void handleSignOut()} disabled={accountBusy} className="hqs-control flex min-h-10 w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-bold disabled:opacity-50"><LogOut aria-hidden="true" className="h-3.5 w-3.5" />{accountBusy ? "Logging out…" : "Log out"}</button>}
+          </div>}
+        </div>
       </aside>
 
       <header
         data-app-shell-header="true"
-        className={`hqs-shell-header sticky top-0 z-30 border-b backdrop-blur transition-[margin] duration-200 ${
-          collapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
-        }`}
+        className="hqs-shell-header sticky top-0 z-30 border-b backdrop-blur lg:hidden"
       >
-        <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
+        <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6">
           <button ref={mobileMenuButtonRef} type="button" onClick={() => setMobileOpen(true)} className="hqs-control hqs-secondary-text inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg p-2 shadow-sm hover:opacity-80 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-navigation-drawer"><Menu className="h-4 w-4" /></button>
-          <BrandMark variant="header" decorative />
-          <div className="min-w-0 flex-1">
-            <p className="hqs-secondary-text truncate text-sm font-semibold sm:text-base">
-              <span className="hidden sm:inline"><span className="hqs-primary-text font-bold">{BRAND.productName}</span><span className="hqs-secondary-text mx-1.5">/</span></span>
-              <span className="hqs-primary-text font-bold sm:font-normal">{routeContext}</span>
-            </p>
-          </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 pb-0.5">
-            <div className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold ${syncStatus === "guest" ? "border-amber-200 bg-amber-50 text-amber-800" : syncStatus === "offline" || syncStatus === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`} title={syncTitle} aria-label={syncTitle}><SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} /><span className="hidden md:inline">{syncLabel}</span></div>
-            {invoicesCount > 0 && <button type="button" onClick={onBatchExportExcel} className="hqs-action-button hidden min-h-10 items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:inline-flex"><Download aria-hidden="true" className="h-3.5 w-3.5" /> Export</button>}
-            {accountHasActions && <div className="relative shrink-0" ref={accountMenuRef}>
-              <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"} aria-expanded={accountOpen} aria-controls="header-account-menu" className="hqs-control inline-flex min-h-10 max-w-[12rem] items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-bold shadow-sm hover:opacity-80"><UserCircle2 aria-hidden="true" className="hqs-accent-text h-3.5 w-3.5 shrink-0" /><span className="hidden max-w-[9rem] truncate sm:inline">{accountEmail || "Account"}</span></button>
-              {accountOpen && <div id="header-account-menu" role="menu" aria-label="Account menu" className="hqs-popover absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] w-64 overflow-y-auto rounded-xl p-2">
-                {accountEmail && <p className="hqs-primary-text truncate px-2 py-1.5 text-xs font-bold">{accountEmail}</p>}
-                <p className="hqs-secondary-text px-2 pb-1.5 text-[10px] font-semibold">Account / Workspace</p>
-                {navigation.settingsRoute && <button type="button" role="menuitem" data-tour="route:settings" aria-current={activeTab === navigation.settingsRoute.appTab ? "page" : undefined} onClick={() => selectRoute(navigation.settingsRoute!)} className="hqs-control flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-bold"><SettingsIcon aria-hidden="true" className="h-3.5 w-3.5" />Workspace Settings</button>}
-                {navigation.settingsRoute && onSignOut && <div className="hqs-border my-1 border-t" />}
-                {onSignOut && <button type="button" role="menuitem" onClick={() => void handleSignOut()} disabled={accountBusy} className="hqs-control flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-bold disabled:opacity-50"><LogOut aria-hidden="true" className="h-3.5 w-3.5" />{accountBusy ? "Signing out…" : "Sign out"}</button>}
-              </div>}
+          <div className="ml-auto flex min-w-0 items-center gap-2">
+            {showCompactSyncStatus && <div className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${workspaceSyncClasses(syncStatus)}`} role={syncStatus === "error" ? "alert" : "status"} aria-live="polite" title={syncTitle}>
+              <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+              <span className="truncate">{syncLabel}</span>
             </div>}
           </div>
         </div>

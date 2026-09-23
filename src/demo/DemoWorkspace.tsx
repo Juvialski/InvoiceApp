@@ -788,7 +788,6 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       setActiveTab={navigateTab}
       invoicesCount={data.invoices.length}
       reviewCount={reviewQueue.length}
-      onBatchExportExcel={() => {}}
       workspaceSyncStatus="guest"
       accountEmail="client.demo@hydroqualisense.com"
       visibleRouteIds={VISIBLE_ROUTES}
@@ -801,19 +800,24 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       onRecoverRoute={() => onNavigate(routeRecoveryPath, true)}
             footerText={`${BRAND.productName} Demo Workspace • ${BRAND.companyName} • Sample data only`}
     >
-      <div className="sticky top-2 z-40 mb-5 flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white/95 px-3.5 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-indigo-600 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white">Demo Workspace</span><span className="truncate text-xs font-black text-slate-900">{data.company.name}</span></div>
-          <p className="mt-1 text-[10px] font-semibold text-slate-500">Sample data - no real records • PHP deployment • Asia/Manila</p>
+      <div data-demo-workspace-banner="true" className="hqs-surface-muted sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">Demo workspace</span>
+          <span className="hqs-secondary-text hidden text-xs md:inline">Synthetic sample data · PHP · Asia/Manila</span>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setTourOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><Presentation className="h-3.5 w-3.5" /> Tour</button>
-          <button type="button" onClick={() => onNavigate(demoDocumentsPath())} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><FileStack className="h-3.5 w-3.5" /> Documents</button>
-          <button type="button" onClick={() => onNavigate(demoAssistantPath())} className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-100"><Bot className="h-3.5 w-3.5" /> AI Assistant</button>
-          <button type="button" onClick={resetDemo} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
+        <div className="flex shrink-0 items-center gap-2">
+          <details data-demo-tools="true" className="relative">
+            <summary className="hqs-control hqs-focus-ring flex min-h-10 cursor-pointer list-none items-center rounded-lg px-2.5 text-xs font-semibold">Demo tools</summary>
+            <div data-demo-tools-menu="true" className="hqs-popover absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 rounded-xl p-2">
+              <button type="button" aria-label="Open demo tour" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setTourOpen(true); }} className="hqs-control hqs-focus-ring flex min-h-10 w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-semibold sm:hidden"><Presentation aria-hidden="true" className="h-3.5 w-3.5" />Tour</button>
+              <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onNavigate(demoDocumentsPath()); }} className="hqs-control hqs-focus-ring flex min-h-10 w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-semibold"><FileStack aria-hidden="true" className="h-3.5 w-3.5" />Documents</button>
+              <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onNavigate(demoAssistantPath()); }} className="hqs-control hqs-focus-ring flex min-h-10 w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-semibold"><Bot aria-hidden="true" className="h-3.5 w-3.5" />AI Assistant</button>
+              <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); resetDemo(); }} className="hqs-control hqs-focus-ring flex min-h-10 w-full items-center gap-2 rounded-lg border-0 bg-transparent px-2 py-2 text-left text-xs font-semibold"><RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />Reset</button>
+            </div>
+          </details>
         </div>
       </div>
-      <div className="mb-4 flex items-center gap-2 text-[10px] font-semibold text-emerald-700"><ShieldCheck className="h-3.5 w-3.5" /> Isolated demo data source - production authentication, company queries, Storage, AI extraction, provider credentials, and writes are not mounted on this route.</div>
+      <div role="status" data-demo-safe-status="true" className="hqs-exception-info mb-3 flex items-start gap-2 rounded-lg px-3 py-2 text-xs leading-5"><ShieldCheck aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>Isolated demo data. Production authentication, company queries, Storage, AI extraction, provider credentials, and writes are not mounted.</span></div>
       {content}
       <DemoTour open={tourOpen} onOpenChange={setTourOpen} currentPath={window.location.pathname} onNavigate={onNavigate} />
     </AppShell>

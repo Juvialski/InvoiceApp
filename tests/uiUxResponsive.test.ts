@@ -14,7 +14,10 @@ test("narrow operational registers use progressive disclosure instead of forced 
   const receipts = source("src/components/procurement/RecordReceiptModal.tsx");
 
   assert.match(expenses, /aria-label="Expense register cards"/);
-  assert.match(expenses, /className="hidden lg:block"/);
+  assert.match(expenses, /className="grid gap-2 p-3 lg:grid-cols-2 min-\[1920px\]:hidden"/);
+  assert.match(expenses, /className="hidden min-\[1920px\]:block"/);
+  assert.match(expenses, /data-expense-register-card/);
+  assert.match(expenses, /settlement\.settlementState/);
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
   assert.match(projectRegister, /data-project-id=\{project\.id\}/);
   assert.match(projectRegister, /className="hqs-surface-raised min-w-0 w-full overflow-hidden/);

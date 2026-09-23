@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E NEXT / WEB-BRAND-1 PLANNED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E IMPLEMENTED FOR LOCAL/DEMO SCOPE, PR #245 OPEN / WEB-BRAND-1 PLANNED**
 Date: **2026-09-23**
 Repository: `Juvialski/InvoiceApp`
 
@@ -2163,18 +2163,17 @@ Regression coverage must include same-user token refresh, transient load failure
 
 No DB migration is expected from the current evidence. If implementation investigation proves a database/RPC contract change is actually required, stop treating this as a client-only phase and run the full applicable local Supabase validation rather than substituting static tests.
 
-### R4E direction — NEXT
+### R4E direction — IMPLEMENTED FOR RECORDED LOCAL/DEMO SCOPE; PR #245 OPEN
 
-REL-AUTH-1 is merged. The approved R4E shell cleanup is now the next active UI phase:
-- on desktop, remove the redundant global top row containing duplicate HydroQualiSense identity, duplicate page label, permanent successful `Synced`, global `Export`, and duplicate email/account identity;
-- the sidebar remains the product/navigation identity;
-- main content begins directly at page-level content;
-- successful sync is silent; only temporary syncing or meaningful sync/offline failure should surface;
-- exports live in Documents/Reports/relevant workflows;
-- account identity and logout live in the lower-left sidebar account menu;
-- mobile/tablet may keep a minimal top bar for the menu trigger.
+REL-AUTH-1 is merged. The approved R4E app-wide rollout is implemented on `codex/ui-r4e-app-wide-rollout`:
+- desktop no longer shows the redundant upper row with repeated product/page identity, permanent successful `Synced`, global `Export`, or duplicate account identity;
+- the sidebar supplies product/navigation identity and main content starts at the page-level task;
+- successful sync is silent; temporary syncing and meaningful sync/offline failure can surface;
+- supplier invoice export is contextual to the invoice register;
+- account identity, Settings, and logout are grouped in the lower-left sidebar account area;
+- tablet/phone retain the minimal navigation-trigger header.
 
-Keep the Payroll ownership-persistence bug, Brevo connection/status issue, broad R4E Dark-mode cleanup, Worker Registration, attendance, Face Recognition, and unrelated product domains separate from REL-AUTH-1.
+Keep the Payroll ownership-persistence bug, Brevo connection/status issue, Worker Registration, attendance, Face Recognition, and unrelated product domains separate from REL-AUTH-1.
 
 ## 2026-09-23 — REL-AUTH-1 implementation closeout
 
@@ -2189,7 +2188,7 @@ The client-side recovery boundary now:
 - clears permissions on authoritative no-company, suspended-company, deployment mismatch, confirmed permission change, user identity change, and logout;
 - rejects stale/out-of-order results by request generation and user identity.
 
-The deployed trigger remains unproven. Controlled regression cases reproduce the resolver-failure and auth-refresh boundaries in the current client code; they do not establish which sequence occurred in the deployed session. PR #243 was reviewed, corrected, and merged as `9da3ada95934ab0f14d906ab766d5a8b71bb9dcf`. UI-R4E is now the next active UI phase.
+The deployed trigger remains unproven. Controlled regression cases reproduce the resolver-failure and auth-refresh boundaries in the current client code; they do not establish which sequence occurred in the deployed session. PR #243 was reviewed, corrected, and merged as `9da3ada95934ab0f14d906ab766d5a8b71bb9dcf`. UI-R4E is implemented for local synthetic/demo scope; WEB-BRAND-1 remains separate and planned.
 
 Validation and review closeout:
 - focused auth/access/session/presentation tests from the implementation run: **67/67 passed**;
@@ -2214,4 +2213,30 @@ Status: **PLANNED — NOT YET IMPLEMENTED**.
 - QA remains an explicit software/workspace showcase using synthetic/demo context and may demonstrate project management, procurement, invoices/expenses, finance, documents, payroll, inventory/equipment, communications, workflow/history, and software screenshots.
 - No permanent creator/software-vendor identity has been chosen. Do not invent one and do not present Hydroqualisense Solutions Corp. as the vendor of a multi-client SaaS product.
 - The authenticated Hydroqualisense deployment remains the client's dedicated workspace; WEB-BRAND-1 is not authorization for another broad authenticated-app rebrand.
-- WEB-BRAND-1 is a bounded public-site phase whose timing may be selected relative to UI-R4E. Under the currently reconciled priority, **UI-R4E is next** and WEB-BRAND-1 remains planned until explicitly reprioritized.
+- WEB-BRAND-1 is a separate bounded public-site phase. UI-R4E is implemented for recorded local/demo scope; WEB-BRAND-1 remains planned and unstarted.
+
+## 2026-09-23 — UI-R4E app-wide rollout implemented for recorded local/demo scope
+
+Implementation branch: `codex/ui-r4e-app-wide-rollout`
+
+Synchronized base: `bbd633f4709b36a1e0bc42d6cced202615aaa2d0`.
+
+Application source commit: `3ea57c1904a2ff3eb21296ab0149e00928fbc829`.
+
+The branch applies the approved Round 4 system across the remaining authenticated application surfaces:
+
+- the redundant desktop shell row, repeated product/page identity, permanent successful sync indicator, and global export action are removed; invoice export is contextual to the authorized supplier-invoice register;
+- account identity, Settings, and Log out are grouped in the lower-left sidebar; tablet/phone retain the navigation header;
+- existing legacy neutral/status styling is bridged to Astryx/HydroQualiSense semantic theme tokens, including shared input boundaries, selected/focus treatments, and dark-mode foreground contrast;
+- invoice filters and narrow invoice records use compact actions, removable active-filter chips, and readable responsive cards;
+- Payroll, Email/SMS, Demo chrome, and the Cash, Expenses, Equipment, Warehouse, and Procurement page-header actions use the task-first hierarchy and shared action variants;
+- mobile Escape behavior closes the account menu before the navigation drawer and returns focus to the relevant trigger;
+- Payroll, Email/SMS, Cash, Expenses, Equipment, Warehouse, and Procurement use the approved task/action hierarchy while preserving their existing domain callbacks and consequential workflows.
+
+Certification report and 49 lead-inspected screenshots: `artifacts/ui-ux-audit/UI-R4E-APP-WIDE-CERTIFICATION.md` and `artifacts/ui-ux-audit/screenshots/r4e/`.
+
+Recorded validation: final browser matrix **188/188 passed**; supplemental dark detail-route checks **15/15 passed**; directly affected UI/theme/shell tests **42/42 passed**; Payroll lifecycle UI **4/4 passed**; final `test:affected:agent` **771 passed, 1 skipped, 0 failed across 107 selected files**. Lint and build passed on the integrated application source diff. The affected-test run completed after supplemental QA-only scenario additions. Lint/build preceded those QA-only additions; no application source changed afterward.
+
+Developer-intelligence closeout: the live Jev completion advisory saw all four declared evidence categories (`jev-1.13.0`, 4/4 present, 615 input / 72 output tokens, 773 ms, fallback=false). It retained `unresolvedUncertainty=true` because the supplied validation metadata marked database checks `not-applicable`; database work was outside this UI phase. Its merge decision is not provided.
+
+Evidence is local synthetic/demo only. This phase does not certify hosted QA, deployed session recovery, external provider readiness, production, live company settings, or screen-reader/device behavior. The Settings route contains an unpopulated “Deployment company” placeholder in the synthetic demo because DB-backed company controls are not mounted. No database, migration, auth-state-machine, financial/lifecycle, or payroll-persistence change was made. WEB-BRAND-1 public-site work was not started. PR #245 is open: https://github.com/Juvialski/InvoiceApp/pull/245. Do not merge from the implementation task.

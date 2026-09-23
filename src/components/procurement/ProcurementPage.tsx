@@ -60,7 +60,7 @@ import {
 } from "../../lib/subcontractVariations.ts";
 import { isCommittedPurchaseOrder, isCommittedSubcontract, purchaseOrderTotal, subcontractTotal } from "../../utils/projectCosting.ts";
 import { calculatePOReceiptProgress } from "../../utils/purchaseOrderReceipts.ts";
-import { PageHeader } from "../ui/OperationsUI.tsx";
+import { ActionButton, PageHeader } from "../ui/OperationsUI.tsx";
 import { PurchaseOrderRegisterSection } from "./PurchaseOrderRegisterSection.tsx";
 import { RfqRegisterSection } from "./RfqRegisterSection.tsx";
 import { ProcurementWorkbookPanel } from "./ProcurementWorkbookPanel.tsx";
@@ -1113,64 +1113,30 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
         <a href={continuationPath} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(continuationPath); }} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-emerald-700 px-3 py-2 font-black text-white hover:bg-emerald-800">{continuationMovement ? "Open exact Warehouse movement" : "Continue to Warehouse"}</a>
       </section>}
       {draftPoContinuation && <ProcurementDraftPOContinuation {...draftPoContinuation} onDismiss={() => setDraftPoContinuation(null)} />}
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader
-          eyebrow={selectedProject ? `Project Controls • ${selectedProject.projectCode}` : "Commercial Operations"}
-          title={
-            activeTab === "rfqs"
-              ? selectedProject
-                ? `${selectedProject.projectName} RFQs & Quotations`
-                : "Requests for Quotation & Comparison"
-              : activeTab === "subcontracts"
+      <PageHeader
+        eyebrow={selectedProject ? `Project Controls • ${selectedProject.projectCode}` : "Commercial Operations"}
+        title={
+          activeTab === "rfqs"
+            ? selectedProject
+              ? `${selectedProject.projectName} RFQs & Quotations`
+              : "Requests for Quotation & Comparison"
+            : activeTab === "subcontracts"
               ? selectedProject
                 ? `${selectedProject.projectName} Subcontracts`
                 : "Trade Subcontracts & Commitments"
               : selectedProject
-              ? `${selectedProject.projectName} Procurement`
-              : "Procurement & Purchase Orders"
-          }
-          description={
-            activeTab === "rfqs"
-              ? "Compare supplier bids and record the selection before creating a Purchase Order."
-              : activeTab === "subcontracts"
+                ? `${selectedProject.projectName} Procurement`
+                : "Procurement & Purchase Orders"
+        }
+        description={
+          activeTab === "rfqs"
+            ? "Compare supplier bids and record the selection before creating a Purchase Order."
+            : activeTab === "subcontracts"
               ? "Manage trade subcontract commitments and cost-code links."
               : "Manage supplier commitments and committed cost; actual cost stays separate."
-          }
-        />
-        {canManage && (
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            {activeTab === "rfqs" ? (
-              <button
-                type="button"
-                onClick={() => setActiveRfqModal(null)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
-              >
-                <Plus className="h-4 w-4" />
-                New RFQ
-              </button>
-            ) : activeTab === "subcontracts" ? (
-              <button
-                type="button"
-                onClick={() => setActiveSubcontractModal(null)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
-              >
-                <Plus className="h-4 w-4" />
-                New Subcontract
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setActivePo(null)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
-              >
-                <Plus className="h-4 w-4" />
-                New Purchase Order
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+        }
+        actions={canManage ? <ActionButton size="sm" variant="primary" icon={<Plus aria-hidden="true" className="h-3.5 w-3.5" />} label={activeTab === "rfqs" ? "New RFQ" : activeTab === "subcontracts" ? "New Subcontract" : "New Purchase Order"} onClick={() => { if (activeTab === "rfqs") setActiveRfqModal(null); else if (activeTab === "subcontracts") setActiveSubcontractModal(null); else setActivePo(null); }} /> : undefined}
+      />
 
       {/* Sub-Tabs: [Purchase Orders] [Requests for Quotation (RFQs)] [Subcontracts] */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-slate-200">
