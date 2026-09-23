@@ -42,7 +42,7 @@ test("R5 issued-document send uses server-rendered snapshot bytes and durable in
 
 test("R5 Vendor directory consumes canonical Vendor records", () => {
   assert.match(vendors, /canonicalVendors/);
-  assert.match(vendors, /Extracted supplier text remains evidence/);
+  assert.match(vendors, /extracted text stays evidence until confirmed/i);
   assert.doesNotMatch(vendors, /invoices\.forEach\(\(invoice\) => \{/);
   assert.match(migration, /create or replace function public\.create_or_update_vendor/i);
   assert.match(migration, /vendors_company_tax_unique/i);
