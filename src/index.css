@@ -59,7 +59,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hqs-border { border-color: var(--color-border, light-dark(#e2e8f0, #334155)); }
 .hqs-control,
 .hqs-input {
-  border: 1px solid var(--color-border-emphasized, light-dark(#cbd5e1, #475569));
+  border: 1px solid light-dark(#64748b, #94a3b8);
   background: var(--color-background-surface, light-dark(#ffffff, #1e293b));
   color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
 }
@@ -82,7 +82,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hqs-danger-text { color: var(--color-text-red, var(--color-error, light-dark(#be123c, #fb7185))); }
 .hqs-action-button { min-height: 2.5rem; border-radius: var(--radius-element, 0.5rem); }
 .hqs-choice {
-  border: 1px solid var(--color-border-emphasized, light-dark(#cbd5e1, #475569));
+  border: 1px solid light-dark(#64748b, #94a3b8);
   background: var(--color-background-muted, light-dark(#f1f5f9, #1e293b));
   color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
 }
@@ -153,14 +153,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .field-label { display: block; font-size: 0.8125rem; line-height: 1.15rem; font-weight: 700; color: var(--color-text-secondary, #475569); }
-.field-input { width: 100%; min-height: 2.625rem; border: 1px solid var(--color-border-emphasized, light-dark(#cbd5e1, #475569)); border-radius: 0.75rem; background: var(--color-background-surface, #fff); padding: 0.625rem 0.8rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--color-text-primary, #1e293b); }
+.field-input { width: 100%; min-height: 2.625rem; border: 1px solid light-dark(#64748b, #94a3b8); border-radius: 0.75rem; background: var(--color-background-surface, #fff); padding: 0.625rem 0.8rem; font-size: 0.875rem; line-height: 1.25rem; color: var(--color-text-primary, #1e293b); }
 .field-input:focus { outline: 2px solid color-mix(in srgb, var(--color-accent, #6366f1) 25%, transparent); border-color: var(--color-accent, #818cf8); }
 
 /* Permission risk must not look like access denial. Sensitive permissions keep
    a thin amber cue, while access state is carried by the explicit status text. */
 [data-permission-editor] .border-amber-200.bg-amber-50\/45,
 [data-access-authorization-editor] .border-amber-200.bg-amber-50\/45 {
-  border-color: var(--color-border-emphasized) !important;
+  border-color: light-dark(#64748b, #94a3b8) !important;
   background: var(--color-background-surface) !important;
   box-shadow: inset 3px 0 0 var(--color-warning);
 }
