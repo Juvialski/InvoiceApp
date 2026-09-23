@@ -330,6 +330,37 @@ The lead owns architecture/source-of-truth decisions, shared files and integrati
 
 When ChatGPT is performing the repository-native PR review/fix/finalization role, it follows the proportional PR-review/CI policy later in this file. Exact-head means the current PR head, but only checks applicable to the changed risk domains require manual verification.
 
+### Codex critical-path stop rules — explicit 2026-09-23 override
+
+These rules tighten the zero-subagent/final-diff-first policy after REL-AUTH-1 exposed unnecessary late review agents and repeated validation loops. They apply regardless of the selected Codex model.
+
+**No late review subagents**
+
+- Default remains **zero subagents**; the hard maximum remains **2 concurrent Codex subagents**.
+- Start a subagent only for a genuinely independent, tightly bounded task when it materially shortens the critical path and the lead can continue useful implementation simultaneously.
+- Do **not** start a subagent solely for final review, final diff inspection, handoff review, documentation review, duplicate-entry classification after implementation, rechecking already-tested behavior, preparing the PR, waiting for validation, or obtaining a generic second opinion.
+- The lead Codex agent performs and owns the final review itself.
+- Do not spawn a new review agent after implementation is substantially complete. If final validation/review is reached with zero subagents active, normally finish with zero subagents.
+- The lead never pauses implementation or PR delivery merely to wait for a subagent review. Stop an unproductive or stalled subagent and continue.
+
+**One expensive validation pass per meaningful final executable diff**
+
+- Narrow new/edited or focused tests may run while editing.
+- `npm.cmd run test:affected:agent` should normally run **once** on the integrated final executable/test diff.
+- Do not run it again when no relevant executable or test change occurred. Documentation/handoff edits after successful executable validation do not justify rerunning affected application tests.
+- If the affected run fails, diagnose and rerun the narrow failing subset first. After an executable/test fix, one final affected run is allowed on the resulting integrated diff.
+- Do not repeatedly rerun the whole affected set while refining documentation.
+- Lint, build, browser QA, Workflow Map checks, and other expensive gates follow the same rule: rerun only after a relevant change or a failure that requires confirmation.
+- Protected CI may provide the final independent validation. Do not duplicate an equivalent expensive local run merely because protected CI exists.
+
+**No final-review loop**
+
+Once the final executable diff has been reviewed, required validation has passed, roadmap/handoff are reconciled, and final hygiene such as `git diff --check` is clean, proceed to commit/push/PR. Do not cycle through `review -> docs -> affected tests -> review -> docs -> affected tests` unless an actual new executable change or validation failure occurred.
+
+Prepare documentation synchronization before the final expensive validation where practical. If only documentation changes after executable validation, inspect that documentation directly and proceed.
+
+These rules are model-independent. Do not encode Luna-specific, or any other model-specific, workarounds into repository execution policy.
+
 ## Mandatory roadmap and handoff synchronization gate
 
 Roadmap/handoff maintenance is a required delivery step, not optional documentation cleanup.
