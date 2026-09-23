@@ -1,6 +1,6 @@
 # UI-R4D — Entity Media Foundation
 
-Status: **Implemented for the recorded local/demo and local-Supabase scope.** The implementation source is commit `0a93f7c2fb79c5ece590aa87a416c32c8626d17b` on `codex/ui-r4d-entity-media`, based on synchronized `main` commit `c057ffc9585ab6a890f260cbec8ae8def8d3081c`.
+Status: **Implemented for the recorded local/demo and local-Supabase scope.** [PR #240](https://github.com/Juvialski/InvoiceApp/pull/240) is open for review and has not been merged. The implementation source is commit `0a93f7c2fb79c5ece590aa87a416c32c8626d17b` on `codex/ui-r4d-entity-media`, based on synchronized `main` commit `c057ffc9585ab6a890f260cbec8ae8def8d3081c`.
 
 ## What this evidence covers
 
