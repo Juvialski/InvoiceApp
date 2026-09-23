@@ -76,7 +76,7 @@ test("application correction contracts use the authoritative RPCs and truthful a
   assert.match(expenses, /apply_expense_correction/);
   assert.match(invoiceDirectory, /Review correction options/);
   assert.match(expensesPage, /Review correction/);
-  assert.match(expensesPage, /archive changes visibility[\s\S]*void changes active financial cost/i);
+  assert.match(expensesPage, /archive changes visibility[\s\S]*void changes active cost/i);
   assert.doesNotMatch(expensesPage, /onArchive/);
   assert.match(assistantExecutors, /lifecycle_status/);
   assert.match(assistantExecutors, /INVOICE_VOID/);
