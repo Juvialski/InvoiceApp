@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D IMPLEMENTED FOR LOCAL/DEMO + LOCAL-SUPABASE SCOPE / UI-R4E NEXT AFTER R4D MERGE**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 IDLE SESSION & DEPLOYMENT ACCESS RECOVERY NEXT / UI-R4E AFTER REL-AUTH-1**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-23**
 
@@ -73,8 +73,9 @@ Round 4 must begin research-first rather than by immediately rewriting the Dashb
 1. **UI-R4A — research + design blueprint: COMPLETE.** Evidence is recorded in `artifacts/ui-ux-audit/UI-R4A-COMPARATIVE-VISUAL-RESEARCH.md` and the approved blueprint.
 2. **UI-R4B — shared visual foundation: COMPLETE FOR RECORDED SCOPE.** Semantic theme behavior, shared controls, compact filters, and bounded Projects proving work are recorded in `artifacts/ui-ux-audit/UI-R4B-SHARED-VISUAL-FOUNDATION.md`.
 3. **UI-R4C — Home Dashboard + Project Portfolio: IMPLEMENTED FOR LOCAL/DEMO SCOPE.** One stable Home, permission-aware launch and bounded attention, secondary Operations Insights, responsive project cards, Light/Dark coverage, and durable visual evidence are recorded in `artifacts/ui-ux-audit/UI-R4C-HOME-PROJECT-PORTFOLIO.md`.
-4. **UI-R4D — relevant entity media foundation: IMPLEMENTED FOR RECORDED LOCAL/DEMO + LOCAL-SUPABASE SCOPE.** Durable storage/security/database and lead-inspected visual evidence is recorded in `artifacts/ui-ux-audit/UI-R4D-ENTITY-MEDIA.md`. The S3-compatible bucket path, hosted QA, production, and provider certification remain unverified. [PR #240](https://github.com/Juvialski/InvoiceApp/pull/240) is open; it has not been merged.
-5. **UI-R4E — app-wide rollout + professional certification: AFTER R4D MERGE.** Apply the approved shared grammar to remaining existing routes and certify both light and dark themes across the standard four viewports, including keyboard/accessibility and visual inspection.
+4. **UI-R4D — relevant entity media foundation: COMPLETE FOR RECORDED LOCAL/DEMO + LOCAL-SUPABASE SCOPE.** Durable storage/security/database and lead-inspected visual evidence is recorded in `artifacts/ui-ux-audit/UI-R4D-ENTITY-MEDIA.md`. The S3-compatible bucket path, hosted QA, production, and provider certification remain unverified. [PR #240](https://github.com/Juvialski/InvoiceApp/pull/240) merged safely as `8df6685ae80452d1a62d6f853b51ddedc69bd735` after exact-head protected CI passed.
+5. **REL-AUTH-1 — Idle Session & Deployment Access Recovery: NEXT.** Fix the user-confirmed false `Company access unavailable` state that can appear after extended idle/background time even though a normal refresh restores the same authorized user. Preserve last-known-good same-user access across transient verification failures, recover stale sessions once when the refresh token remains valid, distinguish terminal session expiry from confirmed revocation, keep real revocation/deployment mismatch fail-closed, and add idle-return regression/browser evidence. Do not absorb the broad R4E visual migration.
+6. **UI-R4E — app-wide rollout + professional certification: AFTER REL-AUTH-1.** Apply the approved shared grammar to remaining existing routes and certify both light and dark themes across the standard four viewports, including keyboard/accessibility and visual inspection. Desktop shell cleanup includes removing the redundant permanent upper row, making normal successful sync silent, moving export actions to Documents/Reports/relevant workflows, and keeping account identity + Log out in the lower-left sidebar account area; mobile/tablet may retain a minimal navigation-trigger header.
 
 **UI-R4A is complete as a research/documentation-only phase.** The lead inspected current source and the immediately preceding four-viewport S3E evidence, then performed a new direct visual pass over public screenshots/rendered examples from Procore, Autodesk Construction Cloud/Build, Buildertrend, Fieldwire, Raken, Linear, and Airtable. The evidence deliberately distinguishes transferable interaction principles from proprietary visual copying. The durable research artifact is `artifacts/ui-ux-audit/UI-R4A-COMPARATIVE-VISUAL-RESEARCH.md`; the implementation contract is `docs/superpowers/specs/2026-09-22-ui-r4-professional-design-blueprint.md`.
 
@@ -82,7 +83,7 @@ UI-R4B is implemented for its shared-foundation and bounded Projects proving sco
 
 R4B is implemented for its shared-foundation and bounded Projects proving scope. R4C is now implemented for local safe-demo scope; its closeout records stable Home routing, permission/source behavior, project-card refinement, and lead-inspected Light/Dark evidence at desktop, constrained laptop, tablet, and phone. The durable report is `artifacts/ui-ux-audit/UI-R4C-HOME-PROJECT-PORTFOLIO.md`.
 
-UI-R4D is now implemented for its recorded local/demo and local-Supabase scope; its durable storage/security/database and lead-inspected visual evidence is recorded in `artifacts/ui-ux-audit/UI-R4D-ENTITY-MEDIA.md`. Each Round 4 implementation slice must include actual screenshot inspection by the lead at affected standard viewports; automated overflow/accessibility checks are not sufficient evidence of professional visual quality. UI-R4E remains the next approved phase after R4D is safely merged.
+UI-R4D is now implemented for its recorded local/demo and local-Supabase scope; its durable storage/security/database and lead-inspected visual evidence is recorded in `artifacts/ui-ux-audit/UI-R4D-ENTITY-MEDIA.md`. Each Round 4 implementation slice must include actual screenshot inspection by the lead at affected standard viewports; automated overflow/accessibility checks are not sufficient evidence of professional visual quality. REL-AUTH-1 is the next bounded reliability phase; UI-R4E follows after REL-AUTH-1.
 
 Key user concerns that Round 4 must address include the current Dashboard carrying too much detailed operational/analytics content, generic-looking project cards, oversized filter controls consuming multiple laptop rows, inconsistent button/action hierarchy, lack of dark mode, and lack of relevant imagery on projects/equipment/materials.
 
@@ -1607,4 +1608,46 @@ The bounded implementation is in source commit `0a93f7c2fb79c5ece590aa87a416c32c
 
 The durable visual and technical evidence is `artifacts/ui-ux-audit/UI-R4D-ENTITY-MEDIA.md`, with 12 lead-inspected screenshots under `artifacts/ui-ux-audit/screenshots/r4d/`. The source-commit safe-demo matrix passed 12/12 with zero console/page/request/navigation/overflow failures. Local Supabase upgrade fixtures passed 3/3, the full local database catalog passed 1,693 assertions across 51 files, the local Storage HTTP integration passed, and lint/typecheck/build plus Workflow Map validation passed. The affected-test selector also exposed two unchanged stale-copy assertions; the viewport-catalog expectation it found was updated and focused validation passed. See the evidence report for exact qualification and failure details.
 
-This does not claim S3-compatible provider credentials, hosted QA, provider/device certification, or production certification. UI-R4E remains next after R4D is safely merged.
+This does not claim S3-compatible provider credentials, hosted QA, provider/device certification, or production certification. REL-AUTH-1 is next; UI-R4E follows after the reliability fix.
+
+
+### 2026-09-23 REL-AUTH-1 priority — idle session & deployment access recovery
+
+**Priority override:** UI-R4D is merged. Before broad UI-R4E, implement **REL-AUTH-1 — Idle Session & Deployment Access Recovery** as a bounded reliability phase.
+
+Deployed evidence to preserve:
+- after the application remains idle/backgrounded for an extended period, an already-authorized user can be replaced by the blocking `Company access unavailable` screen;
+- a normal browser refresh immediately restores that same user's valid deployment-company access;
+- no administrator action, membership re-add, permission change, company switch, or manual sign-in is required;
+- this makes a transient client/session/access-refresh transition the leading boundary, but the exact root cause remains unproven until a controlled reproduction is captured;
+- a temporary inability to verify deployment access must not be presented as confirmed revocation;
+- confirmed membership revocation, inactive membership/company, deployment mismatch, logout, or different-user state must continue to fail closed.
+
+Current source-boundary investigation on merged R4D `main` identified these areas as the highest-value next inspection points:
+- `src/context/CompanyAccessContext.tsx`;
+- `src/lib/companyAccess.ts`;
+- `src/lib/companyAccessRefresh.ts`;
+- `src/lib/authenticatedRequestRecovery.ts`;
+- `src/lib/deploymentCompany.ts`;
+- `src/lib/supabase.ts`;
+- `src/lib/companyApi.ts`;
+- `src/components/access/AccessStates.tsx`;
+- the access-gating branch in `src/App.tsx`.
+
+The existing provider already preserves a same-user `ready` snapshot when the initial access/deployment RPC load throws during a background refresh, and generation/user guards prevent older access requests from overwriting a newer state. However, deployment-access resolution exceptions are currently promoted to terminal `error` without the same preservation path, and a transient auth transition that clears the ready snapshot can make the following load non-preserving. The application also renders technical access-load `error` through the same `Company access unavailable` framing used for true authorization loss. These are evidence-based investigation boundaries, not yet a proven root cause.
+
+REL-AUTH-1 acceptance must distinguish:
+- valid ready access + transient verification/network failure -> preserve the last confirmed same-user access temporarily, surface at most a small retrying/connection warning, and recover safely;
+- stale access token + valid refresh token -> refresh authentication once/safely and re-resolve access without showing the terminal company-access screen;
+- genuinely expired/invalid refresh session -> clear privileged context and show an explicit session-expired/sign-in-again state;
+- successfully confirmed inactive/revoked membership, inactive company, or authoritative deployment denial -> remove permissions and fail closed;
+- different user or logout -> never inherit the previous user's access snapshot;
+- stale/concurrent access requests -> never clobber newer valid or newer revoked state.
+
+Use controlled auth events, fake timers, mocks, bounded visibility/resume simulation, and targeted browser checks rather than an hours-long idle test. No production mutation is authorized by this investigation.
+
+**Sequence:** `REL-AUTH-1 -> UI-R4E`.
+
+The already-approved R4E shell direction remains queued, not part of REL-AUTH-1: desktop should remove the redundant global top row containing duplicate product/page identity, permanent successful-sync status, global Export, and duplicate account/email identity; normal successful sync should be silent; exports belong in Documents/Reports/relevant workflows; account identity plus logout belong in the lower-left sidebar account menu. Mobile/tablet may retain minimal top navigation for the menu trigger.
+
+Keep Payroll's `Payroll period ownership and company are immutable` persistence bug, Brevo status reliability, broad R4E Dark-mode cleanup, Worker Registration, attendance, Face Recognition, and unrelated product domains separate from REL-AUTH-1.

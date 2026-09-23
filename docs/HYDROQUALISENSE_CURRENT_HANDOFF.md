@@ -2079,7 +2079,99 @@ Validation:
 - Focused entity-media/project/material tests passed 66 tests with one intentional runtime skip. Final post-fix runtime + browser evidence passed 14/14; final demo/security/scenario-catalog focus passed 17/17.
 - `npm.cmd run lint` passed (ESLint + TypeScript); `npm.cmd run build` passed with nonblocking theme-font, large-chunk, and CJS `import.meta` diagnostics.
 - Workflow Map generated and validated: 266 nodes, 355 edges, 36 invariants, 11 diagrams. `git diff --check` passed before documentation closeout.
-- `test:affected:agent` initially selected 160/380 files (42.1%), no fallback, and reported 1,062 pass / 3 fail / 2 skipped. It found an outdated exact viewport-set expectation for the two R4D scenarios; that expectation was updated and the structured browser-evidence tests passed. Remaining affected-run failures are stale exact-copy assertions in unchanged Expenses and Vendor tests. The separate old `coreHardeningWave1` phrase expectation also remains outside this affected selection. These unrelated assertions were not changed.
-- Narrow reproduction of the remaining Expenses/Vendor failures passed 8/10 assertions and confirmed each mismatch is an unchanged exact-copy expectation; both source pages and tests are outside the R4D change.
+- `test:affected:agent` initially selected 160/380 files (42.1%), no fallback, and reported 1,062 pass / 3 fail / 2 skipped. It found one outdated viewport-set expectation for the two R4D scenarios; that contract was corrected. During PR review, the two unrelated stale exact-copy assertions in unchanged Expenses and Vendor surfaces were aligned to the already-live product copy so protected validation could reach the changed R4D application/database contracts. The older `coreHardeningWave1` phrase expectation remains outside the protected exact-head database path and is not represented as fixed here.
+- The final exact PR head `157944f75cf594acf5c4ac7d3d0f8ffae78c044f` passed all four protected checks before merge: Application Validation & Build, Database Migrations & Upgrade Suite, chromium-demo-qa, and Graph and Source Contract Consistency.
 
-The bounded Workflow Map context packet had zero candidates, so Jev was not called. No hosted QA, external S3 bucket, provider/device runtime, production migration, production data, or production deployment was accessed or certified. [PR #240](https://github.com/Juvialski/InvoiceApp/pull/240) is open for review and has not been merged. UI-R4E remains next after R4D is safely merged.
+The bounded Workflow Map context packet had zero candidates, so Jev was not called. No hosted QA, external S3 bucket, provider/device runtime, production migration, production data, or production deployment was accessed or certified. PR #240 was subsequently reviewed on exact head `157944f75cf594acf5c4ac7d3d0f8ffae78c044f` and merged safely as `8df6685ae80452d1a62d6f853b51ddedc69bd735`. REL-AUTH-1 now precedes UI-R4E.
+
+
+## 2026-09-23 — PR #240 final review/merge + REL-AUTH-1 reliability handoff
+
+### UI-R4D finalization
+
+PR #240 — **UI-R4D Entity Media Foundation** — was reviewed from live repository state against base `c057ffc9585ab6a890f260cbec8ae8def8d3081c`.
+
+The review confirmed:
+- Project media authority remains on canonical `projects`;
+- Equipment media authority remains on canonical Equipment Registry records, not project-equipment assignments;
+- Material media authority remains on canonical Warehouse Inventory items, not project-material rows;
+- private/company-bound storage, deterministic object paths, server-side MIME/signature/size validation, signed reads, permission checks, company/entity integrity, replacement/remove compensation, RLS/grants, SECURITY DEFINER/search-path boundaries, clean replay, pgTAP, upgrade-path, and runtime RLS/concurrency evidence remain intact;
+- the visual scope stayed bounded to Project/Equipment/Material primary images and deterministic fallbacks; no worker photos, attendance, face recognition, gallery/CMS, general file manager, or R4E redesign was absorbed.
+
+During protected CI, two pre-existing exact-copy assertions in unchanged source domains blocked the R4D head:
+- `tests/coreHardeningWave2B2.test.ts` expected the old Expenses phrase `void changes active financial cost`, while unchanged `ExpensesPage.tsx` says `void changes active cost`;
+- `tests/r5IntegrationHardening.test.ts` expected the old Vendor phrase `Extracted supplier text remains evidence`, while unchanged `Vendors.tsx` says `extracted text stays evidence until confirmed`.
+
+Those two test invariants were aligned to current unchanged product copy without changing Expenses or Vendor behavior. The final exact PR head was `157944f75cf594acf5c4ac7d3d0f8ffae78c044f`.
+
+Protected exact-head CI then passed:
+- Application Validation & Build;
+- Database Migrations & Upgrade Suite, including static invariants, isolated Supabase startup, clean migration replay, pgTAP, historical upgrade-path tests, and managed-document runtime RLS/concurrency;
+- Graph and Source Contract Consistency;
+- Chromium Demo Visual QA, including all R4D entity-media scenarios with zero request/page/console/overflow failures.
+
+No unresolved review comments or review blockers remained; the PR was mergeable. PR #240 was squash-merged automatically as:
+
+`8df6685ae80452d1a62d6f853b51ddedc69bd735`
+
+### Deployed idle-session/access regression
+
+A separate deployed reliability regression is now the highest-priority next implementation phase.
+
+Observed behavior:
+- after HydroQualiSense is left idle/backgrounded for an extended period, the workspace can be replaced by the blocking `Company access unavailable` screen;
+- the screen can also say that deployment access could not be loaded and suggest refresh/admin contact;
+- a normal browser refresh immediately restores the same authorized user's workspace;
+- no administrator action occurs;
+- membership is not re-added;
+- permissions are not changed;
+- the company is not switched;
+- the user does not manually sign in again.
+
+That recovery evidence means the observed blocking state must not be treated as proven authorization revocation. Root cause is not yet proven.
+
+### Evidence-based source boundary
+
+Current source inspection shows:
+- `CompanyAccessProvider` preserves the previous same-user `ready` access snapshot when the initial `loadCompanyAccess()` / `loadDeploymentCompanyId()` load throws during a background refresh;
+- access refreshes are single-flight per user and guarded by generation/user checks so stale request results should not overwrite newer state;
+- a normal same-user Supabase auth event such as a token refresh does not intentionally clear the access snapshot merely because the token value changed;
+- `companyApiRequest()` already has a separate one-refresh/one-retry 401 recovery path and raises an explicit `SessionExpiredError` when refresh genuinely fails;
+- successfully resolved access can distinguish `ready`, `no-company`, and `company-suspended`, so real inactive/revoked states can continue to fail closed.
+
+Two important weak boundaries require controlled reproduction:
+1. if `resolveDeploymentCompanyAccess(...)` throws after the raw load succeeds, the provider currently promotes that failure directly to terminal `access.status = "error"` even when a same-user ready snapshot existed;
+2. if an idle/wake auth transition temporarily clears the session/user and therefore clears the ready snapshot, the following access load no longer qualifies for ready-snapshot preservation; a temporary load failure can then become terminal `error`.
+
+In addition, `src/App.tsx` renders technical access-load `error` using the same `NoCompanyAccess` / `Company access unavailable` framing used for real membership/inactive-company denial. This conflates `could not verify access right now` with `authorization was revoked`.
+
+These are likely technical boundaries, not a claim that either sequence has already been reproduced as the exact deployed root cause.
+
+### Next phase — REL-AUTH-1
+
+Implement **REL-AUTH-1 — Idle Session & Deployment Access Recovery** before broad UI-R4E.
+
+Required behavior:
+- same-user ready access + transient verification/network/access-check failure: retain the last confirmed access snapshot temporarily, expose at most a small non-blocking retry/connection warning, and recover safely;
+- stale access token + valid refresh token: refresh authentication and re-run access resolution without showing the terminal company-access screen;
+- genuinely invalid/expired refresh session: clear privileged access and show an explicit session-expired / sign-in-again state, not an administrator-revocation message;
+- successfully confirmed inactive/revoked membership, inactive company, or authoritative deployment denial: clear permissions and fail closed;
+- different user and logout: never retain or inherit the previous user's access;
+- concurrent/stale access results: never overwrite newer valid or newer revoked state.
+
+Regression coverage must include same-user token refresh, transient load failure, stale-token recovery, visibility idle/resume, concurrent refreshes, stale-result rejection, retry recovery, terminal refresh-token failure, confirmed revocation, inactive company, different-user isolation, logout, and permission removal after confirmed revocation. Use controlled events/fake timers/mocks/bounded browser simulation; do not create an hours-long idle test.
+
+No DB migration is expected from the current evidence. If implementation investigation proves a database/RPC contract change is actually required, stop treating this as a client-only phase and run the full applicable local Supabase validation rather than substituting static tests.
+
+### R4E direction preserved but out of REL-AUTH-1
+
+Do not implement the approved R4E shell cleanup in REL-AUTH-1. Preserve it for the next UI phase:
+- on desktop, remove the redundant global top row containing duplicate HydroQualiSense identity, duplicate page label, permanent successful `Synced`, global `Export`, and duplicate email/account identity;
+- the sidebar remains the product/navigation identity;
+- main content begins directly at page-level content;
+- successful sync is silent; only temporary syncing or meaningful sync/offline failure should surface;
+- exports live in Documents/Reports/relevant workflows;
+- account identity and logout live in the lower-left sidebar account menu;
+- mobile/tablet may keep a minimal top bar for the menu trigger.
+
+Keep the Payroll ownership-persistence bug, Brevo connection/status issue, broad R4E Dark-mode cleanup, Worker Registration, attendance, Face Recognition, and unrelated product domains separate from REL-AUTH-1.
