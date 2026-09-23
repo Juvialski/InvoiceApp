@@ -23,11 +23,15 @@ test("route tour targets are deterministic and independent from module scope", (
   assert.doesNotMatch(header, /data-tour=\{module\.id === "invoices"/);
 });
 
-test("global controls keep account actions outside navigation and company identity is not a tenant selector", () => {
-  assert.match(header, /flex min-w-0 flex-wrap items-center justify-end gap-2 pb-0\.5/);
-  assert.doesNotMatch(header, /items-center justify-end gap-2 overflow-x-auto/);
+test("account actions use the sidebar menu while the compact header keeps navigation only", () => {
+  assert.match(header, /data-app-shell-header="true"/);
+  assert.match(header, /aria-label="Open navigation"/);
+  assert.match(header, /lg:hidden/);
+  assert.doesNotMatch(header, /flex min-w-0 flex-wrap items-center justify-end gap-2 pb-0\.5/);
+  assert.doesNotMatch(header, /onBatchExportExcel|BrandMark variant="header"/);
   assert.match(header, /Workspace Settings/);
-  assert.match(header, /right-0 top-\[calc\(100%\+0\.5rem\)\][^\n]*overflow-y-auto/);
+  assert.match(header, /bottom-\[calc\(100%\+0\.5rem\)\] left-2 right-2/);
+  assert.match(header, /aria-controls="sidebar-account-menu"/);
   assert.match(accessStates, /never a tenant selector/);
   assert.match(accessStates, /aria-label=\{`Deployment company:/);
 });
@@ -37,7 +41,7 @@ test("expanded navigation uses the supplied HydroQualiSense logo and wraps the f
   assert.match(header, /BrandMark variant="compact"/);
   assert.match(header, /BRAND\.companyName/);
   assert.match(header, /whitespace-normal break-words/);
-  assert.match(header, /BrandMark variant="header"/);
+  assert.doesNotMatch(header, /BrandMark variant="header"/);
   assert.doesNotMatch(header, /<CompanySwitcher/);
   assert.doesNotMatch(header, /Deployment/);
   assert.doesNotMatch(header, new RegExp(["Engineering", "Operations"].join("\\s+")));

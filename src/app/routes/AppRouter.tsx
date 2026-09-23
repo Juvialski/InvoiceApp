@@ -234,6 +234,7 @@ export interface AppRouterProps {
 
   // Invoices Data & Handlers
   invoices: InvoiceData[];
+  onExportInvoicesExcel?: () => void;
   selectedInvoice?: InvoiceData | null;
   invoiceProjectAllocations: InvoiceProjectAllocation[];
   onSaveInvoiceProjectAllocations: (
@@ -578,6 +579,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onProjectOpenPayroll,
   onProjectOpenWarehouse,
   invoices,
+  onExportInvoicesExcel,
   selectedInvoice,
   invoiceProjectAllocations,
   onSaveInvoiceProjectAllocations,
@@ -721,6 +723,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         selectedInvoice={selectedInvoice}
         guestMode={!showDeploymentAccessManagement}
         onNavigatePath={onNavigatePath}
+        onExportInvoicesExcel={onExportInvoicesExcel}
         invoices={invoices}
         expenses={expenses}
         expensesLoaded={!workspaceLoading}

@@ -70,7 +70,7 @@ export const hydroqualisenseTheme = defineTheme({
     "--color-text-primary": ["#0f172a", "#f8fafc"],
     "--color-text-secondary": ["#475569", "#94a3b8"],
     "--color-text-disabled": ["#94a3b8", "#64748b"],
-    "--color-text-accent": ["#4f46e5", "#818cf8"],
+    "--color-text-accent": ["#4f46e5", "#a5b4fc"],
     "--color-on-dark": "#ffffff",
     "--color-on-light": "#0f172a",
     "--color-on-accent": ["#ffffff", "#0f172a"],
@@ -171,11 +171,15 @@ export const hydroqualisenseTheme = defineTheme({
     "--shadow-inset-error": "inset 0px 0px 0px 2px #e11d484D",
   },
 
+  localTokens: {
+    "--astryx-theme-hydroqualisense-border-control": ["#64748b", "#94a3b8"],
+  },
+
   components: {
     button: {
       "variant:primary": {
         backgroundColor: "var(--color-accent)",
-        color: "#ffffff",
+        color: "var(--color-on-accent)",
       },
       "variant:destructive": {
         backgroundColor: "var(--color-error-muted)",

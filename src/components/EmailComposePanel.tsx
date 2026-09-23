@@ -12,6 +12,7 @@ import { useOptionalAssistant } from "../assistant/AssistantProvider.tsx";
 import { useOptionalCompanyAccess } from "../context/CompanyAccessContext.tsx";
 import { loadCommunicationsDeliveryHistory } from "../lib/documentDelivery.ts";
 import { ContextualHelp } from "./ui/ContextualHelp.tsx";
+import { ActionButton } from "./ui/OperationsUI.tsx";
 
 interface EmailComposePanelProps {
   readonly documents: readonly DocumentRegisterEntry[];
@@ -20,7 +21,6 @@ interface EmailComposePanelProps {
   readonly canSend: boolean;
   readonly onOpenDocuments: () => void;
   readonly onOpenSmsCompose?: () => void;
-  readonly onOpenEmailStatus?: () => void;
   readonly onNavigatePath?: (path: string, replace?: boolean) => void;
   readonly returnPath?: string;
   readonly buildSnapshot: (entry: DocumentRegisterEntry) => FinancialDocumentSnapshot;
@@ -48,7 +48,6 @@ export function EmailComposePanel({
   canSend,
   onOpenDocuments,
   onOpenSmsCompose,
-  onOpenEmailStatus,
   onNavigatePath,
   returnPath,
   buildSnapshot,
@@ -180,13 +179,19 @@ export function EmailComposePanel({
 
   return (
     <section className="space-y-4" data-email-compose="true" aria-labelledby="email-compose-title">
-      <div className="flex flex-col justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 sm:flex-row sm:items-start sm:p-5">
-        <div className="flex min-w-0 items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-700 shadow-sm"><MessageSquareText className="h-5 w-5" /></div><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700">Email / SMS · Compose</p><h2 id="email-compose-title" className="mt-1 text-lg font-black text-slate-950">New email</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-indigo-950">Prepare the message and optional document.</p></div></div>
-        <div className="flex flex-wrap gap-2"><button type="button" onClick={onOpenDocuments} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 hover:bg-indigo-50"><FileText className="h-3.5 w-3.5" />Browse Documents</button>{onOpenEmailStatus && <button type="button" onClick={onOpenEmailStatus} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"><Mail className="h-3.5 w-3.5" />Email setup</button>}{onOpenSmsCompose && <button type="button" onClick={onOpenSmsCompose} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-50"><MessageSquareText className="h-3.5 w-3.5" />Compose SMS</button>}</div>
+      <div data-email-compose-toolbar="true" className="hqs-surface-muted flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg p-2.5">
+        <h2 id="email-compose-title" className="hqs-primary-text text-sm font-bold">New email</h2>
+        <details data-email-compose-tools="true" className="relative">
+          <summary className="hqs-control hqs-focus-ring flex min-h-10 cursor-pointer list-none items-center rounded-lg px-2.5 text-xs font-semibold">More actions</summary>
+          <div className="hqs-popover absolute right-0 top-[calc(100%+0.5rem)] z-40 flex w-52 flex-col gap-1 rounded-xl p-2">
+            <ActionButton size="sm" variant="secondary" className="justify-start" label="Browse Documents" icon={<FileText aria-hidden="true" className="h-3.5 w-3.5" />} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onOpenDocuments(); }} />
+            {onOpenSmsCompose && <ActionButton size="sm" variant="secondary" className="justify-start" label="Compose SMS" icon={<MessageSquareText aria-hidden="true" className="h-3.5 w-3.5" />} onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onOpenSmsCompose(); }} />}
+          </div>
+        </details>
       </div>
 
-      <section className={`rounded-2xl border p-4 sm:p-5 ${statusTone}`} aria-label="Brevo email provider status">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex min-w-0 items-start gap-2.5">{providerStatus.status === "READY" ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />}<div className="min-w-0"><p className="text-xs font-black text-slate-900">Brevo · {statusLabel}</p><p className="mt-0.5 break-words text-[11px] text-slate-600">{providerStatus.message}</p></div></div><button type="button" onClick={() => void refreshStatus()} disabled={statusLoading || !canSend} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${statusLoading ? "animate-spin" : ""}`} />Refresh</button></div>
+      <section className={`rounded-xl border p-3 sm:p-4 ${statusTone}`} aria-label="Brevo email provider status">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex min-w-0 items-start gap-2"><div className="min-w-0"><p className="text-xs font-black text-slate-900">Brevo · {statusLabel}</p><p className="mt-0.5 break-words text-xs text-slate-600">{providerStatus.message}</p></div></div><ActionButton size="sm" variant="secondary" label="Refresh" icon={<RefreshCw className={`h-3.5 w-3.5 ${statusLoading ? "animate-spin" : ""}`} />} onClick={() => void refreshStatus()} isDisabled={statusLoading || !canSend} /></div>
         {!canSend && <p className="mt-3 text-[10px] font-semibold text-amber-800">Sending requires the existing outbound document/message permission. Your access profile can still view this workspace where permitted.</p>}
         {canSend && historyBlocked && <p className="mt-3 text-[10px] font-semibold text-amber-800">Sending is locked until unresolved email delivery history is reconciled safely.</p>}
         {canSend && historyLoading && <p className="mt-3 text-[10px] text-slate-500">Checking unresolved delivery history before enabling send…</p>}
@@ -200,7 +205,7 @@ export function EmailComposePanel({
         <label className="space-y-1 lg:col-span-2"><span className="field-label inline-flex items-center gap-1">Attachment / document <span className="font-normal normal-case text-slate-400">(optional)</span><ContextualHelp label="Attachment eligibility help" title="Eligible document attachments" articleTopicId="communications">Only issued Purchase Orders and issued Client Invoices can use the immutable document attachment path.</ContextualHelp></span><select className="field-input" value={selectedKey} onChange={(event) => setSelectedKey(event.target.value)}><option value="">No document attachment</option>{eligibleDocuments.map((entry) => <option key={documentKey(entry)} value={documentKey(entry)}>{safeDocumentLabel(entry)}</option>)}</select></label>
           <label className="space-y-1 lg:col-span-2"><span className="field-label">Message</span><textarea className="field-input min-h-40 resize-y" value={message} onChange={(event) => setMessage(event.target.value.slice(0, 20000))} placeholder="Write the message body…" /></label>
         </div>
-        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => void askAssistant()} disabled={!assistant || assistant.isLoading} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-black text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"><Sparkles className="h-3.5 w-3.5" />Ask Assistant to draft</button><div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setReviewOpen((value) => !value)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"><Paperclip className="h-3.5 w-3.5" />{reviewOpen ? "Hide review" : "Preview / Review"}</button><button type="button" onClick={() => void send()} disabled={busy || !canUseBrevo || !reviewOpen} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-45"><Mail className="h-3.5 w-3.5" />{busy ? "Sending…" : "Confirm & Send"}</button></div></div>
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><ActionButton size="sm" variant="ghost" label="Ask Assistant to draft" icon={<Sparkles className="h-3.5 w-3.5" />} onClick={() => void askAssistant()} isDisabled={!assistant || assistant.isLoading} /><div className="flex flex-wrap justify-end gap-2"><ActionButton size="sm" variant="secondary" label={reviewOpen ? "Hide review" : "Preview / Review"} icon={<Paperclip className="h-3.5 w-3.5" />} onClick={() => setReviewOpen((value) => !value)} /><ActionButton size="sm" variant="primary" label={busy ? "Sending…" : "Confirm & Send"} icon={<Mail className="h-3.5 w-3.5" />} onClick={() => void send()} isDisabled={busy || !canUseBrevo || !reviewOpen} /></div></div>
         {reviewOpen && <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3.5 text-xs" data-email-compose-review="true"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700">Review before sending</p><dl className="mt-3 grid gap-2 sm:grid-cols-[6rem_minmax(0,1fr)]"><dt className="font-bold text-slate-500">To</dt><dd className="break-words font-semibold text-slate-900">{splitRecipients(to).join(", ") || "Not entered"}</dd><dt className="font-bold text-slate-500">CC</dt><dd className="break-words text-slate-700">{splitRecipients(cc).join(", ") || "None"}</dd><dt className="font-bold text-slate-500">Subject</dt><dd className="break-words text-slate-900">{subject || "Not entered"}</dd><dt className="font-bold text-slate-500">Attachment</dt><dd className="break-words text-slate-700">{selectedDocument ? `${selectedDocument.title} · immutable issued snapshot` : "None — ordinary email"}</dd></dl><p className="mt-3 whitespace-pre-wrap break-words rounded-lg border border-white/80 bg-white/70 p-3 leading-5 text-slate-800">{message || "Message body not entered."}</p><p className="mt-2 text-[10px] text-slate-500">Confirm &amp; Send creates one audited Brevo delivery attempt. Provider acceptance is not confirmation of delivery.</p></div>}
         {error && <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p>}
         {result && <p role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />{result}</p>}

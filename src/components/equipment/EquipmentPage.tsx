@@ -3,7 +3,7 @@ import { ArrowRightLeft, CheckCircle2, Cog, History, Lock, MapPin, Plus, RotateC
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Project, ProjectEquipment } from "../../types.ts";
 import type { EquipmentSaveInput } from "../../lib/equipment.ts";
-import { DisclosureSection, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
+import { ActionButton, DisclosureSection, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { CanonicalEquipmentWorksheetModal } from "./CanonicalEquipmentWorksheet.tsx";
 import { EntityMediaControl, EntityMediaThumbnail, useEntityMediaThumbnails } from "../ui/EntityMedia.tsx";
 
@@ -92,7 +92,7 @@ export const EquipmentPage: React.FC<EquipmentPageProps> = ({ equipment, assignm
         eyebrow="Company operations"
         title="Equipment Registry"
         description="Canonical assets with auditable Project assignments."
-        actions={canManage ? <button type="button" onClick={() => setAction({ type: "ADD" })} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2 text-xs font-black text-white"><Plus className="h-3.5 w-3.5" />Add Equipment</button> : undefined}
+        actions={canManage ? <ActionButton size="sm" variant="primary" icon={<Plus aria-hidden="true" className="h-3.5 w-3.5" />} label="Add Equipment" onClick={() => setAction({ type: "ADD" })} /> : undefined}
       />
       {unresolvedLegacyCount > 0 && <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />

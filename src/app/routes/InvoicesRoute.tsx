@@ -38,6 +38,7 @@ export interface InvoicesRouteProps {
   guestMode?: boolean;
   activeSubTab?: AppTab | "invoices" | "extractor" | "inbox" | "review" | "vendors";
   invoices: InvoiceData[];
+  onExportInvoicesExcel?: () => void;
   vendors?: Vendor[];
   projects?: Project[];
   expenses?: readonly Expense[];
@@ -113,6 +114,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   guestMode = false,
   activeSubTab = "invoices",
   invoices,
+  onExportInvoicesExcel,
   vendors = [],
   projects = [],
   expenses = [],
@@ -304,7 +306,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   if (activeSubTab === "extractor") return <div className="space-y-5">{canExtractInvoices ? <UploadZone onExtract={onExtract} onLoadPreset={onLoadPreset} onBatchComplete={onBatchComplete} isLoading={processingCount > 0} /> : <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950"><strong>Invoice extraction is unavailable for this access profile.</strong><p className="mt-1 text-xs">Creating a reviewable invoice requires invoice management, extraction, and verification permissions so source, invoice, and review history can be persisted together.</p></div>}</div>;
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} financialFxSnapshots={financialFxSnapshots} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifySupplierInvoices ? onStartReview : undefined} readOnly={!canVerifySupplierInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} vendors={vendors} canManage={canManageVendors} onSaveVendor={onAddVendor} onDeactivateVendor={onDeactivateVendor} onReactivateVendor={onReactivateVendor} />;
-  return <div className="space-y-5">{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}<InvoiceSettlementDirectoryPanel invoices={invoices} expenses={expenses} settlementMatches={settlementMatches} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />{correctionDialog}</div>;
+  return <div className="space-y-5">{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} onExportInvoicesExcel={onExportInvoicesExcel} /> : <InvoiceDirectoryReadOnly invoices={invoices} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} onExportInvoicesExcel={onExportInvoicesExcel} />}<InvoiceSettlementDirectoryPanel invoices={invoices} expenses={expenses} settlementMatches={settlementMatches} settlementProjections={settlementProjections} today={today} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />{correctionDialog}</div>;
 };
 
 export default InvoicesRoute;

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Badge as AstryxBadge } from "@astryxdesign/core/Badge";
 import { EmptyState as AstryxEmptyState } from "@astryxdesign/core/EmptyState";
 import { Button as AstryxButton, type ButtonProps, type ButtonVariant } from "@astryxdesign/core/Button";
-import { CheckCircle2, CircleAlert, Info, Loader2, RotateCcw, type LucideIcon } from "lucide-react";
+import { CheckCircle2, CircleAlert, Info, Loader2, RotateCcw, X, type LucideIcon } from "lucide-react";
 import { HelpAction } from "../help/HelpAction.tsx";
 import type { HelpTopicId } from "../../help/helpCatalog.ts";
 import { countActiveFilters } from "./filterActionBarModel.ts";
@@ -87,7 +87,7 @@ export function AdvancedFilterDisclosure({
 
   useEffect(() => {
     if (!open) return undefined;
-    const firstControl = panelRef.current?.querySelector<HTMLElement>("button, input, select, textarea, [tabindex]:not([tabindex='-1'])");
+    const firstControl = panelRef.current?.querySelector<HTMLElement>("input, select, textarea, button:not([data-ui='advanced-filter-close']), [tabindex]:not([tabindex='-1'])");
     firstControl?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -121,7 +121,13 @@ export function AdvancedFilterDisclosure({
         {activeCount > 0 && <span className="hqs-accent-text rounded-full px-1.5 text-[10px] font-black">{activeCount}</span>}
       </button>
       {open && (
-        <div ref={panelRef} id={panelId} role="dialog" aria-label={`${label} options`} className="hqs-popover absolute left-0 top-[calc(100%+0.5rem)] z-40 w-[min(36rem,calc(100vw-2rem))] rounded-xl p-3.5 sm:right-0 sm:left-auto">
+        <div ref={panelRef} id={panelId} data-ui="advanced-filter-panel" role="dialog" aria-label={`${label} options`} className="hqs-popover ops-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-40 max-h-[min(72dvh,36rem)] w-[min(36rem,calc(100vw-2rem))] overflow-y-auto rounded-xl p-3.5 sm:right-0 sm:left-auto">
+          <div className="hqs-popover-header sticky -mx-3.5 -mt-3.5 mb-3 flex items-center justify-between gap-3 border-b hqs-border px-3.5 py-2.5">
+            <h2 className="hqs-primary-text text-sm font-bold">{label}</h2>
+            <button type="button" data-ui="advanced-filter-close" className="hqs-control hqs-focus-ring inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold" aria-label={`Close ${label.toLowerCase()}`} onClick={() => close()}>
+              <span>Close {label.toLowerCase()}</span><X aria-hidden="true" className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">{children}</div>
           {onClear && activeCount > 0 && <div className="hqs-border mt-3 flex justify-end border-t pt-3"><button type="button" className="hqs-control hqs-focus-ring rounded-lg px-2.5 py-1.5 text-xs font-bold" onClick={onClear}>Clear filters</button></div>}
         </div>
@@ -177,7 +183,7 @@ export function CompactActionBar({
       </div>
       {(activeFilterCount > 0 && activeFilters.length > 0) && (
         <div className="hqs-border mt-2 flex flex-wrap items-center gap-1.5 border-t pt-2">
-          {activeFilters.map((filter) => <button key={filter.id} type="button" onClick={filter.onRemove} className="hqs-control hqs-focus-ring inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold">{filter.label}<span aria-hidden="true">×</span></button>)}
+          {activeFilters.map((filter) => <button key={filter.id} type="button" onClick={filter.onRemove} aria-label={`Remove filter: ${filter.label}`} className="hqs-control hqs-focus-ring inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold">{filter.label}<span aria-hidden="true">×</span></button>)}
           {onClearAll && <button type="button" onClick={onClearAll} className="hqs-accent-text ml-1 min-h-8 px-1 text-[11px] font-bold hover:underline">Clear all</button>}
         </div>
       )}

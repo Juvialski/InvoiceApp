@@ -71,6 +71,7 @@ test("demo scenario catalog is unique and covers the required product surfaces",
     "desktop-1440", "laptop-1366", "tablet-768", "mobile-390",
     "r4c-desktop-1440", "r4c-laptop-1280", "r4c-tablet-768", "r4c-phone-390",
     "r4d-laptop-1280", "r4d-tablet-768",
+    "r4e-desktop-1440", "r4e-laptop-1280", "r4e-tablet-768", "r4e-phone-390",
   ]));
   assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.interactionState === "cash settlement workspace opened"));
   assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.interactionState === "demo drawing preview opened"));

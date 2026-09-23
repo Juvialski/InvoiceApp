@@ -112,7 +112,7 @@ export const hydroqualisenseTheme = {
     "--color-text-primary": "light-dark(#0f172a, #f8fafc)",
     "--color-text-secondary": "light-dark(#475569, #94a3b8)",
     "--color-text-disabled": "light-dark(#94a3b8, #64748b)",
-    "--color-text-accent": "light-dark(#4f46e5, #818cf8)",
+    "--color-text-accent": "light-dark(#4f46e5, #a5b4fc)",
     "--color-on-dark": "#ffffff",
     "--color-on-light": "#0f172a",
     "--color-on-accent": "light-dark(#ffffff, #0f172a)",
@@ -189,6 +189,13 @@ export const hydroqualisenseTheme = {
     "--shadow-inset-warning": "inset 0px 0px 0px 2px #d977064D",
     "--shadow-inset-error": "inset 0px 0px 0px 2px #e11d484D"
   },
+  localTokens: {
+    "--astryx-theme-hydroqualisense-border-control": "light-dark(#64748b, #94a3b8)"
+  },
+  __localTokenOwners: {
+    "--astryx-theme-hydroqualisense-border-control": "hydroqualisense"
+  },
+  __localTokenLineage: ["hydroqualisense"],
   components: {
     "heading": {
       "level:1": {
@@ -288,7 +295,7 @@ export const hydroqualisenseTheme = {
     "button": {
       "variant:primary": {
         "backgroundColor": "var(--color-accent)",
-        "color": "#ffffff"
+        "color": "var(--color-on-accent)"
       },
       "variant:destructive": {
         "backgroundColor": "var(--color-error-muted)",

@@ -63,6 +63,7 @@ export interface QaBrowserPage {
   goBack(): Promise<unknown>;
   goForward(): Promise<unknown>;
   reload(options?: { waitUntil?: "networkidle"; timeout?: number }): Promise<unknown>;
+  emulateMedia(options: { colorScheme: "light" | "dark" }): Promise<void>;
   keyboard: QaBrowserKeyboard;
   url(): string;
 }

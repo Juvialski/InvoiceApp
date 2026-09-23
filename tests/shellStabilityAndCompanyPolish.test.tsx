@@ -285,6 +285,8 @@ test("PayrollPageV2 renders loading placeholders during hydration and real value
     </AppPermissionProvider>
   );
   assert.match(hydratingPayroll, /animate-pulse/);
+  assert.match(hydratingPayroll, /Loading payroll details/);
+  assert.doesNotMatch(hydratingPayroll, /Set up payroll schedule/);
 
   // PayrollPageV2 after load with 0 workers/periods
   const loadedPayroll = renderToStaticMarkup(
@@ -304,6 +306,7 @@ test("PayrollPageV2 renders loading placeholders during hydration and real value
       />
     </AppPermissionProvider>
   );
-  assert.match(loadedPayroll, /Active workers/);
-  assert.match(loadedPayroll, /No active period/);
+  assert.match(loadedPayroll, /Payroll period summary/);
+  assert.match(loadedPayroll, /aria-expanded="false"/);
+  assert.doesNotMatch(loadedPayroll, /Active workers|No active period/);
 });
