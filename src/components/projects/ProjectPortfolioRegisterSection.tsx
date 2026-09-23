@@ -207,7 +207,7 @@ export function ProjectRegisterCard({
           </span>
           <div className="min-w-0 flex-1">
             <span className="hqs-secondary-text text-[11px] font-bold uppercase tracking-wide">{project.projectCode || "Project code not set"}</span>
-            <h3 className="hqs-primary-text mt-0.5 line-clamp-2 text-xl font-black leading-tight group-hover:underline">{project.projectName || "Unnamed project"}</h3>
+            <h3 className="hqs-primary-text mt-0.5 line-clamp-2 text-lg font-black leading-tight group-hover:underline">{project.projectName || "Unnamed project"}</h3>
             <p className="hqs-secondary-text mt-1 truncate text-xs">{projectSubline}</p>
           </div>
           <ArrowUpRight className="hqs-secondary-text mt-1 h-4 w-4 shrink-0" aria-hidden="true" />

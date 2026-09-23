@@ -74,9 +74,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 2px;
 }
 .hqs-muted-fill { background: var(--color-background-muted, light-dark(#f1f5f9, #1e293b)); }
-.hqs-success-text { color: var(--color-success, light-dark(#047857, #34d399)); }
-.hqs-warning-text { color: var(--color-warning, light-dark(#b45309, #fbbf24)); }
-.hqs-danger-text { color: var(--color-error, light-dark(#be123c, #fb7185)); }
+.hqs-success-text { color: var(--color-text-green, var(--color-success, light-dark(#047857, #34d399))); }
+.hqs-warning-text { color: var(--color-text-yellow, var(--color-warning, light-dark(#b45309, #fbbf24))); }
+.hqs-danger-text { color: var(--color-text-red, var(--color-error, light-dark(#be123c, #fb7185))); }
 .hqs-action-button { min-height: 2.5rem; border-radius: var(--radius-element, 0.5rem); }
 .hqs-choice {
   border: 1px solid var(--color-border, light-dark(#e2e8f0, #334155));
@@ -91,8 +91,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hqs-exception-success { border-color: var(--color-success); background: var(--color-success-muted); color: var(--color-text-primary); }
 .hqs-exception-warning { border-color: var(--color-warning); background: var(--color-warning-muted); color: var(--color-text-primary); }
 .hqs-exception-danger { border-color: var(--color-error); background: var(--color-error-muted); color: var(--color-text-primary); }
-.hqs-attention-danger { border-color: var(--color-error); background: var(--color-error-muted); color: var(--color-error); }
-.hqs-attention-warning { border-color: var(--color-warning); background: var(--color-warning-muted); color: var(--color-warning); }
+.hqs-attention-danger { border-color: var(--color-error); background: var(--color-error-muted); color: var(--color-text-red, var(--color-error)); }
+.hqs-attention-warning { border-color: var(--color-warning); background: var(--color-warning-muted); color: var(--color-text-yellow, var(--color-warning)); }
 .hqs-attention-info { border-color: var(--color-border-emphasized); background: var(--color-accent-muted); color: var(--color-text-accent); }
 .hqs-attention-neutral { border-color: var(--color-border); background: var(--color-background-muted); color: var(--color-text-secondary); }
 .hqs-cell-clean { background: var(--color-background-surface); color: var(--color-text-primary); }
