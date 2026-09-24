@@ -222,8 +222,8 @@ Security continues throughout implementation; the final certification is an addi
 
 The hardening-first freeze supersedes the older feature-expansion sequence below. Current priority is:
 
-1. **REL-PAYROLL-2 — Payroll Period Ownership & Automatic Calendar Persistence Hardening** — next bounded reliability phase.
-2. **Projects card action-popover clipping regression** — separate small UI follow-up after the payroll authority fix, unless a different higher-severity reliability issue is discovered first.
+1. **REL-PAYROLL-2 — Payroll Period Ownership & Automatic Calendar Persistence Hardening** — merged as PR #251; existing-period reconciliation now preserves immutable ownership/company metadata.
+2. **UI-PROJECTS-ACTION-1 — Project Card Action Popover Reachability** — next bounded UI-hardening phase for the clipped `More`/lifecycle action menu, with focused responsive/browser regression coverage.
 3. **Provider/release certification** for existing capabilities when credentials, devices, hosted QA, and deployment prerequisites are safely available.
 4. **Final pre-production security/data-integrity certification** before broad rollout.
 
