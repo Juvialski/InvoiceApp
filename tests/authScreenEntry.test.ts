@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const authScreen = readFileSync(new URL("../src/components/auth/AuthScreen.tsx", import.meta.url), "utf8");
+const brandMark = readFileSync(new URL("../src/components/BrandMark.tsx", import.meta.url), "utf8");
 
 test("AuthScreen accepts deployment presentation so QA can use neutral workspace identity", () => {
   assert.match(authScreen, /workspacePresentation\?: WorkspacePresentation/);
@@ -10,7 +11,9 @@ test("AuthScreen accepts deployment presentation so QA can use neutral workspace
   assert.match(authScreen, /const workspacePresentation = providedWorkspacePresentation \|\| currentWorkspacePresentation\(\)/);
   assert.match(authScreen, /workspacePresentation\.productName/);
   assert.match(authScreen, /workspacePresentation\.workspaceLabel/);
-  assert.match(authScreen, /workspacePresentation\.companyLogoPath/);
+  assert.match(authScreen, /<BrandMark[\s\S]*presentation=\{workspacePresentation\}/);
+  assert.match(brandMark, /if \(!presentation\.companyLogoPath\)/);
+  assert.match(brandMark, /src=\{presentation\.companyLogoPath \|\| BRAND\.logoPath\}/);
   assert.match(authScreen, /data-demo-entry="auth"/);
   assert.match(authScreen, /href="\/demo"/);
 });
