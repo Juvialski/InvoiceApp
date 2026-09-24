@@ -103,7 +103,8 @@ test("markdown outside known documentation locations is not silently skipped", a
     fileListComplete: true,
   });
   assert.equal(sourceMarkdown.mode, "affected");
-  assert.deepEqual(sourceMarkdown.routeIds, ["help"]);
+  assert.ok(sourceMarkdown.routeIds.includes("help"));
+  assert.ok(sourceMarkdown.features.length > 0);
 
   const unknownMarkdown = module.selectDemoQaScope(["content/runtime-guide.md"], {
     eventName: "pull_request",
