@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 CURRENT**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
 Date: **2026-09-24**
 Repository: `Juvialski/InvoiceApp`
 
@@ -49,7 +49,7 @@ Validation/evidence:
 - Final exact PR head `b453a269436d66af36c133598867cfa3f20af413` passed all four protected checks before merge: Application Validation & Build, Database Migrations & Upgrade Suite, Graph and Source Contract Consistency, and `chromium-demo-qa`. No review threads or review comments were open.
 - One bounded `agent:context` packet used the supported `platform-tenancy` domain; its Workflow Map match was unavailable, so it provided no curated primary files and listed 8/384 baseline test files. The lead used deterministic source inspection and final impact selection instead. Jev and subagents were not used, per the phase policy.
 
-REL-PAYROLL-2 merged as PR #251 after exact-head validation. UI-PROJECTS-ACTION-1 then merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`, resolving the Projects-card action clipping while preserving lifecycle authority. The current bounded hardening phase is **WEB-QA-1 — QA Login Entry & Neutral Workspace Identity**. Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, and custom-field expansion remain deferred.
+REL-PAYROLL-2 merged as PR #251 after exact-head validation. UI-PROJECTS-ACTION-1 then merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`, resolving the Projects-card action clipping while preserving lifecycle authority. WEB-QA-1 then merged as PR #254 at `cd2f1e110f1cf5128e181bd39f6e93f8c2438b0a` after exact-head protected CI passed. No next implementation phase is selected in this handoff. Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, custom-field expansion, UX-EDIT-1, and Operations Workbook implementation remain deferred or planned until explicitly activated.
 
 ### 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 
@@ -2447,14 +2447,15 @@ Recorded local evidence:
 - no database, migration, Docker/Supabase, provider, hosted, production, or
   live-company state was used or changed.
 
-Protected exact-head CI, hosted QA, production, and deployed
-authenticated-browser gates remain part of the normal PR workflow.
+PR #253 squash-merged as `f44defc99beb2d15b32b13bd983cf78c4ad24124`. Hosted QA, production, and deployed authenticated-browser certification were not established by the recorded local evidence.
 
 ## 2026-09-24 — WEB-QA-1 — QA Login Entry & Neutral Workspace Identity
 
 Implementation branch: `codex/web-qa-1-qa-identity`
 Synchronized starting `main`: `f44defc99beb2d15b32b13bd983cf78c4ad24124`
-Status: **IMPLEMENTED ON FEATURE BRANCH**
+Final reviewed PR head: `161d3814f116547cadb2c4ada73fb56aedb62447`
+Merged PR #254: `cd2f1e110f1cf5128e181bd39f6e93f8c2438b0a`
+Status: **MERGED**
 
 The QA `/` route remains the neutral Engineering Operations Platform showcase
 and now separates **Sign in to QA workspace** at `/dashboard` from **Open demo**
@@ -2472,28 +2473,56 @@ The demo remains a separate neutral, synthetic workspace. The repository
 feature-expansion freeze remains active. This phase changes no database,
 company records, migration, financial workflow, or access contract.
 
-Local verification:
+Final review and validation:
 
-- focused branding/auth/routing/access/Settings tests: **44/44 passed**;
-- structured local browser QA: **11/11 scenarios passed** across QA root,
-  workspace sign-in action, signed-out auth, password recovery, demo, privacy,
-  terms, enabled request-demo, and a locally enabled production company root;
-  QA root/auth were checked at constrained-laptop and phone widths. The local
-  report is `artifacts/qa/web-qa-1-browser/manifest.json` (ignored local
-  evidence, not a customer artifact);
-- `npm.cmd run lint`: **passed** (ESLint and TypeScript);
-- `npm.cmd run build`: **passed** with the existing Inter-font, large-chunk,
-  and CommonJS `import.meta` warnings;
-- `npm.cmd run test:affected:agent`: selector fell back to all 387 test files
-  because `package.json` scripts changed; **2,133 passed, 7 failed, 11 skipped**.
-  The failures are source-shape expectations in existing Projects/Reports,
-  company-access, and Wave 6B contracts; the WEB-QA-1 focused tests passed.
-- database/Docker/Supabase validation was correctly skipped because no database
-  contract or data changed. No QA database, production, or provider state was
-  contacted or mutated.
+- the final reviewed PR head was `161d3814f116547cadb2c4ada73fb56aedb62447`;
+- the last failing Application Validation assertion was corrected as a
+  source-contract test issue: AuthScreen delegates neutral-vs-company mark
+  selection by passing `workspacePresentation` to `BrandMark`, and
+  `BrandMark` uses the neutral mark when `companyLogoPath` is absent while
+  preserving the production company logo otherwise;
+- on that exact final head, **Application Validation**, **Database Migration &
+  Invariant Tests**, **Workflow Map Consistency**, and **Demo Visual QA** all
+  completed successfully;
+- the earlier temporary repository-wide test-runner change was not retained;
+  `package.json` is not part of the merged PR diff;
+- local implementation evidence included focused branding/auth/routing/access
+  coverage, 11 structured browser scenarios, lint, and build; the browser check
+  used only a test placeholder Supabase URL/key and submitted no credentials;
+- database/Docker/Supabase runtime validation was not required because WEB-QA-1
+  changed presentation/routing behavior rather than database, RLS/RPC, or
+  financial/company authority.
 
-The local auth browser check used a test-only placeholder Supabase URL/key to
-select the existing signed-out AuthScreen without submitting credentials. It
-does not certify a hosted authenticated QA session; that still requires the
-deployed QA identity and an authorized QA account/session. Exact-head protected
-CI remains pending the normal PR workflow.
+PR #254 squash-merged as `cd2f1e110f1cf5128e181bd39f6e93f8c2438b0a`.
+Hosted authenticated QA remains a separate deployment/runtime certification
+boundary and is not claimed by this merge.
+
+## 2026-09-24 — Planned UX-EDIT-1 + Operations Workbook direction
+
+Planning contract:
+`docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md`
+
+Status: **PLANNED / NOT ACTIVE / NO IMPLEMENTATION AUTHORIZED**
+
+The future interaction direction is **browse visually -> edit like a spreadsheet
+where appropriate -> execute sensitive workflows deliberately**. UX-EDIT-1
+records easier single-click/tap entry into safe editable cells, stronger
+Excel-like editability cues, improved density, quiet normal states with
+prominent exception states, consistent worksheet behavior, and source-aware
+side-by-side Supplier Invoice review. Consequential lifecycle, approval,
+posting, payment, payroll, inventory, and similar actions remain deliberate.
+
+The separate Operations Workbook concept is a full-page white/grid workspace
+with authorized sheet tabs and high-density review/editing while normal
+card/list/detail pages and embedded worksheet editors remain available. Its
+planned sequence is WB-1 unified schema/shell, WB-2 multi-sheet XLSX
+round-trip, WB-3+ bounded domain onboarding, then WB-CERT end-to-end
+round-trip certification. Candidate domains include Projects, Cost Codes,
+Expenses, Supplier Invoice draft/review data, RFQs, Purchase Orders,
+Materials/Equipment/Warehouse, and other suitable worksheet-backed registers;
+no domain is promised automatically.
+
+The plan preserves existing permissions, concurrency, review-before-Apply,
+protected/calculated fields, financial truth, source evidence, lifecycle
+authority, and immutable history. It remains behind hardening/reliability
+priorities and does not resume the feature-expansion backlog.
