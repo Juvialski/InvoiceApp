@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 IMPLEMENTED FOR REPO SCOPE; COMPANY CONTENT PENDING**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT VERIFICATION PENDING / REL-PAYROLL-1 NEXT**
 Date: **2026-09-24**
 Repository: `Juvialski/InvoiceApp`
 
@@ -24,9 +24,9 @@ Email/SMS Reliability & SMS Improvement slice is complete on merged `main`;
 live Brevo/SMS provider certification remains pending external
 credentials/device/runtime.
 
-### WEB-BRAND-1 implementation status
+### WEB-BRAND-1 merge closeout
 
-WEB-BRAND-1 is implemented for the recorded repository scope on branch `codex/web-brand-1-company-public-site`, based on synchronized `main` SHA `59762f89fe308dd0f732c4af5f654acc813dd05d`. The governing contract remains `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md`.
+WEB-BRAND-1 merged as PR #249 at `2ca9a96b0799eec4f14364f308e9edc2d6c73d9a`, from reviewed exact head `b453a269436d66af36c133598867cfa3f20af413` and synchronized base `59762f89fe308dd0f732c4af5f654acc813dd05d`. The governing contract remains `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md`.
 
 - Canonical production `/` presents Hydroqualisense Solutions Corp. as an engineering company. Published service themes are limited to water treatment, water management, and related engineering projects.
 - The site does not display synthetic demo projects, invented company history/metrics, or unapproved facility imagery as company evidence. No company-approved portfolio references/photos were present in the repository.
@@ -36,19 +36,23 @@ WEB-BRAND-1 is implemented for the recorded repository scope on branch `codex/we
 - Canonical public metadata is company-oriented. QA, staging, unknown deployments, and noncanonical client workspaces use `noindex` and do not keep a canonical URL to the production company site.
 - `/privacy`, `/terms`, `/dashboard`, password/account recovery routing, and `/demo` remain available through their existing route boundaries. Public route selection changed as specified; no database, RLS/RPC, financial, payroll, inventory, provider, auth/session, permission, or production-infrastructure contract changed.
 
-Four public comparators and the resulting design choices are recorded in `docs/WEB-BRAND-1-DESIGN-RATIONALE.md`. The final local responsive/browser evidence is recorded in `docs/WEB-BRAND-1-VISUAL-CERTIFICATION.md`. Local screenshots under `artifacts/public-site/screenshots/` are disposable ignored output, not hosted or production certification.
+Review fixed the stale Demo Visual QA tour-name assertion and tightened two public-company strings back to the verified water-related/related-engineering boundary. On exact head `b453a269436d66af36c133598867cfa3f20af413`, Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA all passed before the squash merge.
 
-Validation/evidence:
+Implementation validation also recorded focused public/brand/demo/routing tests, `npm.cmd run test:affected:agent` at **304 passed / 0 failed across 41/385 selected files**, lint/TypeScript, build, Workflow Map consistency at **266 nodes / 355 edges**, and a local responsive public-site matrix. Those remain local/repository evidence rather than hosted/production certification. Four public comparators and design choices are in `docs/WEB-BRAND-1-DESIGN-RATIONALE.md`; visual evidence is in `docs/WEB-BRAND-1-VISUAL-CERTIFICATION.md`.
 
-- Focused public/brand/demo/routing tests passed during implementation.
-- `npm.cmd run test:affected:agent`: **304 passed, 0 failed across 41/385 selected files; no broad fallback; database unaffected**.
-- `npm.cmd run lint`: passed (ESLint and TypeScript). `npm.cmd run build`: passed. The build printed non-blocking warnings for an unloaded Inter font, chunk-size guidance, and CommonJS `import.meta` handling in `src/lib/supabase.ts`; those surfaces are outside this change and were not modified.
-- `npm.cmd run workflow-map:check`: valid, **266 nodes / 355 edges**.
-- Local production-preview and QA showcase visual matrix: desktop 1440×900, constrained laptop 1280×800, tablet 768×1024, and phone 390×844. Root/contact/demo/legal scenarios showed zero horizontal overflow, missing image alt text, page errors, or console errors; keyboard first focus reached the skip link on public marketing pages. QA and noncanonical localhost previews correctly showed `noindex, nofollow` and no canonical URL.
-- No Docker/Supabase, hosted QA, production site, provider, or live client data was used; this was a public UI/configuration change with no database contract change.
-- One bounded `agent:context` packet used the supported `platform-tenancy` domain; its Workflow Map match was unavailable, so it provided no curated primary files and listed 8/384 baseline test files. The lead used deterministic source inspection and final impact selection instead. Jev and subagents were not used, per the phase policy.
+Real company project references/photos, public service-area wording, and inquiry contact details remain pending company verification. They are not a reason to resume product expansion or fabricate corporate content.
 
-No new product-domain phase is selected by this change. Continue the active hardening/release-readiness tracks; Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, and custom-field expansion remain deferred.
+### Next implementation phase — REL-PAYROLL-1
+
+The strongest bounded hardening phase is **REL-PAYROLL-1 — Payroll Calendar Ownership-Safe Persistence & Empty-Workspace Reconciliation**.
+
+Production currently surfaces `Payroll period ownership and company are immutable` while the visible current weekly period remains Draft and the workforce count is zero. Zero workers is not a zero-calendar state: the payroll source explicitly keeps a visible schedule/period/run horizon for an empty workforce. The recurring banner therefore points to calendar reconciliation/persistence rather than to worker records.
+
+Current source strongly indicates the failure class: `savePayrollPeriodToSupabase` uses one upsert payload for both inserts and updates and always resends the current session `user_id` and active `company_id`. The reconciliation effect in `App.tsx` writes changed auto-generated periods through that helper. If an existing period was created by a different authorized actor in the same company, a valid status/metadata reconciliation can be coupled to an attempted ownership/actor rewrite and be rejected by database immutability guards. The already-hardened payroll-run writer avoids the same class of problem by updating an existing authoritative row separately from inserting a new row.
+
+This is a source-supported diagnosis, not yet a claim that the exact deployed trigger has been reproduced. REL-PAYROLL-1 must reproduce the production failure against local Supabase and identify the exact trigger/row transition before changing contracts. Preserve company isolation, actor/history immutability, finalized payroll history, schedule/version boundaries, active-period duplicate protection, source revisions, and lifecycle authority. Prefer fixing the application write shape; do not weaken database guards and do not hide the error while leaving the retry loop intact. Inspect only adjacent payroll calendar writers for the same identity-rewrite class; do not broaden into workforce expansion or payroll feature work.
+
+Because this crosses application persistence and database guards, run applicable clean local migration replay, pgTAP/migration tests, targeted runtime RLS/trigger coverage, focused payroll tests, and one final `npm.cmd run test:affected:agent`. Add no migration unless runtime evidence shows the database contract itself is wrong.
 
 ### 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 
@@ -2295,7 +2299,7 @@ The client-side recovery boundary now:
 - clears permissions on authoritative no-company, suspended-company, deployment mismatch, confirmed permission change, user identity change, and logout;
 - rejects stale/out-of-order results by request generation and user identity.
 
-The deployed trigger remains unproven. Controlled regression cases reproduce the resolver-failure and auth-refresh boundaries in the current client code; they do not establish which sequence occurred in the deployed session. PR #243 was reviewed, corrected, and merged as `9da3ada95934ab0f14d906ab766d5a8b71bb9dcf`. UI-R4E is implemented for local synthetic/demo scope; WEB-BRAND-1 remains separate and planned.
+The deployed trigger remains unproven. Controlled regression cases reproduce the resolver-failure and auth-refresh boundaries in the current client code; they do not establish which sequence occurred in the deployed session. PR #243 was reviewed, corrected, and merged as `9da3ada95934ab0f14d906ab766d5a8b71bb9dcf`. UI-R4E was implemented for local synthetic/demo scope at that checkpoint; WEB-BRAND-1 was then separate and planned, and has since merged as PR #249.
 
 Validation and review closeout:
 - focused auth/access/session/presentation tests from the implementation run: **67/67 passed**;
@@ -2320,21 +2324,21 @@ PR review classified the earlier browser failure precisely:
 
 **At that time, CI-EFF-1 was the next implementation phase by explicit owner priority.** It is now merged as PR #247 / `2c499979c1c7a6370fb3fce175c6a7deb0e1fcaa`; exact head `fc3f446fc541d457e940dc184b6ae6edb3a81126` passed all four protected workflows. The completed scope preserves measured bounded browser parallelism, conservative affected-feature selection with full-suite fallback for shared/global/ambiguous changes, exhaustive relevant-main coverage, safe setup reduction, and reproducible Playwright installation without weakening database validation or renaming protected checks.
 
-WEB-BRAND-1 is now the next separate owner-directed phase after the merged CI-efficiency work.
+At the CI-EFF-1 closeout, WEB-BRAND-1 became the next separate owner-directed phase. That historical handoff is now superseded by the merged PR #249 closeout above.
 
 
 ## 2026-09-23 — WEB-BRAND-1 public-site plan preserved
 
 Governing spec: `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md`
 
-Status: **PLANNED — NOT YET IMPLEMENTED**.
+Historical status at this planning checkpoint: **PLANNED — NOT YET IMPLEMENTED**. Current status: **MERGED AS PR #249**.
 
 - Production/canonical public branding represents **Hydroqualisense Solutions Corp. — the engineering company**, not the software product. Publish only verified company services and approved real project experience, with known high-level emphasis on water treatment, water management, and related confirmed engineering work.
 - Never use synthetic `/demo` projects as real corporate portfolio claims and never invent clients, metrics, certifications, awards, years, locations, services, or project history.
 - QA remains an explicit software/workspace showcase using synthetic/demo context and may demonstrate project management, procurement, invoices/expenses, finance, documents, payroll, inventory/equipment, communications, workflow/history, and software screenshots.
 - No permanent creator/software-vendor identity has been chosen. Do not invent one and do not present Hydroqualisense Solutions Corp. as the vendor of a multi-client SaaS product.
 - The authenticated Hydroqualisense deployment remains the client's dedicated workspace; WEB-BRAND-1 is not authorization for another broad authenticated-app rebrand.
-- WEB-BRAND-1 is the next separate bounded public-site phase. UI-R4E is merged for recorded local/demo scope; WEB-BRAND-1 remains unstarted.
+- At this historical checkpoint, WEB-BRAND-1 was the next separate bounded public-site phase and remained unstarted. It has since merged as PR #249; the current next phase is REL-PAYROLL-1.
 
 ## 2026-09-23 — UI-R4E app-wide rollout implemented for recorded local/demo scope
 
@@ -2360,4 +2364,4 @@ Recorded validation: final browser matrix **188/188 passed**; supplemental dark 
 
 Developer-intelligence closeout: the live Jev completion advisory saw all four declared evidence categories (`jev-1.13.0`, 4/4 present, 615 input / 72 output tokens, 773 ms, fallback=false). It retained `unresolvedUncertainty=true` because the supplied validation metadata marked database checks `not-applicable`; database work was outside this UI phase. Its merge decision is not provided.
 
-Evidence is local synthetic/demo only. This phase does not certify hosted QA, deployed session recovery, external provider readiness, production, live company settings, or screen-reader/device behavior. The Settings route contains an unpopulated “Deployment company” placeholder in the synthetic demo because DB-backed company controls are not mounted. No database, migration, auth-state-machine, financial/lifecycle, or payroll-persistence change was made. WEB-BRAND-1 public-site work was not started. PR #245 was subsequently reviewed and merged as `30a42e926cb0f82948a6d7a217b809f22efc77e8`.
+Evidence is local synthetic/demo only. This phase does not certify hosted QA, deployed session recovery, external provider readiness, production, live company settings, or screen-reader/device behavior. The Settings route contains an unpopulated “Deployment company” placeholder in the synthetic demo because DB-backed company controls are not mounted. No database, migration, auth-state-machine, financial/lifecycle, or payroll-persistence change was made. WEB-BRAND-1 public-site work had not started at this R4E checkpoint; it later merged as PR #249. PR #245 was subsequently reviewed and merged as `30a42e926cb0f82948a6d7a217b809f22efc77e8`.
