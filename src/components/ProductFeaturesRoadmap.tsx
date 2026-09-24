@@ -25,6 +25,7 @@ import {
   type ProductFeatureDefinition,
   type ProductFeatureStatus,
 } from "../config/productFeatures.ts";
+import { currentWorkspacePresentation, presentWorkspaceCopy } from "../config/workspacePresentation.ts";
 import { SectionHeader, StatusBadge, type StatusTone } from "./ui/OperationsUI.tsx";
 
 const categoryIcons: Readonly<Record<ProductFeatureCategory, LucideIcon>> = {
@@ -93,7 +94,7 @@ function FeatureCard({ feature }: { feature: ProductFeatureDefinition }) {
         <StatusBadge tone={meta.tone}>{PRODUCT_FEATURE_STATUS_LABELS[feature.status]}</StatusBadge>
       </div>
 
-      <p className="mt-3 text-xs leading-5 text-slate-700">{feature.shortDescription}</p>
+      <p className="mt-3 text-xs leading-5 text-slate-700">{presentWorkspaceCopy(feature.shortDescription)}</p>
 
       {feature.details.length > 0 && (
         <details className="mt-3 border-t border-slate-200/80 pt-2">
@@ -102,7 +103,7 @@ function FeatureCard({ feature }: { feature: ProductFeatureDefinition }) {
             <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 transition-transform details-open:rotate-180" />
           </summary>
           <ul className="mt-2 space-y-1.5 text-[11px] leading-4 text-slate-600">
-            {feature.details.map((detail) => <li key={detail} className="flex items-start gap-2"><span aria-hidden="true" className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-indigo-400" />{detail}</li>)}
+            {feature.details.map((detail) => <li key={detail} className="flex items-start gap-2"><span aria-hidden="true" className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-indigo-400" />{presentWorkspaceCopy(detail)}</li>)}
           </ul>
         </details>
       )}
@@ -137,14 +138,14 @@ function StatusSection({ status }: { status: ProductFeatureStatus }) {
 
 /** Client-facing product truth surface. Informational only; it does not activate roadmap work. */
 export const ProductFeaturesRoadmap: React.FC = () => (
-  <section aria-label="Hydroqualisense Features & Roadmap" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+  <section aria-label={`${currentWorkspacePresentation().productName} Features & Roadmap`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
     <div className="flex items-start gap-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
         <Sparkles aria-hidden="true" className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
         <SectionHeader
-          title="Hydroqualisense Features & Roadmap"
+          title={`${currentWorkspacePresentation().productName} Features & Roadmap`}
           description="Available, planned, and future capability status. No delivery dates are implied."
         />
       </div>

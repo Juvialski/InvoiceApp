@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 IMPLEMENTED LOCALLY / PR PENDING**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 CURRENT**
 Date: **2026-09-24**
 Repository: `Juvialski/InvoiceApp`
 
@@ -49,7 +49,7 @@ Validation/evidence:
 - Final exact PR head `b453a269436d66af36c133598867cfa3f20af413` passed all four protected checks before merge: Application Validation & Build, Database Migrations & Upgrade Suite, Graph and Source Contract Consistency, and `chromium-demo-qa`. No review threads or review comments were open.
 - One bounded `agent:context` packet used the supported `platform-tenancy` domain; its Workflow Map match was unavailable, so it provided no curated primary files and listed 8/384 baseline test files. The lead used deterministic source inspection and final impact selection instead. Jev and subagents were not used, per the phase policy.
 
-REL-PAYROLL-2 is merged as PR #251 after the exact reviewed head `ca9b91dd99ec941f90ac5f51ed9d2193d1015af8` passed all four protected checks. The next bounded hardening phase is **UI-PROJECTS-ACTION-1 — Project Card Action Popover Reachability**. The user-observed Projects regression remains present on merged `main`: `ProjectRegisterCard` gives the outer card `overflow-hidden` while the `More` menu is an absolutely positioned popover that extends outside that card, so the menu is visibly clipped. Fix that presentation/reachability defect without changing project lifecycle authority. Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, and custom-field expansion remain deferred.
+REL-PAYROLL-2 merged as PR #251 after exact-head validation. UI-PROJECTS-ACTION-1 then merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`, resolving the Projects-card action clipping while preserving lifecycle authority. The current bounded hardening phase is **WEB-QA-1 — QA Login Entry & Neutral Workspace Identity**. Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, and custom-field expansion remain deferred.
 
 ### 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 
@@ -2416,7 +2416,7 @@ authenticated browser certification remain open.
 
 Implementation branch: `codex/ui-projects-action-1-popover`
 Synchronized base SHA: `27d56ce513dc2419a2aded8a529577384960d568`
-Status: **IMPLEMENTED LOCALLY / PR PENDING**
+Status: **MERGED PR #253 / `f44defc99beb2d15b32b13bd983cf78c4ad24124`**
 
 Root cause was confirmed in `src/components/projects/ProjectPortfolioRegisterSection.tsx`:
 the outer Project card applied `overflow-hidden` while the lifecycle action
@@ -2449,3 +2449,51 @@ Recorded local evidence:
 
 Protected exact-head CI, hosted QA, production, and deployed
 authenticated-browser gates remain part of the normal PR workflow.
+
+## 2026-09-24 — WEB-QA-1 — QA Login Entry & Neutral Workspace Identity
+
+Implementation branch: `codex/web-qa-1-qa-identity`
+Synchronized starting `main`: `f44defc99beb2d15b32b13bd983cf78c4ad24124`
+Status: **IMPLEMENTED ON FEATURE BRANCH**
+
+The QA `/` route remains the neutral Engineering Operations Platform showcase
+and now separates **Sign in to QA workspace** at `/dashboard` from **Open demo**
+at `/demo`. The sign-in path uses the existing authenticated application and
+AuthScreen, including password-recovery routing. Shared deployment presentation
+resolves QA auth, shell, title, footer, Help/Settings copy, and workbook filename
+without changing `BRAND` or any authorization/tenancy decision. QA public
+metadata is neutral in the first HTML response as well as after React mounts;
+the QA deployment identifier stays out of the visible warning and the exact
+`QA ENVIRONMENT · SYNTHETIC DATA ONLY` warning remains prominent.
+
+Production Hydroqualisense Solutions Corp. public content/metadata and the
+first-client authenticated workspace retain their HydroQualiSense identity.
+The demo remains a separate neutral, synthetic workspace. The repository
+feature-expansion freeze remains active. This phase changes no database,
+company records, migration, financial workflow, or access contract.
+
+Local verification:
+
+- focused branding/auth/routing/access/Settings tests: **44/44 passed**;
+- structured local browser QA: **11/11 scenarios passed** across QA root,
+  workspace sign-in action, signed-out auth, password recovery, demo, privacy,
+  terms, enabled request-demo, and a locally enabled production company root;
+  QA root/auth were checked at constrained-laptop and phone widths. The local
+  report is `artifacts/qa/web-qa-1-browser/manifest.json` (ignored local
+  evidence, not a customer artifact);
+- `npm.cmd run lint`: **passed** (ESLint and TypeScript);
+- `npm.cmd run build`: **passed** with the existing Inter-font, large-chunk,
+  and CommonJS `import.meta` warnings;
+- `npm.cmd run test:affected:agent`: selector fell back to all 387 test files
+  because `package.json` scripts changed; **2,133 passed, 7 failed, 11 skipped**.
+  The failures are source-shape expectations in existing Projects/Reports,
+  company-access, and Wave 6B contracts; the WEB-QA-1 focused tests passed.
+- database/Docker/Supabase validation was correctly skipped because no database
+  contract or data changed. No QA database, production, or provider state was
+  contacted or mutated.
+
+The local auth browser check used a test-only placeholder Supabase URL/key to
+select the existing signed-out AuthScreen without submitting credentials. It
+does not certify a hosted authenticated QA session; that still requires the
+deployed QA identity and an authorized QA account/session. Exact-head protected
+CI remains pending the normal PR workflow.

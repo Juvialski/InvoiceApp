@@ -1,6 +1,6 @@
 # HydroQualiSense Product Direction
 
-Status: **ACTIVE — HARDENING-FIRST / WEB-BRAND-1 MERGED / NET-NEW PRODUCT EXPANSION DEFERRED**  
+Status: **ACTIVE — HARDENING-FIRST / WEB-BRAND-1 MERGED / UI-PROJECTS-ACTION-1 MERGED / WEB-QA-1 CURRENT / NET-NEW PRODUCT EXPANSION DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
 Deployment architecture: **one source repository -> many isolated deployments; one client company per deployment**  
 Canonical HydroQualiSense domain: `https://hydroqualisense.com`  
@@ -31,7 +31,8 @@ The governing product rules are:
 
 - Corporate public identity: **Hydroqualisense Solutions Corp.**
 - Authenticated first-client workspace identity: **HydroQualiSense / Hydroqualisense Solutions Corp.** for that dedicated deployment.
-- QA software identity: neutral temporary **Engineering Operations Platform** showcase wording; no permanent creator/product/vendor brand is selected.
+- QA software identity: neutral temporary **Engineering Operations Platform** and **QA Workspace** wording across the QA showcase, authentication, and signed-in workspace; no permanent creator/product/vendor brand is selected.
+- Synthetic demo identity: neutral **Engineering Operations Platform** showcase wording with synthetic, session-local sample records; it is separate from the authenticated QA workspace.
 - Canonical company domain: `hydroqualisense.com`.
 - Do not present Hydroqualisense Solutions Corp. as the vendor of a multi-client SaaS product merely because the first-client workspace uses its identity.
 - Future client deployments may use approved client company identity/configuration for operational records and issued documents while retaining the HydroQualiSense product architecture.
@@ -223,9 +224,10 @@ Security continues throughout implementation; the final certification is an addi
 The hardening-first freeze supersedes the older feature-expansion sequence below. Current priority is:
 
 1. **REL-PAYROLL-2 — Payroll Period Ownership & Automatic Calendar Persistence Hardening** — merged as PR #251; existing-period reconciliation now preserves immutable ownership/company metadata.
-2. **UI-PROJECTS-ACTION-1 — Project Card Action Popover Reachability** — next bounded UI-hardening phase for the clipped `More`/lifecycle action menu, with focused responsive/browser regression coverage.
-3. **Provider/release certification** for existing capabilities when credentials, devices, hosted QA, and deployment prerequisites are safely available.
-4. **Final pre-production security/data-integrity certification** before broad rollout.
+2. **UI-PROJECTS-ACTION-1 — Project Card Action Popover Reachability** — merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`.
+3. **WEB-QA-1 — QA Login Entry & Neutral Workspace Identity** — current bounded hardening phase. QA exposes the real authenticated workspace at `/dashboard` separately from `/demo`, and resolves QA presentation identity without changing production company branding or authorization.
+4. **Provider/release certification** for existing capabilities when credentials, devices, hosted QA, and deployment prerequisites are safely available.
+5. **Final pre-production security/data-integrity certification** before broad rollout.
 
 Worker Registration, Site Attendance expansion, Face Recognition Attendance, Finance UX-W6, custom fields, and other net-new product work remain deferred until the user explicitly resumes feature expansion.
 

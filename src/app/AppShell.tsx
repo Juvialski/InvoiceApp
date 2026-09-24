@@ -2,7 +2,7 @@ import React, { useEffect, useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 import { Header, type AppTab, type HeaderBranding } from "../components/Header";
 import { AccessRefreshNotice, CompanySwitcher } from "../components/access/AccessStates.tsx";
-import { BRAND } from "../config/brand";
+import { currentWorkspacePresentation, type WorkspacePresentation } from "../config/workspacePresentation.ts";
 import type { CompanySummary } from "../lib/companyAccess";
 import type { WorkspaceSyncStatus } from "../lib/workspaceSync";
 import type { PermissionKey } from "../utils/accessControl";
@@ -135,6 +135,8 @@ export interface AppShellProps {
   footerText?: string;
   /** Optional branding override for synthetic/demo shells only. */
   brandIdentity?: HeaderBranding;
+  /** Optional deployment presentation override for deterministic rendering and QA. */
+  workspacePresentation?: WorkspacePresentation;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -168,9 +170,13 @@ export const AppShell: React.FC<AppShellProps> = ({
   routeRecovery,
   onRecoverRoute,
   isHelpRoute = false,
-  footerText = BRAND.footerText,
-  brandIdentity,
+  footerText: requestedFooterText,
+  brandIdentity: requestedBrandIdentity,
+  workspacePresentation: requestedWorkspacePresentation,
 }) => {
+  const resolvedWorkspacePresentation = requestedWorkspacePresentation || currentWorkspacePresentation();
+  const footerText = requestedFooterText ?? resolvedWorkspacePresentation.footerText;
+  const brandIdentity = requestedBrandIdentity ?? resolvedWorkspacePresentation.headerBranding;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {

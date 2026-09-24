@@ -1,7 +1,7 @@
 import { appPathForTab } from "../utils/appRouting.ts";
 import type { RouteId } from "../utils/routes.ts";
 import type { AssistantReference } from "./assistantTypes.ts";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 import {
   HELP_TOPICS,
   getHelpTopic as getCanonicalHelpTopic,
@@ -65,7 +65,7 @@ export function helpTopicArticlePath(entry: HelpCatalogEntry) {
 
 export function unknownHelpResponse(query: string) {
   const label = query.trim() ? ` for “${query.trim().slice(0, 80)}”` : "";
-  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Documents, Email / SMS communications, Engineering Documents and blueprints, Daily Site Logs, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, or settings.`;
+  return `I don’t have a verified ${currentWorkspacePresentation().productName} help answer${label} yet. I can help with Documents, Email / SMS communications, Engineering Documents and blueprints, Daily Site Logs, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, or settings.`;
 }
 
 export type HelpResponse =

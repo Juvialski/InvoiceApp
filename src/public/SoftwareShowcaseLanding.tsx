@@ -56,8 +56,11 @@ export function SoftwareShowcaseLanding() {
               <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300 sm:text-base sm:leading-8">Explore a non-production software showcase for project operations, procurement, finance, documents, and related workflows.</p>
               <p className="mt-4 max-w-xl text-[11px] leading-6 text-slate-400">{QA_SOFTWARE_SHOWCASE.disclosure}</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a href="/demo" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-cyan-300 px-5 text-sm font-bold text-[#092431] transition hover:bg-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-cyan-200">
-                  Launch Demo Workspace <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                <a href={QA_SOFTWARE_SHOWCASE.workspaceEntry.signInHref} className="inline-flex min-h-12 items-center gap-2 rounded-full border border-white/25 px-5 text-sm font-bold text-white transition hover:border-white/50 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-cyan-200">
+                  {QA_SOFTWARE_SHOWCASE.workspaceEntry.signInLabel} <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </a>
+                <a href={QA_SOFTWARE_SHOWCASE.workspaceEntry.demoHref} className="inline-flex min-h-12 items-center gap-2 rounded-full bg-cyan-300 px-5 text-sm font-bold text-[#092431] transition hover:bg-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-cyan-200">
+                  {QA_SOFTWARE_SHOWCASE.workspaceEntry.demoLabel} <ArrowRight aria-hidden="true" className="h-4 w-4" />
                 </a>
                 {intakeEnabled && <a href="/request-demo" className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-5 text-sm font-semibold text-white transition hover:border-white/50 hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-cyan-200">Request a software demo</a>}
               </div>

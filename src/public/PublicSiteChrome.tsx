@@ -40,8 +40,8 @@ export function PublicSiteHeader({ variant }: { variant: PublicSiteVariant }) {
               Client Portal <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
             </a>
           ) : (
-            <a href="/demo" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-4 text-xs font-bold text-[#08202c] transition hover:bg-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200 sm:order-3">
-              Open demo <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+            <a href={QA_SOFTWARE_SHOWCASE.workspaceEntry.signInHref} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-4 text-[11px] font-bold text-[#08202c] transition hover:bg-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200 sm:order-3">
+              {QA_SOFTWARE_SHOWCASE.workspaceEntry.signInLabel} <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
             </a>
           )}
 

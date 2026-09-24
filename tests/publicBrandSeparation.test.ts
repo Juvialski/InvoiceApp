@@ -67,6 +67,12 @@ test("QA has a neutral software identity, explicit synthetic disclosure, and non
   const metadata = publicPageMetadataFor("software-showcase", "landing", "/");
   assert.equal(metadata.canonicalUrl, null);
   assert.equal(metadata.robots, "noindex, nofollow");
+  for (const page of ["landing", "contact", "request-demo", "privacy", "terms"] as const) {
+    const qaPageMetadata = publicPageMetadataFor("software-showcase", page, "/", false);
+    assert.doesNotMatch(JSON.stringify(qaPageMetadata), /Hydroqualisense/i);
+    assert.equal(qaPageMetadata.canonicalUrl, null);
+    assert.equal(qaPageMetadata.robots, "noindex, nofollow");
+  }
   const companyMetadata = publicPageMetadataFor("company", "landing", "/", true);
   assert.equal(companyMetadata.title, "Hydroqualisense Solutions Corp. | Water & Engineering");
   assert.equal(companyMetadata.canonicalUrl, "https://hydroqualisense.com/");
@@ -88,4 +94,21 @@ test("QA has a neutral software identity, explicit synthetic disclosure, and non
   assert.doesNotMatch(demoTour, /BRAND\.productName/);
   assert.doesNotMatch(demoCompanyFixture + demoInvoiceFixture, /Hydroqualisense Solutions Corp\./);
   assert.match(demoCompanyFixture, /Sample Engineering Company/);
+});
+
+test("QA showcase clearly separates real workspace sign-in from the isolated demo", () => {
+  const { workspaceEntry } = QA_SOFTWARE_SHOWCASE;
+  assert.deepEqual(workspaceEntry, {
+    signInHref: "/dashboard",
+    signInLabel: "Sign in to QA workspace",
+    demoHref: "/demo",
+    demoLabel: "Open demo",
+  });
+  assert.match(softwareShowcase, /workspaceEntry\.signInHref/);
+  assert.match(softwareShowcase, /workspaceEntry\.signInLabel/);
+  assert.match(softwareShowcase, /workspaceEntry\.demoHref/);
+  assert.match(softwareShowcase, /workspaceEntry\.demoLabel/);
+  assert.match(publicChrome, /workspaceEntry\.signInHref/);
+  assert.equal(applicationModeForPath("/dashboard", undefined, undefined, false, "qa-preview.example.com", "qa"), "production");
+  assert.equal(applicationModeForPath("/demo", undefined, undefined, false, "qa-preview.example.com", "qa"), "demo");
 });

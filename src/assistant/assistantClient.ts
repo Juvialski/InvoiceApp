@@ -14,7 +14,7 @@ import {
 } from "./assistantTypes.ts";
 import { sanitizeAssistantClientAction, isAllowlistedAssistantAction } from "./assistantActionPolicy.ts";
 import { isAssistantAttachmentKind, safeAttachmentFileName, validateAssistantAttachment } from "./attachmentRouter.ts";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 
 export { isAllowlistedAssistantAction, sanitizeAssistantClientAction } from "./assistantActionPolicy.ts";
 
@@ -99,10 +99,10 @@ function sanitizePreparedAction(value: unknown): AssistantPreparedAction | null 
 
 export function parseAssistantResponse(value: unknown, fallbackContextGeneration = 0): AssistantResponse {
   const envelope = isRecord(value) && value.success === true && isRecord(value.data) ? value.data : value;
-  if (!isRecord(envelope)) throw new Error(`${BRAND.assistantName} returned an invalid response.`);
+  if (!isRecord(envelope)) throw new Error(`${currentWorkspacePresentation().assistantName} returned an invalid response.`);
   const threadId = safeToken(envelope.threadId);
   const message = boundedString(envelope.message, MAX_MESSAGE_LENGTH);
-  if (!threadId || !message) throw new Error(`${BRAND.assistantName} returned an incomplete response.`);
+  if (!threadId || !message) throw new Error(`${currentWorkspacePresentation().assistantName} returned an incomplete response.`);
   const contextGeneration = Number(envelope.contextGeneration);
   const references = Array.isArray(envelope.references) ? envelope.references.map(sanitizeReference).filter((item): item is AssistantReference => Boolean(item)) : [];
   const clientActions = Array.isArray(envelope.clientActions) ? envelope.clientActions.map(sanitizeAssistantClientAction).filter((item): item is NonNullable<ReturnType<typeof sanitizeAssistantClientAction>> => Boolean(item)) : [];
@@ -156,7 +156,7 @@ async function responsePayload(response: Response): Promise<unknown> {
 
 function errorFromPayload(payload: unknown, status?: number) {
   if (isRecord(payload) && payload.success === false) {
-    const message = boundedString(payload.error, 500) || `${BRAND.assistantName} could not complete that request.`;
+    const message = boundedString(payload.error, 500) || `${currentWorkspacePresentation().assistantName} could not complete that request.`;
     return new AssistantClientError(message, {
       status,
       code: boundedString(payload.code, 80) || undefined,
@@ -165,7 +165,7 @@ function errorFromPayload(payload: unknown, status?: number) {
       contextGeneration: Number.isSafeInteger(payload.contextGeneration) ? Number(payload.contextGeneration) : undefined,
     });
   }
-  return new AssistantClientError(status ? `${BRAND.assistantName} request failed (${status}).` : `${BRAND.assistantName} request failed.`, { status });
+  return new AssistantClientError(status ? `${currentWorkspacePresentation().assistantName} request failed (${status}).` : `${currentWorkspacePresentation().assistantName} request failed.`, { status });
 }
 
 async function postAssistant(path: string, companyId: string, body: AssistantRequest | AssistantConfirmRequest, signal?: AbortSignal) {
@@ -218,7 +218,7 @@ export interface SendAssistantMessageOptions {
 
 export async function sendAssistantMessage(options: SendAssistantMessageOptions): Promise<AssistantResponse> {
   const companyId = (options.companyId || "").trim();
-  if (!companyId) throw new AssistantClientError(`Sign in and resolve deployment access before using ${BRAND.assistantName}.`, { code: "COMPANY_REQUIRED" });
+  if (!companyId) throw new AssistantClientError(`Sign in and resolve deployment access before using ${currentWorkspacePresentation().assistantName}.`, { code: "COMPANY_REQUIRED" });
   const message = options.message.trim().slice(0, MAX_MESSAGE_LENGTH);
   if (!message) throw new AssistantClientError("Ask a question or attach a file before sending.", { code: "MESSAGE_REQUIRED" });
   const context = compactAssistantContext({ ...options.context, companyId });

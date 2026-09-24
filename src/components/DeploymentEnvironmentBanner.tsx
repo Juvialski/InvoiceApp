@@ -1,9 +1,15 @@
 import React from "react";
 import { AlertTriangle, FlaskConical } from "lucide-react";
-import { currentDeploymentIdentity } from "../lib/deploymentIdentity.ts";
+import { currentDeploymentIdentity, type DeploymentIdentity } from "../lib/deploymentIdentity.ts";
+import { currentWorkspacePresentation, type WorkspacePresentation } from "../config/workspacePresentation.ts";
 
-export function DeploymentEnvironmentBanner() {
-  const identity = currentDeploymentIdentity();
+export function DeploymentEnvironmentBanner({
+  identity = currentDeploymentIdentity(),
+  presentation = currentWorkspacePresentation(),
+}: {
+  identity?: DeploymentIdentity;
+  presentation?: WorkspacePresentation;
+}) {
   if (identity.environment === "production") return null;
 
   const unresolved = identity.environment === "unknown";
@@ -22,7 +28,7 @@ export function DeploymentEnvironmentBanner() {
     >
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span>{label}</span>
-      {identity.deploymentId && <span className="rounded bg-black/10 px-1.5 py-0.5 normal-case tracking-normal">{identity.deploymentId}</span>}
+      {presentation.showDeploymentIdentifier && identity.deploymentId && <span className="rounded bg-black/10 px-1.5 py-0.5 normal-case tracking-normal">{identity.deploymentId}</span>}
     </div>
   );
 }

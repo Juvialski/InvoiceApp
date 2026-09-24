@@ -3,7 +3,7 @@ import { AlertTriangle, Bot, FileText, UserRound } from "lucide-react";
 import type { AssistantClientAction, AssistantPreparedAction } from "./assistantTypes.ts";
 import type { AssistantConversationMessage } from "./assistantUiTypes.ts";
 import { AssistantActionCard } from "./AssistantActionCard.tsx";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 import { useAppPermissions } from "../app/AppPermissionContext.tsx";
 import { isAssistantActionAllowed } from "./assistantActionPolicy.ts";
 
@@ -29,7 +29,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({ message, bus
   const isSystem = message.role === "system";
   const visibleClientActions = message.clientActions.filter((action) => isAssistantActionAllowed(action, permissions));
   return (
-    <article className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`} aria-label={isUser ? "You" : BRAND.assistantName}>
+    <article className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`} aria-label={isUser ? "You" : currentWorkspacePresentation().assistantName}>
       <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${isUser ? "bg-slate-200 text-slate-600" : isSystem ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
         {isUser ? <UserRound aria-hidden="true" className="h-3.5 w-3.5" /> : isSystem ? <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5" /> : <Bot aria-hidden="true" className="h-3.5 w-3.5" />}
       </div>
