@@ -5,19 +5,14 @@ on:
     branches:
       - main
     paths:
-      - "src/app/**"
-      - "src/components/**"
-      - "src/demo/**"
-      - "src/workflow-map/**"
-      - "src/**/*.css"
-      - "src/main.tsx"
-      - "public/demo/**"
-      - "package.json"
+      - "src/**"
+      - "public/**"
+      - "package*.json"
+      - "vite.config.ts"
       - "scripts/demo-visual-qa.ts"
       - "scripts/qa/**"
       - "scripts/workflow-map/**"
-      - "tests/structuredBrowserEvidence.test.ts"
-      - "tests/workflowMap*.test.ts"
+      - "tests/**"
       - ".github/workflows/demo-visual-qa.yml"
   pull_request:
     branches:
@@ -36,68 +31,107 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Determine validation scope
-        id: scope
+      - name: Collect pull request changed paths
+        id: changed-files
         uses: actions/github-script@v7
         with:
           script: |
             if (context.eventName !== 'pull_request') {
-              core.setOutput('run', 'true');
+              core.setOutput('files', '[]');
+              core.setOutput('complete', 'false');
               return;
             }
 
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              per_page: 100,
-            });
-            const relevant = files.some(({ filename }) =>
-              filename.startsWith('src/app/') ||
-              filename.startsWith('src/components/') ||
-              filename.startsWith('src/demo/') ||
-              filename.startsWith('src/workflow-map/') ||
-              (filename.startsWith('src/') && filename.endsWith('.css')) ||
-              filename === 'src/main.tsx' ||
-              filename.startsWith('public/demo/') ||
-              filename === 'package.json' ||
-              filename === 'scripts/demo-visual-qa.ts' ||
-              filename.startsWith('scripts/qa/') ||
-              filename.startsWith('scripts/workflow-map/') ||
-              filename === 'tests/structuredBrowserEvidence.test.ts' ||
-              /^tests\/workflowMap.*\.test\.ts$/.test(filename) ||
-              filename === '.github/workflows/demo-visual-qa.yml'
-            );
-            core.setOutput('run', relevant ? 'true' : 'false');
-            if (!relevant) {
-              core.notice('Fast-pass: no browser/demo QA inputs changed.');
+            try {
+              const pullNumber = context.issue.number;
+              const expectedHeadSha = context.payload.pull_request?.head?.sha;
+              const expectedBaseSha = context.payload.pull_request?.base?.sha;
+              if (!expectedHeadSha || !expectedBaseSha) {
+                core.warning('Pull request head or base identity is unavailable; browser QA will run the full catalog.');
+                core.setOutput('files', '[]');
+                core.setOutput('complete', 'false');
+                return;
+              }
+
+              const before = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+              });
+              if (before.data.head.sha !== expectedHeadSha || before.data.base.sha !== expectedBaseSha) {
+                core.warning('Pull request head or base moved after this event; browser QA will run the full catalog.');
+                core.setOutput('files', '[]');
+                core.setOutput('complete', 'false');
+                return;
+              }
+
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+                per_page: 100,
+              });
+              const after = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+              });
+              const sameEventRevision = after.data.head.sha === expectedHeadSha
+                && after.data.base.sha === expectedBaseSha
+                && before.data.head.sha === after.data.head.sha
+                && before.data.base.sha === after.data.base.sha;
+              const complete = sameEventRevision && files.length === after.data.changed_files;
+              if (!complete) {
+                core.warning(`Changed-file list or event identity may be incomplete (${files.length} returned, ${after.data.changed_files} expected); browser QA will run the full catalog.`);
+              }
+              core.setOutput('files', JSON.stringify(files.map(({ filename }) => filename)));
+              core.setOutput('complete', complete ? 'true' : 'false');
+            } catch {
+              core.warning('Could not read the complete pull request file list; browser QA will run the full catalog.');
+              core.setOutput('files', '[]');
+              core.setOutput('complete', 'false');
             }
 
       - name: Checkout repository
-        if: steps.scope.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
       - name: Setup Node.js
-        if: steps.scope.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            scripts/qa/browser-runtime/package-lock.json
+
+      - name: Select browser scenarios
+        id: scope
+        run: node --experimental-strip-types scripts/qa/selectDemoQaScope.ts
+        env:
+          DEMO_QA_CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
+          DEMO_QA_CHANGED_FILES_COMPLETE: ${{ steps.changed-files.outputs.complete }}
+
+      - name: Report browser scenario scope
+        run: echo "Browser QA scope=${{ steps.scope.outputs.mode }} reason=${{ steps.scope.outputs.reason }} routes=${{ steps.scope.outputs.routes }}"
+
       - name: Install dependencies
         if: steps.scope.outputs.run == 'true'
         run: npm ci
-      - name: Lint and typecheck
+
+      - name: Install pinned QA Playwright package
         if: steps.scope.outputs.run == 'true'
-        run: npm run lint
+        run: npm ci --prefix scripts/qa/browser-runtime
+
       - name: Build production bundle
         if: steps.scope.outputs.run == 'true'
         run: npm run build
-      - name: Install Playwright for QA only
+
+      - name: Install pinned Playwright Chromium
         if: steps.scope.outputs.run == 'true'
-        run: |
-          npm install --no-save --package-lock=false playwright@1.55.0
-          npx playwright install --with-deps chromium
+        run: npm exec --prefix scripts/qa/browser-runtime -- playwright install --with-deps chromium
+
       - name: Start static preview
         if: steps.scope.outputs.run == 'true'
         run: |
@@ -109,9 +143,13 @@ jobs:
           done
           cat /tmp/engoryx-demo-preview.log
           exit 1
+
       - name: Capture structured demo evidence
         if: steps.scope.outputs.run == 'true'
         run: npm run qa:demo
+        env:
+          DEMO_QA_FEATURES: ${{ steps.scope.outputs.features }}
+
       - name: Generate workflow map evidence overlay
         if: always() && steps.scope.outputs.run == 'true'
         run: |
@@ -120,6 +158,7 @@ jobs:
           else
             echo "No manifest.json found; skipping evidence overlay generation."
           fi
+
       - name: Upload visual QA evidence
         if: always() && steps.scope.outputs.run == 'true'
         uses: actions/upload-artifact@v4
@@ -128,6 +167,7 @@ jobs:
           path: artifacts/demo-visual-qa
           if-no-files-found: error
           retention-days: 14
+
       - name: Stop preview server
         if: always() && steps.scope.outputs.run == 'true'
         run: |

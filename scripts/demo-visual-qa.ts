@@ -1,11 +1,9 @@
 import { execFile as execFileCallback } from "node:child_process";
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { promisify } from "node:util";
-// Playwright is intentionally installed by the QA workflow/local QA command,
-// not by the application dependency set.
-// @ts-ignore -- the QA-only dependency is present when this script executes.
-import { chromium } from "playwright";
+import { fileURLToPath } from "node:url";
 import {
   createOverflowResult,
   createQaManifest,
@@ -27,8 +25,12 @@ import {
   type QaViewport,
 } from "./qa/structuredEvidence.ts";
 import { DEMO_QA_SCENARIOS } from "./qa/demoScenarios.ts";
+import { filterDemoQaScenarios } from "./qa/demoFeatureSelection.ts";
+import { parseQaWorkerCount, runWithWorkerPool } from "./qa/workerPool.ts";
 
 const execFile = promisify(execFileCallback);
+const qaRuntimeRequire = createRequire(path.join(path.dirname(fileURLToPath(import.meta.url)), "qa", "browser-runtime", "package.json"));
+const { chromium } = qaRuntimeRequire("playwright") as { readonly chromium: unknown };
 
 interface QaResponseLike {
   status(): number;
@@ -81,9 +83,9 @@ interface QaBrowserLike {
 const BASE_URL = (process.env.DEMO_QA_BASE_URL || "http://127.0.0.1:4173").replace(/\/+$/, "");
 const OUTPUT_DIR = path.resolve(process.env.DEMO_QA_OUTPUT_DIR || "artifacts/demo-visual-qa");
 const FEATURE_FILTER = [...new Set((process.env.DEMO_QA_FEATURES || "").split(",").map((value) => value.trim()).filter(Boolean))];
-const SCENARIOS_TO_RUN = FEATURE_FILTER.length
-  ? DEMO_QA_SCENARIOS.filter((scenario) => FEATURE_FILTER.includes(scenario.feature))
-  : DEMO_QA_SCENARIOS;
+const SCENARIO_FILTER = filterDemoQaScenarios(DEMO_QA_SCENARIOS, FEATURE_FILTER);
+const SCENARIOS_TO_RUN = SCENARIO_FILTER.scenarios;
+const QA_WORKER_COUNT = parseQaWorkerCount(process.env.DEMO_QA_WORKERS);
 const NAVIGATION_TIMEOUT_MS = 60_000;
 const READY_TIMEOUT_MS = 30_000;
 const DEMO_LOADING_MARKERS = [
@@ -126,6 +128,19 @@ async function runScenario(browser: QaBrowserLike, scenario: QaScenarioDefinitio
   const startedAt = Date.now();
   const timestamp = new Date().toISOString();
   const context = await browser.newContext({ viewport: scenario.viewport, deviceScaleFactor: 1 });
+  try {
+    return await captureScenarioWithContext(context, scenario, startedAt, timestamp);
+  } finally {
+    await context.close();
+  }
+}
+
+async function captureScenarioWithContext(
+  context: QaContextLike,
+  scenario: QaScenarioDefinition,
+  startedAt: number,
+  timestamp: string,
+): Promise<ReturnType<typeof createScenarioEvidence>> {
   const page = await context.newPage();
   const consoleErrors: QaConsoleError[] = [];
   const pageErrors: QaPageError[] = [];
@@ -231,7 +246,6 @@ async function runScenario(browser: QaBrowserLike, scenario: QaScenarioDefinitio
     ...(navigationError ? { error: navigationError } : {}),
   };
 
-  await context.close();
   const screenshotPath = screenshotError ? null : path.posix.join("screenshots", `${scenario.id}.png`);
   return createScenarioEvidence({
     scenario,
@@ -249,11 +263,37 @@ async function runScenario(browser: QaBrowserLike, scenario: QaScenarioDefinitio
   });
 }
 
-function logLinesFor(results: readonly ReturnType<typeof createScenarioEvidence>[], runError?: string | null): string[] {
+function scenarioRunnerFailure(
+  scenario: QaScenarioDefinition,
+  error: unknown,
+  durationMs: number,
+): ReturnType<typeof createScenarioEvidence> {
+  const message = normalizeErrorMessage(error, "Scenario runner failed.");
+  return createScenarioEvidence({
+    scenario,
+    timestamp: new Date().toISOString(),
+    durationMs,
+    navigation: { requestedPath: scenario.path, finalPath: scenario.path, status: null, loaded: false, error: message },
+    consoleErrors: [],
+    pageErrors: [],
+    failedRequests: [],
+    overflow: createOverflowResult({ documentWidth: 0, bodyWidth: 0, viewportWidth: scenario.viewport.width }),
+    assertions: [{ id: "scenario-runner", passed: false, details: message }],
+    actionError: message,
+    screenshotPath: null,
+  });
+}
+
+function logLinesFor(
+  results: readonly ReturnType<typeof createScenarioEvidence>[],
+  runError: string | null,
+  capture: { readonly durationMs: number; readonly workerCount: number; readonly scope: string; readonly features: readonly string[] },
+): string[] {
   const lines = [
     "Engoryx QA-1 structured browser evidence",
     "",
     `schemaVersion=1 scenarios=${results.length}`,
+    `scope=${capture.scope} workerCount=${capture.workerCount} captureDurationMs=${capture.durationMs} featureSelectors=${capture.features.length ? capture.features.join(",") : "full-catalog"}`,
   ];
   if (runError) lines.push(`RUNNER FAIL ${normalizeErrorMessage(runError, "QA runner failed.")}`);
   for (const result of results) {
@@ -268,11 +308,6 @@ function logLinesFor(results: readonly ReturnType<typeof createScenarioEvidence>
 }
 
 async function main(): Promise<void> {
-  if (FEATURE_FILTER.length && !SCENARIOS_TO_RUN.length) {
-    console.error(`No demo QA scenarios matched DEMO_QA_FEATURES=${FEATURE_FILTER.join(",")}.`);
-    process.exitCode = 1;
-    return;
-  }
   await fs.mkdir(path.join(OUTPUT_DIR, "screenshots"), { recursive: true });
   await fs.mkdir(path.join(OUTPUT_DIR, "logs"), { recursive: true });
 
@@ -287,37 +322,62 @@ async function main(): Promise<void> {
   const results: Array<ReturnType<typeof createScenarioEvidence>> = [];
   let runError: string | null = null;
   let browser: QaBrowserLike | null = null;
+  let captureDurationMs = 0;
+
+  console.log(`Demo QA scope=${SCENARIO_FILTER.mode} scenarios=${SCENARIOS_TO_RUN.length} workerCount=${QA_WORKER_COUNT}`);
+  if (FEATURE_FILTER.length && SCENARIO_FILTER.mode === "full") {
+    console.warn(`DEMO_QA_FEATURES did not resolve completely (${SCENARIO_FILTER.reason}); running the full scenario catalog.`);
+  }
 
   try {
-    browser = await (chromium as unknown as { launch(options: { headless: boolean }): Promise<QaBrowserLike> }).launch({ headless: true });
-    for (const scenario of SCENARIOS_TO_RUN) {
-      try {
-        results.push(await runScenario(browser, scenario));
-      } catch (error) {
-        const message = normalizeErrorMessage(error, "Scenario runner failed.");
-        results.push(createScenarioEvidence({
-          scenario,
-          timestamp: new Date().toISOString(),
-          durationMs: 0,
-          navigation: { requestedPath: scenario.path, finalPath: scenario.path, status: null, loaded: false, error: message },
-          consoleErrors: [],
-          pageErrors: [],
-          failedRequests: [],
-          overflow: createOverflowResult({ documentWidth: 0, bodyWidth: 0, viewportWidth: scenario.viewport.width }),
-          assertions: [{ id: "scenario-runner", passed: false, details: message }],
-          actionError: message,
-          screenshotPath: null,
-        }));
+    if (SCENARIOS_TO_RUN.length === 0) {
+      runError = "The browser scenario catalog is empty.";
+    } else {
+      const launchedBrowser = await (chromium as unknown as { launch(options: { headless: boolean }): Promise<QaBrowserLike> }).launch({ headless: true });
+      browser = launchedBrowser;
+      const captureStartedAt = Date.now();
+      const attempts = await runWithWorkerPool(SCENARIOS_TO_RUN, QA_WORKER_COUNT, async (scenario) => {
+        const scenarioStartedAt = Date.now();
+        try {
+          return await runScenario(launchedBrowser, scenario);
+        } catch (error) {
+          return scenarioRunnerFailure(scenario, error, Date.now() - scenarioStartedAt);
+        }
+      });
+      captureDurationMs = Date.now() - captureStartedAt;
+      for (const [index, attempt] of attempts.entries()) {
+        const scenario = SCENARIOS_TO_RUN[index]!;
+        results.push(attempt.status === "fulfilled"
+          ? attempt.value
+          : scenarioRunnerFailure(scenario, attempt.reason, 0));
       }
     }
   } catch (error) {
     runError = normalizeErrorMessage(error, "The browser QA runner could not start.");
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (error) {
+        runError = runError || normalizeErrorMessage(error, "The browser could not close cleanly.");
+      }
+    }
+  }
+
+  const evidenceByScenarioId = new Map(results.map((result) => [result.scenarioId, result]));
+  results.length = 0;
+  for (const scenario of SCENARIOS_TO_RUN) {
+    results.push(evidenceByScenarioId.get(scenario.id)
+      || scenarioRunnerFailure(scenario, runError || "Scenario did not produce a worker result.", 0));
   }
 
   const logPath = path.join(OUTPUT_DIR, "logs", "qa.log");
-  await fs.writeFile(logPath, `${logLinesFor(results, runError).join("\n")}\n`, "utf8");
+  await fs.writeFile(logPath, `${logLinesFor(results, runError, {
+    durationMs: captureDurationMs,
+    workerCount: QA_WORKER_COUNT,
+    scope: SCENARIO_FILTER.mode,
+    features: FEATURE_FILTER,
+  }).join("\n")}\n`, "utf8");
   const manifest = createQaManifest({
     run,
     scenarios: results,

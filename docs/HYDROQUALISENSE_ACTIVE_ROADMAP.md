@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 NEXT / WEB-BRAND-1 PLANNED**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 IMPLEMENTED FOR RECORDED SCOPE, EXACT-HEAD PR CHECKS PENDING / WEB-BRAND-1 PLANNED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-23**
+Last updated: **2026-09-24**
 
 Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -30,6 +30,14 @@ Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 **Public-site brand separation plan:** `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md` — WEB-BRAND-1 planned; production company site and QA software showcase remain separate audiences
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
+
+## 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
+
+The focused implementation is on branch `codex/ci-eff-1-proportional-browser-qa`, based on synchronized `main` SHA `784b998a574ded11c67bcde3c717f5bb920deecc`. Demo Visual QA now uses a bounded ordered worker pool and a repository-owned changed-file selector. The selector maps known source/test areas to catalog route IDs, then derives exact `feature@route` filters from `scripts/qa/demoScenarios.ts`; uncertain, shared, incomplete, unknown, or browser-infrastructure changes use the full catalog. The existing `DEMO_QA_FEATURES` whole-feature form remains supported. PR file selection is accepted only when the changed-file list is complete and its head/base match the triggering event.
+
+Four workers are the measured default, capped at four; `DEMO_QA_WORKERS=1` preserves sequential execution. Playwright is pinned to `1.63.0` in an isolated QA runtime package and lockfile under `scripts/qa/browser-runtime`, leaving the application dependency manifest unchanged. Browser binaries are installed deterministically on each run rather than cached. Demo Visual QA no longer repeats lint/typecheck already owned by exact-head Application Validation; its dependency install and production build remain independent, with no cross-workflow artifact dependency.
+
+Exhaustive Demo Visual QA remains on relevant `main` pushes and full-fallback PRs; this PR changes browser-QA infrastructure and therefore selects the full catalog. The existing scheduled full-regression workflow remains unchanged and continues to cover application/database regression rather than adding a duplicate browser schedule. The protected job/check name `chromium-demo-qa` and exact PR-head checkout are unchanged. See the current handoff for measurements, focused evidence, and the pending exact-head protected run.
 
 ## 2026-09-21 hardening-first reprioritization and UI Simplification Round 3
 

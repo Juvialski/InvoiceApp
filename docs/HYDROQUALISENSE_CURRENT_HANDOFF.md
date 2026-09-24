@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 NEXT / WEB-BRAND-1 PLANNED**
-Date: **2026-09-23**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 IMPLEMENTED FOR RECORDED SCOPE; EXACT-HEAD PR CHECKS PENDING / WEB-BRAND-1 PLANNED**
+Date: **2026-09-24**
 Repository: `Juvialski/InvoiceApp`
 
 RI-0 Repository Intelligence planning was prepared from the earlier current
@@ -23,6 +23,81 @@ repository-identity decisions are now explicitly closed. The implementable
 Email/SMS Reliability & SMS Improvement slice is complete on merged `main`;
 live Brevo/SMS provider certification remains pending external
 credentials/device/runtime.
+
+### 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
+
+Implementation branch: `codex/ci-eff-1-proportional-browser-qa`
+Synchronized base SHA: `784b998a574ded11c67bcde3c717f5bb920deecc`
+
+Demo Visual QA now runs independent scenarios in an ordered worker pool with a
+four-worker default and cap. `DEMO_QA_WORKERS=1` provides sequential execution.
+Each scenario retains its own Playwright context, closes that context in a
+`finally` path, and yields an input-ordered evidence result even if another
+worker fails. The log records selected scope, filters, worker count, and capture
+duration; the manifest continues to include a failure row for every selected
+scenario.
+
+Changed-file selection lives in `scripts/qa/demoFeatureSelection.ts`. Known
+domain paths map to catalog route IDs, and route IDs expand to all catalog
+feature groups as exact `feature@route` selectors. This includes cross-cutting
+theme, visual-matrix, and route-audit groups without selecting those groups for
+unrelated routes. Legacy whole-feature filters remain supported. Missing or
+incomplete paths, event SHA/base mismatch, API errors, unmapped files, shared
+shell/design/theme/demo changes, and browser-QA infrastructure select the full
+catalog. Only a complete documentation-only PR explicitly skips browser work.
+
+The workflow keeps exact PR-head checkout, the `chromium-demo-qa` job/check
+name, and required-check reporting without `pull_request.paths`. Relevant main
+pushes run the full 365-scenario catalog; broad and uncertain PRs also run the
+full catalog. The weekly full-regression workflow remains unchanged and does
+not include Demo Visual QA, so no duplicate browser schedule was added.
+
+Playwright `1.63.0` is pinned in the isolated private package at
+`scripts/qa/browser-runtime/package.json` with its own lockfile. The application
+`package.json` and root lockfile remain unchanged. The workflow runs `npm ci`
+against that QA lock before installing Chromium. Browser binaries are not
+cached: [Playwright CI guidance](https://playwright.dev/docs/ci) says cache
+restore time is comparable to download time and Linux system dependencies still
+need installation. The pinned install command remains the deterministic setup
+path. The duplicate Demo Visual QA lint/typecheck step was removed because
+exact-head Application Validation owns it; Demo Visual QA still installs and
+builds independently, with no cross-workflow artifact reuse.
+
+Baseline measurements come from Demo Visual QA run
+[35871501384](https://github.com/Juvialski/InvoiceApp/actions/runs/35871501384)
+and Application Validation run
+[35871501363](https://github.com/Juvialski/InvoiceApp/actions/runs/35871501363),
+both on `30a42e926cb0f82948a6d7a217b809f22efc77e8`. The baseline browser run
+captured 365 scenarios in 9m23s; the complete job took 11m50s. Its repeated lint
+step took 41s, Playwright setup 62s, dependency install 12s, and production
+build 14s. Post-change full GitHub timing is pending the exact-head PR run.
+
+On the local production preview, the same 26 Payroll scenarios passed at both
+concurrency settings: 3 workers took 14.375s and 4 workers took 11.442s. Both
+runs produced 26 screenshots with zero scenario failures and identical
+manifest order. Four workers were selected; the public repository's standard
+`ubuntu-latest` runner has four CPUs and 16 GB RAM ([GitHub runner specs](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)).
+The Payroll source mapping selected `payroll@payroll`, `payroll@payroll-run`,
+`ui-r4e-payroll-hierarchy@payroll`, `ui-r4e-route-audit@payroll-run`,
+`ui-r4e-theme@payroll`, and `ui-r4e-visual-matrix@payroll`.
+A final three-scenario run after isolating the Playwright package also passed
+with HTTP 200, no console/page/request failures, and no overflow.
+
+For local browser capture, install the isolated QA dependency once with
+`npm ci --prefix scripts/qa/browser-runtime`, then install its browser with
+`npm exec --prefix scripts/qa/browser-runtime -- playwright install chromium`.
+
+Focused selector/worker and exact-head workflow tests passed 12/12; workflow
+YAML parsing, ESLint, and TypeScript checking passed. The production build
+passed with its existing theme-font, bundle-size, and server `import.meta`
+warnings. No database or product source was changed. An exploratory attempt to
+promote Playwright into the root app manifest forced the full 384-file
+`test:affected:agent` fallback and exposed nine failures in unchanged
+UI/source-contract, auth, server-lifecycle, and Wave 6B tests on this local
+Windows/Node 24 run. That root-manifest change was reverted; those test files
+were left unchanged rather than expanding CI-EFF-1 into unrelated UI or test
+repairs. The final diff keeps root application manifests unchanged. Exact-head
+protected browser and application checks remain pending PR execution.
 
 The Excel-Native Operations workbook/authority contract is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the original shared foundation, the bounded Procurement pilot, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented; app-wide Excel capability remains unclaimed.
 
@@ -2202,7 +2277,7 @@ Validation and review closeout:
 Developer-intelligence evidence: the single deterministic `agent:context` packet selected 8/380 tests and had no curated primary source entries. Jev context preflight found zero candidates and made no live request. The one live test-triage call kept all 38 required test files, recommending auth/access tests first (`jev-1.13.0`, 38→38, 4,121 input / 564 output tokens, 836 ms, fallback=false); deterministic selection remained authoritative. At implementation-run time, the live completion check observed all four declared evidence categories and retained uncertainty for the then-stale affected-test assertion plus the lack of live authenticated hosted-browser evidence (`jev-1.13.0`, 4 candidates, 677 input / 72 output tokens, 430 ms, fallback=false, unresolvedUncertainty=true). PR review later resolved the stale assertion; the hosted runtime evidence gap remains.
 
 
-## 2026-09-23 — UI-R4E merge closeout and CI-EFF-1 priority
+## 2026-09-23 — UI-R4E merge closeout and original CI-EFF-1 priority
 
 PR #245 merged as `30a42e926cb0f82948a6d7a217b809f22efc77e8`. Its exact reviewed head was `67ba197782b802d51d456bd941b7ecce297dc71c`, and all four protected checks passed on that exact head before merge: Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA.
 
@@ -2211,7 +2286,7 @@ PR review classified the earlier browser failure precisely:
 - the Payroll and invoice-filter dark-mode failures were genuine non-text contrast defects: legacy input borders had fallen to 1.93:1 against the dark surface; the final head restored the intended control boundary and the protected visual run passed;
 - Demo Visual QA now prints concise failed assertion IDs/details directly in the Actions log and uses workflow/ref concurrency with `cancel-in-progress: true` so newer PR heads stop superseded browser work.
 
-**CI-EFF-1 is the next implementation phase by explicit owner priority.** Keep it bounded to protected-CI execution efficiency: measured small browser parallelism, conservative affected-feature selection with full-suite fallback for shared/global/ambiguous changes, exhaustive regression on appropriate main/scheduled/release runs, safe reduction of duplicated setup/lint/build work, and reproducible Playwright installation/caching. Do not weaken database validation or change the required protected check names.
+**At that time, CI-EFF-1 was the next implementation phase by explicit owner priority.** It is implemented for the recorded scope in the 2026-09-24 handoff section above; exact-head protected checks remain pending its PR. The original scope preserved measured small browser parallelism, conservative affected-feature selection with full-suite fallback for shared/global/ambiguous changes, exhaustive main coverage, safe setup reduction, and reproducible Playwright installation without weakening database validation or renaming protected checks.
 
 WEB-BRAND-1 remains planned and separate after this CI-efficiency phase.
 
