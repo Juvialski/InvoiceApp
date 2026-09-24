@@ -2,9 +2,14 @@ import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CompanyAccessProvider } from './context/CompanyAccessContext.tsx';
 import { BRAND } from './config/brand.ts';
+import { currentDeploymentIdentity } from './lib/deploymentIdentity.ts';
+import { applyDeploymentSearchPolicy } from './lib/deploymentSearchPolicy.ts';
 import { HydroqualisenseThemeProvider } from './ui/HydroqualisenseThemeProvider.tsx';
-import { applicationModeForPath } from './app/applicationMode.ts';
+import { applicationModeForPath, isCanonicalHydroqualisenseHost } from './app/applicationMode.ts';
 import './index.css';
+
+const deploymentIdentity = currentDeploymentIdentity();
+applyDeploymentSearchPolicy(document, deploymentIdentity.environment, isCanonicalHydroqualisenseHost(window.location.hostname));
 
 const ProductionApp = lazy(() => import('./App.tsx'));
 const PublicFunnelRoot = lazy(() => import('./public/PublicFunnelRoot.tsx'));

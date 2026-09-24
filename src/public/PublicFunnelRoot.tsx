@@ -1,22 +1,8 @@
 import React, { useCallback, useEffect, useState, type FormEvent } from "react";
-import {
-  ArrowRight,
-  BarChart3,
-  Boxes,
-  Building2,
-  CheckCircle2,
-  ClipboardList,
-  FileCheck2,
-  FileText,
-  HardHat,
-  LockKeyhole,
-  Mail,
-  ShieldCheck,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { BRAND, formatPageTitle } from "../config/brand.ts";
-import { BrandMark } from "../components/BrandMark.tsx";
-import { DeploymentEnvironmentBanner } from "../components/DeploymentEnvironmentBanner.tsx";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { HYDROQUALISENSE_PUBLIC_SITE, QA_SOFTWARE_SHOWCASE, type PublicSiteVariant } from "../config/publicBranding.ts";
+import { currentDeploymentIdentity } from "../lib/deploymentIdentity.ts";
+import { isCanonicalHydroqualisenseHost } from "../app/applicationMode.ts";
 import {
   PUBLIC_PROSPECT_FIELD_LIMITS,
   PUBLIC_PROSPECT_MODULES,
@@ -32,13 +18,12 @@ import {
   type PublicProspectWorkforceScale,
   validatePublicProspectSubmission,
 } from "../lib/publicProspect.ts";
+import { CompanyPublicSite } from "./CompanyPublicSite.tsx";
+import { PublicSiteFooter, PublicSiteHeader } from "./PublicSiteChrome.tsx";
+import { publicPageMetadataFor, applyPublicPageMetadata, type PublicPageKind } from "./publicMetadata.ts";
+import { SoftwareShowcaseLanding } from "./SoftwareShowcaseLanding.tsx";
 
-type PublicView = "landing" | "request-demo" | "privacy" | "terms";
-
-const CANONICAL_PRIVACY_URL = `${BRAND.canonicalOrigin}/privacy`;
-const CANONICAL_TERMS_URL = `${BRAND.canonicalOrigin}/terms`;
-const GOOGLE_API_SERVICES_USER_DATA_POLICY_URL = "https://developers.google.com/terms/api-services-user-data-policy";
-const PUBLIC_POLICY_LAST_UPDATED = "September 15, 2026";
+type PublicView = PublicPageKind;
 
 interface PublicFunnelRootProps {
   initialView?: PublicView;
@@ -60,21 +45,8 @@ interface ProspectFormState {
   website: string;
 }
 
-const CAPABILITY_CARDS: ReadonlyArray<{ icon: LucideIcon; title: string; detail: string }> = [
-  { icon: BarChart3, title: "Project cost visibility", detail: "Keep project context, committed cost, actual cost, and source history distinct." },
-  { icon: FileCheck2, title: "Supplier invoices and expenses", detail: "Review supplier evidence and preserve one authoritative payable path." },
-  { icon: ClipboardList, title: "Procurement and receipts", detail: "Connect purchase orders, vendors, delivery evidence, and commitments." },
-  { icon: Boxes, title: "Inventory and equipment", detail: "Explain warehouse stock, project allocation, and equipment through auditable records." },
-  { icon: HardHat, title: "Field operations", detail: "Coordinate equipment, site logs, documents, and operational observations." },
-  { icon: Building2, title: "Workforce and payroll", detail: "Support workforce and payroll operations with permission-aware access." },
-  { icon: Mail, title: "Business communications", detail: "Prepare reviewed outbound email, inspect delivery history, and keep provider status truthful." },
-];
-
-const DEPLOYMENT_CARDS: ReadonlyArray<{ icon: LucideIcon; title: string; detail: string }> = [
-  { icon: Building2, title: "Dedicated deployment", detail: "Independent URL, service reference, environment, and recovery boundary." },
-  { icon: LockKeyhole, title: "Permission and history", detail: "Company-scoped access and deliberate lifecycle controls remain in force." },
-  { icon: FileText, title: "Release visibility", detail: "Record the deployed SHA, migration level, backup state, and verification result." },
-];
+const PUBLIC_POLICY_LAST_UPDATED = "September 15, 2026";
+const GOOGLE_API_SERVICES_USER_DATA_POLICY_URL = "https://developers.google.com/terms/api-services-user-data-policy";
 
 const INITIAL_FORM: ProspectFormState = {
   companyName: "",
@@ -101,159 +73,19 @@ function publicViewForPath(pathname: string): PublicView {
   const normalized = normalizedPublicPath(pathname);
   if (normalized === "/privacy") return "privacy";
   if (normalized === "/terms") return "terms";
-  return normalized === "/" ? "landing" : "request-demo";
+  if (normalized === "/contact") return "contact";
+  if (normalized === "/request-demo") return "request-demo";
+  return "landing";
 }
 
 function publicPath(pathname: string) {
   const normalized = normalizedPublicPath(pathname);
   if (normalized === "/" || normalized === "/contact" || normalized === "/request-demo" || normalized === "/privacy" || normalized === "/terms") return normalized;
-  return "/request-demo";
+  return "/contact";
 }
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   return message ? <p id={id} className="mt-1 text-xs font-semibold text-rose-700">{message}</p> : null;
-}
-
-function PublicHeader({ onRequestDemo }: { onRequestDemo?: () => void }) {
-  return (
-    <>
-      <DeploymentEnvironmentBanner />
-      <header className="border-b border-slate-200/80 bg-white/85 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-12">
-        <a href="/" className="flex min-w-0 items-center gap-3" aria-label={`${BRAND.productName} home`}>
-          <BrandMark variant="header" decorative={false} />
-          <span className="min-w-0">
-            <span className="block truncate text-xs font-black tracking-[0.24em] text-slate-950">{BRAND.displayUppercase}</span>
-            <span className="mt-0.5 block truncate text-[11px] font-semibold text-slate-500">{BRAND.companyName}</span>
-          </span>
-        </a>
-        <nav aria-label="Public site navigation" className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-xs font-bold text-slate-600">
-          <a href="/#capabilities" className="transition hover:text-slate-950">Capabilities</a>
-          <a href="/#deployment" className="transition hover:text-slate-950">Deployment model</a>
-          {onRequestDemo ? <button type="button" onClick={onRequestDemo} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">Talk to us <ArrowRight className="h-3.5 w-3.5" /></button> : <a href="/request-demo" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">Talk to us <ArrowRight className="h-3.5 w-3.5" /></a>}
-          <a href="/dashboard" className="rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-slate-700 transition hover:border-slate-300 hover:text-slate-950">Client sign in</a>
-        </nav>
-      </div>
-      </header>
-    </>
-  );
-}
-
-function PublicLandingPage({ onRequestDemo }: { onRequestDemo: () => void }) {
-  return (
-    <main data-public-funnel="landing" className="min-h-screen bg-slate-50 text-slate-950">
-      <PublicHeader onRequestDemo={onRequestDemo} />
-      <section className="relative overflow-hidden bg-slate-950 text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(79,70,229,0.42),transparent_38%),radial-gradient(circle_at_12%_90%,rgba(14,165,233,0.18),transparent_35%)]" />
-        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:px-12 lg:py-28">
-          <div className="max-w-2xl">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-indigo-300">Engineering operations, with a clear deployment boundary</p>
-            <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.02] tracking-[-0.04em] text-white sm:text-6xl">{BRAND.productName}: run the operation with confidence in the record behind it.</h1>
-            <p className="mt-6 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
-              {BRAND.productName} is a business operations platform connecting projects, procurement, finance, invoices, expenses, documents, payroll, communications, inventory, equipment, and field operations while preserving the source and history each workflow depends on.
-            </p>
-            <p className="mt-5 max-w-xl text-xs font-bold leading-6 text-slate-400">Projects · Procurement · Supplier invoices / expenses · Finance · Documents · Payroll · Inventory / equipment · Business communications</p>
-            <p className="mt-4 max-w-xl text-xs leading-6 text-slate-400">Existing users can select Client sign in above to open their company workspace. Google Sign-In is used for identity only; transactional email is provider-gated.</p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button type="button" onClick={onRequestDemo} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3.5 text-sm font-black text-white shadow-xl shadow-indigo-950/30 transition hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                Request a demo <ArrowRight className="h-4 w-4" />
-              </button>
-              <a href="/demo" className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3.5 text-sm font-black text-slate-100 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-slate-400">
-                Explore the sample workspace
-              </a>
-            </div>
-            <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-400">
-              <span>PHP-ready</span><span>Permission-aware</span><span>Audit-minded</span><span>Isolated per client</span>
-            </div>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl shadow-slate-950/30 sm:p-7">
-            <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-5">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-indigo-300">Operating principle</p>
-                <h2 className="mt-2 text-xl font-black text-white">One concept. One primary place. One authoritative number.</h2>
-              </div>
-              <ShieldCheck className="h-8 w-8 shrink-0 text-cyan-300" />
-            </div>
-            <div className="mt-5 space-y-3">
-              {[
-                ["01", "Source first", "Evidence stays connected to the workflow that gives it meaning."],
-                ["02", "History stays visible", "Issued, verified, paid, reversed, and corrected records remain auditable."],
-                ["03", "Each client stays isolated", "Every operational deployment serves one client company and its own data boundary."],
-              ].map(([number, title, detail]) => (
-                <div key={number} className="flex gap-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-                  <span className="text-xs font-black text-cyan-300">{number}</span>
-                  <div><h3 className="text-sm font-black text-white">{title}</h3><p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="google-signin-email" className="border-y border-indigo-100 bg-indigo-50/70">
-        <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-12 sm:px-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-start lg:px-12 lg:py-16">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-700">Identity and communications</p>
-            <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-slate-950">Google Sign-In, Brevo email</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-700">Google Sign-In establishes identity for the client workspace. Hydroqualisense does not request Gmail mailbox access, read Gmail messages, or send through Gmail. When enabled for a deployment, outbound transactional email uses the company&apos;s server-side Brevo configuration.</p>
-          </div>
-          <ul className="grid gap-3 text-sm leading-6 text-slate-700 sm:grid-cols-2">
-            <li className="rounded-2xl border border-indigo-100 bg-white p-4"><strong className="text-slate-950">Identity scopes:</strong> Google OIDC requests only <code className="text-xs font-bold text-indigo-700">openid email profile</code> for sign-in.</li>
-            <li className="rounded-2xl border border-indigo-100 bg-white p-4"><strong className="text-slate-950">Transactional email:</strong> Brevo accepts a reviewed message only when the deployment has a verified sender and server-side provider configuration.</li>
-            <li className="rounded-2xl border border-indigo-100 bg-white p-4 sm:col-span-2"><strong className="text-slate-950">Human confirmation:</strong> recipients, content, and document attachments remain reviewable, and provider acceptance is not presented as confirmed delivery.</li>
-          </ul>
-        </div>
-      </section>
-
-      <section id="capabilities" className="mx-auto w-full max-w-7xl px-5 py-16 sm:px-8 lg:px-12 lg:py-24">
-        <div className="max-w-2xl">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">Connected, bounded workflows</p>
-          <h2 className="mt-3 text-3xl font-black tracking-[-0.03em] sm:text-4xl">The parts of the operation can agree without becoming the same thing.</h2>
-          <p className="mt-4 text-sm leading-7 text-slate-600">Start with the capabilities that matter to your team. Requirements are reviewed with a human before any client deployment is planned.</p>
-        </div>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CAPABILITY_CARDS.map(({ icon: Icon, title, detail }) => (
-            <article key={title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/45">
-              <Icon className="h-5 w-5 text-indigo-600" />
-              <h3 className="mt-5 text-base font-black text-slate-950">{title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="deployment" className="border-y border-slate-200 bg-white">
-        <div className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:px-12 lg:py-24">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">Designed for isolated client deployments</p>
-            <h2 className="mt-3 text-3xl font-black tracking-[-0.03em]">One maintained codebase. One dedicated operational boundary per client.</h2>
-            <p className="mt-4 text-sm leading-7 text-slate-600">Approved clients receive a dedicated Render service and Supabase project/database/Auth/Storage boundary. The operational workspace never becomes an unrelated-company switcher.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {DEPLOYMENT_CARDS.map(({ icon: Icon, title, detail }) => (
-              <article key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-5"><Icon className="h-5 w-5 text-cyan-700" /><h3 className="mt-5 text-sm font-black text-slate-950">{title}</h3><p className="mt-2 text-xs leading-5 text-slate-600">{detail}</p></article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-16 sm:px-8 lg:grid-cols-2 lg:px-12 lg:py-24">
-        <div className="rounded-3xl bg-indigo-950 p-7 text-white sm:p-9">
-          <Mail className="h-6 w-6 text-indigo-300" />
-          <h2 className="mt-5 text-2xl font-black text-white">Let’s map the right first deployment.</h2>
-          <p className="mt-3 max-w-lg text-sm leading-7 text-indigo-100/75">Share the business context, capabilities, approximate scale, and timeline. We will use it to prepare a focused conversation.</p>
-          <button type="button" onClick={onRequestDemo} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-black text-indigo-950 transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-white">Start the conversation <ArrowRight className="h-4 w-4" /></button>
-        </div>
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-7 sm:p-9">
-          <ShieldCheck className="h-6 w-6 text-amber-700" />
-          <h2 className="mt-5 text-2xl font-black text-amber-950">A focused public intake</h2>
-          <p className="mt-3 text-sm leading-7 text-amber-900/80">This form is for business requirements and demo contact only. It does not accept financial source documents, employee records, worker identity documents, biometrics, passwords, API keys, or other operationally sensitive records.</p>
-        </div>
-      </section>
-
-      <PublicFooter />
-    </main>
-  );
 }
 
 const POLICY_SECTIONS = {
@@ -274,7 +106,7 @@ const POLICY_SECTIONS = {
     {
       title: "Google Sign-In and transactional email",
       paragraphs: [
-        "Google Sign-In is used to establish account identity through the configured authentication service. Hydroqualisense requests the OIDC identity scopes openid, email, and profile and does not request Gmail mailbox read, modify, or send scopes.",
+        "Google Sign-In is used for identity only through the configured authentication service. Hydroqualisense requests the OIDC identity scopes openid, email, and profile and does not request Gmail mailbox read, modify, or send scopes.",
         "Hydroqualisense does not read, scan, import from, or send through a Gmail mailbox. Historical records that were deliberately created through an earlier email workflow may retain source and provider identifiers for audit and provenance; those identifiers do not represent current mailbox access.",
         "When enabled for a deployment, outbound transactional email is sent through the company's server-side Brevo configuration. The application requires human review and confirmation, preserves the immutable document/PDF provenance and delivery intent, and distinguishes Brevo provider acceptance from confirmed delivery.",
         "Google account identity information is not sold, used for advertising, or transferred to data brokers. Information may be processed by configured infrastructure, AI, and messaging providers only as necessary to deliver the requested feature and subject to the deployment's service boundaries.",
@@ -298,7 +130,7 @@ const POLICY_SECTIONS = {
       title: "Contact, deletion, and privacy requests",
       paragraphs: [
         "Operational records, selected source evidence, immutable snapshots, and delivery history may remain available so the company can preserve its business and audit context. Users should use the applicable company workflow to archive, correct, revoke, or remove information where supported; finalized or auditable history may require a deliberate correction or reversal rather than silent deletion.",
-        "For a privacy question, access request, deletion/privacy request, or request to disconnect an integration, use the public Contact / requirements form at /contact and identify the relevant company and account without including passwords, API keys, financial source files, or other sensitive records. The form is a contact route, not a promise of a particular response time or legal process.",
+        "For a privacy question, access request, deletion/privacy request, or request to disconnect an integration, use the public Contact page at /contact and identify the relevant company and account without including passwords, API keys, financial source files, or other sensitive records. The page does not promise a particular response time or legal process.",
       ],
     },
   ],
@@ -340,24 +172,24 @@ const POLICY_SECTIONS = {
       title: "Access removal and general terms",
       paragraphs: [
         "A company administrator or authorized operator may change permissions, suspend access, disconnect integrations, or remove an account from a deployment. Access removal does not by itself erase company records or finalized history that the product is designed to preserve.",
-        "To ask a question about these Terms of Service, use the public Contact / requirements form at /contact without submitting confidential operational data.",
+        "To ask a question about these Terms of Service, use the public Contact page at /contact without submitting confidential operational data.",
       ],
     },
   ],
 } as const;
 
-function PublicPolicyPage({ kind }: { kind: "privacy" | "terms" }) {
+function PublicPolicyPage({ kind, variant }: { kind: "privacy" | "terms"; variant: PublicSiteVariant }) {
   const isPrivacy = kind === "privacy";
   const sections = POLICY_SECTIONS[kind];
   return (
-    <main data-public-policy={kind} className="min-h-screen bg-slate-50 text-slate-950">
-      <PublicHeader />
+    <main id="public-main" data-public-policy={kind} className="min-h-screen bg-slate-50 text-slate-950">
+      <PublicSiteHeader variant={variant} />
       <article className="mx-auto w-full max-w-4xl px-5 py-12 sm:px-8 lg:px-12 lg:py-20">
-        <a href="/" className="text-xs font-black text-indigo-700 hover:text-indigo-900">← Back to {BRAND.productName}</a>
+        <a href="/" className="text-xs font-black text-indigo-700 hover:text-indigo-900">← Back to {variant === "company" ? HYDROQUALISENSE_PUBLIC_SITE.identity.companyName : QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor}</a>
         <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">{BRAND.productName} · {BRAND.companyName}</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">{variant === "company" ? HYDROQUALISENSE_PUBLIC_SITE.identity.companyName : QA_SOFTWARE_SHOWCASE.softwareIdentity.label}</p>
           <h1 className="mt-3 text-3xl font-black tracking-[-0.03em] sm:text-4xl">{isPrivacy ? "Privacy Policy" : "Terms of Service"}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{isPrivacy ? "How Hydroqualisense handles account, company, connected Google, and workflow information." : "The basic terms for authorized use of the Hydroqualisense business operations platform."}</p>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{isPrivacy ? "How Hydroqualisense handles account, company, connected Google, and workflow information." : "The basic terms for authorized use of the Hydroqualisense client workspace."}</p>
           <p className="mt-3 text-xs font-semibold text-slate-500">Effective date: {PUBLIC_POLICY_LAST_UPDATED} · Last updated: {PUBLIC_POLICY_LAST_UPDATED}</p>
           <div className="mt-8 space-y-8">
             {sections.map((section) => {
@@ -367,13 +199,9 @@ function PublicPolicyPage({ kind }: { kind: "privacy" | "terms" }) {
           </div>
         </div>
       </article>
-      <PublicFooter />
+      <PublicSiteFooter variant={variant} />
     </main>
   );
-}
-
-function PublicFooter() {
-  return <footer className="border-t border-slate-200 bg-slate-100"><div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-5 py-7 text-xs leading-5 text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12"><span>{BRAND.productName} • {BRAND.companyName}</span><nav aria-label="Public policy navigation" className="flex flex-wrap gap-x-4 gap-y-1"><a href={CANONICAL_PRIVACY_URL} className="font-bold text-slate-700 hover:text-slate-950">Privacy Policy</a><a href={CANONICAL_TERMS_URL} className="font-bold text-slate-700 hover:text-slate-950">Terms of Service</a><a href="/contact" className="font-bold text-slate-700 hover:text-slate-950">Contact</a><a href="/dashboard" className="font-bold text-slate-700 hover:text-slate-950">Client sign in</a></nav></div></footer>;
 }
 
 function ProspectRequirementsForm({ onBack }: { onBack: () => void }) {
@@ -439,15 +267,15 @@ function ProspectRequirementsForm({ onBack }: { onBack: () => void }) {
 
   if (submitted) {
     return (
-      <main data-public-funnel="form-success" className="min-h-screen bg-slate-50 text-slate-950">
-        <PublicHeader />
+      <main id="public-main" data-public-funnel="form-success" className="min-h-screen bg-slate-50 text-slate-950">
+        <PublicSiteHeader variant="software-showcase" />
         <div className="mx-auto flex w-full max-w-3xl px-5 py-16 sm:px-8 lg:py-24">
           <section className="w-full rounded-3xl border border-emerald-200 bg-emerald-50 p-8 text-center sm:p-12">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-700" />
             <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Request received</p>
             <h1 className="mt-3 text-3xl font-black tracking-[-0.03em] text-emerald-950">Thanks for starting the conversation.</h1>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-emerald-900/80">The Hydroqualisense team can now review the requirements you shared and contact you using the business details provided. This request does not provision a deployment, company, user, credential, or secret.</p>
-            <a href="/" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800">Return to Hydroqualisense <ArrowRight className="h-4 w-4" /></a>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-emerald-900/80">Your software showcase request was received. The details you shared may be reviewed for follow-up. This request does not provision a deployment, company, user, credential, or secret.</p>
+            <a href="/" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800">Return to the software showcase <ArrowRight className="h-4 w-4" /></a>
           </section>
         </div>
       </main>
@@ -455,8 +283,8 @@ function ProspectRequirementsForm({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <main data-public-funnel="form" className="min-h-screen bg-slate-50 text-slate-950">
-      <PublicHeader />
+      <main id="public-main" data-public-funnel="form" className="min-h-screen bg-slate-50 text-slate-950">
+      <PublicSiteHeader variant="software-showcase" />
       <div className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[0.72fr_1.28fr] lg:px-12 lg:py-20">
         <aside className="lg:sticky lg:top-8 lg:self-start">
           <button type="button" onClick={onBack} className="text-xs font-black text-indigo-700 transition hover:text-indigo-900">← Back to overview</button>
@@ -490,12 +318,12 @@ function ProspectRequirementsForm({ onBack }: { onBack: () => void }) {
 
           <div className="mt-8 grid gap-5"><div><label htmlFor="painPoints" className="field-label">Current operational pain points <span className="font-normal text-slate-400">(optional)</span></label><textarea id="painPoints" name="painPoints" value={form.painPoints} maxLength={PUBLIC_PROSPECT_FIELD_LIMITS.painPoints} onChange={(event) => update("painPoints", event.target.value)} aria-invalid={Boolean(errors.painPoints)} aria-describedby="painPoints-error" className="field-input mt-1.5 min-h-28 resize-y" placeholder="For example: disconnected project costs, receipt visibility, or document history." /> <FieldError id="painPoints-error" message={errors.painPoints} /></div><div><label htmlFor="integrationNeeds" className="field-label">Integration needs or constraints <span className="font-normal text-slate-400">(optional)</span></label><textarea id="integrationNeeds" name="integrationNeeds" value={form.integrationNeeds} maxLength={PUBLIC_PROSPECT_FIELD_LIMITS.integrationNeeds} onChange={(event) => update("integrationNeeds", event.target.value)} aria-invalid={Boolean(errors.integrationNeeds)} aria-describedby="integrationNeeds-error" className="field-input mt-1.5 min-h-24 resize-y" placeholder="Name systems or provider constraints at a high level; do not share keys or credentials." /> <FieldError id="integrationNeeds-error" message={errors.integrationNeeds} /></div></div>
 
-          <label className="mt-7 flex cursor-pointer gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5"><input type="checkbox" checked={form.consentConfirmed} onChange={(event) => update("consentConfirmed", event.target.checked)} aria-invalid={Boolean(errors.consentConfirmed)} aria-describedby="consentConfirmed-error" className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" /><span className="text-xs font-semibold leading-5 text-slate-700">You confirm that Hydroqualisense may use these business contact details to respond to this request. Please do not include confidential records, passwords, API keys, or sensitive personal data. <span className="text-rose-600">*</span><FieldError id="consentConfirmed-error" message={errors.consentConfirmed} /></span></label>
+          <label className="mt-7 flex cursor-pointer gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5"><input type="checkbox" checked={form.consentConfirmed} onChange={(event) => update("consentConfirmed", event.target.checked)} aria-invalid={Boolean(errors.consentConfirmed)} aria-describedby="consentConfirmed-error" className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" /><span className="text-xs font-semibold leading-5 text-slate-700">You confirm that these business contact details may be used to respond to this software request. Please do not include confidential records, passwords, API keys, or sensitive personal data. <span className="text-rose-600">*</span><FieldError id="consentConfirmed-error" message={errors.consentConfirmed} /></span></label>
           <input name="website" value={form.website} onChange={(event) => update("website", event.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs leading-5 text-slate-500">No production resources are created from this form.</p><button type="submit" disabled={pending} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-black text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">{pending ? "Sending request…" : "Send requirements request"} {!pending && <ArrowRight className="h-4 w-4" />}</button></div>
         </form>
       </div>
-      <PublicFooter />
+      <PublicSiteFooter variant="software-showcase" />
     </main>
   );
 }
@@ -505,6 +333,8 @@ function SelectField<T extends string>({ id, label, value, options, required = f
 }
 
 export default function PublicFunnelRoot({ initialView }: PublicFunnelRootProps) {
+  const deployment = currentDeploymentIdentity();
+  const variant: PublicSiteVariant = deployment.isQa ? "software-showcase" : "company";
   const [view, setView] = useState<PublicView>(() => initialView || publicViewForPath(window.location.pathname));
 
   const navigate = useCallback((path: string, replace = false) => {
@@ -517,12 +347,34 @@ export default function PublicFunnelRoot({ initialView }: PublicFunnelRootProps)
   useEffect(() => {
     const handlePopState = () => setView(publicViewForPath(window.location.pathname));
     window.addEventListener("popstate", handlePopState);
-    document.title = formatPageTitle(view === "landing" ? undefined : view === "privacy" ? "Privacy Policy" : view === "terms" ? "Terms of Service" : "Request a demo");
+    applyPublicPageMetadata(publicPageMetadataFor(variant, view, window.location.pathname, isCanonicalHydroqualisenseHost(window.location.hostname)));
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [view]);
+  }, [view, variant]);
 
-  if (view === "privacy" || view === "terms") return <PublicPolicyPage kind={view} />;
-  return view === "landing"
-    ? <PublicLandingPage onRequestDemo={() => navigate("/request-demo")} />
-    : <ProspectRequirementsForm onBack={() => navigate("/")} />;
+  if (view === "privacy" || view === "terms") return <PublicPolicyPage kind={view} variant={variant} />;
+
+  if (variant === "software-showcase") {
+    if (view === "landing") return <SoftwareShowcaseLanding />;
+    if (!deployment.publicFunnelEnabled) {
+      return (
+        <div className="min-h-screen bg-[#f4f7f5]">
+          <PublicSiteHeader variant="software-showcase" />
+          <main id="public-main" data-public-funnel="disabled" className="mx-auto flex min-h-[55vh] w-full max-w-4xl flex-col justify-center px-5 py-16 sm:px-8">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#11777a]">QA Software Showcase</p>
+            <h1 className="mt-3 max-w-[16ch] font-serif text-4xl font-medium leading-tight tracking-[-0.035em] text-[#102f3a] sm:text-5xl">Software inquiries are not enabled here.</h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#5e7377]">You can still explore the synthetic demo workspace. No software inquiry details are collected by this build.</p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <a href="/demo" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#12676b] px-5 text-sm font-bold text-white transition hover:bg-[#0e5359] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#12676b]">Launch Demo Workspace <ArrowRight aria-hidden="true" className="h-4 w-4" /></a>
+              <button type="button" onClick={() => navigate("/")} className="min-h-11 rounded-full border border-[#cadbd5] px-5 text-sm font-semibold text-[#28575c] transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#12676b]">Back to showcase</button>
+            </div>
+          </main>
+          <PublicSiteFooter variant="software-showcase" />
+        </div>
+      );
+    }
+    return <ProspectRequirementsForm onBack={() => navigate("/")} />;
+  }
+
+  if (view === "landing") return <CompanyPublicSite />;
+  return <CompanyPublicSite page="contact" />;
 }

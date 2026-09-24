@@ -4,6 +4,9 @@ import test from "node:test";
 import { applicationModeForPath, isCanonicalHydroqualisenseHost, isPublicFunnelApplicationPath } from "../src/app/applicationMode.ts";
 
 const publicRoot = readFileSync(new URL("../src/public/PublicFunnelRoot.tsx", import.meta.url), "utf8");
+const publicChrome = readFileSync(new URL("../src/public/PublicSiteChrome.tsx", import.meta.url), "utf8");
+const softwareShowcase = readFileSync(new URL("../src/public/SoftwareShowcaseLanding.tsx", import.meta.url), "utf8");
+const publicBranding = readFileSync(new URL("../src/config/publicBranding.ts", import.meta.url), "utf8");
 const authScreen = readFileSync(new URL("../src/components/auth/AuthScreen.tsx", import.meta.url), "utf8");
 const appShell = readFileSync(new URL("../src/app/AppShell.tsx", import.meta.url), "utf8");
 const mainSource = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
@@ -20,7 +23,7 @@ test("privacy and terms are public routes while recovery links remain authentica
   assert.equal(applicationModeForPath("/privacy", "?auth=reset", undefined, true), "public");
 });
 
-test("the canonical product host exposes the public funnel without changing operational roots", () => {
+test("canonical company and QA showcase roots are public while client production roots stay authenticated", () => {
   assert.equal(isCanonicalHydroqualisenseHost("hydroqualisense.com"), true);
   assert.equal(isCanonicalHydroqualisenseHost("HYDROQUALISENSE.COM."), true);
   assert.equal(isCanonicalHydroqualisenseHost("www.hydroqualisense.com"), false);
@@ -29,13 +32,16 @@ test("the canonical product host exposes the public funnel without changing oper
   assert.equal(applicationModeForPath("/request-demo", undefined, undefined, false, "hydroqualisense.com"), "public");
   assert.equal(applicationModeForPath("/contact", undefined, undefined, false, "hydroqualisense.com"), "public");
   assert.equal(applicationModeForPath("/", undefined, undefined, false, "client.example.com"), "production");
-  assert.equal(applicationModeForPath("/", undefined, undefined, true, "client.example.com"), "public");
+  assert.equal(applicationModeForPath("/", undefined, undefined, true, "client.example.com"), "production");
+  assert.equal(applicationModeForPath("/request-demo", undefined, undefined, true, "client.example.com"), "production");
+  assert.equal(applicationModeForPath("/", undefined, undefined, true, "localhost"), "public");
   assert.equal(applicationModeForPath("/dashboard", undefined, undefined, false, "hydroqualisense.com"), "production");
   assert.equal(applicationModeForPath("/", "?type=recovery", undefined, false, "hydroqualisense.com"), "production");
   assert.equal(applicationModeForPath("/", "", "#access_token=redacted&type=recovery", false, "hydroqualisense.com"), "production");
 });
 
 test("public policy surfaces explain identity-only Google use and provide sign-in/legal navigation", () => {
+  const publicMarketingSource = `${publicRoot}\n${softwareShowcase}\n${publicBranding}`;
   for (const phrase of [
     "Hydroqualisense",
     "Projects",
@@ -64,8 +70,9 @@ test("public policy surfaces explain identity-only Google use and provide sign-i
     "https://developers.google.com/terms/api-services-user-data-policy",
     "/privacy",
     "/terms",
-  ]) assert.match(publicRoot, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), phrase);
-  assert.match(publicRoot, /href=\{[^}]*canonical[^}]*privacy|BRAND\.canonicalOrigin[^\n]*\/privacy/);
+  ]) assert.match(publicMarketingSource, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), phrase);
+  assert.match(publicChrome, /const privacyHref = "\/privacy"/);
+  assert.match(publicChrome, /const termsHref = "\/terms"/);
   assert.doesNotMatch(publicRoot, /Draft product policy|draft product terms/i);
   assert.match(authScreen, /href="\/privacy"/);
   assert.match(authScreen, /href="\/terms"/);

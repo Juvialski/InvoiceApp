@@ -1,6 +1,6 @@
 import React, { useEffect, useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
-import { Header, type AppTab } from "../components/Header";
+import { Header, type AppTab, type HeaderBranding } from "../components/Header";
 import { AccessRefreshNotice, CompanySwitcher } from "../components/access/AccessStates.tsx";
 import { BRAND } from "../config/brand";
 import type { CompanySummary } from "../lib/companyAccess";
@@ -133,6 +133,8 @@ export interface AppShellProps {
 
   // Optional custom footer
   footerText?: string;
+  /** Optional branding override for synthetic/demo shells only. */
+  brandIdentity?: HeaderBranding;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -167,6 +169,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onRecoverRoute,
   isHelpRoute = false,
   footerText = BRAND.footerText,
+  brandIdentity,
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -212,6 +215,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       <div data-app-shell="true" className="hqs-app-canvas min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
         <DeploymentEnvironmentBanner />
         <Header
+          branding={brandIdentity}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           invoicesCount={invoicesCount}

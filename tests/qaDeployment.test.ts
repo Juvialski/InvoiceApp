@@ -8,7 +8,7 @@ import { validateQaDatabaseTarget } from "../src/lib/qaDatabaseTarget.ts";
 const qaTemplate = JSON.parse(readFileSync(new URL("../deployment/qa-inventory.template.json", import.meta.url), "utf8")) as unknown;
 const bannerSource = readFileSync(new URL("../src/components/DeploymentEnvironmentBanner.tsx", import.meta.url), "utf8");
 const uploadSource = readFileSync(new URL("../src/components/UploadZone.tsx", import.meta.url), "utf8");
-const publicSource = readFileSync(new URL("../src/public/PublicFunnelRoot.tsx", import.meta.url), "utf8");
+const publicChrome = readFileSync(new URL("../src/public/PublicSiteChrome.tsx", import.meta.url), "utf8");
 const qaScript = readFileSync(new URL("../scripts/qa/run-supabase.ts", import.meta.url), "utf8");
 const qaCliScript = readFileSync(new URL("../scripts/qa/supabaseCli.ts", import.meta.url), "utf8");
 const runbook = readFileSync(new URL("../docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md", import.meta.url), "utf8");
@@ -57,7 +57,7 @@ test("QA banner and sample presets remain deployment-gated and the wrapper never
   assert.match(bannerSource, /QA ENVIRONMENT · SYNTHETIC DATA ONLY/);
   assert.match(bannerSource, /identity\.environment === "production"/);
   assert.match(uploadSource, /currentDeploymentIdentity\(\)\.sampleInvoicesEnabled/);
-  assert.match(publicSource, /DeploymentEnvironmentBanner/);
+  assert.match(publicChrome, /DeploymentEnvironmentBanner/);
   assert.match(qaScript, /runSupabaseCliSync/);
   assert.match(qaScript, /--linked/);
   assert.match(qaScript, /--no-seed/);

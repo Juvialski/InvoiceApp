@@ -66,10 +66,11 @@ usability work while keeping the broader Wave 4D completion gate open:
   and reports accepted/failed/unknown without calling acceptance delivery.
 - The public `/privacy` and `/terms` pages are session-free and linked from the
   public homepage, sign-in screen, and authenticated shell. The canonical
-  `hydroqualisense.com` homepage is host-aware and public without a manual build
-  flag, while noncanonical operational roots remain authenticated by default and
-  may opt into the public funnel deliberately. The repository does not claim that
-  Google's publishing/verification process is done.
+  `hydroqualisense.com` homepage is host-aware and presents the engineering
+  company; the QA root presents a separate synthetic software showcase.
+  Noncanonical operational client roots remain authenticated and do not opt
+  into either marketing identity. The repository does not claim that Google's
+  publishing/verification process is done.
 - SMS remains limited to Company SIM Gateway and PhilSMS. Its normal status view
   is compact, setup detail is collapsed, and configuration/readiness continues to
   be reported truthfully until provider-backed QA evidence exists.

@@ -58,6 +58,13 @@ test("public prospect validation normalizes bounded business intake without acce
     assert.ok(invalid.fields.modules);
     assert.ok(invalid.fields.consentConfirmed);
   }
+
+  const missingConsent = validatePublicProspectSubmission({ ...validProspect(), consentConfirmed: false });
+  assert.equal(missingConsent.ok, false);
+  if (!missingConsent.ok) {
+    assert.match(missingConsent.fields.consentConfirmed, /software showcase request/i);
+    assert.doesNotMatch(missingConsent.fields.consentConfirmed, /Hydroqualisense/i);
+  }
 });
 
 test("canonical public routes are host-aware while noncanonical roots and password recovery remain protected", () => {
@@ -67,9 +74,9 @@ test("canonical public routes are host-aware while noncanonical roots and passwo
   assert.equal(isPublicFunnelApplicationPath("/", "?auth=reset"), false);
   assert.equal(isPasswordRecoveryPath("/", "", "#access_token=redacted&type=recovery"), true);
 
-  // Operational client deployments stay on the authenticated application by
-  // default. The canonical product host is public without a manual build
-  // setting; other deployments must explicitly opt into the public funnel.
+  // The canonical company site and QA showcase are public. Noncanonical
+  // operational client roots stay authenticated even if a public preview flag
+  // is present; the flag is useful for local public-site preview.
   assert.equal(applicationModeForPath("/", undefined, undefined, false, "hydroqualisense.com"), "public");
   assert.equal(applicationModeForPath("/request-demo", undefined, undefined, false, "hydroqualisense.com"), "public");
   assert.equal(applicationModeForPath("/", undefined, undefined, false, "client.example.com"), "production");

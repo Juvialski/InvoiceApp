@@ -22,6 +22,8 @@ test("demo company identity is fixed and outside production company selection", 
   const data = workspace();
   assert.equal(data.company.id, DEMO_COMPANY_ID);
   assert.match(data.company.id, /^demo-/);
+  assert.equal(data.company.name, "Sample Engineering Company");
+  assert.doesNotMatch(data.company.name, /Hydroqualisense Solutions Corp\./);
   const location = parseDemoLocation("/demo/app/dashboard", "?companyId=real-company-uuid");
   assert.equal(location.kind, "app");
   assert.equal(data.company.id, DEMO_COMPANY_ID);

@@ -32,7 +32,8 @@ test('page title and breadcrumb formatting helpers produce correct branded label
 
 test('repository and live UI entry points use the current Hydroqualisense identity', () => {
   const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(indexHtml, /<title>Hydroqualisense \| Hydroqualisense Solutions Corp\.<\/title>/);
+  assert.match(indexHtml, /<title>Hydroqualisense Solutions Corp\. \| Water &amp; Engineering<\/title>/);
+  assert.match(indexHtml, /Hydroqualisense Solutions Corp\. is an engineering company focused on water treatment, water management/i);
   assert.match(indexHtml, /<link rel="canonical" href="https:\/\/hydroqualisense\.com" \/>/);
   assert.match(indexHtml, /<meta property="og:url" content="https:\/\/hydroqualisense\.com" \/>/);
   assert.doesNotMatch(indexHtml, /My Google AI Studio App/);

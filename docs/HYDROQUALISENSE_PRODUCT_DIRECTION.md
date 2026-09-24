@@ -111,16 +111,19 @@ Inventory is auditable. Project allocation is not destructive balance editing; c
 
 Detailed decisions such as inventory locations, valuation/costing, reservation-vs-issue semantics, serial/lot tracking, reorder policy, barcode/QR use, automatic purchase-receipt posting, depreciation and broader accounting-period policy remain pending explicit business decisions.
 
-## Immediate productization priority — Public client funnel + isolated deployment tooling
+## Public company site, QA software showcase, and isolated deployment tooling
 
-The next bounded phase is to make HydroQualiSense easier to present, qualify and deploy for multiple potential client companies without creating a shared multi-company operational application.
+The canonical public domain belongs to Hydroqualisense Solutions Corp., the engineering company and first client deployment. Its public root describes only approved water-related engineering work. QA is a separate software showcase with synthetic demo context. The permanent software creator/vendor brand remains unselected.
 
 Required direction:
 
-- public landing and requirements intake remain separate from authenticated operational data;
-- bounded prospect intake may collect company/contact details, modules of interest, approximate workforce/project scale, pain points/integration needs, desired timeline and demo/contact requests;
+- the canonical production root represents Hydroqualisense Solutions Corp. as an engineering company, using only company-approved facts and project references;
+- the QA root presents the engineering-operations software showcase with explicit non-production and synthetic-data disclosure, without presenting Hydroqualisense as a software vendor;
+- public company project inquiries must not reuse the software-prospect fields or persistence contract;
+- the separate software prospect intake may collect company/contact details, modules of interest, approximate workforce/project scale, pain points/integration needs, desired timeline and demo/contact requests only where its deployment and database gates are deliberately enabled;
 - general public intake must not collect financial source documents, employee records, biometrics, credentials or equivalent operationally sensitive data;
 - a public submission must not automatically create production infrastructure, companies, privileged users, credentials or secrets;
+- noncanonical client production roots remain authenticated, and public policy pages remain reachable without a session;
 - retain one source repository and provision one isolated Render service + Supabase project per approved client;
 - make provisioning repeatable through explicit operator-controlled scripts/checklists or guarded tooling;
 - maintain deployment/version inventory without plaintext secrets;
@@ -167,7 +170,7 @@ Required design principles:
 
 ## Public landing / requirements funnel
 
-The public HydroQualiSense site may explain the product and collect bounded prospective-client requirements. It is not an operational client workspace.
+The canonical public site presents the engineering company. The separate QA root presents the software showcase with synthetic data. The QA-only software requirements flow is distinct from engineering project inquiries and from authenticated operational data.
 
 Do not collect payroll records, financial source documents, biometrics, credentials or equivalent sensitive operational data through a generic marketing intake form without a separately designed secure workflow.
 

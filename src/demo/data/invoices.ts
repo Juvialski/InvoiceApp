@@ -4,13 +4,13 @@ import { DEMO_PROJECT_IDS } from "./projects.ts";
 import { DEMO_VENDOR_IDS } from "./procurement.ts";
 
 const CUSTOMER: PartyDetails = {
-  name: "Hydroqualisense Solutions Corp.",
-  registeredName: "Hydroqualisense Solutions Corp.",
-  taxId: "777-823-517-000",
+  name: "Sample Engineering Company",
+  registeredName: "Sample Engineering Company",
+  taxId: "000-000-000-000",
   taxRegistration: "VAT",
-  address: "01 Pasong Tulo, Santa Rita Bata, San Miguel, Bulacan",
-  city: "San Miguel",
-  province: "Bulacan",
+  address: "Synthetic demo address",
+  city: "Demo City",
+  province: "Demo Province",
   country: "Philippines",
 };
 

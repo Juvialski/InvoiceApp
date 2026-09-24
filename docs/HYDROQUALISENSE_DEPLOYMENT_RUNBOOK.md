@@ -29,19 +29,16 @@ not use a production project for role evidence, screenshots, or exploratory read
 this phase does not authorize production migration or data mutation. A local Docker
 absence is a blocker to local DB certification, not a reason to claim success.
 
-## Public funnel deployment gate
+## Public site and software-prospect intake boundaries
 
-The public product/requirements funnel is **disabled by default** so merging shared product code does not replace an operational client's root application with a marketing surface or turn a client database into a prospect-intake database accidentally.
+The canonical `hydroqualisense.com` root is the Hydroqualisense Solutions Corp. engineering-company site. A deployment identified as `qa` serves the software showcase with synthetic context, even while software-prospect intake is disabled. Neither route changes an operational client's root application.
 
-The public Privacy Policy and Terms of Service pages are presentation-only and
-remain reachable at `/privacy` and `/terms` without a session. They do not read
-company data or use the prospect database gate. The public homepage and
-`/request-demo` / `/contact` requirements flow remain deployment-gated below.
+Noncanonical client production roots remain authenticated. The public Privacy Policy and Terms of Service pages remain reachable at `/privacy` and `/terms` without a session. Local development may set `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=true` to preview the canonical company landing on localhost.
 
-A deployment intended to host the public funnel must be enabled deliberately at both layers:
+The software requirements/demo intake remains a separate, optional QA capability and is disabled by default. To enable it deliberately:
 
-1. Set the non-secret build variable `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=true` for that platform/QA deployment and rebuild it.
-2. In that deployment's Supabase project, a privileged operator may enable prospect persistence only after confirming that the database is intended to receive prospective-client business contact data:
+1. Set the non-secret build variable `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=true` for the QA deployment and rebuild it.
+2. In that QA Supabase project, a privileged operator may enable prospect persistence only after confirming that the database is intended to receive prospective-client business contact data:
 
 ```sql
 update private.public_prospect_funnel_configuration
@@ -50,7 +47,7 @@ set enabled = true,
 where singleton = true;
 ```
 
-Do not enable either switch on an operational client production deployment merely because the shared code contains the public funnel. Client production remains an authenticated operational application unless an explicit deployment decision says otherwise. If the browser switch is enabled while the database gate is still disabled, submissions fail closed and no prospect record is inserted.
+Do not enable either switch on an operational client production deployment. Client production remains an authenticated operational application. Canonical `/contact` and `/request-demo` are company project-inquiry pages; they do not submit into the software-prospect contract. On QA, the form is shown only when the build flag is enabled, and submissions still fail closed while the database gate is disabled.
 
 For the canonical public Hydroqualisense deployment, the operator must confirm
 that the public build serves `https://hydroqualisense.com`, with the Google OAuth
@@ -83,7 +80,7 @@ VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=false
 VITE_ENABLE_SAMPLE_INVOICES=false
 ```
 
-The application shows an explicit `QA ENVIRONMENT · SYNTHETIC DATA ONLY` banner in the authenticated and public surfaces. A normal production build defaults to `production` and does not show the QA banner. The public funnel remains off until both the build flag and the database gate are deliberately enabled in QA.
+The application shows an explicit `QA ENVIRONMENT · SYNTHETIC DATA ONLY` banner in the authenticated and public surfaces. A normal production build defaults to `production` and does not show the QA banner. The QA software showcase root is public; only its optional software-prospect intake remains off until both the build flag and the database gate are deliberately enabled.
 
 ### Blank-project bootstrap and protected release sequence
 

@@ -744,8 +744,8 @@ const openDemoDrawingPreview: QaScenarioAction = async (page) => {
 
 const openDemoTour: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Demo Tour", exact: true }).first().click();
-  await page.getByRole("dialog", { name: "Hydroqualisense Demo Tour", exact: true }).first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  const count = await page.getByRole("dialog", { name: "Hydroqualisense Demo Tour", exact: true }).count();
+  await page.getByRole("dialog", { name: /Demo Tour$/i }).first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const count = await page.getByRole("dialog", { name: /Demo Tour$/i }).count();
   return [{ id: "demo-tour-visible", passed: count === 1, details: `tour panels: ${count}` } satisfies QaAssertion];
 };
 

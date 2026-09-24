@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Bot, FileStack, Presentation, RotateCcw, ShieldCheck } from "lucide-react";
 import { AppShell } from "../app/AppShell.tsx";
 import { AppRouter } from "../app/routes/AppRouter.tsx";
-import { BRAND } from "../config/brand.ts";
+import { QA_SOFTWARE_SHOWCASE } from "../config/publicBranding.ts";
 import { DEFAULT_REGIONAL_SETTINGS } from "../config/regional.ts";
 import type { DashboardActivityPeriod } from "../components/engineering/EngineeringCostOperationsDashboard.tsx";
 import type { AppTab } from "../utils/routes.ts";
@@ -467,7 +467,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   };
 
   useEffect(() => {
-    document.title = location.kind === "assistant" ? `AI Assistant | ${BRAND.productName} Demo` : location.kind === "documents" ? `Engineering Documents | ${BRAND.productName} Demo` : `Client Demo | ${BRAND.productName}`;
+    document.title = location.kind === "assistant" ? `AI Assistant | ${QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor} Demo` : location.kind === "documents" ? `Engineering Documents | ${QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor} Demo` : `${QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor} Demo Workspace`;
   }, [location.kind]);
 
   const navigateTab = (tab: AppTab) => onNavigate(demoPathForTab(tab));
@@ -587,7 +587,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   };
 
   const resetDemo = () => {
-    if (!window.confirm("Reset the Demo Workspace to Meridian's original sample data? This affects demo state only.")) return;
+    if (!window.confirm("Reset the Demo Workspace to its original sample data? This affects demo state only.")) return;
     reset();
     onNavigate(demoPathForTab("dashboard"));
   };
@@ -789,7 +789,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       invoicesCount={data.invoices.length}
       reviewCount={reviewQueue.length}
       workspaceSyncStatus="guest"
-      accountEmail="client.demo@hydroqualisense.com"
+      accountEmail="demo.user@example.test"
       visibleRouteIds={VISIBLE_ROUTES}
       permissions={["*"]}
       projectCostCompleteness={demoProjectCostCompleteness}
@@ -798,7 +798,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       onReturnToDashboard={() => onNavigate(demoPathForTab("dashboard"))}
       routeRecovery={routeRecovery}
       onRecoverRoute={() => onNavigate(routeRecoveryPath, true)}
-            footerText={`${BRAND.productName} Demo Workspace • ${BRAND.companyName} • Sample data only`}
+            brandIdentity={{ name: QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor, subtitle: "Synthetic demo workspace" }}
+            footerText={`${QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor} • Synthetic demo data only`}
     >
       <div data-demo-workspace-banner="true" className="hqs-surface-muted sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
