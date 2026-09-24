@@ -48,7 +48,7 @@ function CompanyLanding() {
               <span className="h-px w-8 bg-[#4caaa4]" /> Hydroqualisense Solutions Corp.
             </p>
             <h1 id="company-hero-title" className="mt-6 max-w-[13ch] font-serif text-[clamp(2.8rem,6vw,5.4rem)] font-medium leading-[0.98] tracking-[-0.045em] text-[#112f3a]">
-              Engineering practical solutions for water and infrastructure.
+              Engineering practical solutions for water-related projects.
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-[#52666a] sm:text-lg sm:leading-8">
               An engineering company focused on water treatment, water management, and related engineering projects.
