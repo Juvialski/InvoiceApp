@@ -130,6 +130,14 @@ test("Projects portfolio defaults to cards and keeps compact list as an accessib
   assert.match(projectRegisterSectionSource, /More actions/);
 });
 
+test("Project card lifecycle actions preserve a visible popover boundary without changing the action contract", () => {
+  assert.match(projectRegisterSectionSource, /className="hqs-surface-raised min-w-0 w-full overflow-visible/);
+  assert.match(projectRegisterSectionSource, /<details className="relative ml-auto">/);
+  assert.match(projectRegisterSectionSource, /<div className="hqs-popover absolute right-0 z-20/);
+  assert.match(projectRegisterSectionSource, /onClick=\{\(\) => onOpenLifecycle\(project\)\}/);
+  assert.match(projectRegisterSectionSource, /Edit project details/);
+});
+
 test("ProjectsPage exposes the required portfolio financial columns and deterministic controls", () => {
   for (const label of ["Project Manager", "Currency", "Contract Value", "Budget", "Actual", "Committed", "Billed", "Collected", "Outstanding", "Remaining to Bill"]) {
     assert.match(projectsSurfaceSource, new RegExp(label));

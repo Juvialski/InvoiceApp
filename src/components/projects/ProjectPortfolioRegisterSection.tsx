@@ -198,7 +198,7 @@ export function ProjectRegisterCard({
   const projectSubline = [project.clientName, project.location || project.siteAddress].filter(Boolean).join(" · ") || "Client and location not set";
 
   return (
-    <Card key={project.id} data-project-id={project.id} className="hqs-surface-raised min-w-0 w-full overflow-hidden" elevation="low">
+    <Card key={project.id} data-project-id={project.id} className="hqs-surface-raised min-w-0 w-full overflow-visible" elevation="low">
       <button
         type="button"
         onClick={() => onOpenProject(project)}

@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 NEXT**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 IMPLEMENTED LOCALLY / PR PENDING**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-24**
 
@@ -1720,3 +1720,43 @@ Graph and Source Contract Consistency, and `chromium-demo-qa` before merge.
 PR #251 then squash-merged as `6bf4a4ffbe1c6757145fb4fea9cc8060f06fde43`.
 Hosted QA, production, external provider readiness, and deployed authenticated
 browser certification were not performed.
+
+## 2026-09-24 — UI-PROJECTS-ACTION-1 Project Card Action Popover Reachability
+
+Implementation branch: `codex/ui-projects-action-1-popover`
+Synchronized base SHA: `27d56ce513dc2419a2aded8a529577384960d568`
+Status: **IMPLEMENTED LOCALLY / PR PENDING**
+
+The Projects card `More` menu was being clipped at the card boundary because
+the outer `Card` applied `overflow-hidden` while the lifecycle menu is an
+absolutely positioned child that must remain reachable outside the footer. The
+card now uses an explicit visible overflow boundary. Media thumbnails retain
+their own inner clipping, and project navigation, `Edit project details`,
+permission gating, lifecycle callbacks, and project lifecycle authority are
+unchanged.
+
+Regression coverage now opens the first manageable card's `More` menu, checks
+the popover and lifecycle-action rectangles, verifies the visible card overflow
+boundary, hit-tests the lifecycle action, checks viewport and horizontal
+overflow bounds, clicks the action, and confirms the existing lifecycle dialog.
+The structured Demo Visual QA catalog covers 1280×800 and 390×844 in both
+Light and Dark themes.
+
+Recorded local evidence:
+
+- focused Projects/UI/source-contract tests: **42/42 passed**;
+- production build: **passed**, with the repository's existing font/chunk and
+  CommonJS `import.meta` diagnostics;
+- Projects-only structured Demo Visual QA: **18/18 scenarios passed**, with
+  zero overflow, console, page, or failed-request errors; the four new action
+  scenarios passed at 1280×800 and 390×844 in Light/Dark;
+- `npm.cmd run test:affected:agent`: **502 passed, 0 failed, 0 skipped across
+  74/386 selected files; no broad fallback; database unaffected**;
+- `npm.cmd run lint`: **passed** (ESLint and TypeScript);
+- lead visual inspection confirmed the Dark-mode popover and `Project lifecycle`
+  action were fully visible and clickable;
+- no database, migration, Docker/Supabase, provider, hosted, production, or
+  live-company state was used or changed.
+
+Protected exact-head CI, hosted QA, production, and deployed
+authenticated-browser evidence remain pending the normal PR workflow.

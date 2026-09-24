@@ -20,7 +20,8 @@ test("narrow operational registers use progressive disclosure instead of forced 
   assert.match(expenses, /settlement\.settlementState/);
   const projectRegister = source("src/components/projects/ProjectPortfolioRegisterSection.tsx");
   assert.match(projectRegister, /data-project-id=\{project\.id\}/);
-  assert.match(projectRegister, /className="hqs-surface-raised min-w-0 w-full overflow-hidden/);
+  assert.match(projectRegister, /className="hqs-surface-raised min-w-0 w-full overflow-visible/);
+  assert.doesNotMatch(projectRegister, /className="hqs-surface-raised min-w-0 w-full overflow-hidden/);
   assert.match(projectRegister, /className="hqs-border flex min-w-0 flex-wrap items-center justify-between gap-2 border-t p-3"/);
   assert.match(projectRegister, /Open project workspace for/);
   assert.match(purchaseOrderRegister, /aria-label="Purchase order register cards"/);

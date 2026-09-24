@@ -64,6 +64,24 @@ test("Projects attention-filter QA opens the shared Filters disclosure", () => {
   assert.doesNotMatch(attentionAction, /More filters/);
 });
 
+test("Projects action QA opens the lifecycle popover at constrained laptop and phone widths in both themes", () => {
+  const scenarios = DEMO_QA_SCENARIOS.filter((scenario) => scenario.interactionState.startsWith("UI-PROJECTS-ACTION-1 "));
+  assert.equal(scenarios.length, 4);
+  assert.deepEqual(new Set(scenarios.map((scenario) => scenario.viewport.width)), new Set([1280, 390]));
+  assert.deepEqual(new Set(scenarios.map((scenario) => scenario.interactionState.includes("Dark") ? "dark" : "light")), new Set(["light", "dark"]));
+  assert.ok(scenarios.every((scenario) => typeof scenario.action === "function"));
+
+  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const actionStart = scenariosSource.indexOf("const verifyProjectCardActionPopover");
+  const actionEnd = scenariosSource.indexOf("const verifyProjectAttentionAndEngineering", actionStart);
+  assert.ok(actionStart >= 0 && actionEnd > actionStart);
+  const actionSource = scenariosSource.slice(actionStart, actionEnd);
+  assert.match(actionSource, /summary\[aria-label\^=\"More actions for\"\]/);
+  assert.match(actionSource, /getBoundingClientRect/);
+  assert.match(actionSource, /scrollWidth/);
+  assert.match(actionSource, /project-lifecycle-title/);
+});
+
 test("R4C browser catalog captures Home and Project Portfolio in Light and Dark at all four standard widths", () => {
   const r4c = DEMO_QA_SCENARIOS.filter((scenario) => scenario.interactionState.startsWith("R4C "));
   const expectedViewports = new Set([1440, 1280, 768, 390]);
