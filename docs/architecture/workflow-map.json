@@ -775,7 +775,7 @@
       "domain": "platform-tenancy",
       "type": "workflow",
       "scope": "global",
-      "description": "Chooses the public funnel, production, isolated demo, or workflow-map application before mounting the corresponding provider and workspace tree.",
+      "description": "Uses canonical-host and deployment-environment identity to choose the company public site, QA software showcase, isolated demo, workflow map, or authenticated client workspace before mounting its provider tree.",
       "fileRefs": [
         "src/main.tsx",
         "src/app/applicationMode.ts"
@@ -783,7 +783,8 @@
       "testRefs": [
         "tests/demoWorkspace.test.ts",
         "tests/authScreenEntry.test.ts",
-        "tests/publicProspect.test.ts"
+        "tests/publicProspect.test.ts",
+        "tests/publicBrandSeparation.test.ts"
       ],
       "invariantIds": [
         "demo-cannot-write-production",
@@ -796,17 +797,23 @@
     {
       "sourceClassification": "mixed",
       "id": "public-funnel-mode",
-      "label": "Unauthenticated public funnel mode",
+      "label": "Public site and policy mode",
       "domain": "platform-tenancy",
       "type": "workflow",
       "scope": "global",
-      "description": "Mounts the public HydroQualiSense landing, bounded requirements/demo-contact form, and public Privacy Policy/Terms pages at /, /request-demo, /contact, /privacy, and /terms without CompanyAccessProvider or operational workspace loading.",
+      "description": "Mounts the engineering-company site on the canonical production host, the neutral synthetic software showcase on QA, and session-free Privacy/Terms pages without CompanyAccessProvider. Noncanonical client production roots remain authenticated; local public-site previews require the explicit preview flag.",
       "fileRefs": [
         "src/main.tsx",
         "src/app/applicationMode.ts",
-        "src/public/PublicFunnelRoot.tsx"
+        "src/config/publicBranding.ts",
+        "src/lib/deploymentSearchPolicy.ts",
+        "src/public/PublicFunnelRoot.tsx",
+        "src/public/CompanyPublicSite.tsx",
+        "src/public/SoftwareShowcaseLanding.tsx",
+        "src/public/publicMetadata.ts"
       ],
       "testRefs": [
+        "tests/publicBrandSeparation.test.ts",
         "tests/publicProspect.test.ts",
         "tests/publicPolicyPages.test.ts",
         "tests/demoWorkspace.test.ts"
@@ -822,12 +829,13 @@
     {
       "sourceClassification": "mixed",
       "id": "public-prospect-intake",
-      "label": "Bounded public prospect intake",
+      "label": "QA software prospect intake",
       "domain": "platform-tenancy",
       "type": "external-boundary",
       "scope": "global",
-      "description": "Server-mediated anonymous submission of bounded company/contact requirements, capability interest, approximate scale, pain points, integration needs, timeline, and demo/contact intent; no sensitive uploads or provisioning side effects.",
+      "description": "Optional QA-only server-mediated software-prospect submission of bounded company/contact requirements, capability interest, approximate scale, pain points, integration needs, timeline, and demo/contact intent. QA build and database gates remain required; engineering project inquiries never reuse this contract.",
       "fileRefs": [
+        "src/lib/deploymentIdentity.ts",
         "src/lib/publicProspect.ts",
         "src/public/PublicFunnelRoot.tsx",
         "server.ts",
@@ -8193,7 +8201,7 @@
       "target": "public-funnel-mode",
       "type": "routes-to",
       "kind": "context",
-      "label": "public funnel path",
+      "label": "canonical company / QA showcase",
       "invariantIds": [
         "public-funnel-cannot-provision"
       ]
@@ -8215,7 +8223,7 @@
       "target": "public-prospect-intake",
       "type": "contains",
       "kind": "context",
-      "label": "bounded requirements form",
+      "label": "optional QA software intake",
       "invariantIds": [
         "public-funnel-cannot-provision"
       ]

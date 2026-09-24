@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 NEXT**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 IMPLEMENTED FOR REPO SCOPE; COMPANY CONTENT PENDING**
 Date: **2026-09-24**
 Repository: `Juvialski/InvoiceApp`
 
@@ -24,9 +24,31 @@ Email/SMS Reliability & SMS Improvement slice is complete on merged `main`;
 live Brevo/SMS provider certification remains pending external
 credentials/device/runtime.
 
-### Next implementation phase — WEB-BRAND-1
+### WEB-BRAND-1 implementation status
 
-CI-EFF-1 is merged and no longer occupies the next-phase slot. The next owner-directed bounded phase is **WEB-BRAND-1 — Production Company Landing + QA Software Showcase Separation**, governed by `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md`. Production/canonical public branding must represent Hydroqualisense Solutions Corp. as the engineering company using only verified company services and approved real project experience. QA remains an explicit synthetic software/workspace showcase. Do not invent a creator/software-vendor brand, do not reuse synthetic demo projects as corporate portfolio claims, and do not broaden this public-site phase into unrelated authenticated-app or deferred product work.
+WEB-BRAND-1 is implemented for the recorded repository scope on branch `codex/web-brand-1-company-public-site`, based on synchronized `main` SHA `59762f89fe308dd0f732c4af5f654acc813dd05d`. The governing contract remains `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md`.
+
+- Canonical production `/` presents Hydroqualisense Solutions Corp. as an engineering company. Published service themes are limited to water treatment, water management, and related engineering projects.
+- The site does not display synthetic demo projects, invented company history/metrics, or unapproved facility imagery as company evidence. No company-approved portfolio references/photos were present in the repository.
+- `/contact` and production `/request-demo` present project inquiry context without the old software-prospect form. Public project-inquiry email/telephone details have not been confirmed; the page states that they are pending. The software-prospect API/payload remains software-specific.
+- QA `/` presents a neutral Engineering Operations Platform software showcase with explicit QA and synthetic-data disclosures, even when software-prospect intake is disabled. Its optional requirements flow remains QA/build/database-gated.
+- `/demo`, its landing page, shell, assistant and tour use a neutral temporary software descriptor. The demo company fixture is clearly generic/synthetic. The authenticated production workspace continues using its existing company identity.
+- Canonical public metadata is company-oriented. QA, staging, unknown deployments, and noncanonical client workspaces use `noindex` and do not keep a canonical URL to the production company site.
+- `/privacy`, `/terms`, `/dashboard`, password/account recovery routing, and `/demo` remain available through their existing route boundaries. Public route selection changed as specified; no database, RLS/RPC, financial, payroll, inventory, provider, auth/session, permission, or production-infrastructure contract changed.
+
+Four public comparators and the resulting design choices are recorded in `docs/WEB-BRAND-1-DESIGN-RATIONALE.md`. The final local responsive/browser evidence is recorded in `docs/WEB-BRAND-1-VISUAL-CERTIFICATION.md`. Local screenshots under `artifacts/public-site/screenshots/` are disposable ignored output, not hosted or production certification.
+
+Validation/evidence:
+
+- Focused public/brand/demo/routing tests passed during implementation.
+- `npm.cmd run test:affected:agent`: **304 passed, 0 failed across 41/385 selected files; no broad fallback; database unaffected**.
+- `npm.cmd run lint`: passed (ESLint and TypeScript). `npm.cmd run build`: passed. The build printed non-blocking warnings for an unloaded Inter font, chunk-size guidance, and CommonJS `import.meta` handling in `src/lib/supabase.ts`; those surfaces are outside this change and were not modified.
+- `npm.cmd run workflow-map:check`: valid, **266 nodes / 355 edges**.
+- Local production-preview and QA showcase visual matrix: desktop 1440×900, constrained laptop 1280×800, tablet 768×1024, and phone 390×844. Root/contact/demo/legal scenarios showed zero horizontal overflow, missing image alt text, page errors, or console errors; keyboard first focus reached the skip link on public marketing pages. QA and noncanonical localhost previews correctly showed `noindex, nofollow` and no canonical URL.
+- No Docker/Supabase, hosted QA, production site, provider, or live client data was used; this was a public UI/configuration change with no database contract change.
+- One bounded `agent:context` packet used the supported `platform-tenancy` domain; its Workflow Map match was unavailable, so it provided no curated primary files and listed 8/384 baseline test files. The lead used deterministic source inspection and final impact selection instead. Jev and subagents were not used, per the phase policy.
+
+No new product-domain phase is selected by this change. Continue the active hardening/release-readiness tracks; Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, and custom-field expansion remain deferred.
 
 ### 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 

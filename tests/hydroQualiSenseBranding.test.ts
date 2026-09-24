@@ -47,7 +47,7 @@ test("Hydroqualisense owns the active production identity and canonical origin",
   assert.ok(existsSync("public/brand/hydroqualisense-logo.png"));
 
   const indexHtml = readFileSync("index.html", "utf8");
-  assert.match(indexHtml, /<title>Hydroqualisense \| Hydroqualisense Solutions Corp\.<\/title>/);
+  assert.match(indexHtml, /<title>Hydroqualisense Solutions Corp\. \| Water &amp; Engineering<\/title>/);
   assert.match(indexHtml, /<link rel="canonical" href="https:\/\/hydroqualisense\.com" \/>/);
   assert.match(indexHtml, /<meta property="og:url" content="https:\/\/hydroqualisense\.com" \/>/);
 });

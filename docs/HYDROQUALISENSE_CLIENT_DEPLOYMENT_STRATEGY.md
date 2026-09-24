@@ -45,11 +45,11 @@ Prefer:
 
 Avoid copying the repository into independently drifting client implementations.
 
-## Public landing and client-requirements funnel
+## Public company site and QA software showcase
 
-A future public HydroQualiSense landing surface may explain capabilities and collect prospective-client requirements without exposing an operational client deployment.
+The canonical `hydroqualisense.com` public site represents Hydroqualisense Solutions Corp. as an engineering company. It publishes only company-approved service and project information. The QA root is a separate engineering-operations software showcase using synthetic demo context and a neutral temporary descriptor; no software creator/vendor brand is selected.
 
-The public funnel should remain separate from authenticated operational data. It may collect bounded business requirements such as:
+The existing software requirements/demo intake remains separate from the company website and authenticated operational data. It may collect bounded software requirements in QA when both its build-level and database-level gates are deliberately enabled, such as:
 
 - company and contact information;
 - operational modules of interest;
@@ -60,7 +60,7 @@ The public funnel should remain separate from authenticated operational data. It
 
 Do not collect financial source documents, employee records, biometrics, credentials or other operationally sensitive data through a general marketing intake form unless a dedicated secure workflow is explicitly designed.
 
-A prospective-client submission is not permission to provision production automatically. Provisioning remains an explicit operator-controlled action.
+A software-prospect submission is not permission to provision production automatically. Provisioning remains an explicit operator-controlled action. Engineering project inquiries must not reuse the software-prospect fields or persistence contract.
 
 ## Client provisioning lifecycle
 

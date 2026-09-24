@@ -23,6 +23,7 @@ import {
   Warehouse,
   WifiOff,
   WalletCards,
+  Workflow,
   X,
 } from "lucide-react";
 import {
@@ -59,6 +60,13 @@ export interface HeaderProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   isHelpRoute?: boolean;
+  /** Optional identity for isolated showcase shells; production keeps the default workspace brand. */
+  branding?: HeaderBranding;
+}
+
+export interface HeaderBranding {
+  name: string;
+  subtitle?: string;
 }
 
 const routeIcons: Record<RouteId, React.ElementType> = {
@@ -280,6 +288,7 @@ export const Header: React.FC<HeaderProps> = ({
   collapsed = false,
   onToggleCollapse,
   isHelpRoute = false,
+  branding,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [invoicesExpanded, setInvoicesExpanded] = useState(() => ["invoices", "extractor", "review", "vendors"].includes(activeTab));
@@ -322,6 +331,8 @@ export const Header: React.FC<HeaderProps> = ({
     ? "Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in."
     : syncLabel;
   const showCompactSyncStatus = syncStatus !== "synced" && syncStatus !== "guest";
+  const headerBrandName = branding?.name || BRAND.productName;
+  const headerBrandSubtitle = branding?.subtitle ?? BRAND.companyName;
 
   useEffect(() => {
     setMobileOpen(false);
@@ -402,16 +413,18 @@ export const Header: React.FC<HeaderProps> = ({
               title="Expand sidebar"
               aria-label="Expand sidebar"
             >
-              <BrandMark variant="compact" decorative />
+              {branding ? <Workflow aria-hidden="true" className="h-4 w-4" /> : <BrandMark variant="compact" decorative />}
             </button>
           </div>
         ) : (
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
             <div className="flex min-w-0 items-center gap-3">
-              <BrandMark variant="sidebar" decorative />
+              {branding ? (
+                <span aria-hidden="true" className="flex h-12 w-16 shrink-0 items-center justify-center rounded-xl border border-cyan-300/15 bg-cyan-300/[0.08] text-cyan-200"><Workflow className="h-5 w-5" /></span>
+              ) : <BrandMark variant="sidebar" decorative />}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black tracking-tight text-white">{BRAND.productName}</p>
-                <p className="whitespace-normal break-words text-[10px] font-semibold leading-3 text-slate-400">{BRAND.companyName}</p>
+                <p className={branding ? "whitespace-normal break-words text-xs font-black leading-4 tracking-tight text-white" : "truncate text-sm font-black tracking-tight text-white"}>{headerBrandName}</p>
+                {headerBrandSubtitle && <p className="whitespace-normal break-words text-[10px] font-semibold leading-3 text-slate-400">{headerBrandSubtitle}</p>}
               </div>
             </div>
             {onToggleCollapse && (

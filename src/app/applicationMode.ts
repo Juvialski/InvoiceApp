@@ -1,4 +1,5 @@
 import { BRAND } from "../config/brand.ts";
+import { currentDeploymentIdentity, type RuntimeDeploymentEnvironment } from "../lib/deploymentIdentity.ts";
 
 export type ApplicationMode = "production" | "public" | "demo" | "workflow-map";
 
@@ -85,12 +86,18 @@ function publicFunnelEnabledFromBuildEnv(): boolean {
   return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
 }
 
+function isLocalPublicPreviewHostname(hostname: string | null | undefined) {
+  const normalized = (hostname || "").trim().toLowerCase().replace(/^\[|\]$/g, "");
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
+}
+
 export function applicationModeForPath(
   pathname: string | null | undefined,
   search?: string | null,
   hash?: string | null,
   publicFunnelEnabled = publicFunnelEnabledFromBuildEnv(),
   hostname?: string | null,
+  deploymentEnvironment: RuntimeDeploymentEnvironment = currentDeploymentIdentity().environment,
 ): ApplicationMode {
   if (isWorkflowMapApplicationPath(pathname, search)) {
     return "workflow-map";
@@ -99,6 +106,8 @@ export function applicationModeForPath(
   // Legal/policy pages remain reachable from the sign-in experience even
   // when the bounded prospect funnel is disabled for an operational client.
   if (isPublicPolicyApplicationPath(pathname)) return "public";
-  const publicFunnelAvailable = publicFunnelEnabled || isCanonicalHydroqualisenseHost(hostname);
+  const publicFunnelAvailable = deploymentEnvironment === "qa"
+    || isCanonicalHydroqualisenseHost(hostname)
+    || (publicFunnelEnabled && (!hostname || isLocalPublicPreviewHostname(hostname)));
   return publicFunnelAvailable && isPublicFunnelApplicationPath(pathname, search, hash) ? "public" : "production";
 }

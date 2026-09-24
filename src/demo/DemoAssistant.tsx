@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ArrowRight, Bot, CheckCircle2, Command, ShieldCheck, Sparkles, XCircle } from "lucide-react";
-import { BRAND } from "../config/brand.ts";
+import { QA_SOFTWARE_SHOWCASE } from "../config/publicBranding.ts";
 import { formatMoney } from "../config/regional.ts";
 import { buildDemoProjectSummaries } from "./demoSelectors.ts";
 import { useDemoWorkspace } from "./DemoWorkspaceProvider.tsx";
@@ -32,7 +32,7 @@ export function DemoAssistant({ onNavigate }: { onNavigate: (path: string) => vo
   const { data, preparedAction, prepareAddWorker, confirmPreparedAction, cancelPreparedAction } = useDemoWorkspace();
   const summaries = useMemo(() => buildDemoProjectSummaries(data), [data]);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<DemoMessage[]>([{ id: "welcome", role: "assistant", text: `I’m the demo-safe ${BRAND.assistantName}. I can answer questions from Meridian’s sample workspace, navigate the demo, and prepare sandboxed actions for confirmation.` }]);
+  const [messages, setMessages] = useState<DemoMessage[]>([{ id: "welcome", role: "assistant", text: `I’m the demo-safe assistant for the ${QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor}. I can answer questions from this synthetic workspace, navigate the demo, and prepare sample actions for confirmation.` }]);
 
   const reply = (question: string): string => {
     const normalized = question.toLowerCase();
@@ -88,7 +88,7 @@ export function DemoAssistant({ onNavigate }: { onNavigate: (path: string) => vo
         onNavigate(demoPathForProject(DEMO_PROJECT_IDS.warehouse, "site-logs", { siteLogId: warehouseLog.id }));
         return `Opening the warehouse Site Log for ${warehouseLog.siteDate}. Weather, crew, equipment, delays, safety, and lifecycle history are available there.`;
       }
-      return `${logs.length} Daily Site Logs are available across Meridian's projects, including a current draft, rain-affected days, equipment downtime, concrete work, safety observations, and finalized history.`;
+      return `${logs.length} Daily Site Logs are available across the sample projects, including a current draft, rain-affected days, equipment downtime, concrete work, safety observations, and finalized history.`;
     }
     if (normalized.includes("how many") && normalized.includes("worker") && normalized.includes("warehouse") && normalized.includes("yesterday")) {
       const date = addDemoDays(data.anchorDate, -1);
@@ -126,8 +126,8 @@ export function DemoAssistant({ onNavigate }: { onNavigate: (path: string) => vo
       <header className="border-b border-slate-200 pb-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">{BRAND.assistantName} • Demo-safe mode</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Ask about Meridian operations</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Software Showcase Assistant • Demo-safe mode</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Ask about sample operations</h1>
             <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500">This public demo uses a deterministic assistant adapter. It reads only sample state; mutations stay PREPARED until explicit confirmation and execute only against the demo store.</p>
           </div>
           <span className="inline-flex items-center gap-1.5 self-start rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700 sm:self-auto"><ShieldCheck className="h-3.5 w-3.5" /> Production isolated</span>

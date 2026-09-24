@@ -75,8 +75,8 @@ Bounded view of application entry, project cost, invoice/cash separation, payrol
 flowchart LR
   subgraph g_platformTenancy["Platform / Tenancy"]
     n_platform_entry{"Application entry<br/><small>WORKFLOW</small>"}
-    n_public_funnel_mode{"Unauthenticated public funnel mode<br/><small>WORKFLOW</small>"}
-    n_public_prospect_intake[["Bounded public prospect intake<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_public_funnel_mode{"Public site and policy mode<br/><small>WORKFLOW</small>"}
+    n_public_prospect_intake[["QA software prospect intake<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_deployment_inventory[["Operator deployment inventory<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_deployment_release_verification{{"Isolated deployment release verification<br/><small>GUARD</small>"}}
     n_protected_qa_release_orchestration[["Protected QA release orchestration<br/><small>EXTERNAL-BOUNDARY</small>"]]
@@ -130,9 +130,9 @@ flowchart LR
     n_assistant_guarded_execution("Guarded execution handler<br/><small>ACTION</small>")
   end
   n_platform_entry -->|production path| n_production_mode
-  n_platform_entry -->|public funnel path| n_public_funnel_mode
+  n_platform_entry -->|canonical company / QA showcase| n_public_funnel_mode
   n_platform_entry -->|/demo path| n_demo_mode
-  n_public_funnel_mode -->|bounded requirements form| n_public_prospect_intake
+  n_public_funnel_mode -->|optional QA software intake| n_public_prospect_intake
   n_public_prospect_intake -->|no company or provisioning side effect| n_production_mode
   n_deployment_inventory -->|expected release metadata| n_deployment_release_verification
   n_deployment_release_verification -->|exact QA release identity and migration gate| n_protected_qa_release_orchestration
@@ -384,16 +384,16 @@ Bounded unauthenticated requirements intake stays separate from operator-control
 flowchart LR
   subgraph g_platformTenancy["Platform / Tenancy"]
     n_platform_entry{"Application entry<br/><small>WORKFLOW</small>"}
-    n_public_funnel_mode{"Unauthenticated public funnel mode<br/><small>WORKFLOW</small>"}
-    n_public_prospect_intake[["Bounded public prospect intake<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_public_funnel_mode{"Public site and policy mode<br/><small>WORKFLOW</small>"}
+    n_public_prospect_intake[["QA software prospect intake<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_deployment_inventory[["Operator deployment inventory<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_deployment_release_verification{{"Isolated deployment release verification<br/><small>GUARD</small>"}}
     n_protected_qa_release_orchestration[["Protected QA release orchestration<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_production_mode{"Authenticated production mode<br/><small>WORKFLOW</small>"}
   end
   n_platform_entry -->|production path| n_production_mode
-  n_platform_entry -->|public funnel path| n_public_funnel_mode
-  n_public_funnel_mode -->|bounded requirements form| n_public_prospect_intake
+  n_platform_entry -->|canonical company / QA showcase| n_public_funnel_mode
+  n_public_funnel_mode -->|optional QA software intake| n_public_prospect_intake
   n_public_prospect_intake -->|no company or provisioning side effect| n_production_mode
   n_deployment_inventory -->|expected release metadata| n_deployment_release_verification
   n_deployment_release_verification -->|exact QA release identity and migration gate| n_protected_qa_release_orchestration
@@ -1395,9 +1395,9 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 
 | Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Application entry**<br/><small>`platform-entry`</small> | `workflow` | `global`<br/>— | — | — | `code-derived` | `src/main.tsx`<br/>`src/app/applicationMode.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/authScreenEntry.test.ts`<br/>`tests/publicProspect.test.ts` | — |
-| **Unauthenticated public funnel mode**<br/><small>`public-funnel-mode`</small> | `workflow` | `global`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/public/PublicFunnelRoot.tsx` | `tests/publicProspect.test.ts`<br/>`tests/publicPolicyPages.test.ts`<br/>`tests/demoWorkspace.test.ts` | — |
-| **Bounded public prospect intake**<br/><small>`public-prospect-intake`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `src/lib/publicProspect.ts`<br/>`src/public/PublicFunnelRoot.tsx`<br/>`server.ts`<br/>`src/server/publicProspects/publicProspectRouter.ts`<br/>`supabase/migrations/20260907024119_public_prospect_funnel.sql` | `tests/publicProspect.test.ts`<br/>`supabase/tests/database/29_public_prospect_funnel.test.sql` | — |
+| **Application entry**<br/><small>`platform-entry`</small> | `workflow` | `global`<br/>— | — | — | `code-derived` | `src/main.tsx`<br/>`src/app/applicationMode.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/authScreenEntry.test.ts`<br/>`tests/publicProspect.test.ts`<br/>`tests/publicBrandSeparation.test.ts` | — |
+| **Public site and policy mode**<br/><small>`public-funnel-mode`</small> | `workflow` | `global`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/config/publicBranding.ts`<br/>`src/lib/deploymentSearchPolicy.ts`<br/>`src/public/PublicFunnelRoot.tsx`<br/>`src/public/CompanyPublicSite.tsx`<br/>`src/public/SoftwareShowcaseLanding.tsx`<br/>`src/public/publicMetadata.ts` | `tests/publicBrandSeparation.test.ts`<br/>`tests/publicProspect.test.ts`<br/>`tests/publicPolicyPages.test.ts`<br/>`tests/demoWorkspace.test.ts` | — |
+| **QA software prospect intake**<br/><small>`public-prospect-intake`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `src/lib/deploymentIdentity.ts`<br/>`src/lib/publicProspect.ts`<br/>`src/public/PublicFunnelRoot.tsx`<br/>`server.ts`<br/>`src/server/publicProspects/publicProspectRouter.ts`<br/>`supabase/migrations/20260907024119_public_prospect_funnel.sql` | `tests/publicProspect.test.ts`<br/>`supabase/tests/database/29_public_prospect_funnel.test.sql` | — |
 | **Operator deployment inventory**<br/><small>`deployment-inventory`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `src/lib/deploymentManifest.ts`<br/>`scripts/deployment/validate-manifest.ts`<br/>`deployment/inventory.template.json`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` | — |
 | **Isolated deployment release verification**<br/><small>`deployment-release-verification`</small> | `guard` | `global`<br/>— | — | — | `mixed` | `src/server/releaseMetadata.ts`<br/>`src/lib/deploymentManifest.ts`<br/>`scripts/deployment/verify-release.ts`<br/>`server.ts`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` | — |
 | **Protected QA release orchestration**<br/><small>`protected-qa-release-orchestration`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `.github/workflows/qa-release.yml`<br/>`.github/workflows/hosted-qa-certification.yml`<br/>`src/lib/qaReleaseOrchestration.ts`<br/>`src/lib/qaDatabaseTarget.ts`<br/>`src/server/repositoryMigrationLevel.ts`<br/>`scripts/qa/classify-release.ts`<br/>`scripts/qa/supabaseCli.ts`<br/>`scripts/qa/verify-migration-parity.ts`<br/>`scripts/qa/wait-for-qa-deployment.ts`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/qaReleaseOrchestration.test.ts`<br/>`tests/qaReleaseWorkflow.test.ts`<br/>`tests/qaDeployment.test.ts`<br/>`tests/hostedQaConfig.test.ts` | — |
