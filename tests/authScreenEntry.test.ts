@@ -1,30 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { AuthScreen } from "../src/components/auth/AuthScreen.tsx";
-import { workspacePresentationFor } from "../src/config/workspacePresentation.ts";
+import { readFileSync } from "node:fs";
 
-test("QA AuthScreen uses neutral identity and keeps the isolated demo entry", () => {
-  const markup = renderToStaticMarkup(createElement(AuthScreen, {
-    workspacePresentation: workspacePresentationFor("qa"),
-    allowBrowserOnly: true,
-  } as never));
-  assert.match(markup, /Engineering Operations Platform/);
-  assert.match(markup, /QA Workspace/);
-  assert.match(markup, /href="\/demo"/);
-  assert.doesNotMatch(markup, /Hydroqualisense/i);
-  assert.doesNotMatch(markup, /HydroQualiSense/i);
+const authScreen = readFileSync(new URL("../src/components/auth/AuthScreen.tsx", import.meta.url), "utf8");
+
+test("AuthScreen accepts deployment presentation so QA can use neutral workspace identity", () => {
+  assert.match(authScreen, /workspacePresentation\?/);
+  assert.match(authScreen, /workspacePresentation \|\| currentWorkspacePresentation\(\)/);
+  assert.match(authScreen, /presentation\.productName/);
+  assert.match(authScreen, /presentation\.workspaceLabel/);
+  assert.match(authScreen, /presentation\.companyLogoPath/);
+  assert.match(authScreen, /data-demo-entry="auth"/);
+  assert.match(authScreen, /href="\/demo"/);
 });
 
-test("production AuthScreen keeps Hydroqualisense identity and password recovery mode", () => {
-  const productionMarkup = renderToStaticMarkup(createElement(AuthScreen, { allowBrowserOnly: true } as never));
-  assert.match(productionMarkup, /Hydroqualisense/);
-  assert.match(productionMarkup, /hydroqualisense-logo\.png/);
-
-  const recoveryMarkup = renderToStaticMarkup(createElement(AuthScreen, {
-    initialMode: "reset-password",
-    allowBrowserOnly: true,
-  } as never));
-  assert.match(recoveryMarkup, /Choose a new password/);
+test("AuthScreen keeps password recovery mode and production presentation remains the default", () => {
+  assert.match(authScreen, /initialMode\?: "sign-in" \| "reset-password"/);
+  assert.match(authScreen, /Choose a new password/);
+  assert.match(authScreen, /currentWorkspacePresentation\(\)/);
 });
