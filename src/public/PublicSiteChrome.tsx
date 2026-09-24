@@ -79,7 +79,7 @@ export function PublicSiteFooter({ variant }: { variant: PublicSiteVariant }) {
             {isCompany ? HYDROQUALISENSE_PUBLIC_SITE.identity.companyName : `${QA_SOFTWARE_SHOWCASE.softwareIdentity.productBrand || QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor} · QA Software Showcase`}
           </p>
           <p className="mt-1 max-w-xl text-[11px] opacity-75">
-            {isCompany ? "Water treatment · Water management · Engineering projects" : "Synthetic demo context only. Not the production corporate services website."}
+            {isCompany ? "Water treatment · Water management · Related engineering projects" : "Synthetic demo context only. Not the production corporate services website."}
           </p>
         </div>
         <nav aria-label="Public policy navigation" className="flex flex-wrap gap-x-5 gap-y-2">
