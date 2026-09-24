@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 NEXT**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 IMPLEMENTED LOCALLY / PR PENDING**
 Date: **2026-09-24**
 Repository: `Juvialski/InvoiceApp`
 
@@ -2411,3 +2411,41 @@ Graph and Source Contract Consistency, and `chromium-demo-qa`; PR #251 then
 squash-merged as `6bf4a4ffbe1c6757145fb4fea9cc8060f06fde43`.
 The phase has local database evidence only; hosted QA, production, and deployed
 authenticated browser certification remain open.
+
+## 2026-09-24 — UI-PROJECTS-ACTION-1 Project Card Action Popover Reachability
+
+Implementation branch: `codex/ui-projects-action-1-popover`
+Synchronized base SHA: `27d56ce513dc2419a2aded8a529577384960d568`
+Status: **IMPLEMENTED LOCALLY / PR PENDING**
+
+Root cause was confirmed in `src/components/projects/ProjectPortfolioRegisterSection.tsx`:
+the outer Project card applied `overflow-hidden` while the lifecycle action
+popover was absolutely positioned from the `More` disclosure in the card
+footer. The card now uses `overflow-visible`. Entity-media thumbnails retain
+their own inner clipping. No project lifecycle, permission, navigation,
+financial, or persistence behavior changed.
+
+The structured browser regression opens the first manageable card's `More`
+menu, records card/popover/lifecycle rectangles and computed overflow, checks
+viewport and horizontal-overflow bounds, hit-tests and clicks the lifecycle
+action, and confirms the existing lifecycle dialog. It is registered at
+1280×800 and 390×844 in both Light and Dark themes.
+
+Recorded local evidence:
+
+- focused Projects/UI/source-contract tests: **42/42 passed**;
+- production build: **passed**, with existing font/chunk and CommonJS
+  `import.meta` diagnostics;
+- Projects-only structured Demo Visual QA: **18/18 passed**, including all
+  four new action scenarios, with zero overflow, console, page, or failed-
+  request errors;
+- `npm.cmd run test:affected:agent`: **502 passed, 0 failed, 0 skipped across
+  74/386 selected files; no broad fallback; database unaffected**;
+- `npm.cmd run lint`: **passed** (ESLint and TypeScript);
+- lead visual inspection confirmed the Dark-mode popover and `Project
+  lifecycle` action were fully visible and clickable;
+- no database, migration, Docker/Supabase, provider, hosted, production, or
+  live-company state was used or changed.
+
+Protected exact-head CI, hosted QA, production, and deployed
+authenticated-browser gates remain part of the normal PR workflow.

@@ -1481,6 +1481,74 @@ const verifyPortfolioAttentionDark: QaScenarioAction = async (page) => {
   ];
 };
 
+const verifyProjectCardActionPopover: QaScenarioAction = async (page) => {
+  const cardSelector = '[aria-label="Projects list cards"] [data-project-id]:has(summary[aria-label^="More actions for"])';
+  const card = page.locator(cardSelector).first();
+  await card.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const trigger = page.locator(`${cardSelector} summary[aria-label^="More actions for"]`).first();
+  await trigger.click();
+  const popover = page.locator(`${cardSelector} .hqs-popover`).first();
+  await popover.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.evaluate(() => document.querySelector<HTMLElement>('[aria-label="Projects list cards"] [data-project-id] .hqs-popover')?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+
+  const layout = await page.evaluate(() => {
+    const card = document.querySelector<HTMLElement>('[aria-label="Projects list cards"] [data-project-id]');
+    const popover = card?.querySelector<HTMLElement>(".hqs-popover");
+    const lifecycleAction = popover?.querySelector<HTMLButtonElement>("button");
+    if (!card || !popover || !lifecycleAction) return null;
+
+    const cardRect = card.getBoundingClientRect();
+    const popoverRect = popover.getBoundingClientRect();
+    const lifecycleRect = lifecycleAction.getBoundingClientRect();
+    const lifecycleHit = document.elementFromPoint(lifecycleRect.left + lifecycleRect.width / 2, lifecycleRect.top + lifecycleRect.height / 2);
+    const style = getComputedStyle(popover);
+    return {
+      card: { left: cardRect.left, right: cardRect.right, top: cardRect.top, bottom: cardRect.bottom, width: cardRect.width, height: cardRect.height },
+      popover: { left: popoverRect.left, right: popoverRect.right, top: popoverRect.top, bottom: popoverRect.bottom, width: popoverRect.width, height: popoverRect.height },
+      lifecycle: { left: lifecycleRect.left, right: lifecycleRect.right, top: lifecycleRect.top, bottom: lifecycleRect.bottom, width: lifecycleRect.width, height: lifecycleRect.height },
+      cardOverflow: getComputedStyle(card).overflow,
+      popoverVisible: popover.getClientRects().length > 0 && style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0,
+      lifecycleHit: lifecycleHit === lifecycleAction || lifecycleAction.contains(lifecycleHit),
+      viewportWidth: document.documentElement.clientWidth,
+      viewportHeight: window.innerHeight,
+      documentWidth: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0),
+      popoverBottom: popoverRect.bottom,
+      cardBottom: cardRect.bottom,
+      lifecycleBottom: lifecycleRect.bottom,
+    };
+  });
+  const lifecycleAction = page.locator(`${cardSelector} .hqs-popover button`).first();
+  const lifecycleActionCount = await lifecycleAction.count();
+  await lifecycleAction.click();
+  const lifecycleDialog = page.locator('[role="dialog"][aria-labelledby="project-lifecycle-title"]');
+  await lifecycleDialog.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const lifecycleDialogCount = await lifecycleDialog.count();
+
+  const viewportTolerance = 2;
+  const popoverWithinViewport = Boolean(layout && layout.popover.left >= -viewportTolerance && layout.popover.right <= layout.viewportWidth + viewportTolerance && layout.popover.top >= -viewportTolerance && layout.popover.bottom <= layout.viewportHeight + viewportTolerance);
+  const lifecycleWithinViewport = Boolean(layout && layout.lifecycle.left >= -viewportTolerance && layout.lifecycle.right <= layout.viewportWidth + viewportTolerance && layout.lifecycle.top >= -viewportTolerance && layout.lifecycle.bottom <= layout.viewportHeight + viewportTolerance);
+  const popoverExtendsBeyondCard = Boolean(layout && layout.popoverBottom > layout.cardBottom);
+  return [
+    { id: "project-card-more-trigger-opens-popover", passed: Boolean(layout?.popoverVisible), details: layout ? `popover ${Math.round(layout.popover.width)}×${Math.round(layout.popover.height)} at ${Math.round(layout.popover.left)},${Math.round(layout.popover.top)}` : "popover geometry missing" },
+    { id: "project-card-popover-card-boundary-allows-reachability", passed: layout?.cardOverflow === "visible" && layout.lifecycleHit === true, details: `card overflow: ${layout?.cardOverflow || "missing"}; popover extends beyond card: ${popoverExtendsBeyondCard}; card bottom: ${layout ? Math.round(layout.cardBottom) : "missing"}; popover bottom: ${layout ? Math.round(layout.popoverBottom) : "missing"}` },
+    { id: "project-card-popover-within-viewport", passed: popoverWithinViewport && lifecycleWithinViewport, details: layout ? `popover ${Math.round(layout.popover.left)},${Math.round(layout.popover.top)}–${Math.round(layout.popover.right)},${Math.round(layout.popover.bottom)}; lifecycle ${Math.round(layout.lifecycle.left)},${Math.round(layout.lifecycle.top)}–${Math.round(layout.lifecycle.right)},${Math.round(layout.lifecycle.bottom)} within ${layout.viewportWidth}×${layout.viewportHeight}` : "popover geometry missing" },
+    { id: "project-card-lifecycle-action-hit-target-visible", passed: lifecycleActionCount === 1 && layout?.lifecycleHit === true, details: `lifecycle action count: ${lifecycleActionCount}; center hit target: ${layout?.lifecycleHit ?? false}` },
+    { id: "project-card-popover-does-not-create-horizontal-overflow", passed: Boolean(layout && layout.documentWidth <= layout.viewportWidth + 2), details: layout ? `document width: ${layout.documentWidth}px; viewport: ${layout.viewportWidth}px` : "document geometry missing" },
+    { id: "project-card-lifecycle-dialog-opens", passed: lifecycleDialogCount === 1, details: `lifecycle dialogs: ${lifecycleDialogCount}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+function projectCardActionTheme(theme: "light" | "dark"): QaScenarioAction {
+  return async (page) => {
+    const themeAssertions = theme === "dark" ? await applyDarkTheme(page) : await applyLightTheme(page);
+    const actionAssertions = await verifyProjectCardActionPopover(page);
+    return [
+      ...(Array.isArray(themeAssertions) ? themeAssertions : []),
+      ...(Array.isArray(actionAssertions) ? actionAssertions : []),
+    ];
+  };
+}
+
 const verifyProjectAttentionAndEngineering: QaScenarioAction = async (page) => {
   const managementAttention = await page.getByRole("heading", { name: "Management Attention", exact: true }).count();
   const engineeringSummary = await page.getByRole("heading", { name: "Engineering Coordination", exact: true }).count();
@@ -1856,6 +1924,10 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.laptop, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.tablet, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.mobile, action: verifyPortfolioDashboard }),
+  defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "UI-PROJECTS-ACTION-1 Light popover reachability", viewport: R4E_VIEWPORTS[1], action: projectCardActionTheme("light") }),
+  defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "UI-PROJECTS-ACTION-1 Dark popover reachability", viewport: R4E_VIEWPORTS[1], action: projectCardActionTheme("dark") }),
+  defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "UI-PROJECTS-ACTION-1 Light phone popover reachability", viewport: R4E_VIEWPORTS[3], action: projectCardActionTheme("light") }),
+  defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "UI-PROJECTS-ACTION-1 Dark phone popover reachability", viewport: R4E_VIEWPORTS[3], action: projectCardActionTheme("dark") }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "RFQ and Purchase Order draft worksheets verified", viewport: QA_VIEWPORTS.desktop, action: verifyProcurementDraftWorksheets }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "RFQ and Purchase Order draft worksheets verified", viewport: QA_VIEWPORTS.tablet, action: verifyProcurementDraftWorksheets }),
