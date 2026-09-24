@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 NEXT**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 NEXT**
 Date: **2026-09-24**
 Repository: `Juvialski/InvoiceApp`
 
@@ -49,7 +49,7 @@ Validation/evidence:
 - Final exact PR head `b453a269436d66af36c133598867cfa3f20af413` passed all four protected checks before merge: Application Validation & Build, Database Migrations & Upgrade Suite, Graph and Source Contract Consistency, and `chromium-demo-qa`. No review threads or review comments were open.
 - One bounded `agent:context` packet used the supported `platform-tenancy` domain; its Workflow Map match was unavailable, so it provided no curated primary files and listed 8/384 baseline test files. The lead used deterministic source inspection and final impact selection instead. Jev and subagents were not used, per the phase policy.
 
-No new product-domain phase is selected by this change. The strongest next bounded hardening phase is **REL-PAYROLL-2 — Payroll Period Ownership & Automatic Calendar Persistence Hardening**. Current `main` still auto-prepares payroll periods even for an empty workforce; `savePayrollPeriodToSupabase()` still uses an upsert that resends `user_id` and `company_id`, while payroll-run persistence already uses a safer existing-row UPDATE vs new-row INSERT split. The repeated deployed banner reporting payroll-period ownership/company immutability should be reproduced against local Supabase and fixed without weakening ownership, company, schedule/version, or finalized-history guards. A separate small Projects UI regression is also recorded: `ProjectRegisterCard` clips its absolutely positioned `More` popover because the outer card has `overflow-hidden`; keep that UI fix separate from the payroll authority phase. Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, and custom-field expansion remain deferred.
+REL-PAYROLL-2 is merged as PR #251 after the exact reviewed head `ca9b91dd99ec941f90ac5f51ed9d2193d1015af8` passed all four protected checks. The next bounded hardening phase is **UI-PROJECTS-ACTION-1 — Project Card Action Popover Reachability**. The user-observed Projects regression remains present on merged `main`: `ProjectRegisterCard` gives the outer card `overflow-hidden` while the `More` menu is an absolutely positioned popover that extends outside that card, so the menu is visibly clipped. Fix that presentation/reachability defect without changing project lifecycle authority. Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, and custom-field expansion remain deferred.
 
 ### 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 
@@ -2370,6 +2370,9 @@ Implementation branch: `codex/rel-payroll-2-period-persistence`
 
 Synchronized base: `a8b056c2cf1511b2932fbd76d502ac320b8746fe`.
 
+Reviewed exact PR head: `ca9b91dd99ec941f90ac5f51ed9d2193d1015af8`.  
+Merged PR #251: `6bf4a4ffbe1c6757145fb4fea9cc8060f06fde43`.
+
 The open Payroll error is now proven locally. On a clean replay of the current
 migrations, user B in the same company could read the generated period, but the
 old client UPSERT attempted to replace user A's immutable `user_id` and raised
@@ -2402,5 +2405,9 @@ Evidence:
 
 The bounded `agent:context` packet had no Workflow Map match, so deterministic
 source/test selection remained authoritative and no Jev advisory call was
-made. The phase has local evidence only and is pending PR review; hosted QA,
-production, and deployed authenticated browser certification remain open.
+made. Exact PR head `ca9b91dd99ec941f90ac5f51ed9d2193d1015af8`
+passed Application Validation & Build, Database Migrations & Upgrade Suite,
+Graph and Source Contract Consistency, and `chromium-demo-qa`; PR #251 then
+squash-merged as `6bf4a4ffbe1c6757145fb4fea9cc8060f06fde43`.
+The phase has local database evidence only; hosted QA, production, and deployed
+authenticated browser certification remain open.
