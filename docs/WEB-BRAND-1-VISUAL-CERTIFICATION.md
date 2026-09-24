@@ -4,6 +4,12 @@
 
 **Synchronized base SHA:** `59762f89fe308dd0f732c4af5f654acc813dd05d`
 
+**Final reviewed PR head:** `b453a269436d66af36c133598867cfa3f20af413`
+
+**Merged PR #249:** `2ca9a96b0799eec4f14364f308e9edc2d6c73d9a`
+
+**Protected exact-head CI:** Application Validation & Build, Database Migrations & Upgrade Suite, Graph and Source Contract Consistency, and `chromium-demo-qa` all passed before merge.
+
 **Date:** 2026-09-24
 
 **Evidence scope:** local browser previews only; not hosted QA or production certification.
