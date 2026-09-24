@@ -1,10 +1,12 @@
 # WEB-BRAND-1 — Production Company Landing + QA Software Showcase Separation
 
-Status: **PLANNED — NOT YET IMPLEMENTED**
+Status: **IMPLEMENTED AND MERGED FOR REPOSITORY SCOPE — PR #249 / `2ca9a96b0799eec4f14364f308e9edc2d6c73d9a`; REAL COMPANY CONTENT VERIFICATION REMAINS PENDING**
 
 Prepared: 2026-09-23
 
 Repository baseline when this plan was recorded: `30178994c5f513afc8d37f6198beea6eaf30e97a`.
+
+Implementation record: synchronized implementation base `59762f89fe308dd0f732c4af5f654acc813dd05d`; reviewed exact PR #249 head `b453a269436d66af36c133598867cfa3f20af413`; squash-merged to `main` as `2ca9a96b0799eec4f14364f308e9edc2d6c73d9a` on 2026-09-24. All four protected exact-head workflows passed before merge. Real company portfolio references/photos, public service-area wording, inquiry email, and telephone remain outside repository evidence and therefore remain pending company verification.
 
 ## 1. Why this phase exists
 
@@ -418,20 +420,16 @@ WEB-BRAND-1 does not authorize:
 
 ## 14. Relationship to active work
 
-REL-AUTH-1 is already in progress at the time this plan is recorded.
+This section records the sequencing context that existed when the plan was written. REL-AUTH-1 was in progress, and WEB-BRAND-1 was planning-only at that time. REL-AUTH-1, UI-R4E, and CI-EFF-1 later merged before WEB-BRAND-1 implementation began.
 
-WEB-BRAND-1 is documentation/planning only and must not interfere with that active implementation.
-
-Its implementation timing can be chosen after REL-AUTH-1 without forcing a change to the already-approved UI-R4E work. Because the public-site phase is largely isolated, it may be scheduled before or after UI-R4E based on user priority, provided shared branding/config changes are reviewed for conflict.
-
-When WEB-BRAND-1 begins, synchronize to the then-current `main` and treat live repository instructions/roadmap as authoritative.
+WEB-BRAND-1 then synchronized from `main` SHA `59762f89fe308dd0f732c4af5f654acc813dd05d` and remained isolated from unrelated authenticated-product expansion. The implementation merged as PR #249. The current roadmap/handoff, not this historical sequencing note, determines subsequent work.
 
 ## 15. Definition of done
 
 WEB-BRAND-1 is complete only when:
 
 - the production Hydroqualisense root behaves like the website of a water-focused engineering company;
-- production messaging promotes verified company services and real/approved project experience rather than software modules;
+- production messaging promotes verified company services rather than software modules, and uses real/approved project experience only when company-verified content exists; otherwise the portfolio state remains explicitly pending;
 - existing clients have a clear Client Portal entry;
 - the engineering inquiry/contact path is appropriate for company projects;
 - QA clearly promotes/tests the software with synthetic/demo context;
