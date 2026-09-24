@@ -1,11 +1,12 @@
 # HydroQualiSense Product Direction
 
-Status: **ACTIVE — HARDENING-FIRST / WEB-BRAND-1 MERGED / UI-PROJECTS-ACTION-1 MERGED / WEB-QA-1 CURRENT / NET-NEW PRODUCT EXPANSION DEFERRED**
+Status: **ACTIVE — HARDENING-FIRST / WEB-BRAND-1 MERGED / UI-PROJECTS-ACTION-1 MERGED / WEB-QA-1 MERGED / FUTURE UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED / NET-NEW PRODUCT EXPANSION DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
 Deployment architecture: **one source repository -> many isolated deployments; one client company per deployment**  
 Canonical HydroQualiSense domain: `https://hydroqualisense.com`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
+Planned UX-EDIT + Operations Workbook direction: `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md`
 
 ## Product position
 
@@ -219,16 +220,63 @@ Before broad client rollout, run a final dedicated security/data-integrity certi
 
 Security continues throughout implementation; the final certification is an additional release gate, not a substitute.
 
-## Current implementation sequence
+## Recent hardening completions and standing gates
 
-The hardening-first freeze supersedes the older feature-expansion sequence below. Current priority is:
+The hardening-first freeze supersedes older feature-expansion ordering. This
+documentation reconciliation deliberately selects **no next implementation
+phase**.
 
-1. **REL-PAYROLL-2 — Payroll Period Ownership & Automatic Calendar Persistence Hardening** — merged as PR #251; existing-period reconciliation now preserves immutable ownership/company metadata.
+Recent completed hardening work:
+
+1. **REL-PAYROLL-2 — Payroll Period Ownership & Automatic Calendar Persistence Hardening** — merged as PR #251; existing-period reconciliation preserves immutable ownership/company metadata.
 2. **UI-PROJECTS-ACTION-1 — Project Card Action Popover Reachability** — merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`.
-3. **WEB-QA-1 — QA Login Entry & Neutral Workspace Identity** — current bounded hardening phase. QA exposes the real authenticated workspace at `/dashboard` separately from `/demo`, and resolves QA presentation identity without changing production company branding or authorization.
-4. **Provider/release certification** for existing capabilities when credentials, devices, hosted QA, and deployment prerequisites are safely available.
-5. **Final pre-production security/data-integrity certification** before broad rollout.
+3. **WEB-QA-1 — QA Login Entry & Neutral Workspace Identity** — final reviewed head `161d3814f116547cadb2c4ada73fb56aedb62447`, squash-merged as PR #254 at `cd2f1e110f1cf5128e181bd39f6e93f8c2438b0a`. QA public, authentication, and authenticated workspace presentation use **Engineering Operations Platform** / **QA Workspace**; the production corporate site remains Hydroqualisense Solutions Corp.; the production first-client workspace remains HydroQualiSense/company-branded; and `/demo` remains neutral and synthetic.
 
-Worker Registration, Site Attendance expansion, Face Recognition Attendance, Finance UX-W6, custom fields, and other net-new product work remain deferred until the user explicitly resumes feature expansion.
+Standing hardening/release gates remain provider/release certification when
+safe prerequisites exist and final pre-production security/data-integrity
+certification before broad rollout. Their presence here does not select either
+as the next phase.
+
+## Planned UX-EDIT-1 and Operations Workbook direction
+
+The future interaction direction is:
+
+**BROWSE VISUALLY -> EDIT LIKE A SPREADSHEET WHERE APPROPRIATE -> EXECUTE SENSITIVE WORKFLOWS DELIBERATELY**
+
+UX-EDIT-1 plans easier single-click/tap entry into safe editable worksheet
+cells, clearer Excel-like editing cues, better use of screen space, consistent
+worksheet behavior, quiet normal state with prominent exception state, and
+source-aware side-by-side Supplier Invoice review where useful. Consequential
+approval, posting, payment, payroll, inventory, lifecycle, and similar actions
+remain explicit controlled workflows.
+
+A separate **Operations Workbook** is planned as a full-page, white/grid-oriented
+workspace with authorized sheet tabs and high-density editing/review. It
+supplements rather than replaces normal card/list/detail pages and embedded
+worksheet editors. Permissions, protected/calculated/history fields, lifecycle
+authority, concurrency, and domain truth remain governed by the existing
+application model.
+
+The proposed future sequence is:
+
+- **WB-1 — Unified Workbook Schema & Shell**
+- **WB-2 — Multi-sheet XLSX Round Trip**
+- **WB-3+ — Bounded Domain Coverage**
+- **WB-CERT — Full Round-trip Certification**
+
+Likely worksheet-friendly candidates include Projects, Cost Codes, Expenses,
+Supplier Invoice draft/review data, RFQs, Purchase Orders, Materials,
+Equipment, Warehouse, and other already worksheet-backed operational
+registers. This is not a commitment to put every domain into the workbook.
+
+The detailed planning contract is
+`docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md`.
+It is **planned only**, remains behind current hardening/reliability priorities,
+and does not authorize implementation or resume deferred product expansion.
+
+Worker Registration, Site Attendance expansion, Face Recognition Attendance,
+Finance UX-W6, custom fields, and other net-new product work remain deferred
+until the user explicitly resumes feature expansion. The permanent
+software/vendor/creator brand also remains intentionally unselected.
 
 Older Engoryx future plans remain non-authoritative unless explicitly reconfirmed.
