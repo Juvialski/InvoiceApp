@@ -1679,3 +1679,38 @@ Use controlled auth events, fake timers, mocks, bounded visibility/resume simula
 The already-approved R4E shell direction remains queued, not part of REL-AUTH-1: desktop should remove the redundant global top row containing duplicate product/page identity, permanent successful-sync status, global Export, and duplicate account/email identity; normal successful sync should be silent; exports belong in Documents/Reports/relevant workflows; account identity plus logout belong in the lower-left sidebar account menu. Mobile/tablet may retain minimal top navigation for the menu trigger.
 
 Keep Payroll's `Payroll period ownership and company are immutable` persistence bug, Brevo status reliability, broad R4E Dark-mode cleanup, Worker Registration, attendance, Face Recognition, and unrelated product domains separate from REL-AUTH-1.
+
+
+## 2026-09-24 — REL-PAYROLL-2 implementation closeout pending PR review
+
+REL-PAYROLL-2 started from synchronized `main` SHA
+`a8b056c2cf1511b2932fbd76d502ac320b8746fe` on branch
+`codex/rel-payroll-2-period-persistence`.
+
+The deployed Payroll error was reproduced on a clean local Supabase replay. A
+same-company second actor using the previous period UPSERT shape caused the
+Wave 5 `guard_payroll_period_status()` trigger to raise
+`Payroll period ownership and company are immutable`: the UPSERT supplied the
+current actor's `user_id` and active `company_id` while conflicting with an
+existing period owned by the original actor. A metadata-only update preserving
+the stored ownership succeeded for the same authorized company member.
+
+The implementation changes period persistence to an explicit authoritative-row
+lookup followed by company-scoped UPDATE without `id`, `user_id`, or
+`company_id`, or a full INSERT for a genuinely new period. No migration or
+database guard was changed. Existing schedule/version, duplicate-boundary,
+RLS, finalized/VOID, and payroll approval/payment boundaries remain intact.
+
+Recorded validation on the clean local stack:
+
+- targeted real-Postgres ownership/RLS/trigger regression: **1/1 passed**;
+- focused payroll persistence/schedule/workflow/integrity tests: **65/65 passed**;
+- clean local pgTAP: **1,693/1,693 assertions passed across 51 files**;
+- migration static suite: **117/117 passed**; upgrade fixtures: **3/3 passed**;
+- affected application selector: **421 passed, 0 failed, 2 opt-in skips across 60 selected files**;
+- lint/typecheck and production build passed with existing nonblocking font/chunk/CommonJS diagnostics.
+
+The period-ID remap and authoritative-reload-before-READY contracts remain
+covered. Hosted QA, production, external provider readiness, and deployed
+authenticated browser certification were not performed. The implementation
+awaits PR review; this entry does not claim merge or hosted certification.

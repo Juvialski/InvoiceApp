@@ -2362,3 +2362,45 @@ Recorded validation: final browser matrix **188/188 passed**; supplemental dark 
 Developer-intelligence closeout: the live Jev completion advisory saw all four declared evidence categories (`jev-1.13.0`, 4/4 present, 615 input / 72 output tokens, 773 ms, fallback=false). It retained `unresolvedUncertainty=true` because the supplied validation metadata marked database checks `not-applicable`; database work was outside this UI phase. Its merge decision is not provided.
 
 Evidence is local synthetic/demo only. This phase does not certify hosted QA, deployed session recovery, external provider readiness, production, live company settings, or screen-reader/device behavior. The Settings route contains an unpopulated “Deployment company” placeholder in the synthetic demo because DB-backed company controls are not mounted. No database, migration, auth-state-machine, financial/lifecycle, or payroll-persistence change was made. WEB-BRAND-1 public-site work was not started within R4E; it was implemented later and merged as PR #249. PR #245 was subsequently reviewed and merged as `30a42e926cb0f82948a6d7a217b809f22efc77e8`.
+
+
+## 2026-09-24 — REL-PAYROLL-2 payroll period persistence hardening
+
+Implementation branch: `codex/rel-payroll-2-period-persistence`
+
+Synchronized base: `a8b056c2cf1511b2932fbd76d502ac320b8746fe`.
+
+The open Payroll error is now proven locally. On a clean replay of the current
+migrations, user B in the same company could read the generated period, but the
+old client UPSERT attempted to replace user A's immutable `user_id` and raised
+`Payroll period ownership and company are immutable`. Preserving the stored
+ownership/company metadata and updating only permitted period fields succeeded.
+
+The client persistence boundary now:
+
+- looks up the exact period ID within the active company;
+- updates existing rows without sending immutable ID/actor/company fields;
+- inserts full ownership/company metadata only for genuinely new rows;
+- preserves the existing period-ID map for generated runs and waits for an
+  authoritative Payroll reload before reporting `READY`.
+
+Regression coverage includes same-company multi-user reconciliation, new
+period insertion, repeated idempotent reconciliation, cross-company mutation
+denial, schedule/version linkage, VOID history immutability, duplicate-free
+period counts, and the legacy UPSERT rejection. No migration was added or
+changed, and no RLS, trigger, financial-history, approval, or Cash & Banking
+authority was weakened.
+
+Evidence:
+
+- local runtime ownership/RLS/trigger regression: **1/1 passed**;
+- clean local pgTAP: **1,693/1,693 assertions passed across 51 files**;
+- migration static and upgrade validation: **117/117 static, 3/3 upgrade fixtures**;
+- focused Payroll tests: **65/65 passed**;
+- affected application tests: **421 passed, 0 failed, 2 opt-in skips**;
+- lint/typecheck/build: passed, with only existing nonblocking build diagnostics.
+
+The bounded `agent:context` packet had no Workflow Map match, so deterministic
+source/test selection remained authoritative and no Jev advisory call was
+made. The phase has local evidence only and is pending PR review; hosted QA,
+production, and deployed authenticated browser certification remain open.

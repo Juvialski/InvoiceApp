@@ -206,6 +206,23 @@ test("payroll run persistence updates existing lifecycle rows without an upsert 
   assert.doesNotMatch(source, /from\("payroll_runs"\)\.upsert\(/);
 });
 
+test("payroll period persistence preserves existing ownership through explicit update or insert paths", () => {
+  const source = readFileSync(new URL("../src/lib/payroll.ts", import.meta.url), "utf8");
+  assert.match(source, /from\("payroll_periods"\)[\s\S]*\.select\("id, user_id, company_id"\)/);
+  assert.match(source, /from\("payroll_periods"\)[\s\S]*\.update\(updateRow\)/);
+  assert.match(source, /from\("payroll_periods"\)\.insert\(row\)/);
+  assert.doesNotMatch(source, /from\("payroll_periods"\)\.upsert\(/);
+});
+
+test("automatic calendar persistence maps authoritative period IDs before saving runs and reloads before READY", () => {
+  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(source, /const periodIdMap = new Map<string, string>\(\)/);
+  assert.match(source, /periodIdMap\.set\(period\.id, saved\.id\)/);
+  assert.match(source, /const periodId = periodIdMap\.get\(run\.periodId\) \|\| run\.periodId/);
+  assert.match(source, /await refreshWorkspaceGroups\(\["payroll"\][\s\S]*payroll-calendar-persisted/);
+  assert.match(source, /READY means reloaded from Supabase, never merely generated in memory/);
+});
+
 test("payroll run transitions follow the database state machine", () => {
   assert.equal(canTransitionPayrollRun("DRAFT", "CALCULATED"), true);
   assert.equal(canTransitionPayrollRun("CALCULATED", "APPROVED"), true);
