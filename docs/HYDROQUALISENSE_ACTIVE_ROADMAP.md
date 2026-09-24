@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 CURRENT**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / FUTURE UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-24**
 
@@ -19,6 +19,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 **Excel-Native Operations UX workbook/authority design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — foundations implemented through bounded Expenses/Supplier Payables
 **Current selective workbook-editing interaction direction:** `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` — browse visually, edit like a spreadsheet, keep consequential workflows controlled
+**Planned UX-EDIT + Operations Workbook direction:** `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md` — future planning only; not active and not implementation authorization
 **Blocking worksheet density/clarity correction:** `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md` — starts with app-wide screenshot investigation/visual triage before evidence-backed UI corrections and UX-W5
 **Next developer-tooling research plan:** `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`
 Repository responsibility/evidence decisions: `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md`, `docs/REPOSITORY_EVIDENCE_POLICY.md`
@@ -54,7 +55,7 @@ The QA root is a neutral engineering-operations software showcase with QA/synthe
 
 The four-site read-only comparison and applied design decisions are recorded in `docs/WEB-BRAND-1-DESIGN-RATIONALE.md`; the exact local responsive evidence is recorded in `docs/WEB-BRAND-1-VISUAL-CERTIFICATION.md`. No database, financial, payroll, inventory, procurement, RLS/RPC, provider, production infrastructure, or authenticated production-brand contract changed.
 
-No net-new customer-facing product phase is selected. REL-PAYROLL-2 merged as PR #251, then UI-PROJECTS-ACTION-1 merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`. The current bounded hardening phase is **WEB-QA-1 — QA Login Entry & Neutral Workspace Identity**. Provider certification remains prerequisite-bound on safe credentials/device/runtime availability; deferred workforce, Finance UX-W6, and custom-field expansion remain paused.
+No net-new customer-facing product phase is selected. REL-PAYROLL-2 merged as PR #251, UI-PROJECTS-ACTION-1 merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`, and WEB-QA-1 merged as PR #254 at `cd2f1e110f1cf5128e181bd39f6e93f8c2438b0a`. This reconciliation deliberately selects no next implementation phase. Provider certification remains prerequisite-bound on safe credentials/device/runtime availability; deferred workforce, Finance UX-W6, custom-field expansion, UX-EDIT-1, and Operations Workbook implementation remain paused until explicitly activated.
 
 ## 2026-09-21 hardening-first reprioritization and UI Simplification Round 3
 
@@ -1758,14 +1759,15 @@ Recorded local evidence:
 - no database, migration, Docker/Supabase, provider, hosted, production, or
   live-company state was used or changed.
 
-Protected exact-head CI, hosted QA, production, and deployed
-authenticated-browser evidence remain pending the normal PR workflow.
+PR #253 squash-merged as `f44defc99beb2d15b32b13bd983cf78c4ad24124`. Hosted QA, production, and deployed authenticated-browser certification were not established by that local evidence.
 
 ## 2026-09-24 — WEB-QA-1 — QA Login Entry & Neutral Workspace Identity
 
 Synchronized starting `main`: `f44defc99beb2d15b32b13bd983cf78c4ad24124`
 Implementation branch: `codex/web-qa-1-qa-identity`
-Status: **CURRENT BOUNDED HARDENING PHASE**
+Final reviewed PR head: `161d3814f116547cadb2c4ada73fb56aedb62447`
+Merged PR #254: `cd2f1e110f1cf5128e181bd39f6e93f8c2438b0a`
+Status: **MERGED**
 
 Keep these identities separate: Hydroqualisense Solutions Corp. remains the
 production corporate website identity; the first-client production workspace
@@ -1780,5 +1782,47 @@ The `/dashboard` action reuses the existing authenticated application/AuthScreen
 boundary, including recovery links. The yellow `QA ENVIRONMENT · SYNTHETIC DATA
 ONLY` warning remains visible, while QA internal deployment IDs are omitted
 from user-facing presentation. Feature-expansion freeze and deferred product
-backlog remain unchanged. This is UI/routing work; no database contract or
-migration is expected.
+backlog remain unchanged. This was UI/routing/presentation work; it changed no
+database, migration, RLS/RPC, financial authority, or company-access authority.
+
+The final reviewed head `161d3814f116547cadb2c4ada73fb56aedb62447`
+passed all four protected workflows before merge: Application Validation,
+Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual
+QA. The last review correction aligned the AuthScreen source-contract test with
+the real mechanism: AuthScreen passes the resolved workspace presentation to
+`BrandMark`; `BrandMark` selects the neutral QA mark when `companyLogoPath` is
+absent and preserves the production company logo path otherwise.
+
+## 2026-09-24 — Planned UX-EDIT-1 + Operations Workbook direction
+
+Planning contract: `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md`
+
+Status: **PLANNED / NOT ACTIVE / NO IMPLEMENTATION AUTHORIZED**
+
+The governing direction is **browse visually -> edit like a spreadsheet where
+appropriate -> execute sensitive workflows deliberately**. Planned UX-EDIT-1
+work includes single-click/tap cell entry where safe, clearer Excel-like editing
+cues, improved density, quiet normal states with prominent exceptions,
+consistent worksheet behavior, and source-aware side-by-side Supplier Invoice
+review. Approval, posting, payment, payroll, inventory, lifecycle, and other
+consequential actions remain deliberate controlled workflows.
+
+The planned Operations Workbook is a separate full-page, white/grid-oriented
+workspace with authorized sheet tabs and high-density review/editing. Normal
+card/list/detail pages and embedded worksheet editors remain available. The
+workbook does not create new data authority; protected, calculated, historical,
+and lifecycle-controlled fields continue to follow existing permissions and
+domain rules.
+
+The proposed future sequence is WB-1 (unified workbook schema and shell), WB-2
+(multi-sheet XLSX round trip with explicit import review and standalone-workbook
+compatibility), WB-3+ (bounded domain onboarding such as Projects, Cost Codes,
+Expenses, Supplier Invoice draft/review data, RFQs, Purchase Orders, Materials,
+Equipment, Warehouse, and other suitable worksheet-backed registers), then
+WB-CERT (full export -> edit -> import-review -> apply certification covering
+compatibility, concurrency, permissions, protected/calculated fields, and
+financial/history integrity). No domain is promised automatically.
+
+These plans remain behind the hardening/reliability/release-readiness program
+and do not resume deferred product expansion. A future explicit user direction
+is required before any UX-EDIT or Operations Workbook implementation begins.
