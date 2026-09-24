@@ -75,9 +75,11 @@ test("initial QA HTML is neutral before client JavaScript mounts and production 
 });
 
 test("authenticated shell and QA warning are wired to deployment presentation", () => {
-  assert.match(appShellSource, /workspacePresentation/);
-  assert.match(appShellSource, /headerBranding=\{resolvedPresentation\.headerBranding\}/);
-  assert.match(appShellSource, /footerText=\{resolvedPresentation\.footerText\}/);
+  assert.match(appShellSource, /workspacePresentation: requestedWorkspacePresentation/);
+  assert.match(appShellSource, /const resolvedWorkspacePresentation = requestedWorkspacePresentation \|\| currentWorkspacePresentation\(\)/);
+  assert.match(appShellSource, /requestedFooterText \?\? resolvedWorkspacePresentation\.footerText/);
+  assert.match(appShellSource, /requestedBrandIdentity \?\? resolvedWorkspacePresentation\.headerBranding/);
+  assert.match(appShellSource, /branding=\{brandIdentity\}/);
   assert.match(bannerSource, /presentation\.showDeploymentIdentifier/);
   assert.match(bannerSource, /QA ENVIRONMENT · SYNTHETIC DATA ONLY/);
 });
