@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 IMPLEMENTED FOR REPO SCOPE; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-1 NEXT**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-24**
 
@@ -41,18 +41,33 @@ Exhaustive Demo Visual QA remains on relevant `main` pushes and full-fallback PR
 
 ## 2026-09-24 WEB-BRAND-1 — Production Company Landing + QA Software Showcase Separation
 
-Implementation branch: `codex/web-brand-1-company-public-site`
-
-Synchronized base SHA: `59762f89fe308dd0f732c4af5f654acc813dd05d`
-Status: **IMPLEMENTED FOR REPOSITORY SCOPE; COMPANY-CONTENT VERIFICATION PENDING**
+Implementation branch: `codex/web-brand-1-company-public-site`  
+Synchronized base SHA: `59762f89fe308dd0f732c4af5f654acc813dd05d`  
+Reviewed exact PR head: `b453a269436d66af36c133598867cfa3f20af413`  
+Merged PR #249: `2ca9a96b0799eec4f14364f308e9edc2d6c73d9a`  
+Status: **MERGED FOR REPOSITORY SCOPE; COMPANY-CONTENT VERIFICATION PENDING**
 
 The canonical production root is company-first and engineering-oriented, with only confirmed water treatment, water management, and related engineering-project themes. It does not use synthetic demo projects, invented company metrics, or generated facility photography as corporate proof. The contact route is a project inquiry surface, but its public email and phone details remain pending confirmation. It does not adapt the software-prospect API fields to engineering meaning.
 
 The QA root is a neutral engineering-operations software showcase with QA/synthetic disclosures. It is available from QA deployment identity while the optional software-prospect intake remains disabled by default and gated separately. `/demo` retains its synthetic, session-local workspace and uses neutral showcase identity, including in the demo shell and sample company records. Noncanonical client production roots remain authenticated. Production canonical metadata targets Hydroqualisense Solutions Corp.; QA and other noncanonical/non-production pages are noindex and have no production canonical URL.
 
+PR review corrected a stale browser assertion that still expected the old Hydroqualisense demo-tour name, narrowed one company headline to the verified water-related boundary, and aligned the footer wording with the confirmed “related engineering projects” theme. On exact head `b453a269436d66af36c133598867cfa3f20af413`, Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA all passed before the squash merge.
+
 The four-site read-only comparison and applied design decisions are recorded in `docs/WEB-BRAND-1-DESIGN-RATIONALE.md`; the exact local responsive evidence is recorded in `docs/WEB-BRAND-1-VISUAL-CERTIFICATION.md`. No database, financial, payroll, inventory, procurement, RLS/RPC, provider, production infrastructure, or authenticated production-brand contract changed.
 
-No new customer-facing product phase is selected here. Continue the active hardening and release-readiness tracks. Remaining Wave 4D provider certification stays prerequisite-bound on safe credentials/device/runtime availability; deferred workforce, Finance UX-W6, and custom-field expansion remain paused.
+No net-new customer-facing product expansion is selected after this merge. Real company project references/photos, service-area wording, and public inquiry contact details remain an external company-verification gate rather than an engineering task.
+
+## 2026-09-24 REL-PAYROLL-1 — Payroll Calendar Ownership-Safe Persistence & Empty-Workspace Reconciliation
+
+Status: **NEXT — BOUNDED PRODUCTION RELIABILITY HARDENING**
+
+A production Payroll session currently reports `Payroll period ownership and company are immutable` while the visible current weekly period remains Draft and the workforce count is zero. An empty worker roster does not mean the payroll calendar is empty: the existing payroll design deliberately keeps a visible schedule/period/run horizon even with zero workers.
+
+Source inspection shows a concrete persistence mismatch worth addressing first. `savePayrollPeriodToSupabase` currently uses an upsert for both new and existing periods and includes the current session `user_id` plus `company_id` in the write payload. The calendar reconciliation in `App.tsx` can therefore attempt to persist a lifecycle/metadata change on an existing auto-generated period while also resending ownership/actor fields. This differs from the already-hardened payroll-run writer, which explicitly updates an existing authoritative row and inserts only when no row exists. Database ownership/history guards must remain authoritative; they must not be weakened merely to silence the banner.
+
+REL-PAYROLL-1 must reproduce the failure against local Supabase, identify the exact trigger/row transition, and make period persistence ownership-safe. Prefer separate existing-row UPDATE versus new-row INSERT semantics with immutable identity/creation fields omitted from updates. Inspect the immediately adjacent payroll schedule/run calendar writers for the same class of identity rewrite, but keep the phase bounded to calendar persistence and retry/reconciliation behavior. Add regression coverage for a period created by a different authorized actor in the same company and for a zero-worker workspace. Preserve finalized payroll history, company isolation, schedule/version integrity, duplicate-period protection, source revisions, and explicit lifecycle transitions.
+
+Because the defect crosses application persistence and database guards, applicable validation includes clean local migration replay, pgTAP/migration coverage, targeted runtime RLS/trigger behavior, focused payroll tests, and one final `npm.cmd run test:affected:agent`. Do not add a migration unless runtime evidence proves the database contract itself is wrong. Do not suppress or special-case the error message while leaving the failed write loop intact.
 
 ## 2026-09-21 hardening-first reprioritization and UI Simplification Round 3
 
@@ -109,7 +124,7 @@ UI-R4B is implemented for its shared-foundation and bounded Projects proving sco
 
 R4B is implemented for its shared-foundation and bounded Projects proving scope. R4C is now implemented for local safe-demo scope; its closeout records stable Home routing, permission/source behavior, project-card refinement, and lead-inspected Light/Dark evidence at desktop, constrained laptop, tablet, and phone. The durable report is `artifacts/ui-ux-audit/UI-R4C-HOME-PROJECT-PORTFOLIO.md`.
 
-UI-R4D is implemented for its recorded local/demo and local-Supabase scope; its durable storage/security/database and lead-inspected visual evidence is recorded in `artifacts/ui-ux-audit/UI-R4D-ENTITY-MEDIA.md`. Each Round 4 visual slice must include lead-inspected screenshots at affected standard viewports; automated overflow/accessibility checks alone are insufficient. REL-AUTH-1 is merged; hosted session recovery and the precise deployed trigger remain unverified. UI-R4E is merged for its recorded local synthetic/demo scope; see the certification report for the exact matrix, checks, screenshots, and limits. CI-EFF-1 is merged. WEB-BRAND-1 is the next separate public-site phase and was not implemented in R4E.
+UI-R4D is implemented for its recorded local/demo and local-Supabase scope; its durable storage/security/database and lead-inspected visual evidence is recorded in `artifacts/ui-ux-audit/UI-R4D-ENTITY-MEDIA.md`. Each Round 4 visual slice must include lead-inspected screenshots at affected standard viewports; automated overflow/accessibility checks alone are insufficient. REL-AUTH-1 is merged; hosted session recovery and the precise deployed trigger remain unverified. UI-R4E is merged for its recorded local synthetic/demo scope; see the certification report for the exact matrix, checks, screenshots, and limits. CI-EFF-1 is merged. At the R4E closeout WEB-BRAND-1 was still the next separate public-site phase; it has since merged as PR #249.
 
 Key user concerns that Round 4 must address include the current Dashboard carrying too much detailed operational/analytics content, generic-looking project cards, oversized filter controls consuming multiple laptop rows, inconsistent button/action hierarchy, lack of dark mode, and lack of relevant imagery on projects/equipment/materials.
 
