@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 NEXT**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 NEXT**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-24**
 
@@ -54,7 +54,7 @@ The QA root is a neutral engineering-operations software showcase with QA/synthe
 
 The four-site read-only comparison and applied design decisions are recorded in `docs/WEB-BRAND-1-DESIGN-RATIONALE.md`; the exact local responsive evidence is recorded in `docs/WEB-BRAND-1-VISUAL-CERTIFICATION.md`. No database, financial, payroll, inventory, procurement, RLS/RPC, provider, production infrastructure, or authenticated production-brand contract changed.
 
-No new customer-facing product phase is selected here. Continue the active hardening and release-readiness tracks. The strongest next bounded reliability phase is **REL-PAYROLL-2 — Payroll Period Ownership & Automatic Calendar Persistence Hardening**: reproduce and correct the repeated payroll-period ownership/company immutability failure without weakening ownership, finalized-history, or company-boundary rules. The smaller Projects-card `More` popover clipping regression remains a separate UI follow-up so the payroll authority fix stays coherent. Remaining Wave 4D provider certification stays prerequisite-bound on safe credentials/device/runtime availability; deferred workforce, Finance UX-W6, and custom-field expansion remain paused.
+No new customer-facing product phase is selected here. Continue the active hardening and release-readiness tracks. REL-PAYROLL-2 subsequently merged as PR #251. The next bounded hardening phase is **UI-PROJECTS-ACTION-1 — Project Card Action Popover Reachability**, addressing the user-observed Projects-card `More` menu clipping with focused responsive/browser regression coverage. Remaining Wave 4D provider certification stays prerequisite-bound on safe credentials/device/runtime availability; deferred workforce, Finance UX-W6, and custom-field expansion remain paused.
 
 ## 2026-09-21 hardening-first reprioritization and UI Simplification Round 3
 
@@ -1681,11 +1681,14 @@ The already-approved R4E shell direction remains queued, not part of REL-AUTH-1:
 Keep Payroll's `Payroll period ownership and company are immutable` persistence bug, Brevo status reliability, broad R4E Dark-mode cleanup, Worker Registration, attendance, Face Recognition, and unrelated product domains separate from REL-AUTH-1.
 
 
-## 2026-09-24 — REL-PAYROLL-2 implementation closeout pending PR review
+## 2026-09-24 — REL-PAYROLL-2 merge closeout
 
 REL-PAYROLL-2 started from synchronized `main` SHA
 `a8b056c2cf1511b2932fbd76d502ac320b8746fe` on branch
 `codex/rel-payroll-2-period-persistence`.
+
+Reviewed exact PR head: `ca9b91dd99ec941f90ac5f51ed9d2193d1015af8`  
+Merged PR #251: `6bf4a4ffbe1c6757145fb4fea9cc8060f06fde43`
 
 The deployed Payroll error was reproduced on a clean local Supabase replay. A
 same-company second actor using the previous period UPSERT shape caused the
@@ -1711,6 +1714,9 @@ Recorded validation on the clean local stack:
 - lint/typecheck and production build passed with existing nonblocking font/chunk/CommonJS diagnostics.
 
 The period-ID remap and authoritative-reload-before-READY contracts remain
-covered. Hosted QA, production, external provider readiness, and deployed
-authenticated browser certification were not performed. The implementation
-awaits PR review; this entry does not claim merge or hosted certification.
+covered. Exact PR head `ca9b91dd99ec941f90ac5f51ed9d2193d1015af8`
+passed Application Validation & Build, Database Migrations & Upgrade Suite,
+Graph and Source Contract Consistency, and `chromium-demo-qa` before merge.
+PR #251 then squash-merged as `6bf4a4ffbe1c6757145fb4fea9cc8060f06fde43`.
+Hosted QA, production, external provider readiness, and deployed authenticated
+browser certification were not performed.
