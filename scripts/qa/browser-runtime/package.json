@@ -1,0 +1,9 @@
+{
+  "name": "hydroqualisense-demo-visual-qa-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated, lockfile-pinned Playwright runtime for Demo Visual QA.",
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
