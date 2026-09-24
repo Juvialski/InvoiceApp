@@ -2,12 +2,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-test("unauthenticated AuthScreen exposes a real full-navigation demo entry", () => {
-  const source = readFileSync(new URL("../src/components/auth/AuthScreen.tsx", import.meta.url), "utf8");
-  assert.match(source, /data-demo-entry="auth"/);
-  assert.match(source, /<a href="\/demo"/);
-  assert.match(source, /Try the \{BRAND\.productName\} demo/);
-  assert.match(source, /<BrandMark variant="auth"/);
-  assert.match(source, /BRAND\.companyName/);
-  assert.doesNotMatch(source, /LockKeyhole/);
+const authScreen = readFileSync(new URL("../src/components/auth/AuthScreen.tsx", import.meta.url), "utf8");
+const brandMark = readFileSync(new URL("../src/components/BrandMark.tsx", import.meta.url), "utf8");
+
+test("AuthScreen accepts deployment presentation so QA can use neutral workspace identity", () => {
+  assert.match(authScreen, /workspacePresentation\?: WorkspacePresentation/);
+  assert.match(authScreen, /workspacePresentation: providedWorkspacePresentation/);
+  assert.match(authScreen, /const workspacePresentation = providedWorkspacePresentation \|\| currentWorkspacePresentation\(\)/);
+  assert.match(authScreen, /workspacePresentation\.productName/);
+  assert.match(authScreen, /workspacePresentation\.workspaceLabel/);
+  assert.match(authScreen, /<BrandMark[\s\S]*presentation=\{workspacePresentation\}/);
+  assert.match(brandMark, /if \(!presentation\.companyLogoPath\)/);
+  assert.match(brandMark, /src=\{presentation\.companyLogoPath \|\| BRAND\.logoPath\}/);
+  assert.match(authScreen, /data-demo-entry="auth"/);
+  assert.match(authScreen, /href="\/demo"/);
+});
+
+test("AuthScreen keeps password recovery mode and production presentation remains the default", () => {
+  assert.match(authScreen, /initialMode\?: AuthMode/);
+  assert.match(authScreen, /Choose a new password/);
+  assert.match(authScreen, /currentWorkspacePresentation\(\)/);
 });

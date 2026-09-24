@@ -1,5 +1,5 @@
 import { getActiveCompanyId } from "./companyContext.ts";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 import { createClient, type User } from "@supabase/supabase-js";
 
 const runtimeEnv: Record<string, string | undefined> = ((import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env || {}) as Record<string, string | undefined>;
@@ -212,7 +212,7 @@ export async function fetchCompanyApi(path: string, options: CompanyApiRequestOp
   if (!deploymentCompanyId) throw new Error("Resolve deployment access before using this operation.");
   const requestedCompanyId = (options.companyId || "").trim();
   if (requestedCompanyId && requestedCompanyId !== deploymentCompanyId) {
-    throw new Error(`This request cannot target another ${BRAND.productName} deployment company.`);
+    throw new Error(`This request cannot target another ${currentWorkspacePresentation().productName} deployment company.`);
   }
   const companyId = deploymentCompanyId;
 

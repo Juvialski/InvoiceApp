@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompanyAccessSnapshot } from "./companyAccess.ts";
 import { supabase } from "./supabase.ts";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 
 export const DEPLOYMENT_COMPANY_RPC = "get_deployment_company_id";
 
@@ -16,11 +16,11 @@ export function assertDeploymentCompanyId(
 ) {
   const deploymentId = normalizedCompanyId(deploymentCompanyId);
   if (!deploymentId) {
-    throw new Error(`This ${BRAND.productName} deployment does not have a configured company.`);
+    throw new Error(`This ${currentWorkspacePresentation().productName} deployment does not have a configured company.`);
   }
   const candidateId = normalizedCompanyId(candidateCompanyId);
   if (candidateId && candidateId !== deploymentId) {
-    throw new Error(`The ${operation} cannot target a company outside this ${BRAND.productName} deployment.`);
+    throw new Error(`The ${operation} cannot target a company outside this ${currentWorkspacePresentation().productName} deployment.`);
   }
   return deploymentId;
 }
@@ -31,7 +31,7 @@ export async function loadDeploymentCompanyId(client: SupabaseClient | null = su
   if (error) throw error;
   const deploymentCompanyId = normalizedCompanyId(data);
   if (!deploymentCompanyId) {
-    throw new Error(`This ${BRAND.productName} deployment does not have a configured company.`);
+    throw new Error(`This ${currentWorkspacePresentation().productName} deployment does not have a configured company.`);
   }
   return deploymentCompanyId;
 }

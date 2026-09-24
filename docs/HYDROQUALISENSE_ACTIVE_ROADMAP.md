@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 IMPLEMENTED LOCALLY / PR PENDING**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 CURRENT**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-24**
 
@@ -54,7 +54,7 @@ The QA root is a neutral engineering-operations software showcase with QA/synthe
 
 The four-site read-only comparison and applied design decisions are recorded in `docs/WEB-BRAND-1-DESIGN-RATIONALE.md`; the exact local responsive evidence is recorded in `docs/WEB-BRAND-1-VISUAL-CERTIFICATION.md`. No database, financial, payroll, inventory, procurement, RLS/RPC, provider, production infrastructure, or authenticated production-brand contract changed.
 
-No new customer-facing product phase is selected here. Continue the active hardening and release-readiness tracks. REL-PAYROLL-2 subsequently merged as PR #251. The next bounded hardening phase is **UI-PROJECTS-ACTION-1 — Project Card Action Popover Reachability**, addressing the user-observed Projects-card `More` menu clipping with focused responsive/browser regression coverage. Remaining Wave 4D provider certification stays prerequisite-bound on safe credentials/device/runtime availability; deferred workforce, Finance UX-W6, and custom-field expansion remain paused.
+No net-new customer-facing product phase is selected. REL-PAYROLL-2 merged as PR #251, then UI-PROJECTS-ACTION-1 merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`. The current bounded hardening phase is **WEB-QA-1 — QA Login Entry & Neutral Workspace Identity**. Provider certification remains prerequisite-bound on safe credentials/device/runtime availability; deferred workforce, Finance UX-W6, and custom-field expansion remain paused.
 
 ## 2026-09-21 hardening-first reprioritization and UI Simplification Round 3
 
@@ -1725,7 +1725,7 @@ browser certification were not performed.
 
 Implementation branch: `codex/ui-projects-action-1-popover`
 Synchronized base SHA: `27d56ce513dc2419a2aded8a529577384960d568`
-Status: **IMPLEMENTED LOCALLY / PR PENDING**
+Status: **MERGED PR #253 / `f44defc99beb2d15b32b13bd983cf78c4ad24124`**
 
 The Projects card `More` menu was being clipped at the card boundary because
 the outer `Card` applied `overflow-hidden` while the lifecycle menu is an
@@ -1760,3 +1760,25 @@ Recorded local evidence:
 
 Protected exact-head CI, hosted QA, production, and deployed
 authenticated-browser evidence remain pending the normal PR workflow.
+
+## 2026-09-24 — WEB-QA-1 — QA Login Entry & Neutral Workspace Identity
+
+Synchronized starting `main`: `f44defc99beb2d15b32b13bd983cf78c4ad24124`
+Implementation branch: `codex/web-qa-1-qa-identity`
+Status: **CURRENT BOUNDED HARDENING PHASE**
+
+Keep these identities separate: Hydroqualisense Solutions Corp. remains the
+production corporate website identity; the first-client production workspace
+retains its HydroQualiSense/company identity; QA public, signed-out, and
+authenticated application surfaces use **Engineering Operations Platform** /
+**QA Workspace**; `/demo` remains neutral and synthetic. The presentation
+resolver changes UI copy only and does not participate in company selection,
+membership, authentication, RBAC, or data authority.
+
+The QA showcase now presents separate `/dashboard` sign-in and `/demo` actions.
+The `/dashboard` action reuses the existing authenticated application/AuthScreen
+boundary, including recovery links. The yellow `QA ENVIRONMENT · SYNTHETIC DATA
+ONLY` warning remains visible, while QA internal deployment IDs are omitted
+from user-facing presentation. Feature-expansion freeze and deferred product
+backlog remain unchanged. This is UI/routing work; no database contract or
+migration is expected.

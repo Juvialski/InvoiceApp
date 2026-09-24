@@ -49,6 +49,12 @@ export const QA_SOFTWARE_SHOWCASE = Object.freeze({
     neutralDescriptor: "Engineering Operations Platform",
     label: "QA Software Showcase",
   }),
+  workspaceEntry: Object.freeze({
+    signInHref: "/dashboard",
+    signInLabel: "Sign in to QA workspace",
+    demoHref: "/demo",
+    demoLabel: "Open demo",
+  }),
   metadata: Object.freeze({
     title: "Engineering Operations Platform | QA Software Showcase",
     description: "A non-production software showcase for engineering operations, using synthetic demo context.",

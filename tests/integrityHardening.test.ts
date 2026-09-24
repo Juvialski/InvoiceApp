@@ -199,10 +199,10 @@ test("settlement reversal presentation fails closed unless cash reconciliation i
   assert.match(invoicesRoute, /canReverse=\{canReverseSettlement\}/);
 });
 
-test("deployment-company access clears stale context before every authorization refresh", () => {
-  assert.match(companyAccess, /resetAuthenticatedContext\("loading"/);
+test("deployment-company access clears stale context on identity changes and revalidates deployment authorization", () => {
+  assert.match(companyAccess, /resetAuthenticatedContext\(nextUserId \? "loading" : "signed-out"/);
   assert.match(companyAccess, /clearCompanyContext\(\)/);
   assert.match(companyAccess, /loadDeploymentCompanyId/);
-  assert.match(companyAccess, /resolveDeploymentCompanyAccess/);
+  assert.match(companyAccess, /refreshCompanyAccessState/);
   assert.doesNotMatch(companyAccess, /sessionStorage|activeCompanyStorageKey|chooseCompany/);
 });

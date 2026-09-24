@@ -15,6 +15,15 @@ function normalizedPublicPath(pathname: string) {
   return normalized || "/";
 }
 
+export function publicPageKindForPath(pathname: string): PublicPageKind {
+  const path = normalizedPublicPath(pathname);
+  if (path === "/contact") return "contact";
+  if (path === "/request-demo") return "request-demo";
+  if (path === "/privacy") return "privacy";
+  if (path === "/terms") return "terms";
+  return "landing";
+}
+
 export function publicPageMetadataFor(
   variant: PublicSiteVariant,
   page: PublicPageKind,

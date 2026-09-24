@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.ts";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
 import { assertDeploymentCompanyId } from "./deploymentCompany.ts";
 import {
@@ -16,7 +16,7 @@ export interface CompanyApiRequestOptions extends RequestInit {
 }
 
 function sessionExpiredMessage(): string {
-  return `Your ${BRAND.productName} session has expired. Sign in again.`;
+  return `Your ${currentWorkspacePresentation().productName} session has expired. Sign in again.`;
 }
 
 /**
@@ -25,7 +25,7 @@ function sessionExpiredMessage(): string {
  * Any mismatched caller-supplied company id fails before a request is sent.
  */
 export async function companyApiRequest(path: string, options: CompanyApiRequestOptions) {
-  if (!supabase) throw new Error(`Sign in to ${BRAND.productName} before using this service.`);
+  if (!supabase) throw new Error(`Sign in to ${currentWorkspacePresentation().productName} before using this service.`);
   const { data, error } = await supabase.auth.getSession();
   if (error) {
     if (!isTerminalSessionRefreshFailure(error)) throw new SessionRefreshTemporarilyUnavailableError(error);

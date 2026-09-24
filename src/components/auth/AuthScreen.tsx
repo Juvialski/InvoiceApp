@@ -19,7 +19,8 @@ import {
   signUpWithEmail,
   updatePassword,
 } from "../../lib/supabase";
-import { BRAND } from "../../config/brand";
+import { currentWorkspacePresentation, type WorkspacePresentation } from "../../config/workspacePresentation.ts";
+import { DeploymentEnvironmentBanner } from "../DeploymentEnvironmentBanner.tsx";
 import { BrandMark } from "../BrandMark.tsx";
 
 export type AuthMode = "sign-in" | "sign-up" | "forgot-password" | "reset-password";
@@ -52,6 +53,7 @@ export interface AuthScreenProps {
   sessionExpiredNotice?: boolean;
   onModeChange?: (mode: AuthMode) => void;
   className?: string;
+  workspacePresentation?: WorkspacePresentation;
 }
 
 interface Notice {
@@ -145,7 +147,9 @@ export function AuthScreen({
   sessionExpiredNotice = false,
   onModeChange,
   className = "",
+  workspacePresentation: providedWorkspacePresentation,
 }: AuthScreenProps) {
+  const workspacePresentation = providedWorkspacePresentation || currentWorkspacePresentation();
   const [mode, setMode] = useState<AuthMode>(() => initialAuthMode(requestedMode));
   const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState("");
@@ -263,7 +267,7 @@ export function AuthScreen({
         ? "Reset your password"
         : "Choose a new password";
   const subtitle = mode === "sign-in"
-    ? `Sign in to continue to your ${BRAND.productName} workspace.`
+    ? `Sign in to continue to your ${workspacePresentation.productName} workspace.`
     : mode === "sign-up"
       ? invitationRequired
         ? "Use the exact work email authorized by your company administrator. An account alone does not grant company access."
@@ -273,14 +277,16 @@ export function AuthScreen({
         : "Set a new password for your workspace account.";
 
   return (
+    <>
+    <DeploymentEnvironmentBanner />
     <main className={`flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 ${className}`}>
       <section className="w-full max-w-md">
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_60px_-32px_rgba(15,23,42,0.42)] sm:p-7">
           <div className="mb-7 flex items-start justify-between gap-4">
             <div>
-              <BrandMark variant="auth" decorative={false} className="mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">{BRAND.displayUppercase}</p>
-              <p className="mt-1 text-[10px] font-semibold text-slate-500">{BRAND.companyName}</p>
+              <BrandMark variant="auth" decorative={false} className="mb-4" presentation={workspacePresentation} />
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">{workspacePresentation.displayName}</p>
+              <p className="mt-1 text-[10px] font-semibold text-slate-500">{workspacePresentation.workspaceLabel}</p>
               <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{title}</h1>
               <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">{subtitle}</p>
             </div>
@@ -422,7 +428,7 @@ export function AuthScreen({
                 <div className="mt-5 flex flex-col items-center gap-1.5 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-center" data-demo-entry="auth">
                   <span className="text-[11px] font-semibold text-slate-600">Want to explore before signing in?</span>
                   <a href="/demo" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-xs font-black text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
-                    Try the {BRAND.productName} demo
+                    Try the {workspacePresentation.productName} demo
                   </a>
                 </div>
               )}
@@ -453,6 +459,7 @@ export function AuthScreen({
         </nav>
       </section>
     </main>
+    </>
   );
 }
 

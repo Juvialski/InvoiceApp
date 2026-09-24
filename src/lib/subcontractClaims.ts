@@ -9,7 +9,7 @@ import type {
 import { supabase } from "./supabase.ts";
 import { getActiveCompanyId } from "./companyContext.ts";
 import { calculateNetApprovedVariations } from "./subcontractVariations.ts";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 
 export const SUBCONTRACT_CLAIM_STORAGE_KEY = "engineering_subcontract_progress_claims";
 
@@ -83,7 +83,7 @@ export function normalizeClaimStatus(value: unknown): SubcontractProgressClaimSt
 
 function assertPersistenceContext(companyId: string | null, operation: string): void {
   if (supabase && !companyId) {
-    throw new Error(`Resolve the ${BRAND.productName} deployment company before ${operation}.`);
+    throw new Error(`Resolve the ${currentWorkspacePresentation().productName} deployment company before ${operation}.`);
   }
 }
 

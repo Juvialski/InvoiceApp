@@ -5,7 +5,8 @@ import { isPasswordRecoveryPath } from "./app/applicationMode.ts";
 import { Header, AppTab } from "./components/Header";
 import { AccessDenied, AccessVerificationError, NoCompanyAccess } from "./components/access/AccessStates.tsx";
 import { AuthScreen } from "./components/auth";
-import { BRAND, formatPageTitle } from "./config/brand";
+import { BRAND } from "./config/brand";
+import { workspacePageTitle } from "./config/workspacePresentation.ts";
 import type { ExtractPayload } from "./components/UploadZone";
 import type { SaveState } from "./components/VerificationWorkspace";
 import { AppShell } from "./app/AppShell";
@@ -398,7 +399,7 @@ function InvoiceWorkspace() {
   useEffect(() => {
     if (typeof document !== "undefined") {
       const tabLabel = route.kind === "help" ? "Help Center" : route.kind === "tab" ? ROUTE_DEFINITIONS.find((candidate) => candidate.appTab === route.tab)?.label : undefined;
-      document.title = formatPageTitle(tabLabel);
+      document.title = workspacePageTitle(tabLabel);
     }
     const signature = `${route.kind}:${route.pathname}${route.search}`;
     if (routeSignatureRef.current === signature) return;

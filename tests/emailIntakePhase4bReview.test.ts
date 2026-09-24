@@ -151,6 +151,7 @@ test("Google identity sessions remain sanitized and company access is resolved s
   assert.match(supabaseSource, /sanitizePersistedAuthSession/);
   assert.match(supabaseSource, /delete parsed\.provider_token/);
   assert.doesNotMatch(supabaseSource, /signInWithOAuth[\s\S]{0,500}gmail\./i);
-  assert.match(accessSource, /resolveDeploymentCompanyAccess/);
+  assert.match(accessSource, /loadDeploymentCompanyId/);
+  assert.match(accessSource, /refreshCompanyAccessState/);
   assert.match(accessSource, /setSession\(nextSession\)/);
 });

@@ -1,5 +1,5 @@
 import type { ProductFeatureDefinition } from './types.ts';
-import { BRAND } from '../config/brand.ts';
+import { currentWorkspacePresentation } from '../config/workspacePresentation.ts';
 
 export const PRODUCT_FEATURE_REGISTRY: readonly ProductFeatureDefinition[] = Object.freeze([
   // Phase 0: Core Foundation (Active)
@@ -89,7 +89,7 @@ export const PRODUCT_FEATURE_REGISTRY: readonly ProductFeatureDefinition[] = Obj
   },
   {
     id: 'core-assistant',
-    name: BRAND.assistantName,
+    name: currentWorkspacePresentation().assistantName,
     description: 'Guarded conversational assistant for navigation, queries, and multi-step action preparation.',
     category: 'intelligence',
     phase: 0,

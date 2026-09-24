@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Download, FileSpreadsheet, ShieldAlert, Upload } from "lucide-react";
 import type { Expense } from "../../types.ts";
+import { currentWorkspacePresentation } from "../../config/workspacePresentation.ts";
 import {
   applyExpensesImport,
   buildExpensesImportReview,
@@ -70,7 +71,7 @@ export function ExpensesWorkbookPanel({
     setError("");
     setMessage("");
     try {
-      downloadWorkbookArtifact(exportExpensesWorkbook(currentRecords()), "HydroQualiSense-Expenses.xlsx");
+      downloadWorkbookArtifact(exportExpensesWorkbook(currentRecords()), `${currentWorkspacePresentation().workbookFilePrefix}-Expenses.xlsx`);
       setMessage("Expenses workbook exported. Edit only supported direct draft fields, then upload it for review.");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Could not export the Expenses workbook.");

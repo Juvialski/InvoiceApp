@@ -1,5 +1,5 @@
 import { getRouteDefinition, type RouteId } from "../utils/routes.ts";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 
 export const ASSISTANT_TOUR_IDS = [
   "engoryx-overview",
@@ -69,13 +69,13 @@ const routeStep = (id: string, title: string, body: string, routeId: RouteId): A
 export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = Object.freeze({
   "engoryx-overview": {
     id: "engoryx-overview",
-    title: `${BRAND.productName} overview`,
+    title: `${currentWorkspacePresentation().productName} overview`,
     summary: "See how invoices, projects, payroll, communications, and reports fit together.",
     steps: [
       routeStep("overview-dashboard", "Start at the dashboard", "Use the dashboard for the current cost and operations picture.", "dashboard"),
       routeStep("overview-invoices", "Work with invoices", "Extract new invoices, review AI results, and keep verified invoice records together.", "invoices"),
       routeStep("overview-reports", "Finish with reports", "Reports bring invoice, project, expense, and payroll information together for review.", "reports"),
-      assistantStep("overview-assistant", "Ask for help", `Open ${BRAND.assistantName} whenever you need a verified feature explanation or a safe navigation shortcut.`, "assistant-panel"),
+      assistantStep("overview-assistant", "Ask for help", `Open ${currentWorkspacePresentation().assistantName} whenever you need a verified feature explanation or a safe navigation shortcut.`, "assistant-panel"),
     ],
   },
   "cash-banking": {
@@ -201,10 +201,10 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
   },
   "assistant-basics": {
     id: "assistant-basics",
-    title: `Use ${BRAND.assistantName}`,
+    title: `Use ${currentWorkspacePresentation().assistantName}`,
     summary: "Ask questions, attach bounded source files, and confirm actions deliberately.",
     steps: [
-      assistantStep("assistant-panel", "Open the assistant", `This drawer is your workspace for verified ${BRAND.productName} help and safe navigation.`, "assistant-panel"),
+      assistantStep("assistant-panel", "Open the assistant", `This drawer is your workspace for verified ${currentWorkspacePresentation().productName} help and safe navigation.`, "assistant-panel"),
       assistantStep("assistant-composer", "Ask a focused question", "Describe the invoice, project, expense, attendance, payroll, report, communications, or settings task you need.", "assistant-composer"),
       assistantStep("assistant-attach", "Attach source context", "Attach only supported PDF, image, spreadsheet, CSV, or text files within the size limits.", "assistant-attach"),
       assistantStep("assistant-send", "Review before acting", "The assistant can show references and prepared actions; financial changes always remain confirmation-gated.", "assistant-send"),

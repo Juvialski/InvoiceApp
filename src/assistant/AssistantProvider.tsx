@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useRef, useState
 import { canAccessAppTab, PERMISSION_KEYS, type PermissionKey } from "../utils/accessControl.ts";
 import { getRouteDefinition } from "../utils/routes.ts";
 import { navigateInApp } from "../utils/clientNavigation.ts";
-import { BRAND } from "../config/brand.ts";
+import { currentWorkspacePresentation } from "../config/workspacePresentation.ts";
 import { pathForAssistantAction } from "./assistantNavigation.ts";
 import { compactAssistantContext } from "./assistantContext.ts";
 import { AssistantClientError, cancelAssistantAction as cancelAssistantActionRequest, confirmAssistantAction as confirmAssistantActionRequest, sendAssistantMessage as sendAssistantMessageRequest } from "./assistantClient.ts";
@@ -126,14 +126,14 @@ function errorMessage(error: unknown, canConfigureAi = false) {
   if (code === "AI_QUOTA_LIMITED") return withReference("Gemini quota or rate limit has been reached.");
   if (code === "AI_PROVIDER_ACCESS_DENIED") return withReference("The configured Gemini project does not have access to the requested AI service.");
   if (code === "AI_MODEL_UNAVAILABLE") return withReference("The AI model is temporarily unavailable.");
-  if (code === "AI_PROVIDER_UNAVAILABLE") return withReference(`${BRAND.assistantName} could not reach Gemini.`);
+  if (code === "AI_PROVIDER_UNAVAILABLE") return withReference(`${currentWorkspacePresentation().assistantName} could not reach Gemini.`);
   if (code === "AI_REQUEST_REJECTED") return withReference("Gemini rejected the assistant request configuration.");
   if (code === "AI_TIMEOUT") return withReference("The AI request timed out.");
-  if (code === "AI_NETWORK_ERROR") return withReference(`${BRAND.assistantName} could not reach Gemini.`);
+  if (code === "AI_NETWORK_ERROR") return withReference(`${currentWorkspacePresentation().assistantName} could not reach Gemini.`);
   if (code === "AI_NOT_CONFIGURED_FOR_COMPANY") return withReference(canConfigureAi ? "AI is not configured for this company." : "The company AI configuration needs attention. Contact an authorized deployment operator.");
   if (code === "AI_DISABLED_FOR_COMPANY") return withReference(canConfigureAi ? "AI is disabled for this company." : "The company AI configuration needs attention. Contact an authorized deployment operator.");
   if (error instanceof Error && error.message) return error.message;
-  return `${BRAND.assistantName} could not complete that request.`;
+  return `${currentWorkspacePresentation().assistantName} could not complete that request.`;
 }
 
 function defaultNavigate(path: string) {
@@ -339,7 +339,7 @@ export function AssistantProvider({
   const sendMessage = useCallback(async (message: string, options: { requestId?: string; isRetry?: boolean; attachments?: readonly AssistantAttachmentInput[] } = {}) => {
     if (isLoading) return false;
     if (!canUseAssistant || !companyId) {
-      setError(`Sign in and resolve deployment access before using ${BRAND.assistantName}.`);
+      setError(`Sign in and resolve deployment access before using ${currentWorkspacePresentation().assistantName}.`);
       setIsOpen(true);
       return false;
     }
@@ -559,7 +559,7 @@ export function AssistantProvider({
     if (!path) return blocked("That assistant destination is not recognized.");
     const routeId = routeIdForClientAction(safeAction);
     const route = routeId ? getRouteDefinition(routeId) : undefined;
-    if (permissions && route && !canAccessAppTab(route.appTab, permissions)) return blocked(`You do not have permission to open that ${BRAND.productName} area.`);
+    if (permissions && route && !canAccessAppTab(route.appTab, permissions)) return blocked(`You do not have permission to open that ${currentWorkspacePresentation().productName} area.`);
     try {
       if (safeAction.type === "NAVIGATE") {
         if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);

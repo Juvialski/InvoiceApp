@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { HYDROQUALISENSE_PUBLIC_SITE, QA_SOFTWARE_SHOWCASE, type PublicSiteVariant } from "../config/publicBranding.ts";
 import { currentDeploymentIdentity } from "../lib/deploymentIdentity.ts";
 import { isCanonicalHydroqualisenseHost } from "../app/applicationMode.ts";
+import { publicPolicyTextForVariant } from "./publicPolicyCopy.ts";
 import {
   PUBLIC_PROSPECT_FIELD_LIMITS,
   PUBLIC_PROSPECT_MODULES,
@@ -181,6 +182,13 @@ const POLICY_SECTIONS = {
 function PublicPolicyPage({ kind, variant }: { kind: "privacy" | "terms"; variant: PublicSiteVariant }) {
   const isPrivacy = kind === "privacy";
   const sections = POLICY_SECTIONS[kind];
+  const policyDescription = variant === "company"
+    ? isPrivacy
+      ? "How Hydroqualisense handles account, company, connected Google, and workflow information."
+      : "The basic terms for authorized use of the Hydroqualisense client workspace."
+    : isPrivacy
+      ? "How this QA environment handles account, company, connected Google, and workflow information."
+      : "The basic terms for authorized use of the QA software showcase and authenticated workspace.";
   return (
     <main id="public-main" data-public-policy={kind} className="min-h-screen bg-slate-50 text-slate-950">
       <PublicSiteHeader variant={variant} />
@@ -189,12 +197,15 @@ function PublicPolicyPage({ kind, variant }: { kind: "privacy" | "terms"; varian
         <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">{variant === "company" ? HYDROQUALISENSE_PUBLIC_SITE.identity.companyName : QA_SOFTWARE_SHOWCASE.softwareIdentity.label}</p>
           <h1 className="mt-3 text-3xl font-black tracking-[-0.03em] sm:text-4xl">{isPrivacy ? "Privacy Policy" : "Terms of Service"}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{isPrivacy ? "How Hydroqualisense handles account, company, connected Google, and workflow information." : "The basic terms for authorized use of the Hydroqualisense client workspace."}</p>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{policyDescription}</p>
           <p className="mt-3 text-xs font-semibold text-slate-500">Effective date: {PUBLIC_POLICY_LAST_UPDATED} · Last updated: {PUBLIC_POLICY_LAST_UPDATED}</p>
           <div className="mt-8 space-y-8">
             {sections.map((section) => {
               const id = `${kind}-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-              return <section key={section.title} aria-labelledby={id}><h2 id={id} className="text-lg font-black text-slate-950">{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph} className="mt-3 text-sm leading-7 text-slate-700">{paragraph}</p>)}{isPrivacy && section.title === "Google Sign-In and transactional email" && <p className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm leading-7 text-indigo-950">Hydroqualisense&apos;s use and transfer of Google account information follows the <a href={GOOGLE_API_SERVICES_USER_DATA_POLICY_URL} target="_blank" rel="noreferrer" className="font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-900">Google API Services User Data Policy</a>.</p>}</section>;
+              const googlePolicyIntro = variant === "company"
+                ? "Hydroqualisense's use and transfer of Google account information follows the "
+                : "Use and transfer of Google account information follows the ";
+              return <section key={section.title} aria-labelledby={id}><h2 id={id} className="text-lg font-black text-slate-950">{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph} className="mt-3 text-sm leading-7 text-slate-700">{publicPolicyTextForVariant(paragraph, variant)}</p>)}{isPrivacy && section.title === "Google Sign-In and transactional email" && <p className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm leading-7 text-indigo-950">{googlePolicyIntro}<a href={GOOGLE_API_SERVICES_USER_DATA_POLICY_URL} target="_blank" rel="noreferrer" className="font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-900">Google API Services User Data Policy</a>.</p>}</section>;
             })}
           </div>
         </div>
