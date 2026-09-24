@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 IMPLEMENTED FOR RECORDED SCOPE; EXACT-HEAD PR CHECKS PENDING / WEB-BRAND-1 PLANNED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 NEXT**
 Date: **2026-09-24**
 Repository: `Juvialski/InvoiceApp`
 
@@ -24,10 +24,16 @@ Email/SMS Reliability & SMS Improvement slice is complete on merged `main`;
 live Brevo/SMS provider certification remains pending external
 credentials/device/runtime.
 
+### Next implementation phase — WEB-BRAND-1
+
+CI-EFF-1 is merged and no longer occupies the next-phase slot. The next owner-directed bounded phase is **WEB-BRAND-1 — Production Company Landing + QA Software Showcase Separation**, governed by `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md`. Production/canonical public branding must represent Hydroqualisense Solutions Corp. as the engineering company using only verified company services and approved real project experience. QA remains an explicit synthetic software/workspace showcase. Do not invent a creator/software-vendor brand, do not reuse synthetic demo projects as corporate portfolio claims, and do not broaden this public-site phase into unrelated authenticated-app or deferred product work.
+
 ### 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 
 Implementation branch: `codex/ci-eff-1-proportional-browser-qa`
 Synchronized base SHA: `784b998a574ded11c67bcde3c717f5bb920deecc`
+Reviewed exact head: `fc3f446fc541d457e940dc184b6ae6edb3a81126`
+Merged PR #247: `2c499979c1c7a6370fb3fce175c6a7deb0e1fcaa`
 
 Demo Visual QA now runs independent scenarios in an ordered worker pool with a
 four-worker default and cap. `DEMO_QA_WORKERS=1` provides sequential execution.
@@ -70,7 +76,7 @@ and Application Validation run
 both on `30a42e926cb0f82948a6d7a217b809f22efc77e8`. The baseline browser run
 captured 365 scenarios in 9m23s; the complete job took 11m50s. Its repeated lint
 step took 41s, Playwright setup 62s, dependency install 12s, and production
-build 14s. Post-change full GitHub timing is pending the exact-head PR run.
+build 14s. The final exact-head Demo Visual QA run [35941578634](https://github.com/Juvialski/InvoiceApp/actions/runs/35941578634) passed the full 365-scenario catalog with four workers. The complete job ran from 01:08:07Z to 01:12:46Z (4m39s), down from the recorded 11m50s baseline; structured capture ran for about 3m02s from the runner's full-catalog start to the final scenario output, versus the prior 9m23s capture.
 
 On the local production preview, the same 26 Payroll scenarios passed at both
 concurrency settings: 3 workers took 14.375s and 4 workers took 11.442s. Both
@@ -87,7 +93,7 @@ For local browser capture, install the isolated QA dependency once with
 `npm ci --prefix scripts/qa/browser-runtime`, then install its browser with
 `npm exec --prefix scripts/qa/browser-runtime -- playwright install chromium`.
 
-Focused selector/worker and exact-head workflow tests passed 12/12; workflow
+Focused selector/worker and exact-head workflow tests passed before PR delivery; workflow
 YAML parsing, ESLint, and TypeScript checking passed. The production build
 passed with its existing theme-font, bundle-size, and server `import.meta`
 warnings. No database or product source was changed. An exploratory attempt to
@@ -96,8 +102,12 @@ promote Playwright into the root app manifest forced the full 384-file
 UI/source-contract, auth, server-lifecycle, and Wave 6B tests on this local
 Windows/Node 24 run. That root-manifest change was reverted; those test files
 were left unchanged rather than expanding CI-EFF-1 into unrelated UI or test
-repairs. The final diff keeps root application manifests unchanged. Exact-head
-protected browser and application checks remain pending PR execution.
+repairs. During review, the fail-closed selector was tightened so Markdown
+outside known documentation locations cannot silently skip browser QA, and
+`index.html` / `tsconfig*.json` changes now trigger relevant `main` browser runs.
+The final exact head selected 14/384 affected application files and passed 97/97
+tests. Application Validation, Database Migration & Invariant Tests, Workflow
+Map Consistency, and the full Demo Visual QA run all passed before merge.
 
 The Excel-Native Operations workbook/authority contract is documented at `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md`. Phase 0/readiness, the original shared foundation, the bounded Procurement pilot, Projects/project-controls, and bounded Expenses/Supplier Payables are implemented; app-wide Excel capability remains unclaimed.
 
@@ -2286,9 +2296,9 @@ PR review classified the earlier browser failure precisely:
 - the Payroll and invoice-filter dark-mode failures were genuine non-text contrast defects: legacy input borders had fallen to 1.93:1 against the dark surface; the final head restored the intended control boundary and the protected visual run passed;
 - Demo Visual QA now prints concise failed assertion IDs/details directly in the Actions log and uses workflow/ref concurrency with `cancel-in-progress: true` so newer PR heads stop superseded browser work.
 
-**At that time, CI-EFF-1 was the next implementation phase by explicit owner priority.** It is implemented for the recorded scope in the 2026-09-24 handoff section above; exact-head protected checks remain pending its PR. The original scope preserved measured small browser parallelism, conservative affected-feature selection with full-suite fallback for shared/global/ambiguous changes, exhaustive main coverage, safe setup reduction, and reproducible Playwright installation without weakening database validation or renaming protected checks.
+**At that time, CI-EFF-1 was the next implementation phase by explicit owner priority.** It is now merged as PR #247 / `2c499979c1c7a6370fb3fce175c6a7deb0e1fcaa`; exact head `fc3f446fc541d457e940dc184b6ae6edb3a81126` passed all four protected workflows. The completed scope preserves measured bounded browser parallelism, conservative affected-feature selection with full-suite fallback for shared/global/ambiguous changes, exhaustive relevant-main coverage, safe setup reduction, and reproducible Playwright installation without weakening database validation or renaming protected checks.
 
-WEB-BRAND-1 remains planned and separate after this CI-efficiency phase.
+WEB-BRAND-1 is now the next separate owner-directed phase after the merged CI-efficiency work.
 
 
 ## 2026-09-23 — WEB-BRAND-1 public-site plan preserved
@@ -2302,7 +2312,7 @@ Status: **PLANNED — NOT YET IMPLEMENTED**.
 - QA remains an explicit software/workspace showcase using synthetic/demo context and may demonstrate project management, procurement, invoices/expenses, finance, documents, payroll, inventory/equipment, communications, workflow/history, and software screenshots.
 - No permanent creator/software-vendor identity has been chosen. Do not invent one and do not present Hydroqualisense Solutions Corp. as the vendor of a multi-client SaaS product.
 - The authenticated Hydroqualisense deployment remains the client's dedicated workspace; WEB-BRAND-1 is not authorization for another broad authenticated-app rebrand.
-- WEB-BRAND-1 is a separate bounded public-site phase. UI-R4E is implemented for recorded local/demo scope; WEB-BRAND-1 remains planned and unstarted.
+- WEB-BRAND-1 is the next separate bounded public-site phase. UI-R4E is merged for recorded local/demo scope; WEB-BRAND-1 remains unstarted.
 
 ## 2026-09-23 — UI-R4E app-wide rollout implemented for recorded local/demo scope
 
@@ -2328,4 +2338,4 @@ Recorded validation: final browser matrix **188/188 passed**; supplemental dark 
 
 Developer-intelligence closeout: the live Jev completion advisory saw all four declared evidence categories (`jev-1.13.0`, 4/4 present, 615 input / 72 output tokens, 773 ms, fallback=false). It retained `unresolvedUncertainty=true` because the supplied validation metadata marked database checks `not-applicable`; database work was outside this UI phase. Its merge decision is not provided.
 
-Evidence is local synthetic/demo only. This phase does not certify hosted QA, deployed session recovery, external provider readiness, production, live company settings, or screen-reader/device behavior. The Settings route contains an unpopulated “Deployment company” placeholder in the synthetic demo because DB-backed company controls are not mounted. No database, migration, auth-state-machine, financial/lifecycle, or payroll-persistence change was made. WEB-BRAND-1 public-site work was not started. PR #245 is open: https://github.com/Juvialski/InvoiceApp/pull/245. Do not merge from the implementation task.
+Evidence is local synthetic/demo only. This phase does not certify hosted QA, deployed session recovery, external provider readiness, production, live company settings, or screen-reader/device behavior. The Settings route contains an unpopulated “Deployment company” placeholder in the synthetic demo because DB-backed company controls are not mounted. No database, migration, auth-state-machine, financial/lifecycle, or payroll-persistence change was made. WEB-BRAND-1 public-site work was not started. PR #245 was subsequently reviewed and merged as `30a42e926cb0f82948a6d7a217b809f22efc77e8`.
