@@ -95,6 +95,23 @@ test("documentation-only pull requests explicitly skip browser scenarios", async
   assert.deepEqual(selection.features, []);
 });
 
+test("markdown outside known documentation locations is not silently skipped", async () => {
+  const module = await loadFeatureSelection();
+  assert.ok(module, "the demo feature selector module must exist");
+  const sourceMarkdown = module.selectDemoQaScope(["src/help/runtime-guide.md"], {
+    eventName: "pull_request",
+    fileListComplete: true,
+  });
+  assert.equal(sourceMarkdown.mode, "affected");
+  assert.deepEqual(sourceMarkdown.routeIds, ["help"]);
+
+  const unknownMarkdown = module.selectDemoQaScope(["content/runtime-guide.md"], {
+    eventName: "pull_request",
+    fileListComplete: true,
+  });
+  assert.equal(unknownMarkdown.mode, "full");
+});
+
 test("feature selection output is stable across changed-file ordering", async () => {
   const module = await loadFeatureSelection();
   assert.ok(module, "the demo feature selector module must exist");

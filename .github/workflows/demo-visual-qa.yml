@@ -9,6 +9,8 @@ on:
       - "public/**"
       - "package*.json"
       - "vite.config.ts"
+      - "index.html"
+      - "tsconfig*.json"
       - "scripts/demo-visual-qa.ts"
       - "scripts/qa/**"
       - "scripts/workflow-map/**"

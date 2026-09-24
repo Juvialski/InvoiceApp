@@ -119,8 +119,7 @@ function normalizeRepoPath(value: string): string | null {
 function isDocumentationOnlyPath(repoPath: string): boolean {
   return /^(?:docs|artifacts)\//i.test(repoPath)
     || /^(?:README|CHANGELOG|LICENSE|CONTRIBUTING|CODE_OF_CONDUCT)(?:\.[^/]*)?$/i.test(repoPath)
-    || /^AGENTS\.md$/i.test(repoPath)
-    || repoPath.toLowerCase().endsWith(".md");
+    || /^AGENTS\.md$/i.test(repoPath);
 }
 
 function isSharedOrInfrastructurePath(repoPath: string): boolean {
