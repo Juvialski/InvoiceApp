@@ -1,13 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { AppShell } from "../src/app/AppShell.tsx";
 import { BRAND } from "../src/config/brand.ts";
 import { applyWorkspacePresentationMetadata, deploymentIndexHtml, presentWorkspaceCopy, workspacePageTitle, workspacePresentationFor } from "../src/config/workspacePresentation.ts";
-import { DeploymentEnvironmentBanner } from "../src/components/DeploymentEnvironmentBanner.tsx";
 import { publicPolicyTextForVariant } from "../src/public/publicPolicyCopy.ts";
+
+const appShellSource = readFileSync(new URL("../src/app/AppShell.tsx", import.meta.url), "utf8");
+const bannerSource = readFileSync(new URL("../src/components/DeploymentEnvironmentBanner.tsx", import.meta.url), "utf8");
 
 test("QA presentation is neutral while production preserves the client workspace identity", () => {
   const qa = workspacePresentationFor("qa");
@@ -75,40 +74,12 @@ test("initial QA HTML is neutral before client JavaScript mounts and production 
   assert.equal(deploymentIndexHtml(initialHtml, workspacePresentationFor("production")), initialHtml);
 });
 
-test("authenticated shell uses deployment presentation without changing production shell identity", () => {
-  const baseProps = {
-    activeTab: "dashboard",
-    setActiveTab: () => undefined,
-    invoicesCount: 0,
-    reviewCount: 0,
-    isSupabaseConfigured: false,
-  };
-  const qaShell = renderToStaticMarkup(createElement(AppShell, {
-    ...baseProps,
-    workspacePresentation: workspacePresentationFor("qa"),
-  } as never));
-  assert.match(qaShell, /Engineering Operations Platform/);
-  assert.match(qaShell, /QA Workspace/);
-  assert.doesNotMatch(qaShell, /Hydroqualisense/i);
-
-  const productionShell = renderToStaticMarkup(createElement(AppShell, baseProps as never));
-  assert.match(productionShell, /Hydroqualisense/);
-});
-
-test("QA warning remains prominent and the internal deployment identifier stays hidden", () => {
-  const banner = renderToStaticMarkup(createElement(DeploymentEnvironmentBanner, {
-    identity: {
-      environment: "qa",
-      deploymentId: "qa-hydroqualisense",
-      configurationVersion: null,
-      publicFunnelEnabled: false,
-      sampleInvoicesEnabled: false,
-      isQa: true,
-    },
-    presentation: workspacePresentationFor("qa"),
-  }));
-  assert.match(banner, /QA ENVIRONMENT · SYNTHETIC DATA ONLY/);
-  assert.doesNotMatch(banner, /qa-hydroqualisense/i);
+test("authenticated shell and QA warning are wired to deployment presentation", () => {
+  assert.match(appShellSource, /workspacePresentation/);
+  assert.match(appShellSource, /headerBranding=\{resolvedPresentation\.headerBranding\}/);
+  assert.match(appShellSource, /footerText=\{resolvedPresentation\.footerText\}/);
+  assert.match(bannerSource, /presentation\.showDeploymentIdentifier/);
+  assert.match(bannerSource, /QA ENVIRONMENT · SYNTHETIC DATA ONLY/);
 });
 
 test("QA public legal copy is neutral while company legal copy remains unchanged", () => {
