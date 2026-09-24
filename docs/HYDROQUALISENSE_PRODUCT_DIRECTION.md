@@ -1,6 +1,6 @@
 # HydroQualiSense Product Direction
 
-Status: **ACTIVE — WAREHOUSE + POST-WAREHOUSE INTEGRATION COMPLETE / CLIENT PRODUCTIZATION NEXT**  
+Status: **ACTIVE — HARDENING-FIRST / WEB-BRAND-1 MERGED / NET-NEW PRODUCT EXPANSION DEFERRED**  
 Repository: `Juvialski/InvoiceApp`  
 Deployment architecture: **one source repository -> many isolated deployments; one client company per deployment**  
 Canonical HydroQualiSense domain: `https://hydroqualisense.com`  
@@ -9,7 +9,7 @@ Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 ## Product position
 
-HydroQualiSense is an engineering/operations platform developed by HydroQualiSense Solutions Corp. The current deployment and demo identity remain HydroQualiSense, while the product architecture is intended to support additional client companies through **separate isolated deployments**, not through unrelated-company switching inside one operational application.
+Hydroqualisense Solutions Corp. is the first client company and the canonical public corporate identity. Its authenticated dedicated workspace may continue using HydroQualiSense company identity. The QA software showcase uses a neutral temporary software descriptor, and no permanent creator/software-vendor brand is selected. The application architecture may support additional client companies through **separate isolated deployments**, not through unrelated-company switching inside one operational application.
 
 The governing architecture is:
 
@@ -29,10 +29,11 @@ The governing product rules are:
 
 ## Product identity and client identity
 
-- Product name: **HydroQualiSense**.
-- Product/company owner identity: **HydroQualiSense Solutions Corp.**
-- Canonical product domain: `hydroqualisense.com`.
-- The current first-party deployment uses HydroQualiSense Solutions Corp. company identity.
+- Corporate public identity: **Hydroqualisense Solutions Corp.**
+- Authenticated first-client workspace identity: **HydroQualiSense / Hydroqualisense Solutions Corp.** for that dedicated deployment.
+- QA software identity: neutral temporary **Engineering Operations Platform** showcase wording; no permanent creator/product/vendor brand is selected.
+- Canonical company domain: `hydroqualisense.com`.
+- Do not present Hydroqualisense Solutions Corp. as the vendor of a multi-client SaaS product merely because the first-client workspace uses its identity.
 - Future client deployments may use approved client company identity/configuration for operational records and issued documents while retaining the HydroQualiSense product architecture.
 - Do not solve client variation by weakening authorization or adding an unrelated-company switcher.
 
@@ -219,13 +220,13 @@ Security continues throughout implementation; the final certification is an addi
 
 ## Current implementation sequence
 
-Unless explicitly reprioritized:
+The hardening-first freeze supersedes the older feature-expansion sequence below. Current priority is:
 
-1. **Public client funnel + repeatable isolated deployment/provisioning tooling** — next bounded phase
-2. **Worker Registration foundation**
-3. **Site Attendance state machine + device registration**
-4. **Face-Recognition Attendance** after explicit privacy/security design
-5. other client-confirmed requirements
-6. **Final pre-production security/data-integrity certification**
+1. **REL-PAYROLL-2 — Payroll Period Ownership & Automatic Calendar Persistence Hardening** — next bounded reliability phase.
+2. **Projects card action-popover clipping regression** — separate small UI follow-up after the payroll authority fix, unless a different higher-severity reliability issue is discovered first.
+3. **Provider/release certification** for existing capabilities when credentials, devices, hosted QA, and deployment prerequisites are safely available.
+4. **Final pre-production security/data-integrity certification** before broad rollout.
+
+Worker Registration, Site Attendance expansion, Face Recognition Attendance, Finance UX-W6, custom fields, and other net-new product work remain deferred until the user explicitly resumes feature expansion.
 
 Older Engoryx future plans remain non-authoritative unless explicitly reconfirmed.

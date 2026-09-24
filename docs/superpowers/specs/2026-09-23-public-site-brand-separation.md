@@ -1,10 +1,12 @@
 # WEB-BRAND-1 — Production Company Landing + QA Software Showcase Separation
 
-Status: **PLANNED — NOT YET IMPLEMENTED**
+Status: **MERGED FOR REPOSITORY SCOPE — PR #249 / `2ca9a96b0799eec4f14364f308e9edc2d6c73d9a`; COMPANY-CONTENT VERIFICATION PENDING**
 
 Prepared: 2026-09-23
 
 Repository baseline when this plan was recorded: `30178994c5f513afc8d37f6198beea6eaf30e97a`.
+
+Implementation closeout: the final reviewed PR head was `b453a269436d66af36c133598867cfa3f20af413`. All four protected exact-head checks passed before merge. The plan below is retained as the governing historical design/acceptance contract; statements describing the pre-WEB-BRAND public site or future implementation steps should be read in that historical context. The repository implementation now separates the canonical company site, QA software showcase, authenticated client workspace, and future creator/product brand seam. Real company project references, approved photography, service-area wording, and public inquiry contact details remain pending company confirmation.
 
 ## 1. Why this phase exists
 
