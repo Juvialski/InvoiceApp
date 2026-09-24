@@ -1,5 +1,7 @@
 # WEB-BRAND-1 local visual and responsive evidence
 
+Merge closeout: PR #249 was reviewed at exact head `b453a269436d66af36c133598867cfa3f20af413` and squash-merged to `main` as `2ca9a96b0799eec4f14364f308e9edc2d6c73d9a`. Exact-head Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA all passed before merge. Company-supplied portfolio/contact verification remains pending and is not implied by this repository evidence.
+
 **Source branch:** `codex/web-brand-1-company-public-site`
 
 **Synchronized base SHA:** `59762f89fe308dd0f732c4af5f654acc813dd05d`
