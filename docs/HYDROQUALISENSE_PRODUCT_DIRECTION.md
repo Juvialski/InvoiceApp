@@ -280,3 +280,15 @@ until the user explicitly resumes feature expansion. The permanent
 software/vendor/creator brand also remains intentionally unselected.
 
 Older Engoryx future plans remain non-authoritative unless explicitly reconfirmed.
+
+## Canva-assisted visual design stage
+
+Canva may now be used as a visual exploration/reference layer for HydroQualiSense public and authenticated UI work. It does not become an application/domain source of truth.
+
+The intended flow is:
+
+`live app/current design system -> Canva visual reference -> repository design contract -> Codex implementation -> browser visual certification`.
+
+The first bounded use is VIS-CANVA-1, covering the production company landing, neutral QA software-showcase landing, and a Supplier Invoice authenticated exemplar. Real client-sensitive data must not be uploaded to Canva; use synthetic/demo content. Production company facts must remain verified, and the permanent software creator/vendor brand remains intentionally unselected.
+
+See `docs/superpowers/specs/2026-09-26-canva-assisted-ui-landing-workflow.md`.
