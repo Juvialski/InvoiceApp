@@ -152,7 +152,8 @@ test("supplier invoice worksheet makes the shared-draft save and discard scope e
 
   assert.match(html, /One draft spans all sections/);
   assert.equal((html.match(/Save worksheet edits/g) || []).length, 1);
-  assert.equal((html.match(/Discard all worksheet edits/g) || []).length, 1);
+  assert.equal((html.match(/Discard edits/g) || []).length, 1);
+  assert.match(html, /aria-label="Discard all worksheet edits"/);
   assert.equal((html.match(/data-testid="supplier-invoice-worksheet-action-bar"/g) || []).length, 1);
   assert.equal((html.match(/data-testid="supplier-invoice-worksheet-help"/g) || []).length, 1);
   assert.ok(

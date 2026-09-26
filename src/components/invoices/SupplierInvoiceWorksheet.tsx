@@ -431,13 +431,13 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
   return <section ref={worksheetRootRef} data-testid="supplier-invoice-extracted-worksheet" data-worksheet-responsive-surface="supplier-invoice" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-3">
     <div data-testid="supplier-invoice-worksheet-action-bar" className="flex min-w-0 flex-col gap-2 border-b border-slate-200 pb-2 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
-        <h2 className="text-sm font-black text-slate-950">Extracted invoice data</h2>
+        <h2 className="text-sm font-black text-slate-950">Extracted data</h2>
         <p className="sr-only">Only permitted fields are editable. The original source is preserved.</p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
         {!readOnly && <button type="button" data-worksheet-add-row="true" onClick={handleAddLine} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Add line</button>}
         {!readOnly && onUpdateInvoice && <>
-          <button type="button" onClick={handleCancel} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Discard all worksheet edits</button>
+          <button type="button" aria-label="Discard all worksheet edits" onClick={handleCancel} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Discard edits</button>
           <button type="button" onClick={handleSave} className="inline-flex min-h-9 items-center rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-black text-indigo-700 hover:bg-indigo-50">Save worksheet edits</button>
         </>}
       </div>
