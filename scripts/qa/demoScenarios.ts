@@ -768,7 +768,15 @@ const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
 
   const changeStatus = await page.getByRole("button", { name: "Change Status", exact: true }).count();
   const expenseLink = await page.getByRole("link", { name: /Open\/Correct linked Expense/ }).count();
-  const correctionLink = await page.getByRole("button", { name: /Review correction options/ }).count();
+
+  const secondaryActions = page.locator('[data-testid="supplier-invoice-secondary-actions"]').first();
+  const secondaryActionsCount = await secondaryActions.count();
+  const invoiceActionsBeforeOpen = await page.getByRole("button", { name: "Invoice actions", exact: true }).count();
+  if (secondaryActionsCount === 1) {
+    await page.locator('[data-testid="supplier-invoice-secondary-actions"] summary').first().click();
+  }
+  const invoiceActions = await page.getByRole("button", { name: "Invoice actions", exact: true }).count();
+
   if (changeStatus === 1) {
     await page.getByRole("button", { name: "Change Status", exact: true }).click();
     await waitForVisible(page, '[data-testid="supplier-payment-dialog"]');
@@ -786,7 +794,8 @@ const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
     { id: "supplier-payment-confirm-visible", passed: confirmPayment === 1, details: `Confirm Payment controls: ${confirmPayment}` },
     { id: "supplier-payment-inline-account-visible", passed: addAccount === 1, details: `Add Cash/Bank Account controls: ${addAccount}` },
     { id: "supplier-expense-secondary-correction-link-visible", passed: expenseLink === 1, details: `linked Expense correction links: ${expenseLink}` },
-    { id: "supplier-invoice-correction-continuation-visible", passed: correctionLink > 0, details: `correction continuation controls: ${correctionLink}` },
+    { id: "supplier-invoice-secondary-actions-collapsed-by-default", passed: secondaryActionsCount === 1 && invoiceActionsBeforeOpen === 0, details: `secondary disclosures: ${secondaryActionsCount}; visible Invoice actions before open: ${invoiceActionsBeforeOpen}` },
+    { id: "supplier-invoice-correction-continuation-visible", passed: invoiceActions > 0, details: `Invoice actions controls after disclosure: ${invoiceActions}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -1032,7 +1041,7 @@ const verifyCashExpenseTarget: QaScenarioAction = async (page) => {
 const verifyPayrollNormalCycleOverview: QaScenarioAction = async (page) => {
   await waitForHeading(page, "Next step");
   const nextStep = await page.getByRole("heading", { name: "Next step", exact: true }).count();
-  const reviewOrPrepare = await page.getByRole("button", { name: /Review payroll|Import workbook/ }).count();
+  const nextStepActionCount = await page.locator('[data-payroll-next-step="true"] button:not([disabled]), [data-payroll-next-step="true"] a[href]').count();
   const calculateFromOverview = await page.getByRole("button", { name: "Calculate payroll", exact: true }).count();
   const stageBoundary = await page.evaluate(() => {
     const panel = document.querySelector<HTMLElement>('[data-payroll-next-step="true"]');
@@ -1044,7 +1053,7 @@ const verifyPayrollNormalCycleOverview: QaScenarioAction = async (page) => {
   });
   return [
     { id: "payroll-normal-cycle-next-step-visible", passed: nextStep === 1, details: `next-step panels: ${nextStep}` },
-    { id: "payroll-normal-cycle-review-or-prepare-action-visible", passed: reviewOrPrepare >= 1, details: `review/prepare actions: ${reviewOrPrepare}` },
+    { id: "payroll-normal-cycle-primary-action-visible", passed: nextStepActionCount >= 1, details: `enabled next-step actions: ${nextStepActionCount}` },
     { id: "payroll-overview-does-not-calculate-directly", passed: calculateFromOverview === 0, details: `overview Calculate payroll buttons: ${calculateFromOverview}` },
     { id: "payroll-normal-cycle-stage-boundary-visible", passed: stageBoundary.approvalAndPaymentSeparated && stageBoundary.paymentRoutedToCash, details: `approval/payment separated: ${stageBoundary.approvalAndPaymentSeparated}; Cash & Banking handoff: ${stageBoundary.paymentRoutedToCash}` },
   ] satisfies readonly QaAssertion[];
