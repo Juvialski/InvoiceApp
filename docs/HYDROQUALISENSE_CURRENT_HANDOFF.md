@@ -2527,18 +2527,42 @@ protected/calculated fields, financial truth, source evidence, lifecycle
 authority, and immutable history. It remains behind hardening/reliability
 priorities and does not resume the feature-expansion backlog.
 
-## 2026-09-26 — Next phase: VIS-CANVA-1
+## 2026-09-26 — VIS-CANVA-1 complete; implementation follow-ons remain unstarted
 
-Current authoritative `main` when this plan was selected: `26d7480d6e8de44f6a59404c8dd0128eca08bfbb`. No open PRs were present.
+Synchronized base SHA: `3ef522b8398a7931d1d293fe016dff7f8552dd3b`
 
-The next bounded phase is **VIS-CANVA-1 — Canva-Assisted Visual Blueprint**. It should use the connected Canva account to reduce visual ambiguity before another implementation-heavy UI phase.
+Implementation branch: `codex/vis-canva-1`
 
-Required exemplars:
+Canva reference: [HydroQualiSense Visual Blueprint](https://www.canva.com/d/XGTcgfzuO_yZHV5)
 
-1. production engineering-company landing;
-2. neutral QA software-showcase landing;
-3. authenticated Supplier Invoice source + extracted-data review, including the planned single-click/tap worksheet-editing grammar.
+Canva design ID: `DAHWSiZsn1Y` · seven pages
 
-Do not broadly rewrite the application during VIS-CANVA-1. Produce the visual reference and repository design contract first. Keep the Operations Workbook as a reference-only concept in this phase.
+VIS-CANVA-1 completed the design/reference work for:
 
-See `docs/superpowers/specs/2026-09-26-canva-assisted-ui-landing-workflow.md` for scope, safety rules, and the follow-on implementation order.
+1. production Hydroqualisense Solutions Corp. desktop and mobile landing;
+2. neutral QA software showcase desktop and mobile landing; and
+3. authenticated Supplier Invoice source and extracted-data review at wide and
+   constrained-laptop sizes.
+
+One optional Operations Workbook shell page is a visual reference only. The
+repository visual contract is
+`docs/superpowers/specs/2026-09-26-vis-canva-1-visual-direction.md`; the
+Canva scope and safety contract is
+`docs/superpowers/specs/2026-09-26-canva-assisted-ui-landing-workflow.md`.
+
+The Canva copy was checked against current repository-approved company and
+software-showcase content. Missing company project, credibility, and contact
+facts remain explicit placeholders. Invoice content uses synthetic placeholders
+only. No application code, database, security, financial, or workflow authority
+changed. The presentation is a static visual reference and does not certify
+responsive behavior, accessibility, application behavior, hosted runtime, or
+production readiness.
+
+| Follow-on | Remaining work |
+| --- | --- |
+| `LANDING-VIS-1` | Implement the approved production-company and neutral QA visual direction while preserving host routing, SEO/noindex, verified content, and audience separation. |
+| `UX-EDIT-1A` | Implement direct editing cues and source-aware side-by-side Supplier Invoice review while preserving permissions, source provenance, validation, verification, financial authority, and history. |
+| `WB-1` | Implement the planned Operations Workbook shell later; use its Canva page only as visual guidance, not as schema or persistence authority. |
+
+These follow-ons were not started in this phase. Preferred order remains
+`LANDING-VIS-1 -> UX-EDIT-1A -> WB-1 -> representative visual certification`.

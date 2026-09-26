@@ -50,6 +50,11 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 
 The selective-workbook rollout has progressed through the shared worksheet foundation, Projects, Supplier Invoice review, and bounded UX-W4 transaction editors. UX-W4 is complete and the UX-W4.5A app-wide screenshot investigation is recorded in `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. The next phase is the bounded evidence-backed UX-W4.5 correction sequence before UX-W5 so the current visual problems are not copied into new domains. Real `.xlsx` round trips remain required where supported: export -> external edit -> upload -> validate/compare -> human review -> authoritative apply.
 
+## Public landing and Canva visual direction
+
+- `superpowers/specs/2026-09-26-canva-assisted-ui-landing-workflow.md` — governing VIS-CANVA-1 visual-reference scope and the later LANDING-VIS-1, UX-EDIT-1A, and WB-1 sequence.
+- `superpowers/specs/2026-09-26-vis-canva-1-visual-direction.md` — completed seven-page Canva reference, verified audience/content boundaries, repository visual contract, and follow-on handoff.
+
 The compatibility stub `HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` remains only so older links continue to resolve.
 
 ## Standing UX and domain contracts
