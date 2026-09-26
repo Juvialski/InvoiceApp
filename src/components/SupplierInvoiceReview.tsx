@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Archive, CheckCircle2, ChevronDown, Link2, Loader2, Mail, Plus, ShieldCheck, Undo2 } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, ChevronDown, Link2, Loader2, Plus, RotateCcw, ShieldCheck, Undo2 } from "lucide-react";
 import type { EntityResolutionResult, Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, Vendor } from "../types.ts";
 import { formatDateTime } from "../config/regional.ts";
 import { getSupplierInvoiceExpenseReadiness, getSupplierInvoiceValidationAdvisories, suggestSupplierExpenseDescription } from "../utils/supplierExpenseWorkspace.ts";
@@ -13,6 +13,8 @@ export interface SupplierInvoiceReviewProps {
   onUpdateInvoice?: (invoice: InvoiceData) => void;
   onVerify?: () => void;
   verifyLabel?: string;
+  onRetryExtraction?: () => void;
+  isRetryingExtraction?: boolean;
   /** Queue sessions keep the single verify action in the sticky queue footer. */
   showVerifyAction?: boolean;
   onReopen?: () => void | Promise<void | boolean>;
@@ -201,7 +203,7 @@ const VendorResolutionPanel: React.FC<VendorResolutionPanelProps> = ({ invoice, 
 
   return <section className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3" data-testid="supplier-vendor-resolution">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-900">Resolve canonical Vendor</p><p className="mt-1 text-[10px] leading-4 text-amber-950">The supplier name below is preserved evidence. Choose an existing company Vendor or deliberately create and link one.</p></div>
+      <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-900">Resolve vendor</p><p className="mt-1 text-[10px] leading-4 text-amber-950">Invoice evidence stays separate from canonical Vendor data.</p></div>
       {activeVendors.length > 0 && <button type="button" onClick={() => setCreateOpen((open) => !open)} className="shrink-0 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[10px] font-black text-amber-900">{createOpen ? "Choose existing Vendor" : "Create & Link Vendor"}</button>}
     </div>
     {activeVendors.length > 0 && !createOpen && <div className="mt-3 space-y-2">
@@ -218,8 +220,9 @@ const VendorResolutionPanel: React.FC<VendorResolutionPanelProps> = ({ invoice, 
   </section>;
 };
 
-export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ invoice, readOnly = false, onUpdateInvoice, onVerify: verifyHandler, verifyLabel = "Verify & Create Expense", showVerifyAction = true, onReopen, onRevertToAI, onFocusField, vendors = [], projects = [], projectAllocations = [], allowReopen = true, onCommitRepair, onAddVendor, onOpenCorrection, repairMode = false, linkedExpense, authorityConflict = false, linkedExpenseLoading = false, canRecordExpensePayment = false, canReverseExpensePayment = false, onNavigatePath, financialFxSnapshots = [] }) => {
+export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ invoice, readOnly = false, onUpdateInvoice, onVerify: verifyHandler, verifyLabel = "Verify & Create Expense", onRetryExtraction, isRetryingExtraction = false, showVerifyAction = true, onReopen, onRevertToAI, onFocusField, vendors = [], projects = [], projectAllocations = [], allowReopen = true, onCommitRepair, onAddVendor, onOpenCorrection, repairMode = false, linkedExpense, authorityConflict = false, linkedExpenseLoading = false, canRecordExpensePayment = false, canReverseExpensePayment = false, onNavigatePath, financialFxSnapshots = [] }) => {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [activeResolver, setActiveResolver] = useState<"vendor" | "description" | null>(null);
   const [reopenBusy, setReopenBusy] = useState(false);
   const [reopenError, setReopenError] = useState("");
   const [reopenedNotice, setReopenedNotice] = useState(false);
@@ -239,6 +242,22 @@ export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ in
   const blockerItems = useMemo(() => [
     ...readiness.issues.map((issue) => ({ id: `readiness-${issue.code}`, text: issue.message, field: issue.field, code: issue.code })),
   ], [readiness.issues]);
+  const blockerActionLabel = (code: string) => {
+    switch (code) {
+      case "VOID_SOURCE": return "Review invoice status";
+      case "CANONICAL_VENDOR": return "Resolve vendor";
+      case "INVOICE_NUMBER": return "Confirm invoice number";
+      case "INVOICE_DATE": return "Confirm invoice date";
+      case "CURRENCY": return "Confirm currency";
+      case "POSITIVE_TOTAL": return "Review total";
+      case "EXPENSE_CATEGORY": return "Choose expense category";
+      case "EXPENSE_DESCRIPTION": return "Confirm description";
+      case "PROJECT_ALLOCATION": return "Review project allocation";
+      default: return "Review invoice";
+    }
+  };
+  const validationWarnings = (invoice.validation?.issues || []).filter((issue) => issue.severity === "warning").length;
+  const validationErrors = (invoice.validation?.issues || []).filter((issue) => issue.severity === "error").length;
   const reviewNotes = useMemo(() => [
     ...advisories.map((issue) => ({ id: issue.id, text: issue.message, field: issue.field })),
     ...(duplicate ? [{ id: "duplicate-risk", text: "Duplicate risk needs reviewer confirmation.", field: "duplicateStatus" }] : []),
@@ -251,6 +270,12 @@ export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ in
   const firstBlockerField = blockerItems[0]?.field;
 
   useEffect(() => {
+    if ((activeResolver === "vendor" && !hasVendorBlocker) || (activeResolver === "description" && !hasDescriptionBlocker)) {
+      setActiveResolver(null);
+    }
+  }, [activeResolver, hasDescriptionBlocker, hasVendorBlocker]);
+
+  useEffect(() => {
     setDescriptionDraft(invoice.description || suggestSupplierExpenseDescription(invoice));
     setDescriptionMessage("");
     setDescriptionError("");
@@ -259,6 +284,7 @@ export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ in
   useEffect(() => {
     setReopenedNotice(false);
     setReopenError("");
+    setActiveResolver(null);
   }, [invoice.id]);
 
   const focusField = (field: string) => {
@@ -266,10 +292,18 @@ export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ in
     if (typeof window !== "undefined") {
       window.setTimeout(() => {
         const target = Array.from(document.querySelectorAll<HTMLElement>("[data-supplier-field], [data-worksheet-cell]"))
-          .find((candidate) => candidate.dataset.supplierField === field || candidate.dataset.worksheetCell?.endsWith(`:${field}`));
+          .find((candidate) => (candidate.dataset.supplierField === field || candidate.dataset.worksheetCell?.endsWith(`:${field}`)) && candidate.getClientRects().length > 0);
         target?.scrollIntoView({ block: "center", behavior: "smooth" });
-        target?.focus();
+        if (target?.dataset.worksheetCell && target.dataset.worksheetEditable === "true") target.click();
+        else target?.focus();
       }, 0);
+    }
+  };
+
+  const closeResolver = (resolver: "vendor" | "description") => {
+    setActiveResolver(null);
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => document.getElementById(`supplier-invoice-issue-${resolver}`)?.focus(), 0);
     }
   };
 
@@ -320,30 +354,44 @@ export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ in
     }
   };
   const vendorResolution = !readOnly && hasVendorBlocker ? <VendorResolutionPanel invoice={invoice} vendors={vendors} onUpdateInvoice={onUpdateInvoice} onCommitRepair={onCommitRepair} onAddVendor={onAddVendor} /> : null;
-  const descriptionResolution = !readOnly && hasDescriptionBlocker ? <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3" data-testid="supplier-description-resolution"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-800">Confirm Expense description</p><p className="mt-1 text-[10px] leading-4 text-indigo-950">This suggestion uses preserved invoice evidence. Edit it if needed, then confirm the human-facing description for the authoritative Expense.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end"><label className="min-w-0 flex-1 space-y-1"><span className="field-label">Expense description</span><input data-supplier-field="description" value={descriptionDraft} onChange={(event) => setDescriptionDraft(event.target.value)} className="field-input" /></label><button type="button" onClick={() => void confirmDescription()} disabled={descriptionBusy} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50">{descriptionBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Confirm description</button></div>{descriptionMessage && <p role="status" className="mt-2 text-[10px] font-bold text-emerald-800">{descriptionMessage}</p>}{descriptionError && <p role="alert" className="mt-2 text-[10px] font-bold text-rose-700">{descriptionError}</p>}</section> : null;
+  const descriptionResolution = !readOnly && hasDescriptionBlocker ? <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3" data-testid="supplier-description-resolution"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-800">Expense description</p><div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end"><label className="min-w-0 flex-1 space-y-1"><span className="field-label">Description</span><input data-supplier-field="description" value={descriptionDraft} onChange={(event) => setDescriptionDraft(event.target.value)} className="field-input" /></label><button type="button" onClick={() => void confirmDescription()} disabled={descriptionBusy} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50">{descriptionBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Confirm description</button></div>{descriptionMessage && <p role="status" className="mt-2 text-[10px] font-bold text-emerald-800">{descriptionMessage}</p>}{descriptionError && <p role="alert" className="mt-2 text-[10px] font-bold text-rose-700">{descriptionError}</p>}</section> : null;
   const authoritativeLinkedExpenseId = linkedExpense?.id || invoice.linkedExpenseId;
   const expenseSurface = <SupplierInvoiceExpenseSurface invoice={invoice} linkedExpenseId={authoritativeLinkedExpenseId} linkedExpense={linkedExpense} authorityConflict={authorityConflict} loading={linkedExpenseLoading} canRecordPayment={canRecordExpensePayment} canReversePayment={canReverseExpensePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />;
 
   return (
     <section className="space-y-3" data-testid="supplier-invoice-review" aria-label="Supplier invoice review">
-      <div data-testid="supplier-invoice-review-bar" className={`rounded-xl border px-3 py-3 ${blockerItems.length ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 items-center gap-2"><div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${blockerItems.length ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{blockerItems.length ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}</div><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Review status</p><h2 className="mt-0.5 text-sm font-black text-slate-950">{blockerItems.length ? `${blockerItems.length} action${blockerItems.length === 1 ? "" : "s"} required` : onVerify ? "Ready to create Expense" : "No posting blockers"}</h2></div></div>
-          <div className="flex flex-wrap justify-end gap-2">{!readOnly && onRevertToAI && <button type="button" onClick={onRevertToAI} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700"><Undo2 className="h-3.5 w-3.5" />Revert to original</button>}{onOpenCorrection && <button type="button" onClick={onOpenCorrection} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700"><Archive className="h-3.5 w-3.5" />Invoice actions</button>}{invoice.reviewStatus === "VERIFIED" && onReopen && allowReopen && <button type="button" onClick={() => void handleReopen()} disabled={reopenBusy} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-black text-emerald-800 disabled:opacity-50">{reopenBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}{fixRequired ? "Fix invoice" : "Reopen for review"}</button>}{invoice.reviewStatus === "VERIFIED" && onReopen && !allowReopen && <span className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-black text-indigo-800">Linked Expense is authoritative; use Expense correction</span>}{invoice.reviewStatus === "VERIFIED" ? <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-[10px] font-black text-emerald-800"><ShieldCheck className="h-3.5 w-3.5" />Verified {formatDateTime(invoice.verifiedAt)}</span> : showVerifyAction && onVerify && <button type="button" onClick={onVerify} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-black text-white hover:bg-emerald-800"><ShieldCheck className="h-3.5 w-3.5" />{verifyLabel}</button>}</div>
+      <div data-testid="supplier-invoice-review-bar" className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 items-center gap-2"><div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${blockerItems.length ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{blockerItems.length ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}</div><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Invoice review</p><h2 className="mt-0.5 text-sm font-black text-slate-950">{blockerItems.length ? "Needs attention" : onVerify ? "Ready to verify" : readOnly ? "Verified" : "Waiting for verification access"}</h2></div></div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {validationErrors > 0 && <span role="alert" className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-black text-rose-800">{validationErrors} error{validationErrors === 1 ? "" : "s"}</span>}
+            {validationWarnings > 0 && <span role="status" className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-900">{validationWarnings} warning{validationWarnings === 1 ? "" : "s"}</span>}
+            {duplicate && <span data-testid="supplier-invoice-duplicate-warning" role="status" className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-900">Possible duplicate</span>}
+            {conflicts.length > 0 && <span data-testid="supplier-invoice-identity-conflict" role="alert" className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-black text-rose-800">Vendor conflict</span>}
+            {confidenceWarning && <span data-testid="supplier-invoice-low-confidence" role="status" className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-900">Low confidence</span>}
+            {invoice.reviewStatus === "VERIFIED" && onReopen && allowReopen && <button type="button" onClick={() => void handleReopen()} disabled={reopenBusy} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-black text-emerald-800 disabled:opacity-50">{reopenBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}{fixRequired ? "Fix invoice" : "Reopen for review"}</button>}
+            {invoice.reviewStatus === "VERIFIED" && onReopen && !allowReopen && <span className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-black text-indigo-800">Linked Expense is authoritative; use Expense correction</span>}
+            {invoice.reviewStatus === "VERIFIED" ? <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-[10px] font-black text-emerald-800"><ShieldCheck className="h-3.5 w-3.5" />Verified {formatDateTime(invoice.verifiedAt)}</span> : showVerifyAction && onVerify && <button type="button" onClick={onVerify} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-black text-white hover:bg-emerald-800"><ShieldCheck className="h-3.5 w-3.5" />{verifyLabel}</button>}
+          </div>
         </div>
         {reopenError && <p role="alert" className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-800">{reopenError}</p>}
         {(repairMode || reopenedNotice) && !readOnly && <p role="status" className="mt-2 inline-flex rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-black text-indigo-900">Editing correction · reopened for correction</p>}
       </div>
 
+      {authorityConflict && <p data-testid="supplier-invoice-authority-conflict" role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-black text-rose-800">Linked Expense authority conflict. Review the Expense details below.</p>}
+      {blockerItems.length > 0 && <section data-testid="supplier-invoice-unresolved-issues" className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2" aria-label="Invoice issues needing attention"><div className="flex flex-wrap items-center gap-2"><h3 className="text-[10px] font-black text-amber-950">{blockerItems.length} issue{blockerItems.length === 1 ? "" : "s"} need attention</h3><div className="flex min-w-0 flex-wrap gap-1.5">{blockerItems.map((item) => {
+        const actionClass = "inline-flex min-h-8 items-center rounded-full border border-amber-300 bg-white px-3 py-1 text-[10px] font-black text-amber-950 hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]";
+        if (!readOnly && item.code === "CANONICAL_VENDOR" && vendorResolution) return <button type="button" key={item.id} id="supplier-invoice-issue-vendor" aria-controls="supplier-vendor-resolution-panel" aria-expanded={activeResolver === "vendor"} onClick={() => { setActiveResolver("vendor"); focusField(item.field); }} className={actionClass}>{blockerActionLabel(item.code)}</button>;
+        if (!readOnly && item.code === "EXPENSE_DESCRIPTION" && descriptionResolution) return <button type="button" key={item.id} id="supplier-invoice-issue-description" aria-controls="supplier-description-resolution-panel" aria-expanded={activeResolver === "description"} onClick={() => { setActiveResolver("description"); focusField(item.field); }} className={actionClass}>{blockerActionLabel(item.code)}</button>;
+        return <button type="button" key={item.id} disabled={readOnly && (!onReopen || !allowReopen || reopenBusy)} onClick={() => readOnly ? void handleReopen() : focusField(item.field)} className={actionClass}>{readOnly ? "Fix invoice" : blockerActionLabel(item.code)}</button>;
+      })}</div></div></section>}
+      {activeResolver === "vendor" && vendorResolution && <div id="supplier-vendor-resolution-panel" data-testid="supplier-vendor-resolution-panel" className="rounded-lg border border-slate-200 bg-white p-2"><div className="flex justify-end"><button type="button" onClick={() => closeResolver("vendor")} className="rounded-md px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100">Close</button></div>{vendorResolution}</div>}
+      {activeResolver === "description" && descriptionResolution && <div id="supplier-description-resolution-panel" data-testid="supplier-description-resolution-panel" className="rounded-lg border border-slate-200 bg-white p-2"><div className="flex justify-end"><button type="button" onClick={() => closeResolver("description")} className="rounded-md px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100">Close</button></div>{descriptionResolution}</div>}
       <SupplierInvoiceWorksheet invoice={invoice} readOnly={readOnly} onUpdateInvoice={onUpdateInvoice} />
-      {blockerItems.length > 0 && <section data-testid="supplier-invoice-blocking-review" className="rounded-xl border border-amber-200 bg-amber-50/70 p-3" aria-label="Supplier invoice blocking review"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div><h3 className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-950">Blocking review items</h3><p className="mt-1 text-[10px] leading-4 text-amber-900">Resolve these facts before creating or changing the authoritative Expense.</p></div></div><div className="mt-2 grid gap-2 sm:grid-cols-2">{blockerItems.slice(0, 6).map((item) => <button type="button" key={item.id} onClick={() => readOnly ? void handleReopen() : focusField(item.field)} disabled={readOnly && (!onReopen || !allowReopen || reopenBusy)} className="rounded-lg border border-amber-200 bg-white p-3 text-left hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"><span className="block text-[10px] font-black text-amber-900">{item.text}</span><span className="mt-1 block text-[9px] font-bold text-amber-700">{readOnly ? "Fix invoice" : item.code === "CANONICAL_VENDOR" ? "Resolve Vendor" : item.code === "EXPENSE_DESCRIPTION" ? "Confirm description" : "Review details"}</span></button>)}</div></section>}
       {reviewNotes.length > 0 && <details data-testid="supplier-invoice-review-notes" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600"><summary className="cursor-pointer font-bold text-slate-700">Review notes ({reviewNotes.length})</summary><ul className="mt-2 space-y-1">{reviewNotes.slice(0, 6).map((item) => <li key={item.id}>• {item.text}</li>)}</ul></details>}
       <details open={moreOpen} onToggle={(event) => setMoreOpen((event.currentTarget as HTMLDetailsElement).open)} className="rounded-lg border border-slate-200 bg-white"><summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-black text-slate-700 [&::-webkit-details-marker]:hidden"><span>More extracted details</span><ChevronDown className={`h-4 w-4 transition ${moreOpen ? "rotate-180" : ""}`} /></summary><div className="grid gap-3 border-t border-slate-100 p-3 text-xs sm:grid-cols-2"><div><p className="text-[10px] font-black uppercase text-slate-500">Extraction diagnostics</p><p className="mt-1">Model: {invoice.modelUsed || "Unknown"}</p><p className="text-slate-500">Confidence: {invoice.confidenceScore === undefined ? "Not supplied" : `${Math.round(invoice.confidenceScore)}%`}</p><p className="text-slate-500">Source: {invoice.fileName || invoice.sourceType || "Unknown"}</p></div><div><p className="text-[10px] font-black uppercase text-slate-500">Monetary basis</p><p className="mt-1">Lines: {invoice.financialSemantics?.lineTotalBasis || "UNKNOWN"}</p><p className="text-slate-500">Subtotal: {invoice.financialSemantics?.subtotalBasis || "UNKNOWN"}</p><p className="text-slate-500">Tax: {invoice.financialSemantics?.taxInclusion || "UNKNOWN"}</p></div><div className="sm:col-span-2"><p className="text-[10px] font-black uppercase text-slate-500">PH metadata</p><p className="mt-1 whitespace-pre-wrap text-slate-600">{invoice.philippineTaxDetails ? JSON.stringify(invoice.philippineTaxDetails, null, 2) : "No additional tax metadata extracted."}</p></div></div></details>
-      {vendorResolution}
-      {descriptionResolution}
-      {expenseSurface}
-
-      {invoice.sourceType === "EMAIL" && <p className="flex items-center gap-1.5 px-1 text-[10px] text-indigo-700"><Mail className="h-3.5 w-3.5" />Source email preserved: {invoice.sourceMetadata?.subject || invoice.sourceMetadata?.sender || "Email Intake"}</p>}
+      {((!readOnly && onRetryExtraction) || (!readOnly && onRevertToAI) || onOpenCorrection) && <details data-testid="supplier-invoice-secondary-actions" className="rounded-lg border border-slate-200 bg-white"><summary className="cursor-pointer px-3 py-2 text-[10px] font-black text-slate-700">More actions</summary><div className="flex flex-wrap gap-2 border-t border-slate-100 p-2">{!readOnly && onRetryExtraction && <button type="button" onClick={onRetryExtraction} disabled={isRetryingExtraction} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-indigo-700 disabled:opacity-50">{isRetryingExtraction ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}{isRetryingExtraction ? "Retrying…" : "Retry extraction"}</button>}{!readOnly && onRevertToAI && <button type="button" onClick={onRevertToAI} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-700"><Undo2 className="h-3.5 w-3.5" />Revert to original</button>}{onOpenCorrection && <button type="button" onClick={onOpenCorrection} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-700"><Archive className="h-3.5 w-3.5" />Invoice actions</button>}</div></details>}
+      {(authoritativeLinkedExpenseId || linkedExpenseLoading || authorityConflict) && <details data-testid="supplier-invoice-expense-disclosure" className="rounded-lg border border-slate-200 bg-white"><summary className="cursor-pointer px-3 py-2 text-[10px] font-black text-slate-700">Linked Expense{linkedExpenseLoading ? " · Loading" : authoritativeLinkedExpenseId ? " · View details" : " · Review conflict"}</summary><div className="border-t border-slate-100 p-2">{expenseSurface}</div></details>}
       {vendors.length === 0 && invoice.entityResolution?.matchedEntityId && <p className="px-1 text-[10px] text-slate-500">Vendor link is preserved in the source record; the current vendor directory is unavailable.</p>}
     </section>
   );

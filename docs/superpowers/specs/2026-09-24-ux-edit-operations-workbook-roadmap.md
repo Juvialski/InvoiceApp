@@ -1,11 +1,12 @@
-# UX-EDIT-1 and Operations Workbook — Planned Direction
+# UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **PLANNED / NOT ACTIVE / NO IMPLEMENTATION AUTHORIZED**  
+Status: **UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / WB-1 PLANNED, NOT STARTED**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
-This document records future UX and workbook direction only. It does not select
-the next implementation phase, resume deferred feature expansion, or change any
+This document records the UX-EDIT/WB direction and acceptance boundaries.
+UX-EDIT-1A is implemented for the recorded scope; WB-1 remains a separate
+planned phase. This status does not resume deferred feature expansion or change
 database, security, financial, history, lifecycle, approval, or permission
 authority.
 

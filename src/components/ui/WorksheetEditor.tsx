@@ -150,7 +150,8 @@ export function WorksheetEditor<T>({
   className = "",
   density = "compact",
 }: WorksheetEditorProps<T>) {
-  const initialEditingPosition = initialEditingCell && rows[initialEditingCell.row] && columns[initialEditingCell.column] && isWorksheetColumnEditable(columns[initialEditingCell.column], rows[initialEditingCell.row], initialEditingCell.row)
+  const actionDisabled = disabled || isSaving;
+  const initialEditingPosition = !actionDisabled && initialEditingCell && rows[initialEditingCell.row] && columns[initialEditingCell.column] && isWorksheetColumnEditable(columns[initialEditingCell.column], rows[initialEditingCell.row], initialEditingCell.row)
     ? initialEditingCell
     : null;
   const [draftRows, setDraftRows] = useState<readonly T[]>(() => rows.slice());
@@ -207,10 +208,15 @@ export function WorksheetEditor<T>({
     target.focus();
   }, [activeCell, columns.length, draftRows.length, editingCell]);
 
+  useEffect(() => {
+    if (!actionDisabled || !editingCell) return;
+    setEditingCell(null);
+    setEditorValue("");
+  }, [actionDisabled, editingCell]);
+
   const hasLocalDirty = localDirtyCells.size > 0;
   const hasExternalDirty = Boolean(dirtyCells && ("size" in dirtyCells ? dirtyCells.size : dirtyCells.length));
   const isDirty = hasLocalDirty || hasExternalDirty;
-  const actionDisabled = disabled || isSaving;
 
   useEffect(() => {
     if (editingCell || !pendingActionRef.current) return;
@@ -447,7 +453,7 @@ export function WorksheetEditor<T>({
     const currentRowKey = rowKey(row, rowIndex);
     const key = getWorksheetCellId(currentRowKey, column.key);
     const protectedCell = isWorksheetColumnProtected(column, row, rowIndex);
-    const editableCell = isWorksheetColumnEditable(column, row, rowIndex);
+    const editableCell = !actionDisabled && isWorksheetColumnEditable(column, row, rowIndex);
     const readOnlyCell = !editableCell;
     const isEditing = editingCell?.row === rowIndex && editingCell.column === columnIndex && editableCell;
     const externalIssue = issueValue(cellIssues?.[key], "error");
@@ -486,6 +492,7 @@ export function WorksheetEditor<T>({
       onChange={(event) => setEditorValue(event.currentTarget.value)}
       onBlur={() => commitEditing()}
       onKeyDown={(event) => handleInputKeyDown(event, cell.position)}
+      onCopy={(event) => { event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
       aria-label={`${cell.column.header}, row ${cell.context.rowIndex + 1}`}
       aria-invalid={cell.issue?.severity === "error" || undefined}
       aria-describedby={describedBy}
@@ -502,6 +509,13 @@ export function WorksheetEditor<T>({
       onChange={(event) => setEditorValue(event.currentTarget.value)}
       onBlur={() => commitEditing()}
       onKeyDown={(event) => handleInputKeyDown(event, cell.position)}
+      onCopy={(event) => {
+        const input = event.currentTarget;
+        const hasSelection = input.selectionStart !== null && input.selectionEnd !== null && input.selectionStart !== input.selectionEnd;
+        if (hasSelection) return;
+        event.preventDefault();
+        copyCell(cell.position, event.clipboardData);
+      }}
       aria-label={`${cell.column.header}, row ${cell.context.rowIndex + 1}`}
       aria-invalid={cell.issue?.severity === "error" || undefined}
       aria-describedby={describedBy}
@@ -513,9 +527,6 @@ export function WorksheetEditor<T>({
 
   const renderMobileDisplay = (cell: CellView) => (
     <div
-      role={cell.editableCell ? "button" : undefined}
-      aria-label={cell.editableCell ? `Edit ${cell.column.header}, row ${cell.context.rowIndex + 1}` : undefined}
-      onClick={cell.editableCell ? () => beginEditing(cell.position) : undefined}
       className={`min-w-0 break-words whitespace-normal rounded-md px-2 py-1.5 text-left text-xs ${cell.editableCell ? "cursor-text hqs-row-hover" : "cursor-not-allowed hqs-secondary-text"}`}
     >
       {renderCellDisplay(cell)}
@@ -576,7 +587,7 @@ export function WorksheetEditor<T>({
                         ref={(node) => { if (node) cellRefs.current.set(cell.key, node); else cellRefs.current.delete(cell.key); }}
                         role="gridcell"
                         aria-colindex={columnIndex + 1}
-                        aria-readonly={!cell.editableCell || undefined}
+                        aria-readonly={cell.readOnlyCell || actionDisabled || undefined}
                         aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
                         aria-describedby={viewDescribedBy}
                         data-worksheet-align={column.align || "left"}
@@ -588,12 +599,15 @@ export function WorksheetEditor<T>({
                         data-worksheet-state={cell.state}
                         title={cell.readOnlyCell ? cell.protectedCell ? "Protected field: cannot be edited" : "Read-only field: cannot be edited" : undefined}
                         onFocus={() => setActiveCell(cell.position)}
-                        onClick={() => setActiveCell(cell.position)}
-                        onDoubleClick={() => beginEditing(cell.position)}
+                        onClick={() => {
+                          if (cell.isEditing) return;
+                          if (cell.editableCell) beginEditing(cell.position);
+                          else setActiveCell(cell.position);
+                        }}
                         onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
                         onPaste={(event) => handlePaste(event, cell.position)}
                         onKeyDown={(event) => handleCellKeyDown(event, cell.position)}
-                        className={`relative whitespace-nowrap px-3 align-top ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${stateClasses[cell.state]} ${cell.readOnlyCell ? "cursor-not-allowed" : ""} ${columnIndex === frozenColumnIndex ? "sticky left-0 z-10" : ""}`}
+                        className={`relative whitespace-nowrap px-3 align-top ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${stateClasses[cell.state]} ${cell.editableCell ? "cursor-text transition-colors hover:bg-[var(--color-background-muted)]" : cell.readOnlyCell ? "cursor-not-allowed" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] ${columnIndex === frozenColumnIndex ? "sticky left-0 z-10" : ""}`}
                         style={{ width: column.width, minWidth: column.minWidth }}
                       >
                         {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : <span className="block min-h-5">{renderCellDisplay(cell)}</span>}
@@ -624,7 +638,7 @@ export function WorksheetEditor<T>({
                       ref={(node) => { if (node) mobileCellRefs.current.set(cell.key, node); else mobileCellRefs.current.delete(cell.key); }}
                       role="gridcell"
                       aria-label={`${column.header}, row ${rowIndex + 1}`}
-                      aria-readonly={!cell.editableCell || undefined}
+                      aria-readonly={cell.readOnlyCell || actionDisabled || undefined}
                       aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
                       aria-describedby={viewDescribedBy}
                       tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
@@ -639,12 +653,15 @@ export function WorksheetEditor<T>({
                       data-worksheet-state={cell.state}
                       title={cell.readOnlyCell ? cell.protectedCell ? "Protected field: cannot be edited" : "Read-only field: cannot be edited" : undefined}
                       onFocus={() => setActiveCell(cell.position)}
-                      onClick={() => setActiveCell(cell.position)}
-                      onDoubleClick={() => beginEditing(cell.position)}
+                      onClick={() => {
+                        if (cell.isEditing) return;
+                        if (cell.editableCell) beginEditing(cell.position);
+                        else setActiveCell(cell.position);
+                      }}
                       onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
                       onPaste={(event) => handlePaste(event, cell.position)}
                       onKeyDown={(event) => handleCellKeyDown(event, cell.position)}
-                      className={`min-w-0 rounded-lg border px-2.5 py-2 ${stateClasses[cell.state]} ${cell.readOnlyCell ? "cursor-not-allowed" : ""}`}
+                      className={`min-w-0 rounded-lg border px-2.5 py-2 ${stateClasses[cell.state]} ${cell.editableCell ? "cursor-text" : cell.readOnlyCell ? "cursor-not-allowed" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]`}
                     >
                       <div className="flex min-w-0 items-center justify-between gap-3">
                         <span className="hqs-secondary-text min-w-0 text-[10px] font-black uppercase tracking-wide">{column.header}</span>
