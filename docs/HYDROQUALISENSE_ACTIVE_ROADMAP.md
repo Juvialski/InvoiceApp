@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 IMPLEMENTED ON FEATURE BRANCH (NOT MERGED) / FUTURE UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / WB-1 PLANNED NOT STARTED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-26**
 
@@ -19,7 +19,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 **Excel-Native Operations UX workbook/authority design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — foundations implemented through bounded Expenses/Supplier Payables
 **Current selective workbook-editing interaction direction:** `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` — browse visually, edit like a spreadsheet, keep consequential workflows controlled
-**Planned UX-EDIT + Operations Workbook direction:** `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md` — future planning only; not active and not implementation authorization
+**UX-EDIT + Operations Workbook direction:** `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md` — UX-EDIT-1A implemented for its recorded scope; WB-1 remains planned
 **VIS-CANVA-1 visual direction:** `docs/superpowers/specs/2026-09-26-vis-canva-1-visual-direction.md` — completed seven-page Canva reference for the company site, QA showcase, Supplier Invoice review, and optional workbook shell
 **Blocking worksheet density/clarity correction:** `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md` — starts with app-wide screenshot investigation/visual triage before evidence-backed UI corrections and UX-W5
 **Next developer-tooling research plan:** `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`
@@ -1798,7 +1798,7 @@ absent and preserves the production company logo path otherwise.
 
 Planning contract: `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md`
 
-Status: **PLANNED / NOT ACTIVE / NO IMPLEMENTATION AUTHORIZED**
+Status: **HISTORICAL PLAN — UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / WB-1 PLANNED, NOT STARTED**
 
 The governing direction is **browse visually -> edit like a spreadsheet where
 appropriate -> execute sensitive workflows deliberately**. Planned UX-EDIT-1
@@ -1824,9 +1824,10 @@ WB-CERT (full export -> edit -> import-review -> apply certification covering
 compatibility, concurrency, permissions, protected/calculated fields, and
 financial/history integrity). No domain is promised automatically.
 
-These plans remain behind the hardening/reliability/release-readiness program
-and do not resume deferred product expansion. A future explicit user direction
-is required before any UX-EDIT or Operations Workbook implementation begins.
+UX-EDIT-1A was later explicitly started as a bounded usability-hardening phase;
+its implementation and evidence are recorded below. The separate WB-1
+Operations Workbook remains planned and was not started. Neither item resumes
+the deferred net-new domain backlog.
 
 ## 2026-09-26 — Canva-assisted visual workflow selected
 
@@ -1877,7 +1878,7 @@ Synchronized base SHA: `fff58451dc96fd2b7dea0ca8a125ebffa3acaca8`
 
 Validated implementation commit: `97da2d932c9b7aa7fc9809ccdfd19e1fb7f29b25`
 
-Status: **IMPLEMENTED FOR REPOSITORY SCOPE; NOT MERGED**
+Status: **MERGED PR #258 / `c9498c01db92ed13fa6b1452d2cc3d56ea8b9235`**
 
 Both public surfaces now follow the reviewed VIS-CANVA-1 direction: a concise
 water-engineering company landing and a neutral QA software showcase. The
@@ -1901,5 +1902,55 @@ No company portfolio, photography, profile, credential, location, email, or
 phone was invented. Hosted QA, the canonical production host, provider state,
 and live client data were not used.
 
-The next planned phase remains `UX-EDIT-1A — Direct Worksheet Editing +
-Supplier Invoice Side-by-Side Review`. It was not started here.
+At this phase closeout, `UX-EDIT-1A — Direct Worksheet Editing + Supplier
+Invoice Side-by-Side Review` remained next. Its implementation is recorded
+below; `WB-1` remains the next planned phase after that bounded slice.
+
+## 2026-09-26 — UX-EDIT-1A — Direct Worksheet Editing + Supplier Invoice Review
+
+Implementation branch: `codex/ux-edit-1a`
+
+Synchronized base SHA: `c9498c01db92ed13fa6b1452d2cc3d56ea8b9235`
+
+Application implementation commit: `ac138db65cf066debbd8cb78553587d975d94f3d`
+
+Status: **IMPLEMENTED FOR RECORDED SCOPE**
+
+The shared `WorksheetEditor` now starts permitted text, select, and date edits on
+one pointer click/tap, focuses the editor, and keeps keyboard entry, grid
+navigation, copy/paste, validation, and dirty state. Protected, calculated,
+read-only, and disabled cells stay non-editable and semantically read-only.
+Editable cells use cursor, hover, and focus cues instead of repeated badges.
+
+Supplier Invoice review places the preserved source beside the four-section
+extracted worksheet at desktop and constrained-laptop widths. Tablet and phone
+stack the source above the worksheet. The default review is task-first: compact
+readiness and exception states, short unresolved-issue actions, the shared
+worksheet draft/save boundary, and a single deliberate Verify action. Vendor
+and description correction UIs open only from their issue actions; allocation,
+PO matching, material intake, settlement, correction, Expense details, help,
+and diagnostics remain secondary/collapsed. Existing permissions, canonical
+Vendor authority, source/AI history, financial semantics, linked Expense
+authority, and queue verification behavior are preserved.
+
+Local production-preview Demo Visual QA passed **6/6** scenarios at
+1440×900, 1280×800, 768×1024, and 390×844, plus verified read-only checks at
+1280×800 and 390×844. It recorded zero console/page errors, failed requests,
+and horizontal overflow. Sanitized screenshots and the full evidence summary
+are in `docs/evidence/ux-edit-1a/` and
+`docs/UX-EDIT-1A-VISUAL-CERTIFICATION.md`.
+
+Focused worksheet/Supplier Invoice tests passed **65/65**; representative
+worksheet-consumer tests passed **60/60**; affected tests passed **358/358**
+across **39/387** selected files with no fallback. Lint/typecheck and build
+passed; the build reported existing font/chunk-size and CommonJS `import.meta`
+warnings. Workflow Map consistency passed (**266 nodes, 355 edges, 36
+invariants, 11 diagrams**). No database, migration, RPC/RLS, Docker, Supabase,
+provider, hosted, or production validation was applicable or performed.
+
+The deterministic Jev context checkpoint was preflight-rejected with
+`no-candidates` and `fallback=true`; current source and deterministic test
+selection remained authoritative.
+
+The next planned phase remains `WB-1 — Unified Operations Workbook Schema &
+Shell`. It was not started in this run.
