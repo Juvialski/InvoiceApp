@@ -756,7 +756,12 @@ const openDemoTour: QaScenarioAction = async (page) => {
 };
 
 const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
+  const expenseDisclosure = page.locator('[data-testid="supplier-invoice-expense-disclosure"]').first();
+  await expenseDisclosure.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const expenseBridgeBeforeOpen = await page.locator('[data-testid="supplier-invoice-expense-bridge"]:visible').count();
+  await expenseDisclosure.locator("summary").click();
   await waitForVisible(page, '[data-testid="supplier-invoice-expense-bridge"]');
+
   const changeStatus = await page.getByRole("button", { name: "Change Status", exact: true }).count();
   const expenseLink = await page.getByRole("link", { name: /Open\/Correct linked Expense/ }).count();
   const correctionLink = await page.getByRole("button", { name: /Review correction options/ }).count();
@@ -770,6 +775,7 @@ const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
   const confirmPayment = await page.getByRole("button", { name: /Confirm Payment/ }).count();
   const addAccount = await page.getByRole("button", { name: /Add Cash\/Bank Account/ }).count();
   return [
+    { id: "supplier-expense-details-collapsed-by-default", passed: expenseBridgeBeforeOpen === 0, details: `visible Expense bridges before disclosure: ${expenseBridgeBeforeOpen}` },
     { id: "supplier-payment-change-status-visible", passed: changeStatus === 1, details: `Change Status controls: ${changeStatus}` },
     { id: "supplier-payment-dialog-visible", passed: paymentDialog === 1, details: `supplier payment dialogs: ${paymentDialog}` },
     { id: "supplier-payment-status-options-visible", passed: paidOption === 1 && partialOption === 1, details: `Paid/Partially Paid controls: ${paidOption}/${partialOption}` },
