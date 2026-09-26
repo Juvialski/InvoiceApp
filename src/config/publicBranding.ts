@@ -33,13 +33,13 @@ export const HYDROQUALISENSE_PUBLIC_SITE = Object.freeze({
     }),
   ]),
   projectReferences: Object.freeze([] as PublicCompanyProjectReference[]),
-  projectReferencesPending: "Public project references and photography will be added only after the company approves the specific materials.",
+  projectReferencesPending: "Public project references and photos are pending company approval.",
   contact: Object.freeze({
     email: null as string | null,
     phone: null as string | null,
     location: null as string | null,
   }),
-  contactPending: "A public project inquiry email and telephone number are pending company confirmation.",
+  contactPending: "Public inquiry email and phone are pending company confirmation.",
 });
 
 export const QA_SOFTWARE_SHOWCASE = Object.freeze({
@@ -59,7 +59,7 @@ export const QA_SOFTWARE_SHOWCASE = Object.freeze({
     title: "Engineering Operations Platform | QA Software Showcase",
     description: "A non-production software showcase for engineering operations, using synthetic demo context.",
   }),
-  disclosure: "QA software showcase using synthetic engineering-company data. Not the production corporate services website.",
+  disclosure: "Synthetic QA software showcase. Not the company services website.",
   capabilities: Object.freeze([
     Object.freeze({ id: "projects", title: "Project operations", description: "Explore project context, costs, tasks, and coordination." }),
     Object.freeze({ id: "procurement", title: "Procurement", description: "Follow purchasing, commitments, receipts, and supporting records." }),

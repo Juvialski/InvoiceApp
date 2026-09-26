@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / FUTURE UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 IMPLEMENTED ON FEATURE BRANCH (NOT MERGED) / FUTURE UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-26**
 
@@ -1868,3 +1868,38 @@ visual certification`. Those implementation phases remain unstarted in this
 closeout; the workbook page remains visual-only. The Canva reference is not
 responsive, accessibility, browser, hosted, provider, or production
 certification.
+
+## 2026-09-26 — LANDING-VIS-1 — Canva-guided public landing refinement
+
+Implementation branch: `codex/landing-vis-1`
+
+Synchronized base SHA: `fff58451dc96fd2b7dea0ca8a125ebffa3acaca8`
+
+Validated implementation commit: `97da2d932c9b7aa7fc9809ccdfd19e1fb7f29b25`
+
+Status: **IMPLEMENTED FOR REPOSITORY SCOPE; NOT MERGED**
+
+Both public surfaces now follow the reviewed VIS-CANVA-1 direction: a concise
+water-engineering company landing and a neutral QA software showcase. The
+company keeps the approved logo, short water-focused H1, confirmed service
+labels, project/contact pending states, and no invented portfolio or company
+facts. The QA page uses a compact synthetic workflow preview, shows the six
+capability labels from `QA_SOFTWARE_SHOWCASE`, and presents **Open demo** as
+primary with **Sign in to QA workspace** as secondary.
+
+The bounded copy pass reduced browser-visible landing text from 320 to 110 words
+on the company root and from 296 to 98 words on QA. Responsive screenshots for
+1440×900, 1280×800, 768×1024, and 390×844 are recorded in
+`docs/evidence/landing-vis-1/`; browser results and route/metadata evidence are
+in `docs/LANDING-VIS-1-VISUAL-CERTIFICATION.md`. The production-company
+`/contact`, QA `/demo`, and both public policy link paths were also checked.
+
+The QA preview is a static synthetic illustration. The Canva mobile disclosure
+overlap was not carried into the responsive implementation; the note is
+separated with semantic spacing. The Canva reference itself was not edited.
+No company portfolio, photography, profile, credential, location, email, or
+phone was invented. Hosted QA, the canonical production host, provider state,
+and live client data were not used.
+
+The next planned phase remains `UX-EDIT-1A — Direct Worksheet Editing +
+Supplier Invoice Side-by-Side Review`. It was not started here.

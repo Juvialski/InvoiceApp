@@ -1,10 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { applicationModeForPath } from "../src/app/applicationMode.ts";
 import { HYDROQUALISENSE_PUBLIC_SITE, QA_SOFTWARE_SHOWCASE } from "../src/config/publicBranding.ts";
 import { deploymentSearchPolicy } from "../src/lib/deploymentSearchPolicy.ts";
+import { CompanyPublicSite } from "../src/public/CompanyPublicSite.tsx";
 import { publicPageMetadataFor } from "../src/public/publicMetadata.ts";
+import { SoftwareShowcaseLanding } from "../src/public/SoftwareShowcaseLanding.tsx";
 
 const indexHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const mainSource = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
@@ -18,6 +22,22 @@ const demoTour = readFileSync(new URL("../src/demo/DemoTour.tsx", import.meta.ur
 const demoCompanyFixture = readFileSync(new URL("../src/demo/data/createDemoWorkspace.ts", import.meta.url), "utf8");
 const demoInvoiceFixture = readFileSync(new URL("../src/demo/data/invoices.ts", import.meta.url), "utf8");
 const publicChrome = readFileSync(new URL("../src/public/PublicSiteChrome.tsx", import.meta.url), "utf8");
+const renderedCompanyLanding = renderToStaticMarkup(createElement(CompanyPublicSite));
+const renderedQaLanding = renderToStaticMarkup(createElement(SoftwareShowcaseLanding));
+
+function renderedText(markup: string) {
+  return markup.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+}
+
+function renderedHeading(markup: string) {
+  const match = markup.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/);
+  assert.ok(match, "landing page renders an h1");
+  return renderedText(match[1]);
+}
+
+function renderedWordCount(markup: string) {
+  return renderedText(markup).split(/\s+/).filter(Boolean).length;
+}
 
 test("QA deployment root opens the public software showcase when prospect intake is disabled", () => {
   assert.equal(
@@ -47,6 +67,59 @@ test("production public routing delegates company content to its own surface", (
   assert.match(publicChrome, /href="\/dashboard"/);
 });
 
+test("company landing keeps its water-engineering heading concise", () => {
+  assert.equal(renderedHeading(renderedCompanyLanding), "Water-focused engineering.");
+  assert.equal((renderedCompanyLanding.match(/<h1\b/g) || []).length, 1);
+  assert.match(renderedCompanyLanding, /href="\/contact"[^>]*>[\s\S]*?Discuss a project/);
+});
+
+test("QA landing uses concise neutral workflow framing", () => {
+  assert.equal(renderedHeading(renderedQaLanding), "Engineering operations workflows.");
+  assert.equal((renderedQaLanding.match(/<h1\b/g) || []).length, 1);
+});
+
+test("QA landing makes Open demo primary and keeps workspace sign-in distinct", () => {
+  const header = renderedQaLanding.match(/<header\b[\s\S]*?<\/header>/)?.[0] || "";
+  const hero = renderedQaLanding.match(/<section id="home"[\s\S]*?<\/section>/)?.[0] || "";
+  const headerDemo = header.match(/<a\b(?=[^>]*href="\/demo")[^>]*>([\s\S]*?)<\/a>/);
+  const headerSignIn = header.match(/<a\b(?=[^>]*href="\/dashboard")[^>]*>([\s\S]*?)<\/a>/);
+  const heroDemo = hero.match(/<a\b(?=[^>]*href="\/demo")[^>]*>([\s\S]*?)<\/a>/);
+  const heroSignIn = hero.match(/<a\b(?=[^>]*href="\/dashboard")[^>]*>([\s\S]*?)<\/a>/);
+
+  assert.equal(renderedText(headerDemo?.[1] || ""), "Open demo");
+  assert.equal(renderedText(headerSignIn?.[1] || ""), "Sign in to QA workspace");
+  assert.equal(renderedText(heroDemo?.[1] || ""), "Open demo");
+  assert.equal(renderedText(heroSignIn?.[1] || ""), "Sign in to QA workspace");
+  assert.ok(hero.indexOf('href="/demo"') < hero.indexOf('href="/dashboard"'));
+  assert.match(header, /<nav aria-label="Showcase navigation"[\s\S]*?Sign in to QA workspace/);
+});
+
+test("QA synthetic and non-production disclosure has its own semantic note", () => {
+  const hero = renderedQaLanding.match(/<section id="home"[\s\S]*?<\/section>/)?.[0] || "";
+  const note = hero.match(/<(?:div|aside)\b[^>]*role="note"[^>]*>([\s\S]*?)<\/(?:div|aside)>/);
+
+  assert.ok(note, "QA disclosure is presented in a semantic note");
+  assert.equal(renderedText(note[1]), "Synthetic QA software showcase. Not the company services website.");
+});
+
+test("company landing keeps the approved focus and pending states concise", () => {
+  const companyText = renderedText(renderedCompanyLanding);
+
+  assert.ok(companyText.includes("An engineering company focused on water treatment, water management, and related engineering projects."));
+  assert.ok(companyText.includes("Public project references and photos are pending company approval."));
+  assert.ok(companyText.includes("Public inquiry email and phone are pending company confirmation."));
+  assert.ok(renderedWordCount(renderedCompanyLanding) <= 150, `company landing has ${renderedWordCount(renderedCompanyLanding)} visible words`);
+});
+
+test("QA landing keeps all supported capability labels in concise copy", () => {
+  const qaText = renderedText(renderedQaLanding);
+
+  for (const capability of QA_SOFTWARE_SHOWCASE.capabilities) {
+    assert.ok(qaText.includes(capability.title), `QA landing includes ${capability.title}`);
+  }
+  assert.ok(renderedWordCount(renderedQaLanding) <= 150, `QA landing has ${renderedWordCount(renderedQaLanding)} visible words`);
+});
+
 test("public company content contains only confirmed service themes and no public project/contact claims", () => {
   assert.equal(HYDROQUALISENSE_PUBLIC_SITE.identity.companyName, "Hydroqualisense Solutions Corp.");
   assert.deepEqual(HYDROQUALISENSE_PUBLIC_SITE.services.map(({ title }) => title), [
@@ -61,7 +134,7 @@ test("public company content contains only confirmed service themes and no publi
 test("QA has a neutral software identity, explicit synthetic disclosure, and non-indexing metadata", () => {
   assert.equal(QA_SOFTWARE_SHOWCASE.softwareIdentity.productBrand, null);
   assert.equal(QA_SOFTWARE_SHOWCASE.softwareIdentity.creatorBrand, null);
-  assert.match(QA_SOFTWARE_SHOWCASE.disclosure, /QA software showcase.*synthetic.*not the production corporate services website/i);
+  assert.equal(QA_SOFTWARE_SHOWCASE.disclosure, "Synthetic QA software showcase. Not the company services website.");
   assert.doesNotMatch(softwareShowcase, /Hydroqualisense Solutions Corp\.|BRAND\.companyName/);
 
   const metadata = publicPageMetadataFor("software-showcase", "landing", "/");

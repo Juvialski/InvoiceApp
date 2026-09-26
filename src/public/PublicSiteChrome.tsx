@@ -3,8 +3,8 @@ import { ArrowRight, Workflow } from "lucide-react";
 import { DeploymentEnvironmentBanner } from "../components/DeploymentEnvironmentBanner.tsx";
 import { HYDROQUALISENSE_PUBLIC_SITE, QA_SOFTWARE_SHOWCASE, type PublicSiteVariant } from "../config/publicBranding.ts";
 
-const companyLinkClass = "rounded-md px-2 py-2 text-xs font-semibold text-slate-600 transition hover:text-teal-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:px-1";
-const showcaseLinkClass = "rounded-md px-2 py-2 text-xs font-semibold text-slate-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 sm:px-1";
+const companyLinkClass = "inline-flex min-h-11 items-center justify-center rounded-md px-2 py-2 text-xs font-semibold text-slate-600 transition hover:text-teal-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:px-1";
+const showcaseLinkClass = "inline-flex min-h-11 items-center rounded-md px-2 py-2 text-xs font-semibold text-slate-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 sm:px-1";
 
 export function PublicSiteHeader({ variant }: { variant: PublicSiteVariant }) {
   const isCompany = variant === "company";
@@ -40,8 +40,8 @@ export function PublicSiteHeader({ variant }: { variant: PublicSiteVariant }) {
               Client Portal <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
             </a>
           ) : (
-            <a href={QA_SOFTWARE_SHOWCASE.workspaceEntry.signInHref} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-4 text-[11px] font-bold text-[#08202c] transition hover:bg-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200 sm:order-3">
-              {QA_SOFTWARE_SHOWCASE.workspaceEntry.signInLabel} <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+            <a href={QA_SOFTWARE_SHOWCASE.workspaceEntry.demoHref} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-4 text-[11px] font-bold text-[#08202c] transition hover:bg-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200 sm:order-3">
+              {QA_SOFTWARE_SHOWCASE.workspaceEntry.demoLabel} <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
             </a>
           )}
 
@@ -57,7 +57,7 @@ export function PublicSiteHeader({ variant }: { variant: PublicSiteVariant }) {
             <nav aria-label="Showcase navigation" className="order-3 flex basis-full flex-wrap items-center justify-center gap-x-4 border-t border-white/10 pt-2 sm:order-2 sm:basis-auto sm:justify-end sm:gap-5 sm:border-0 sm:pt-0">
               <a href="/#capabilities" className={showcaseLinkClass}>Capabilities</a>
               <a href="/#workflow" className={showcaseLinkClass}>Workflow</a>
-              <a href="/demo" className={showcaseLinkClass}>Demo workspace</a>
+              <a href={QA_SOFTWARE_SHOWCASE.workspaceEntry.signInHref} className={showcaseLinkClass}>{QA_SOFTWARE_SHOWCASE.workspaceEntry.signInLabel}</a>
             </nav>
           )}
         </div>
@@ -78,14 +78,11 @@ export function PublicSiteFooter({ variant }: { variant: PublicSiteVariant }) {
           <p className={isCompany ? "font-bold text-slate-800" : "font-bold text-white"}>
             {isCompany ? HYDROQUALISENSE_PUBLIC_SITE.identity.companyName : `${QA_SOFTWARE_SHOWCASE.softwareIdentity.productBrand || QA_SOFTWARE_SHOWCASE.softwareIdentity.neutralDescriptor} · QA Software Showcase`}
           </p>
-          <p className="mt-1 max-w-xl text-[11px] opacity-75">
-            {isCompany ? "Water treatment · Water management · Related engineering projects" : "Synthetic demo context only. Not the production corporate services website."}
-          </p>
         </div>
         <nav aria-label="Public policy navigation" className="flex flex-wrap gap-x-5 gap-y-2">
-          <a href={privacyHref} className="rounded-sm font-semibold underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">Privacy Policy</a>
-          <a href={termsHref} className="rounded-sm font-semibold underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">Terms of Service</a>
-          {isCompany && <a href="/dashboard" className="rounded-sm font-semibold underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">Client Portal</a>}
+          <a href={privacyHref} className="inline-flex min-h-11 items-center rounded-sm px-1 font-semibold underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">Privacy Policy</a>
+          <a href={termsHref} className="inline-flex min-h-11 items-center rounded-sm px-1 font-semibold underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">Terms of Service</a>
+          {isCompany && <a href="/dashboard" className="inline-flex min-h-11 items-center rounded-sm px-1 font-semibold underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">Client Portal</a>}
         </nav>
       </div>
     </footer>

@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
-Date: **2026-09-24**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 IMPLEMENTED ON FEATURE BRANCH (NOT MERGED) / UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
+Date: **2026-09-26**
 Repository: `Juvialski/InvoiceApp`
 
 RI-0 Repository Intelligence planning was prepared from the earlier current
@@ -2566,3 +2566,39 @@ production readiness.
 
 These follow-ons were not started in this phase. Preferred order remains
 `LANDING-VIS-1 -> UX-EDIT-1A -> WB-1 -> representative visual certification`.
+
+## 2026-09-26 — LANDING-VIS-1 implementation
+
+Implementation branch: `codex/landing-vis-1`
+
+Synchronized base SHA: `fff58451dc96fd2b7dea0ca8a125ebffa3acaca8`
+
+Validated implementation commit: `97da2d932c9b7aa7fc9809ccdfd19e1fb7f29b25`
+
+Status: **IMPLEMENTED FOR REPOSITORY SCOPE; NOT MERGED**
+
+The production company landing and neutral QA showcase are complete for this
+bounded phase. The company root retains only approved company identity,
+services, and truthful pending states. The QA root remains synthetic and
+neutral, with `Open demo` primary and the separate QA sign-in path secondary.
+The public landing copy is about 110 words for the company root and 98 for QA,
+counting visible page text including headers and footers.
+
+Local browser evidence for both roots at 1440×900, 1280×800, 768×1024, and
+390×844 is tracked in `docs/evidence/landing-vis-1/`. The certification record
+is `docs/LANDING-VIS-1-VISUAL-CERTIFICATION.md`. Local contact/demo entries and
+both public policy link flows were checked. The captures had no page errors or
+horizontal overflow; skip-link focus and 44 px navigation touch targets were
+verified. QA and local company previews are correctly non-indexable without a
+production canonical URL.
+
+Company portfolio references/photos, profile details, certifications,
+location/service area, public inquiry email, and public phone remain pending
+company confirmation. The Canva mobile disclosure collision is corrected in
+the browser implementation using a standalone semantic note; the Canva
+reference was not edited. No authenticated workflow, database, migration,
+financial, permission, or production deployment changed. Hosted QA and the
+canonical production host were not tested.
+
+Next planned phase: `UX-EDIT-1A — Direct Worksheet Editing + Supplier Invoice
+Side-by-Side Review`. It remains unstarted in this run.
