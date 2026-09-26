@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / FUTURE UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / FUTURE UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-24**
+Last updated: **2026-09-26**
 
 Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -20,6 +20,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Excel-Native Operations UX workbook/authority design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — foundations implemented through bounded Expenses/Supplier Payables
 **Current selective workbook-editing interaction direction:** `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` — browse visually, edit like a spreadsheet, keep consequential workflows controlled
 **Planned UX-EDIT + Operations Workbook direction:** `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md` — future planning only; not active and not implementation authorization
+**VIS-CANVA-1 visual direction:** `docs/superpowers/specs/2026-09-26-vis-canva-1-visual-direction.md` — completed seven-page Canva reference for the company site, QA showcase, Supplier Invoice review, and optional workbook shell
 **Blocking worksheet density/clarity correction:** `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md` — starts with app-wide screenshot investigation/visual triage before evidence-backed UI corrections and UX-W5
 **Next developer-tooling research plan:** `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`
 Repository responsibility/evidence decisions: `docs/REPOSITORY_ARCHITECTURE_TRIAGE.md`, `docs/REPOSITORY_EVIDENCE_POLICY.md`
@@ -1846,3 +1847,24 @@ Preferred follow-on order after VIS-CANVA-1 review:
 `LANDING-VIS-1 -> UX-EDIT-1A -> WB-1 -> representative visual certification`.
 
 The existing hardening-first policy, production/QA identity separation, financial/security/history invariants, and feature-expansion freeze remain in force.
+
+## 2026-09-26 — VIS-CANVA-1 visual reference completed
+
+VIS-CANVA-1 is complete as a Canva-assisted design/reference phase. It created
+the seven-page [HydroQualiSense Visual Blueprint](https://www.canva.com/d/XGTcgfzuO_yZHV5)
+(Canva design ID `DAHWSiZsn1Y`) and the repository visual contract at
+`docs/superpowers/specs/2026-09-26-vis-canva-1-visual-direction.md`.
+
+The deck covers the production company site, the neutral QA software showcase,
+the authenticated Supplier Invoice side-by-side source review at wide and
+constrained-laptop sizes, and one optional WB-1 shell reference. Unsupported
+company claims and contact details were replaced with approved copy or explicit
+pending placeholders. Invoice content uses synthetic placeholders. No
+application, database, permission, financial, lifecycle, or workflow authority
+was changed.
+
+The follow-on order remains `LANDING-VIS-1 -> UX-EDIT-1A -> WB-1 -> representative
+visual certification`. Those implementation phases remain unstarted in this
+closeout; the workbook page remains visual-only. The Canva reference is not
+responsive, accessibility, browser, hosted, provider, or production
+certification.
