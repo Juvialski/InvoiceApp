@@ -262,6 +262,50 @@ test("renders accessible headers, protected semantics, and contained responsive 
   assert.match(html, /overflow-x-auto/);
 });
 
+test("editable cells expose a non-color edit affordance and protected cells stay read-only", () => {
+  const html = renderToStaticMarkup(
+    <WorksheetEditor
+      ariaLabel="Materials worksheet"
+      rows={rows}
+      columns={columns}
+      rowKey={(row) => row.id}
+    />,
+  );
+  const editableMarker = html.indexOf('data-worksheet-cell="row-1:name"');
+  const editableStart = html.lastIndexOf("<td", editableMarker);
+  const editableCell = html.slice(editableStart, html.indexOf("</td>", editableStart));
+  const protectedMarker = html.indexOf('data-worksheet-cell="row-1:protectedValue"');
+  const protectedStart = html.lastIndexOf("<td", protectedMarker);
+  const protectedCell = html.slice(protectedStart, html.indexOf("</td>", protectedStart));
+
+  assert.ok(editableStart >= 0);
+  assert.match(editableCell, /data-worksheet-editable="true"/);
+  assert.match(editableCell, /cursor-text/);
+  assert.match(protectedCell, /aria-readonly="true"/);
+  assert.match(protectedCell, /data-worksheet-editable="false"/);
+});
+
+test("disabled worksheets do not expose or initialize editable cells", () => {
+  const html = renderToStaticMarkup(
+    <WorksheetEditor
+      ariaLabel="Disabled materials worksheet"
+      rows={rows}
+      columns={columns}
+      rowKey={(row) => row.id}
+      disabled
+      initialEditingCell={{ row: 0, column: 0 }}
+    />,
+  );
+  const cellMarker = html.indexOf('data-worksheet-cell="row-1:name"');
+  const cellStart = html.lastIndexOf("<td", cellMarker);
+  const cell = html.slice(cellStart, html.indexOf("</td>", cellStart));
+
+  assert.ok(cellStart >= 0);
+  assert.match(cell, /aria-readonly="true"/);
+  assert.match(cell, /data-worksheet-editable="false"/);
+  assert.doesNotMatch(cell, /<input\b|<select\b/);
+});
+
 test("renders a labelled mobile row fallback without duplicating protected-state pills", () => {
   const html = renderToStaticMarkup(
     <WorksheetEditor

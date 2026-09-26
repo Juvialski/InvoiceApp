@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 IMPLEMENTED ON FEATURE BRANCH (NOT MERGED) / UX-EDIT + OPERATIONS WORKBOOK PLAN RECORDED (NOT ACTIVE)**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / WB-1 PLANNED NOT STARTED**
 Date: **2026-09-26**
 Repository: `Juvialski/InvoiceApp`
 
@@ -2502,7 +2502,8 @@ boundary and is not claimed by this merge.
 Planning contract:
 `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md`
 
-Status: **PLANNED / NOT ACTIVE / NO IMPLEMENTATION AUTHORIZED**
+Status at plan creation: **PLANNED / NOT ACTIVE**. UX-EDIT-1A is implemented for
+the recorded scope below; WB-1 remains planned and unstarted.
 
 The future interaction direction is **browse visually -> edit like a spreadsheet
 where appropriate -> execute sensitive workflows deliberately**. UX-EDIT-1
@@ -2524,8 +2525,9 @@ no domain is promised automatically.
 
 The plan preserves existing permissions, concurrency, review-before-Apply,
 protected/calculated fields, financial truth, source evidence, lifecycle
-authority, and immutable history. It remains behind hardening/reliability
-priorities and does not resume the feature-expansion backlog.
+authority, and immutable history. The 2026-09-26 UX-EDIT-1A implementation is a
+bounded refinement of those existing workflows; it does not resume the
+feature-expansion backlog.
 
 ## 2026-09-26 — VIS-CANVA-1 complete; implementation follow-ons remain unstarted
 
@@ -2564,8 +2566,9 @@ production readiness.
 | `UX-EDIT-1A` | Implement direct editing cues and source-aware side-by-side Supplier Invoice review while preserving permissions, source provenance, validation, verification, financial authority, and history. |
 | `WB-1` | Implement the planned Operations Workbook shell later; use its Canva page only as visual guidance, not as schema or persistence authority. |
 
-These follow-ons were not started in this phase. Preferred order remains
-`LANDING-VIS-1 -> UX-EDIT-1A -> WB-1 -> representative visual certification`.
+At VIS-CANVA-1 closeout these follow-ons had not started. The current order is
+`LANDING-VIS-1 -> UX-EDIT-1A -> WB-1 -> representative visual certification`;
+the completed `LANDING-VIS-1` and `UX-EDIT-1A` records follow.
 
 ## 2026-09-26 — LANDING-VIS-1 implementation
 
@@ -2575,7 +2578,7 @@ Synchronized base SHA: `fff58451dc96fd2b7dea0ca8a125ebffa3acaca8`
 
 Validated implementation commit: `97da2d932c9b7aa7fc9809ccdfd19e1fb7f29b25`
 
-Status: **IMPLEMENTED FOR REPOSITORY SCOPE; NOT MERGED**
+Status: **MERGED PR #258 / `c9498c01db92ed13fa6b1452d2cc3d56ea8b9235`**
 
 The production company landing and neutral QA showcase are complete for this
 bounded phase. The company root retains only approved company identity,
@@ -2600,5 +2603,69 @@ reference was not edited. No authenticated workflow, database, migration,
 financial, permission, or production deployment changed. Hosted QA and the
 canonical production host were not tested.
 
-Next planned phase: `UX-EDIT-1A — Direct Worksheet Editing + Supplier Invoice
-Side-by-Side Review`. It remains unstarted in this run.
+At that phase closeout, the next planned phase was `UX-EDIT-1A — Direct
+Worksheet Editing + Supplier Invoice Side-by-Side Review`. Its implementation
+is recorded below; `WB-1` remains the next planned phase.
+
+## 2026-09-26 — UX-EDIT-1A — Direct Worksheet Editing + Supplier Invoice Review
+
+Implementation branch: `codex/ux-edit-1a`
+
+Synchronized base SHA: `c9498c01db92ed13fa6b1452d2cc3d56ea8b9235`
+
+Application implementation commit: `ac138db65cf066debbd8cb78553587d975d94f3d`
+
+Status: **IMPLEMENTED FOR RECORDED SCOPE**
+
+The shared `WorksheetEditor` now enters safe editable text, date, and select
+cells on one pointer click/tap and focuses the control. Keyboard Enter,
+Tab/Shift+Tab, Escape, grid navigation, copy/paste, validation, dirty state,
+row operations, Save/Apply boundaries, and responsive fallbacks remain
+available. Protected, calculated, read-only, and disabled cells stay
+non-editable and semantically read-only. Editable cells have visible cursor,
+hover, and focus cues without per-cell badges.
+
+Supplier Invoice review presents the preserved document beside the editable
+four-section worksheet at desktop and constrained-laptop widths. Tablet/phone
+stack the source above the worksheet. The review now leads with compact invoice
+identity/readiness, issue actions, the worksheet, and Save/Verify. Vendor and
+description correction UIs open only from their issue actions; allocation, PO
+matching, material intake, settlement/payment, correction, linked Expense
+details, help, review notes, and extraction diagnostics remain secondary or
+collapsed. Queue verification remains the single sticky-footer action.
+
+Financial/source/security boundaries are unchanged: source and AI snapshot
+history remain preserved; canonical Vendor linking and Expense-description
+confirmation stay human-controlled; original currency, calculated monetary
+fields, readiness checks, linked-Expense authority, and financial correction
+semantics remain unchanged. No database, migration, RPC/RLS, schema, financial
+model, or provider behavior changed.
+
+Local production-preview Demo Visual QA on application commit
+`ac138db65cf066debbd8cb78553587d975d94f3d` passed **6/6** scenarios across
+1440×900, 1280×800, 768×1024, and 390×844, plus verified read-only checks at
+1280×800 and 390×844. It recorded zero console/page errors, failed requests,
+navigation failures, and horizontal overflow. The lead inspected all four
+sanitized screenshots; the 1280×800 capture confirms source and first editable
+fields are visible together. Screenshots are in `docs/evidence/ux-edit-1a/`;
+the certification is `docs/UX-EDIT-1A-VISUAL-CERTIFICATION.md`.
+
+Validation:
+
+- focused worksheet/Supplier Invoice tests: **65/65 passed**;
+- representative worksheet-consumer tests: **60/60 passed**;
+- final `npm.cmd run test:affected:agent`: **358 passed, 0 failed, 0 skipped**
+  across **39/387 selected files**, no fallback, database unaffected;
+- `npm.cmd run lint`: passed;
+- `npm.cmd run build`: passed, with existing Inter font/chunk-size and CommonJS
+  `import.meta` warnings;
+- Workflow Map consistency: **266 nodes, 355 edges, 36 invariants, 11
+  diagrams**;
+- database/Docker/Supabase validation: not applicable; no DB contract changed.
+
+The Jev context advisory was preflight-rejected with `no-candidates` and
+`fallback=true`; deterministic source inspection and test selection remained
+authoritative.
+
+Next planned phase: **WB-1 — Unified Operations Workbook Schema & Shell**.
+It was not started in this run.

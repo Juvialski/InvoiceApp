@@ -242,9 +242,8 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
     const handleReopenCallback = async () => { if (onReopen) return onReopen(selectedInvoice); return undefined; };
     const canRepairVerifiedInvoice = !activeSupplierExpenseInvoiceIds.includes(selectedInvoice.id);
     return (
-      <div className="space-y-5">
-        {!linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} supplierInvoiceVerified={selectedInvoice.reviewStatus === "VERIFIED"} supplierInvoiceReviewStatus={selectedInvoice.reviewStatus} supplierInvoiceDueDate={selectedInvoice.dueDate} compact canReverse={canReverseSettlement} recordPaymentPath={appPathForCashTarget("INVOICE", selectedInvoice.id)} canRecordPayment={canRecordInvoicePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />}
-        {canManageInvoices && onPreviewCorrection && <button type="button" onClick={() => void openCorrection(selectedInvoice)} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100">Review correction options</button>}
+      <div className="space-y-3">
+        {!linkedExpenseId && <details data-testid="supplier-invoice-settlement-disclosure" className="rounded-lg border border-slate-200 bg-white"><summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[10px] font-black text-slate-700 [&::-webkit-details-marker]:hidden"><span>Settlement and payment</span><span className="text-slate-500">Review evidence</span></summary><div className="border-t border-slate-100 p-2"><FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} supplierInvoiceVerified={selectedInvoice.reviewStatus === "VERIFIED"} supplierInvoiceReviewStatus={selectedInvoice.reviewStatus} supplierInvoiceDueDate={selectedInvoice.dueDate} compact canReverse={canReverseSettlement} recordPaymentPath={appPathForCashTarget("INVOICE", selectedInvoice.id)} canRecordPayment={canRecordInvoicePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} /></div></details>}
         <VerificationWorkspace
           invoice={selectedInvoice}
           queue={reviewQueue}
@@ -264,7 +263,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onReopen={canVerifySupplierInvoices && selectedInvoice.lifecycleStatus !== "VOID" ? handleReopenCallback : undefined}
           onCommitRepair={onCommitRepair}
           onAddVendor={canManageVendors ? onAddVendor : undefined}
-          onOpenCorrection={onPreviewCorrection ? () => void openCorrection(selectedInvoice) : undefined}
+          onOpenCorrection={canManageInvoices && onPreviewCorrection ? () => void openCorrection(selectedInvoice) : undefined}
           repairMode={repairMode}
           linkedExpense={linkedExpense}
           supplierInvoiceAuthorityConflict={settlementProjections?.get(selectedInvoice.id)?.authorityConflict}

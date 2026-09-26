@@ -428,34 +428,21 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
     updateDraftInvoice({ ...draftInvoiceRef.current, items: [...(draftInvoiceRef.current.items || []), newLineItem(invoice.id)] });
   };
 
-  return <section ref={worksheetRootRef} data-testid="supplier-invoice-extracted-worksheet" data-worksheet-responsive-surface="supplier-invoice" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-4">
-    <div data-testid="supplier-invoice-worksheet-action-bar" className="flex min-w-0 flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-start sm:justify-between">
+  return <section ref={worksheetRootRef} data-testid="supplier-invoice-extracted-worksheet" data-worksheet-responsive-surface="supplier-invoice" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-3">
+    <div data-testid="supplier-invoice-worksheet-action-bar" className="flex min-w-0 flex-col gap-2 border-b border-slate-200 pb-2 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
-        <h2 className="text-sm font-black text-slate-950">Extracted invoice data</h2>
-        <p className="mt-1 text-[10px] leading-4 text-slate-500">Review the extracted fields below. Source evidence is preserved; only permitted corrections are editable.</p>
+        <h2 className="text-sm font-black text-slate-950">Extracted data</h2>
+        <p className="sr-only">Only permitted fields are editable. The original source is preserved.</p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
         {!readOnly && <button type="button" data-worksheet-add-row="true" onClick={handleAddLine} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Add line</button>}
         {!readOnly && onUpdateInvoice && <>
-          <button type="button" onClick={handleCancel} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Discard all worksheet edits</button>
+          <button type="button" aria-label="Discard all worksheet edits" onClick={handleCancel} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Discard edits</button>
           <button type="button" onClick={handleSave} className="inline-flex min-h-9 items-center rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-black text-indigo-700 hover:bg-indigo-50">Save worksheet edits</button>
         </>}
       </div>
     </div>
     {saveError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-800">{saveError}</p>}
-    <details data-testid="supplier-invoice-worksheet-help" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600">
-      <summary className="cursor-pointer font-bold text-slate-700">How this review works</summary>
-      <div className="mt-2 space-y-2">
-        <p>One draft spans all sections. Save permitted extracted fields together; discard resets the draft. Calculated and protected values retain their meaning, and canonical Vendor identity remains separate.</p>
-        <div className="flex flex-wrap gap-1.5" aria-label="Worksheet state legend">
-          <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-bold text-indigo-800">Manually corrected</span>
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-900">Unresolved</span>
-          <span className="rounded-full bg-slate-200 px-2 py-0.5 font-bold text-slate-700">Calculated / protected</span>
-          <span className="px-1 text-slate-500">Source evidence is the normal state.</span>
-        </div>
-      </div>
-    </details>
-
     <WorksheetSection testId="supplier-invoice-header-worksheet" title="Invoice Header">
       <WorksheetEditor
         ariaLabel="Supplier invoice header worksheet"
@@ -518,6 +505,19 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         density="compact"
       />
     </WorksheetSection>
+
+    <details data-testid="supplier-invoice-worksheet-help" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600">
+      <summary className="cursor-pointer font-bold text-slate-700">Worksheet help</summary>
+      <div className="mt-2 space-y-2">
+        <p>One draft spans all sections. Save permitted fields together; discard resets the draft. Calculated values remain protected, and Vendor linking stays separate.</p>
+        <div className="flex flex-wrap gap-1.5" aria-label="Worksheet state legend">
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-bold text-indigo-800">Manually corrected</span>
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-900">Unresolved</span>
+          <span className="rounded-full bg-slate-200 px-2 py-0.5 font-bold text-slate-700">Calculated / protected</span>
+          <span className="px-1 text-slate-500">Source evidence is the normal state.</span>
+        </div>
+      </div>
+    </details>
   </section>;
 }
 
