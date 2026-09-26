@@ -759,7 +759,7 @@ const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
   const expenseDisclosure = page.locator('[data-testid="supplier-invoice-expense-disclosure"]').first();
   await expenseDisclosure.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const expenseBridgeBeforeOpen = await page.locator('[data-testid="supplier-invoice-expense-bridge"]:visible').count();
-  await expenseDisclosure.locator("summary").click();
+  await page.locator('[data-testid="supplier-invoice-expense-disclosure"] summary').first().click();
   await waitForVisible(page, '[data-testid="supplier-invoice-expense-bridge"]');
 
   const changeStatus = await page.getByRole("button", { name: "Change Status", exact: true }).count();
