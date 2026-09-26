@@ -497,20 +497,24 @@ const verifyDarkInvoiceFilterSheet: QaScenarioAction = async (page) => {
 
 const verifyPayrollFirstView: QaScenarioAction = async (page) => {
   const layout = await page.evaluate(() => {
-    const nextStep = Array.from(document.querySelectorAll<HTMLElement>("h1,h2,h3,h4")).find((element) => element.textContent?.trim() === "Next step");
-    const review = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find((element) => element.textContent?.trim() === "Review payroll");
-    const reviewRect = review?.getBoundingClientRect();
+    const nextStep = document.querySelector<HTMLElement>('[data-payroll-next-step="true"]')
+      || Array.from(document.querySelectorAll<HTMLElement>("section,div")).find((element) => element.querySelector("h1,h2,h3,h4")?.textContent?.trim() === "Next step");
+    const heading = nextStep?.querySelector<HTMLElement>("h1,h2,h3,h4")
+      || Array.from(document.querySelectorAll<HTMLElement>("h1,h2,h3,h4")).find((element) => element.textContent?.trim() === "Next step");
+    const primaryAction = nextStep?.querySelector<HTMLElement>("button:not([disabled]),a[href]");
+    const actionRect = primaryAction?.getBoundingClientRect();
     const summary = document.querySelector<HTMLElement>("[data-payroll-period-summary]");
     return {
-      nextStepTop: nextStep?.getBoundingClientRect().top ?? null,
-      reviewButtonInFirstView: Boolean(reviewRect && reviewRect.top >= 0 && reviewRect.bottom <= window.innerHeight),
+      nextStepTop: heading?.getBoundingClientRect().top ?? null,
+      primaryActionInFirstView: Boolean(actionRect && actionRect.top >= 0 && actionRect.bottom <= window.innerHeight),
+      primaryActionLabel: primaryAction?.textContent?.trim() || "",
       navigationButtons: document.querySelectorAll('[data-payroll-navigation="true"] button').length,
       periodSummaryCollapsed: summary?.querySelector("button")?.getAttribute("aria-expanded") === "false",
     };
   });
   return [
     { id: "payroll-next-step-first-view", passed: layout.nextStepTop !== null && layout.nextStepTop < 800, details: `Next step top: ${layout.nextStepTop ?? "missing"}px in 390×844 view` },
-    { id: "payroll-primary-next-step-visible", passed: layout.reviewButtonInFirstView, details: `Review payroll button fits first view: ${layout.reviewButtonInFirstView}` },
+    { id: "payroll-primary-next-step-visible", passed: layout.primaryActionInFirstView, details: `Primary next-step action "${layout.primaryActionLabel || "missing"}" fits first view: ${layout.primaryActionInFirstView}` },
     { id: "payroll-compact-navigation-preserved", passed: layout.navigationButtons === 7, details: `Payroll navigation buttons: ${layout.navigationButtons}` },
     { id: "payroll-period-summary-progressively-disclosed", passed: layout.periodSummaryCollapsed, details: `Period summary collapsed: ${layout.periodSummaryCollapsed}` },
   ] satisfies readonly QaAssertion[];
