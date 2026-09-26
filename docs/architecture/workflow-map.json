@@ -2039,7 +2039,7 @@
         "tests/invoiceLogic.test.ts"
       ],
       "qaScenarioIds": [
-        "invoices--review--invoice-review-opened--desktop-1440"
+        "supplier-invoice-ux-edit-1a--review--supplier-invoice-source-and-extracted-worksheet-review--ux-edit-desktop-1440"
       ]
     },
     {
@@ -4397,7 +4397,7 @@
         "invoices.manage"
       ],
       "qaScenarioIds": [
-        "invoices--review--invoice-review-opened--desktop-1440"
+        "supplier-invoice-ux-edit-1a--review--supplier-invoice-source-and-extracted-worksheet-review--ux-edit-desktop-1440"
       ]
     },
     {

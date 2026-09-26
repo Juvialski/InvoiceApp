@@ -21,6 +21,12 @@ const R4E_VIEWPORTS = [
   { name: "r4e-tablet-768", width: 768, height: 1024 },
   { name: "r4e-phone-390", width: 390, height: 844 },
 ] as const;
+const UX_EDIT_1A_VIEWPORTS = [
+  { name: "ux-edit-desktop-1440", width: 1440, height: 900 },
+  { name: "ux-edit-laptop-1280", width: 1280, height: 800 },
+  { name: "ux-edit-tablet-768", width: 768, height: 1024 },
+  { name: "ux-edit-phone-390", width: 390, height: 844 },
+] as const;
 const R4D_CONSTRAINED_LAPTOP = { name: "r4d-laptop-1280", width: 1280, height: 800 } as const;
 const R4D_TABLET = { name: "r4d-tablet-768", width: 768, height: 1024 } as const;
 
@@ -789,8 +795,10 @@ const verifySupplierInvoiceNavigation: QaScenarioAction = async (page) => {
 };
 
 const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
-  await waitForVisible(page, '[data-testid="supplier-invoice-source-first"]');
-  const sourceFirst = await page.locator('[data-testid="supplier-invoice-source-first"]').count();
+  await waitForVisible(page, '[data-testid="supplier-invoice-side-by-side-review"]');
+  const reviewLayout = await page.locator('[data-testid="supplier-invoice-side-by-side-review"]').count();
+  const sourcePane = await page.locator('[data-testid="supplier-invoice-source-pane"]').count();
+  const extractedPane = await page.locator('[data-testid="supplier-invoice-extracted-pane"]').count();
   const sourceSurface = await page.locator('[data-testid="supplier-invoice-source-surface"]').count();
   const sourceDocument = await page.locator('[data-testid="supplier-invoice-source-document"][data-source-state="available"]').count();
   const extractedWorksheet = await page.locator('[data-testid="supplier-invoice-extracted-worksheet"]').count();
@@ -799,10 +807,131 @@ const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
   const lineWorksheet = await page.locator('[data-testid="supplier-invoice-line-items-worksheet"]').count();
   const totalsWorksheet = await page.locator('[data-testid="supplier-invoice-totals-worksheet"]').count();
   const worksheetEditors = await page.locator('[data-worksheet-editor="true"]').count();
+  const geometry = await page.evaluate(() => {
+    const grid = window.innerWidth < 768 ? "[data-worksheet-mobile-fallback='true']" : "[data-worksheet-desktop-grid='true']";
+    const sourceElement = document.querySelector<HTMLElement>('[data-testid="supplier-invoice-source-pane"]');
+    const extractedElement = document.querySelector<HTMLElement>('[data-testid="supplier-invoice-extracted-pane"]');
+    const sourceDocumentElement = document.querySelector<HTMLElement>('[data-testid="supplier-invoice-source-document"][data-source-state="available"]');
+    const firstEditableElement = document.querySelector<HTMLElement>(`[data-testid="supplier-invoice-header-worksheet"] ${grid} [data-worksheet-cell$=":invoiceNumber"]`);
+    const sourceRect = sourceElement?.getBoundingClientRect();
+    const extractedRect = extractedElement?.getBoundingClientRect();
+    const sourceDocumentRect = sourceDocumentElement?.getBoundingClientRect();
+    const firstEditableRect = firstEditableElement?.getBoundingClientRect();
+    return {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      pageWidth: document.documentElement.scrollWidth,
+      source: sourceRect ? { left: sourceRect.left, right: sourceRect.right, top: sourceRect.top, bottom: sourceRect.bottom, width: sourceRect.width, height: sourceRect.height } : null,
+      extracted: extractedRect ? { left: extractedRect.left, right: extractedRect.right, top: extractedRect.top, bottom: extractedRect.bottom, width: extractedRect.width, height: extractedRect.height } : null,
+      sourceDocument: sourceDocumentRect ? { left: sourceDocumentRect.left, right: sourceDocumentRect.right, top: sourceDocumentRect.top, bottom: sourceDocumentRect.bottom, width: sourceDocumentRect.width, height: sourceDocumentRect.height } : null,
+      firstEditable: firstEditableRect ? { left: firstEditableRect.left, right: firstEditableRect.right, top: firstEditableRect.top, bottom: firstEditableRect.bottom, width: firstEditableRect.width, height: firstEditableRect.height } : null,
+      editableCursor: firstEditableElement ? getComputedStyle(firstEditableElement).cursor : "missing",
+    };
+  });
+  const wide = geometry.width >= 1280;
+  const widePanelsUsable = Boolean(geometry.source && geometry.extracted && geometry.source.width >= 320 && geometry.extracted.width >= 420 && geometry.source.right <= geometry.extracted.left + 2 && Math.abs(geometry.source.top - geometry.extracted.top) <= 16 && Math.max(geometry.source.top, geometry.extracted.top) < Math.min(geometry.source.bottom, geometry.extracted.bottom));
+  const sourceAndFieldInFirstView = Boolean(geometry.sourceDocument && geometry.firstEditable && geometry.sourceDocument.top < geometry.height && geometry.sourceDocument.bottom > 0 && geometry.firstEditable.top < geometry.height && geometry.firstEditable.bottom > 0);
+  const narrowPanelsStacked = Boolean(geometry.source && geometry.extracted && geometry.source.width >= geometry.width * 0.8 && geometry.extracted.width >= geometry.width * 0.8 && Math.abs(geometry.source.left - geometry.extracted.left) <= 4 && geometry.extracted.top >= geometry.source.bottom - 2);
+  const noPageOverflow = geometry.pageWidth <= geometry.width + 2;
+
+  const gridSelector = geometry.width < 768 ? "[data-worksheet-mobile-fallback='true']" : "[data-worksheet-desktop-grid='true']";
+  const editableCellSelector = `[data-testid="supplier-invoice-header-worksheet"] ${gridSelector} [data-worksheet-cell$=":invoiceNumber"]`;
+  const dateCellSelector = `[data-testid="supplier-invoice-header-worksheet"] ${gridSelector} [data-worksheet-cell$=":invoiceDate"]`;
+  const editableCell = page.locator(editableCellSelector);
+  await editableCell.click();
+  const textEditor = page.locator(`${editableCellSelector} input[type="text"]`);
+  await textEditor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const pointerFocus = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Invoice Number, row 1");
+  const originalInvoiceNumber = await page.evaluate(() => {
+    const grid = window.innerWidth < 768 ? "[data-worksheet-mobile-fallback='true']" : "[data-worksheet-desktop-grid='true']";
+    const cell = document.querySelector<HTMLElement>(`[data-testid="supplier-invoice-header-worksheet"] ${grid} [data-worksheet-cell$=":invoiceNumber"]`);
+    return cell?.querySelector<HTMLInputElement>("input")?.value || cell?.textContent?.trim() || "";
+  });
+  const copiedCell = await page.evaluate(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLInputElement)) return { text: "", prevented: false };
+    const clipboard = new DataTransfer();
+    const event = new ClipboardEvent("copy", { clipboardData: clipboard, bubbles: true, cancelable: true });
+    active.dispatchEvent(event);
+    return { text: clipboard.getData("text/plain"), prevented: event.defaultPrevented };
+  });
+  await textEditor.fill("UX-EDIT-1A-ESCAPE-CHECK");
+  await page.keyboard.press("Escape");
+  const escapedEditorClosed = (await page.locator(`${editableCellSelector} input, ${editableCellSelector} select`).count()) === 0;
+  const escapeRestoredValue = await page.evaluate(() => {
+    const grid = window.innerWidth < 768 ? "[data-worksheet-mobile-fallback='true']" : "[data-worksheet-desktop-grid='true']";
+    const cell = document.querySelector<HTMLElement>(`[data-testid="supplier-invoice-header-worksheet"] ${grid} [data-worksheet-cell$=":invoiceNumber"]`);
+    if (!cell) return "";
+    return window.innerWidth < 768 ? cell.lastElementChild?.textContent?.trim() || "" : cell.textContent.trim();
+  });
+
+  await editableCell.press("Enter");
+  await textEditor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await textEditor.fill("UX-EDIT-1A-TAB-CHECK");
+  await page.keyboard.press("Tab");
+  const tabNavigation = await page.evaluate(() => ({
+    selected: document.querySelector<HTMLElement>('[data-testid="supplier-invoice-header-worksheet"] [aria-selected="true"]')?.getAttribute("data-worksheet-cell") || "",
+    value: document.querySelector<HTMLElement>('[data-testid="supplier-invoice-header-worksheet"] [data-worksheet-desktop-grid="true"] [data-worksheet-cell$=":invoiceNumber"]')?.textContent?.trim() || "",
+  }));
+  await page.locator(dateCellSelector).press("Shift+Tab");
+  const shiftTabNavigation = await page.evaluate(() => document.activeElement?.getAttribute("data-worksheet-cell") || "");
+  const discard = page.getByRole("button", { name: "Discard all worksheet edits", exact: true });
+  if (await discard.count() === 1) await discard.click();
+
+  const dateCell = page.locator(dateCellSelector);
+  await dateCell.click();
+  const dateEditor = page.locator(`${dateCellSelector} input[type="date"]`);
+  await dateEditor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.keyboard.press("Escape");
+  const selectCellSelector = `[data-testid="supplier-invoice-line-items-worksheet"] ${gridSelector} [data-worksheet-cell$=":taxTreatment"]`;
+  await page.locator(selectCellSelector).click();
+  const selectEditor = page.locator(`${selectCellSelector} select`);
+  await selectEditor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const selectFocused = await page.evaluate(() => document.activeElement instanceof HTMLSelectElement);
+  await page.keyboard.press("Escape");
+
+  const saveAction = await page.getByRole("button", { name: "Save worksheet edits", exact: true }).count();
+  const collapsedWorkflows = await page.evaluate(() => {
+    const allocation = document.querySelector<HTMLDetailsElement>('[data-testid="supplier-invoice-project-allocation-disclosure"]');
+    const purchaseOrder = document.querySelector<HTMLDetailsElement>('[data-testid="supplier-invoice-purchase-order-disclosure"]');
+    const materialIntake = document.querySelector<HTMLDetailsElement>('[data-testid="supplier-invoice-material-intake-disclosure"]');
+    const settlement = document.querySelector<HTMLDetailsElement>('[data-testid="supplier-invoice-settlement-disclosure"]');
+    return {
+      allocationPresent: Boolean(allocation),
+      allocationOpen: Boolean(allocation?.open),
+      purchaseOrderPresent: Boolean(purchaseOrder),
+      purchaseOrderOpen: Boolean(purchaseOrder?.open),
+      materialIntakePresent: Boolean(materialIntake),
+      materialIntakeOpen: Boolean(materialIntake?.open),
+      settlementPresent: Boolean(settlement),
+      settlementOpen: Boolean(settlement?.open),
+      secondaryActionsOpen: Boolean(document.querySelector<HTMLDetailsElement>('[data-testid="supplier-invoice-secondary-actions"]')?.open),
+      extractedDetailsOpen: Boolean(document.querySelector<HTMLDetailsElement>('[data-testid="supplier-invoice-review"] details:not([data-testid="supplier-invoice-review-notes"])')?.open),
+    };
+  });
+  const verifyWorkflow = await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button"));
+    let count = 0;
+    let outsideWorksheet = true;
+    let stickyCount = 0;
+    for (const button of buttons) {
+      if (!/Verify & Create Expense/.test(button.textContent || "")) continue;
+      count += 1;
+      if (button.closest('[data-testid="supplier-invoice-extracted-worksheet"]')) outsideWorksheet = false;
+      if (button.closest(".sticky.bottom-2")) stickyCount += 1;
+    }
+    return {
+      count,
+      outsideWorksheet,
+      stickyCount,
+    };
+  });
+  const stickyFooterCount = await page.locator(".sticky.bottom-2").count();
   const detailsToggle = await page.getByRole("button", { name: "Details", exact: true }).count();
   const sourceToggle = await page.getByRole("button", { name: "Source", exact: true }).count();
+  const prominentCorrectionAction = await page.getByRole("button", { name: "Review correction options", exact: true }).count();
   return [
-    { id: "supplier-invoice-source-first-visible", passed: sourceFirst === 1, details: `source-first review surfaces: ${sourceFirst}` },
+    { id: "supplier-invoice-wide-panels-visible", passed: reviewLayout === 1 && sourcePane === 1 && extractedPane === 1 && (wide ? widePanelsUsable && sourceAndFieldInFirstView : narrowPanelsStacked), details: `paired panes at ${geometry.width}px: source ${geometry.source?.width ?? 0}px, extracted ${geometry.extracted?.width ?? 0}px; source doc y=${geometry.sourceDocument?.top ?? "missing"}..${geometry.sourceDocument?.bottom ?? "missing"}, first field y=${geometry.firstEditable?.top ?? "missing"}..${geometry.firstEditable?.bottom ?? "missing"}, viewport=${geometry.height}px` },
     { id: "supplier-invoice-source-surface-visible", passed: sourceSurface === 1, details: `preserved source surfaces: ${sourceSurface}` },
     { id: "supplier-invoice-source-document-visible", passed: sourceDocument === 1, details: `available source documents: ${sourceDocument}` },
     { id: "supplier-invoice-extracted-worksheet-visible", passed: extractedWorksheet === 1, details: `extracted worksheets: ${extractedWorksheet}` },
@@ -811,8 +940,38 @@ const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
     { id: "supplier-invoice-line-worksheet-visible", passed: lineWorksheet === 1, details: `line-item worksheets: ${lineWorksheet}` },
     { id: "supplier-invoice-totals-worksheet-visible", passed: totalsWorksheet === 1, details: `totals worksheets: ${totalsWorksheet}` },
     { id: "supplier-invoice-four-worksheet-editors-visible", passed: worksheetEditors === 4, details: `worksheet editors: ${worksheetEditors}` },
+    { id: "supplier-invoice-editable-cell-one-click", passed: geometry.editableCursor === "text" && pointerFocus, details: `cursor ${geometry.editableCursor}; input focused after one click: ${pointerFocus}` },
+    { id: "supplier-invoice-copy-while-editing", passed: copiedCell.prevented && copiedCell.text === originalInvoiceNumber, details: `copy used the cell value while the editor was focused: ${copiedCell.text === originalInvoiceNumber}` },
+    { id: "supplier-invoice-escape-cancels-edit", passed: escapedEditorClosed && originalInvoiceNumber === escapeRestoredValue, details: `editor closed ${escapedEditorClosed}; original "${originalInvoiceNumber}"; after Escape "${escapeRestoredValue}"` },
+    { id: "supplier-invoice-keyboard-enter-edits", passed: tabNavigation.value.includes("UX-EDIT-1A-TAB-CHECK"), details: `Enter opened the editor and Tab committed: ${tabNavigation.value}` },
+    { id: "supplier-invoice-tab-shift-tab-navigation", passed: tabNavigation.selected.endsWith(":invoiceDate") && shiftTabNavigation.endsWith(":invoiceNumber"), details: `Tab selected ${tabNavigation.selected}; Shift+Tab returned to ${shiftTabNavigation}` },
+    { id: "supplier-invoice-date-editor-one-click", passed: (await page.locator(`${dateCellSelector} input[type="date"]`).count()) === 0, details: "date input opened on one click and Escape closed it" },
+    { id: "supplier-invoice-select-editor-one-click", passed: selectFocused, details: `select control focused after one click: ${selectFocused}` },
+    { id: "supplier-invoice-worksheet-save-visible", passed: saveAction === 1, details: `aggregate Save worksheet edits actions: ${saveAction}` },
+    { id: "supplier-invoice-verify-workflow-separate", passed: verifyWorkflow.count === 1 && verifyWorkflow.outsideWorksheet && (stickyFooterCount === 0 || (stickyFooterCount === 1 && verifyWorkflow.stickyCount === 1)), details: `verify actions ${verifyWorkflow.count}, outside worksheet ${verifyWorkflow.outsideWorksheet}, sticky footers ${stickyFooterCount}, verify in footer ${verifyWorkflow.stickyCount}` },
+    { id: "supplier-invoice-downstream-workflows-collapsed", passed: collapsedWorkflows.allocationPresent && !collapsedWorkflows.allocationOpen && collapsedWorkflows.purchaseOrderPresent && !collapsedWorkflows.purchaseOrderOpen && collapsedWorkflows.materialIntakePresent && !collapsedWorkflows.materialIntakeOpen, details: `allocation ${collapsedWorkflows.allocationPresent}/${collapsedWorkflows.allocationOpen}, PO match ${collapsedWorkflows.purchaseOrderPresent}/${collapsedWorkflows.purchaseOrderOpen}, material intake ${collapsedWorkflows.materialIntakePresent}/${collapsedWorkflows.materialIntakeOpen}` },
+    { id: "supplier-invoice-secondary-details-collapsed", passed: !collapsedWorkflows.secondaryActionsOpen && !collapsedWorkflows.extractedDetailsOpen && (!collapsedWorkflows.settlementPresent || !collapsedWorkflows.settlementOpen), details: `more actions ${collapsedWorkflows.secondaryActionsOpen}; extracted details ${collapsedWorkflows.extractedDetailsOpen}; settlement ${collapsedWorkflows.settlementPresent}/${collapsedWorkflows.settlementOpen}` },
+    { id: "supplier-invoice-correction-action-secondary", passed: prominentCorrectionAction === 0, details: `prominent correction buttons: ${prominentCorrectionAction}` },
+    { id: "supplier-invoice-no-page-horizontal-overflow", passed: noPageOverflow, details: `page width ${geometry.pageWidth}px at viewport ${geometry.width}px` },
     { id: "supplier-invoice-old-mobile-pane-removed", passed: detailsToggle === 0 && sourceToggle === 0, details: `legacy Details/Source toggles: ${detailsToggle}/${sourceToggle}` },
   ] satisfies readonly QaAssertion[];
+};
+
+const verifySupplierInvoiceReadOnlyCell: QaScenarioAction = async (page) => {
+  const width = await page.evaluate(() => window.innerWidth);
+  const gridSelector = width < 768 ? "[data-worksheet-mobile-fallback='true']" : "[data-worksheet-desktop-grid='true']";
+  const cellSelector = `[data-testid="supplier-invoice-header-worksheet"] ${gridSelector} [data-worksheet-cell$=":invoiceNumber"]`;
+  const cell = page.locator(cellSelector);
+  await cell.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const before = await page.evaluate(() => ({
+    readonly: document.querySelector<HTMLElement>(`[data-testid="supplier-invoice-header-worksheet"] ${window.innerWidth < 768 ? "[data-worksheet-mobile-fallback='true']" : "[data-worksheet-desktop-grid='true']"} [data-worksheet-cell$=":invoiceNumber"]`)?.getAttribute("aria-readonly"),
+    editable: document.querySelector<HTMLElement>(`[data-testid="supplier-invoice-header-worksheet"] ${window.innerWidth < 768 ? "[data-worksheet-mobile-fallback='true']" : "[data-worksheet-desktop-grid='true']"} [data-worksheet-cell$=":invoiceNumber"]`)?.getAttribute("data-worksheet-editable"),
+  }));
+  await cell.click();
+  const editorCount = await page.locator(`${cellSelector} input, ${cellSelector} select`).count();
+  return [
+    { id: "supplier-invoice-protected-cell-read-only", passed: before.readonly === "true" && before.editable === "false" && editorCount === 0, details: `aria-readonly ${before.readonly}; editable ${before.editable}; editors after click ${editorCount}` },
+  ];
 };
 
 const verifyStaleSupplierInvoiceRecovery: QaScenarioAction = async (page) => {
@@ -2007,9 +2166,8 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "invoices", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-01", interactionState: "invoice detail opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "inline supplier payment modal opened", viewport: QA_VIEWPORTS.desktop, action: verifySupplierPayableBridge }),
   defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "inline supplier payment modal opened", viewport: QA_VIEWPORTS.mobile, action: verifySupplierPayableBridge }),
-  defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "invoice review opened", viewport: QA_VIEWPORTS.desktop, action: verifySupplierInvoiceReview }),
-  defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "source-first supplier invoice worksheet review opened", viewport: QA_VIEWPORTS.tablet, action: verifySupplierInvoiceReview }),
-  defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "source-first supplier invoice worksheet review opened", viewport: QA_VIEWPORTS.mobile, action: verifySupplierInvoiceReview }),
+  ...UX_EDIT_1A_VIEWPORTS.map((viewport) => defineQaScenario({ feature: "supplier-invoice-ux-edit-1a", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "Supplier Invoice source and extracted worksheet review", viewport, action: verifySupplierInvoiceReview })),
+  ...([UX_EDIT_1A_VIEWPORTS[1], UX_EDIT_1A_VIEWPORTS[3]] as const).map((viewport) => defineQaScenario({ feature: "supplier-invoice-ux-edit-1a-readonly", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-01", interactionState: "Verified Supplier Invoice cells remain read-only after one pointer click", viewport, action: verifySupplierInvoiceReadOnlyCell })),
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor directory rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorsScreen }),
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor master worksheet maintenance rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorMasterWorksheet }),
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor master worksheet maintenance rendered", viewport: QA_VIEWPORTS.mobile, action: verifyVendorMasterWorksheet }),

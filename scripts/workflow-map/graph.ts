@@ -869,7 +869,7 @@ const nodes: readonly WorkflowNode[] = [
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/appRouting.ts", "src/app/routes/InvoicesRoute.tsx", "src/components/VerificationWorkspace.tsx"],
     testRefs: ["tests/appRouting.test.ts", "tests/invoiceLogic.test.ts"],
-    qaScenarioIds: ["invoices--review--invoice-review-opened--desktop-1440"],
+    qaScenarioIds: ["supplier-invoice-ux-edit-1a--review--supplier-invoice-source-and-extracted-worksheet-review--ux-edit-desktop-1440"],
   }),
   node({
     id: "route-vendors",
@@ -1887,7 +1887,7 @@ const nodes: readonly WorkflowNode[] = [
     fileRefs: ["src/components/VerificationWorkspace.tsx", "src/components/ReviewQueue.tsx", "src/app/routes/InvoicesRoute.tsx"],
     testRefs: ["tests/invoiceLogic.test.ts", "tests/invoiceDisplay.test.ts", "tests/assistantAttachedInvoice.test.ts"],
     permissionKeys: ["invoices.read", "invoices.manage"],
-    qaScenarioIds: ["invoices--review--invoice-review-opened--desktop-1440"],
+    qaScenarioIds: ["supplier-invoice-ux-edit-1a--review--supplier-invoice-source-and-extracted-worksheet-review--ux-edit-desktop-1440"],
   }),
   node({ id: "invoice-state-needs-review", label: "Invoice · NEEDS_REVIEW", domain: "finance", type: "state", scope: "company", description: "Extracted or edited invoice awaiting human verification.", sourceClassification: "code-derived" }),
   node({ id: "invoice-state-verified", label: "Invoice · VERIFIED", domain: "finance", type: "state", scope: "company", description: "Invoice verified by a human and eligible for authoritative project allocation.", sourceClassification: "code-derived" }),

@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { InvoiceData } from "../src/types.ts";
 import { SupplierInvoiceWorksheet, supplierInvoiceLineSourceIndex } from "../src/components/invoices/SupplierInvoiceWorksheet.tsx";
+import { SupplierInvoiceReview } from "../src/components/SupplierInvoiceReview.tsx";
 import { createDemoInvoices } from "../src/demo/data/invoices.ts";
 
 const workspaceSource = readFileSync(new URL("../src/components/VerificationWorkspace.tsx", import.meta.url), "utf8");
@@ -73,15 +74,11 @@ function invoice(overrides: Partial<InvoiceData> = {}): InvoiceData {
   };
 }
 
-test("supplier invoice review is source-first and removes the old split-pane toggle", () => {
-  const sourceIndex = workspaceSource.indexOf("<SourceComparison");
-  const reviewIndex = workspaceSource.indexOf("<SupplierInvoiceReview");
-
-  assert.ok(sourceIndex >= 0, "VerificationWorkspace should render the preserved source");
-  assert.ok(reviewIndex > sourceIndex, "the source should appear before extracted review content");
-  assert.match(workspaceSource, /data-testid="supplier-invoice-source-first"/);
+test("supplier invoice review exposes paired source and extracted panes without mobile toggles", () => {
+  assert.match(workspaceSource, /data-testid="supplier-invoice-side-by-side-review"/);
+  assert.match(workspaceSource, /data-testid="supplier-invoice-source-pane"/);
+  assert.match(workspaceSource, /data-testid="supplier-invoice-extracted-pane"/);
   assert.doesNotMatch(workspaceSource, /mobilePane|Details\/Source/);
-  assert.doesNotMatch(workspaceSource, /lg:grid-cols-\[minmax\(0,1\.05fr\)_minmax\(420px,0\.95fr\)\]/);
 });
 
 test("supplier invoice worksheet exposes header, vendor evidence, line items, and totals", () => {
@@ -158,6 +155,10 @@ test("supplier invoice worksheet makes the shared-draft save and discard scope e
   assert.equal((html.match(/Discard all worksheet edits/g) || []).length, 1);
   assert.equal((html.match(/data-testid="supplier-invoice-worksheet-action-bar"/g) || []).length, 1);
   assert.equal((html.match(/data-testid="supplier-invoice-worksheet-help"/g) || []).length, 1);
+  assert.ok(
+    html.indexOf('data-testid="supplier-invoice-worksheet-help"') > html.indexOf('data-testid="supplier-invoice-header-worksheet"'),
+    "secondary worksheet help should follow the primary editable fields",
+  );
 });
 
 test("supplier invoice keeps ordinary source provenance quiet while preserving exceptional markers", () => {
@@ -178,14 +179,32 @@ test("supplier invoice keeps ordinary source provenance quiet while preserving e
   assert.match(html, /data-worksheet-readonly="true"/);
 });
 
-test("supplier invoice review renders its compact status bar before blocking review details", () => {
+test("supplier invoice review keeps compact status and unresolved actions before the worksheet", () => {
   const actionBarIndex = reviewSource.indexOf('data-testid="supplier-invoice-review-bar"');
+  const unresolvedIssuesIndex = reviewSource.indexOf('data-testid="supplier-invoice-unresolved-issues"');
   const worksheetIndex = reviewSource.indexOf("<SupplierInvoiceWorksheet");
-  const blockingIndex = reviewSource.indexOf('data-testid="supplier-invoice-blocking-review"');
 
   assert.ok(actionBarIndex >= 0, "Supplier Invoice review should expose a compact status bar");
-  assert.ok(worksheetIndex > actionBarIndex, "the extracted worksheet should follow the status bar");
-  assert.ok(blockingIndex > worksheetIndex, "blocking review details should follow extracted data");
+  assert.ok(unresolvedIssuesIndex > actionBarIndex, "compact unresolved actions should follow the status");
+  assert.ok(worksheetIndex > unresolvedIssuesIndex, "the extracted worksheet should follow the unresolved actions");
+  assert.doesNotMatch(reviewSource, /supplier-invoice-blocking-review/);
+});
+
+test("unresolved supplier blockers use short actions and keep resolvers closed until requested", () => {
+  const source = invoice({
+    vendor: { name: "Extracted Supplier" },
+    description: "",
+  });
+  const html = renderToStaticMarkup(<SupplierInvoiceReview invoice={source} />);
+
+  assert.match(html, /data-testid="supplier-invoice-unresolved-issues"/);
+  assert.match(html, /2 issues need attention/);
+  assert.match(html, />Resolve vendor</);
+  assert.match(html, />Confirm description</);
+  assert.doesNotMatch(html, /Blocking review items/);
+  assert.match(html, /id="supplier-invoice-issue-vendor"[^>]*aria-expanded="false"/);
+  assert.match(html, /id="supplier-invoice-issue-description"[^>]*aria-expanded="false"/);
+  assert.doesNotMatch(html, /data-testid="supplier-(?:vendor|description)-resolution-panel"/);
 });
 
 test("supplier invoice source evidence precedes extraction status in the review workspace", () => {
@@ -246,11 +265,12 @@ test("read-only supplier invoice worksheets expose protected cells while control
   assert.match(workspaceSource, /onSaveProjectAllocations/);
 });
 
-test("demo visual QA pins the source-first worksheet review instead of the old split pane", () => {
+test("demo visual QA checks paired review panes and direct worksheet editing", () => {
   assert.match(demoScenarioSource, /const verifySupplierInvoiceReview/);
-  assert.match(demoScenarioSource, /data-testid="supplier-invoice-source-first"/);
+  assert.match(demoScenarioSource, /supplier-invoice-wide-panels-visible/);
   assert.match(demoScenarioSource, /data-testid="supplier-invoice-source-document"/);
   assert.match(demoScenarioSource, /data-testid="supplier-invoice-worksheet-action-bar"/);
-  assert.match(demoScenarioSource, /supplier-invoice-old-mobile-pane-removed/);
-  assert.match(demoScenarioSource, /source-first supplier invoice worksheet review opened/);
+  assert.match(demoScenarioSource, /supplier-invoice-editable-cell-one-click/);
+  assert.match(demoScenarioSource, /supplier-invoice-protected-cell-read-only/);
+  assert.match(demoScenarioSource, /Supplier Invoice source and extracted worksheet review/);
 });
