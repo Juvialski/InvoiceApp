@@ -1826,3 +1826,23 @@ financial/history integrity). No domain is promised automatically.
 These plans remain behind the hardening/reliability/release-readiness program
 and do not resume deferred product expansion. A future explicit user direction
 is required before any UX-EDIT or Operations Workbook implementation begins.
+
+## 2026-09-26 — Canva-assisted visual workflow selected
+
+The user has explicitly activated a bounded Canva-assisted visual-design step.
+
+**VIS-CANVA-1 — Canva-Assisted Visual Blueprint** is the selected next phase. It is design/reference work, not an app-wide React rewrite. The phase should establish a durable Canva-backed visual contract for:
+
+- the production Hydroqualisense Solutions Corp. engineering-company landing;
+- the neutral QA software-showcase landing; and
+- one authenticated Supplier Invoice review exemplar covering source-aware side-by-side review and clearer worksheet editability.
+
+An Operations Workbook shell may appear only as a visual reference for later WB-1; workbook implementation remains later.
+
+The governing contract is `docs/superpowers/specs/2026-09-26-canva-assisted-ui-landing-workflow.md`.
+
+Preferred follow-on order after VIS-CANVA-1 review:
+
+`LANDING-VIS-1 -> UX-EDIT-1A -> WB-1 -> representative visual certification`.
+
+The existing hardening-first policy, production/QA identity separation, financial/security/history invariants, and feature-expansion freeze remain in force.

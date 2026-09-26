@@ -2526,3 +2526,19 @@ The plan preserves existing permissions, concurrency, review-before-Apply,
 protected/calculated fields, financial truth, source evidence, lifecycle
 authority, and immutable history. It remains behind hardening/reliability
 priorities and does not resume the feature-expansion backlog.
+
+## 2026-09-26 — Next phase: VIS-CANVA-1
+
+Current authoritative `main` when this plan was selected: `26d7480d6e8de44f6a59404c8dd0128eca08bfbb`. No open PRs were present.
+
+The next bounded phase is **VIS-CANVA-1 — Canva-Assisted Visual Blueprint**. It should use the connected Canva account to reduce visual ambiguity before another implementation-heavy UI phase.
+
+Required exemplars:
+
+1. production engineering-company landing;
+2. neutral QA software-showcase landing;
+3. authenticated Supplier Invoice source + extracted-data review, including the planned single-click/tap worksheet-editing grammar.
+
+Do not broadly rewrite the application during VIS-CANVA-1. Produce the visual reference and repository design contract first. Keep the Operations Workbook as a reference-only concept in this phase.
+
+See `docs/superpowers/specs/2026-09-26-canva-assisted-ui-landing-workflow.md` for scope, safety rules, and the follow-on implementation order.
