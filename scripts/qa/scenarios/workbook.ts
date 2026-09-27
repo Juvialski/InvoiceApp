@@ -1,9 +1,6 @@
 import { readFile } from "node:fs/promises";
-import * as XLSX from "xlsx";
 import type { QaAssertion, QaBrowserPage, QaScenarioAction } from "../structuredEvidence.ts";
 import { READY_TIMEOUT_MS } from "./shared.ts";
-import { COMBINED_OPERATIONS_WORKBOOK_SCHEMA } from "../../../src/lib/combinedOperationsWorkbook.ts";
-import { parseOperationsWorkbook } from "../../../src/lib/operationsWorkbook.ts";
 
 const workbookRoot = '[data-operations-workbook="true"]';
 const workbookTabs = '[role="tablist"][aria-label="Operations Workbook sheets"] [role="tab"]';
@@ -51,6 +48,7 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
       worksheetRows: document.querySelectorAll('[data-worksheet-row-key], [data-worksheet-mobile-row-key]').length,
     };
   });
+  const roundTripAssertions = await verifyOperationsWorkbookCombinedRoundTrip(page);
   const mobileViewport = layout.viewportWidth < 768;
   return [
     { id: "workbook-heading-visible", passed: true, details: "Operations Workbook heading rendered." },
@@ -61,6 +59,7 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
     { id: "workbook-synthetic-project-rows-visible", passed: layout.worksheetRows > 0, details: `worksheet row instances: ${layout.worksheetRows}` },
     { id: "workbook-white-canvas", passed: layout.rootBackground === "rgb(255, 255, 255)", details: `canvas background: ${layout.rootBackground}` },
     { id: "workbook-no-horizontal-page-overflow", passed: layout.documentWidth <= layout.viewportWidth + 2 && layout.rootWidth <= layout.viewportWidth + 2, details: `document ${layout.documentWidth}px / viewport ${layout.viewportWidth}px; shell ${layout.rootWidth}px` },
+    ...roundTripAssertions,
   ] satisfies readonly QaAssertion[];
 };
 
@@ -441,7 +440,12 @@ export const verifyOperationsWorkbookRfqSheetView: QaScenarioAction = async (pag
   ] satisfies readonly QaAssertion[];
 };
 
-export const verifyOperationsWorkbookCombinedRoundTrip: QaScenarioAction = async (page) => {
+export async function verifyOperationsWorkbookCombinedRoundTrip(page: QaBrowserPage): Promise<readonly QaAssertion[]> {
+  const [XLSX, combinedWorkbook, operationsWorkbook] = await Promise.all([
+    import("xlsx"),
+    import("../../../src/lib/combinedOperationsWorkbook.ts"),
+    import("../../../src/lib/operationsWorkbook.ts"),
+  ]);
   const transferPage = page as WorkbookTransferQaPage;
   const downloadPromise = transferPage.waitForEvent("download", { timeout: READY_TIMEOUT_MS });
   await page.getByRole("button", { name: "Download workbook", exact: true }).click();
@@ -450,7 +454,7 @@ export const verifyOperationsWorkbookCombinedRoundTrip: QaScenarioAction = async
   if (!downloadPath) throw new Error("The combined Operations Workbook download was not available for review.");
 
   const downloadedBytes = new Uint8Array(await readFile(downloadPath));
-  const parsed = parseOperationsWorkbook(downloadedBytes, { schema: COMBINED_OPERATIONS_WORKBOOK_SCHEMA });
+  const parsed = operationsWorkbook.parseOperationsWorkbook(downloadedBytes, { schema: combinedWorkbook.COMBINED_OPERATIONS_WORKBOOK_SCHEMA });
   const sourceManifest = JSON.parse(String(parsed.metadata.sourceManifest)) as Array<{ id: string; includedSheetNames: string[] }>;
   const expenseManifest = sourceManifest.find((entry) => entry.id === "expenses");
   const supplierPayablesRows = parsed.sheets["Supplier Payables"]?.rows || [];
@@ -515,7 +519,7 @@ export const verifyOperationsWorkbookCombinedRoundTrip: QaScenarioAction = async
     { id: "workbook-roundtrip-review-fits-viewport", passed: state.reviewWidth <= state.viewportWidth + 2 && state.documentWidth <= state.viewportWidth + 2, details: `review ${state.reviewWidth}px; document ${state.documentWidth}px / viewport ${state.viewportWidth}px` },
     { id: "workbook-roundtrip-review-viewport-class", passed: mobileViewport || state.viewportWidth >= 768, details: mobileViewport ? "phone review captured" : "desktop or constrained-laptop review captured" },
   ] satisfies readonly QaAssertion[];
-};
+}
 
 export const workbookScenarioActions: Readonly<Record<string, QaScenarioAction>> = {
   verifyOperationsWorkbookLayout,
