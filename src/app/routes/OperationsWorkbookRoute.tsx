@@ -150,6 +150,7 @@ export function OperationsWorkbookRoute({
   const currentContextKey = operationsWorkbookContextKey(companyId, permissions, demoMode);
   const currentContextKeyRef = useRef(currentContextKey);
   const previousContextKeyRef = useRef(currentContextKey);
+  const stagedEditsRef = useRef(false);
   currentContextKeyRef.current = currentContextKey;
 
   const visibleSheets = useMemo(
@@ -193,6 +194,7 @@ export function OperationsWorkbookRoute({
   useEffect(() => {
     if (previousContextKeyRef.current === currentContextKey) return;
     previousContextKeyRef.current = currentContextKey;
+    stagedEditsRef.current = false;
     setIsSaving(false);
     setCellIssues({});
     setFeedback(null);
@@ -243,6 +245,7 @@ export function OperationsWorkbookRoute({
           isContextCurrent: () => currentContextKeyRef.current === currentContextKey,
         });
         if (currentContextKeyRef.current !== currentContextKey) return;
+        stagedEditsRef.current = false;
         setEditorRevision((revision) => revision + 1);
         setCellIssues({});
         setFeedback({
@@ -258,11 +261,13 @@ export function OperationsWorkbookRoute({
 
         const appliedCount = applyError?.appliedGroupCount || 0;
         if (applyError?.allGroupsApplied) {
+          stagedEditsRef.current = false;
           setFeedback({
             kind: "conflict",
             message: `All ${appliedCount} project group${appliedCount === 1 ? " was" : "s were"} saved, but the worksheet could not refresh. Reload latest rows to confirm current values.`,
           });
         } else if (appliedCount > 0) {
+          stagedEditsRef.current = false;
           setFeedback({
             kind: "conflict",
             message: `Saved ${appliedCount} project group${appliedCount === 1 ? "" : "s"}; a later group was not applied. Remaining staged edits were cleared when rows refreshed. Reload and review before re-entering them.`,
@@ -270,6 +275,7 @@ export function OperationsWorkbookRoute({
         } else if (applyError?.phase === "preflight" && applyError.kind === "apply") {
           setFeedback({ kind: "error", message: "Could not refresh current project data before saving. Your staged edits remain in the sheet; try again when current data is available." });
         } else if (applyError?.kind === "conflict" || isConcurrencyConflict(error)) {
+          stagedEditsRef.current = false;
           setFeedback({
             kind: "conflict",
             message: applyError?.phase === "apply"
@@ -285,6 +291,7 @@ export function OperationsWorkbookRoute({
         if (!applyError?.issues.length && applyError?.phase === "apply" && onRefreshProjects) {
           try {
             await onRefreshProjects();
+            stagedEditsRef.current = false;
           } catch {
             // Keep the actionable save state visible when refresh also fails.
           }
@@ -392,13 +399,14 @@ export function OperationsWorkbookRoute({
               actions={feedback?.kind === "conflict" && worksheetCanSave && !demoMode
                 ? <button type="button" onClick={() => void reloadLatest()} disabled={isSaving} className="inline-flex min-h-9 items-center rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-bold text-rose-800 disabled:opacity-50">Reload latest</button>
                 : undefined}
+              onRowsChange={worksheetCanSave ? () => { stagedEditsRef.current = true; } : undefined}
               onCellChange={() => {
                 setCellIssues({});
                 setFeedback(null);
               }}
               cellIssues={cellIssues}
               onSave={workbookAdapter.onSave}
-              onCancel={worksheetCanSave ? () => { setCellIssues({}); setFeedback(null); } : undefined}
+              onCancel={worksheetCanSave ? () => { stagedEditsRef.current = false; setCellIssues({}); setFeedback(null); } : undefined}
               saveLabel={demoMode ? "Save demo edits" : "Save changes"}
               cancelLabel="Discard edits"
               isSaving={isSaving}
@@ -415,7 +423,12 @@ export function OperationsWorkbookRoute({
               tabs={sheetTabs}
               value={selectedSheet.id}
               onChange={(sheetId) => {
-                if (visibleSheets.some((sheet) => sheet.id === sheetId)) onNavigatePath?.(appPathForWorkbookSheet(sheetId));
+                if (!visibleSheets.some((sheet) => sheet.id === sheetId)) return;
+                if (sheetId !== selectedSheet.id && stagedEditsRef.current) {
+                  setFeedback({ kind: "error", message: "Save or discard your worksheet edits before switching sheets." });
+                  return;
+                }
+                onNavigatePath?.(appPathForWorkbookSheet(sheetId));
               }}
               className="border-b-0"
             />
