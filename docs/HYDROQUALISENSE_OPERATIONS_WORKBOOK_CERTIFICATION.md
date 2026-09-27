@@ -81,8 +81,8 @@ their current domain workflows.
 | `npm.cmd run lint` and typecheck | Passed |
 | `npm.cmd run build` | Passed; existing Inter font, large-chunk, and CommonJS `import.meta` warnings remain |
 | Local Supabase pgTAP: `41_excel_project_concurrency`, `45_wb3c_header_only_procurement_saves`, `46_wb_cert_expense_company_version_guard` | **52/52 passed** |
-| Local synthetic Operations Workbook Demo QA | **19/19 scenarios passed** at desktop, constrained laptop, tablet, and phone; zero horizontal page overflow, console errors, page errors, or failed requests |
-| Manually inspected WB-CERT captures | Desktop, constrained laptop, and phone captures inspected at source SHA `b566795c96cf701d77a51150c95292f5cd24f6ef`; see [visual evidence](evidence/wb-cert/manifest.json) |
+| Local synthetic Operations Workbook Demo QA | **16/16 scenarios passed** at desktop, constrained laptop, tablet, and phone; the combined round trip runs inside the four existing workbook layout scenarios; zero horizontal page overflow, console errors, page errors, or failed requests |
+| Manually inspected WB-CERT captures | Desktop, constrained laptop, and phone captures inspected at source SHA `44e26302c80c9f6153d0b32be0a1f488055f14ea`; see [visual evidence](evidence/wb-cert/manifest.json) |
 
 The real local database tests prove project grouped optimistic concurrency,
 RFQ/PO expected-version and draft guards, RFQ line/invitation and PO line

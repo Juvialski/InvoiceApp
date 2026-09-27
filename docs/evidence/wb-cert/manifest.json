@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSha": "b566795c96cf701d77a51150c95292f5cd24f6ef",
+  "sourceSha": "44e26302c80c9f6153d0b32be0a1f488055f14ea",
   "branch": "codex/wb-cert-round-trip-certification",
   "environment": "Local Vite production-build preview",
   "applicationMode": "Synthetic Demo Workspace",
@@ -8,8 +8,8 @@
   "dataQualification": "Synthetic fixture data only; authenticated production access and Apply are not mounted.",
   "scenarioSet": {
     "feature": "operations-workbook",
-    "count": 19,
-    "passed": 19,
+    "count": 16,
+    "passed": 16,
     "failed": 0
   },
   "combinedRoundTrip": {
@@ -19,7 +19,8 @@
     "readableExpenseSheets": ["Expenses"],
     "supplierPayablesRowsWithoutInvoicesRead": 0,
     "reviewedDomainCount": 3,
-    "applyDisabledInSyntheticDemo": true
+    "applyDisabledInSyntheticDemo": true,
+    "roundTripViewports": 4
   },
   "networkAndLayout": {
     "consoleErrors": 0,
@@ -30,19 +31,19 @@
   "captures": [
     {
       "viewport": "1440x900",
-      "scenarioId": "operations-workbook--workbook--wb-cert-combined-xlsx-export-edit-import-review-desktop--wb1-desktop-1440",
+      "scenarioId": "operations-workbook--workbook--wb-2-combined-workbook-controls-and-responsive-shell--wb1-desktop-1440",
       "result": "PASS",
       "screenshot": "desktop-1440x900.png"
     },
     {
       "viewport": "1280x800",
-      "scenarioId": "operations-workbook--workbook--wb-cert-combined-xlsx-import-review-constrained-laptop--wb1-laptop-1280",
+      "scenarioId": "operations-workbook--workbook--wb-2-combined-workbook-controls-and-responsive-shell--wb1-laptop-1280",
       "result": "PASS",
       "screenshot": "laptop-1280x800.png"
     },
     {
       "viewport": "390x844",
-      "scenarioId": "operations-workbook--workbook--wb-cert-combined-xlsx-import-review-phone--wb1-phone-390",
+      "scenarioId": "operations-workbook--workbook--wb-2-combined-workbook-controls-and-responsive-shell--wb1-phone-390",
       "result": "PASS",
       "screenshot": "phone-390x844.png"
     }
