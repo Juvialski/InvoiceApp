@@ -10,7 +10,10 @@ import { createDemoInvoices } from "../src/demo/data/invoices.ts";
 
 const workspaceSource = readFileSync(new URL("../src/components/VerificationWorkspace.tsx", import.meta.url), "utf8");
 const reviewSource = readFileSync(new URL("../src/components/SupplierInvoiceReview.tsx", import.meta.url), "utf8");
-const demoScenarioSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+const demoScenarioSource = [
+  readFileSync(new URL("../scripts/qa/scenarios/invoices.ts", import.meta.url), "utf8"),
+  readFileSync(new URL("../scripts/qa/demoScenarioMetadata.ts", import.meta.url), "utf8"),
+].join("\n");
 
 function invoice(overrides: Partial<InvoiceData> = {}): InvoiceData {
   return {

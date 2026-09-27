@@ -201,14 +201,16 @@ Branch protection keeps stable required check names. Each required workflow clas
 
 Expected behavior:
 
-- `Application Validation & Build` — heavy for application/test/script/public/package/TypeScript inputs;
+- `Application Validation & Build` — full for product/source tests, ordinary application scripts, public assets, package, and TypeScript inputs. Known browser-QA-only action/catalog/selector/test changes keep `npm ci`, lint/typecheck, and focused Demo QA tooling tests; they skip the app test sweep and product bundle build because exact-head `chromium-demo-qa` builds the application used by those assertions. Unknown relevant paths stay full.
 - `Database Migrations & Upgrade Suite` — heavy for migration/database-invariant/package inputs;
-- `chromium-demo-qa` — heavy for UI/demo/browser-QA inputs;
-- `Graph and Source Contract Consistency` — heavy for workflow-map/source-contract inputs.
+- `chromium-demo-qa` — a known domain page or `scripts/qa/scenarios/<domain>.ts` change selects that domain's catalog routes plus the two-scenario shared shell/navigation smoke floor. Shared shell, navigation, theme/global CSS, central catalog/action registry, browser infrastructure, incomplete/unknown paths, main regression, and explicit non-PR runs retain the full catalog.
+- `Graph and Source Contract Consistency` — heavy for graph/source-contract inputs, scenario metadata, and the structured evidence bridge. Domain browser assertion/action modules fast-pass after classification because the Workflow Map consumes scenario metadata, not those action implementations. Unknown `scripts/qa/**` files remain in the heavy path.
 
-For irrelevant PRs, the required job should fast-pass after lightweight classification without `npm ci`, build, Supabase startup, migration replay, or Chromium installation. An irrelevant fast-pass does not require manual ChatGPT inspection.
+For irrelevant PRs, each required job must still report and should fast-pass after lightweight classification without `npm ci`, build, graph generation, workflow-map tests, Supabase startup, migration replay, or Chromium installation. An irrelevant fast-pass does not require manual ChatGPT inspection.
 
 Do not replace required checks with `pull_request.paths` filters alone: a required workflow that never reports can leave branch protection waiting indefinitely. Keep the required job reporting and skip its expensive steps internally.
+
+CI-EFF-2 keeps the protected names `Application Validation & Build`, `Database Migrations & Upgrade Suite`, `chromium-demo-qa`, and `Graph and Source Contract Consistency`. Only the Workflow Map main-push path list is narrowed to its proven metadata/evidence bridge inputs; pull-request checks remain unconditional.
 
 ## 8. Prompt template
 

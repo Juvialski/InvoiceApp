@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { DEMO_QA_SCENARIOS } from "../scripts/qa/demoScenarios.ts";
+import { DEMO_QA_SCENARIO_METADATA } from "../scripts/qa/demoScenarioMetadata.ts";
 import {
   formatAgentFallbackContextPacket,
   isWorkflowCoverageGap,
@@ -75,7 +75,7 @@ test("canonical workflow graph has the required version, domains, workflows, and
 
 test("all graph file, test, route, and QA-1 references resolve from the current repository", () => {
   assert.doesNotThrow(() => assertWorkflowMapValid(WORKFLOW_GRAPH, { repositoryRoot }));
-  const scenarioIds = new Set(DEMO_QA_SCENARIOS.map((scenario) => scenario.id));
+  const scenarioIds = new Set(DEMO_QA_SCENARIO_METADATA.map((scenario) => scenario.id));
   for (const node of WORKFLOW_GRAPH.nodes) {
     for (const scenarioId of node.qaScenarioIds || []) assert.ok(scenarioIds.has(scenarioId), `${node.id}: ${scenarioId}`);
   }

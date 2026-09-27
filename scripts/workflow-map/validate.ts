@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEMO_QA_SCENARIOS } from "../qa/demoScenarios.ts";
+import { DEMO_QA_SCENARIO_METADATA } from "../qa/demoScenarioMetadata.ts";
 import { ROUTE_DEFINITIONS } from "../../src/utils/routes.ts";
 import {
   readGeneratedWorkflowMapFiles,
@@ -247,7 +247,7 @@ export function collectWorkflowMapErrors(graph: WorkflowGraph = WORKFLOW_GRAPH, 
   validateReferences(graph, repositoryRoot, errors);
   validateRouteReferences(graph, errors);
 
-  const qaScenarioIds = new Set(DEMO_QA_SCENARIOS.map((scenario) => scenario.id));
+  const qaScenarioIds = new Set(DEMO_QA_SCENARIO_METADATA.map((scenario) => scenario.id));
   for (const node of graph.nodes) {
     for (const scenarioId of node.qaScenarioIds || []) if (!qaScenarioIds.has(scenarioId)) push(errors, `node ${node.id} references missing QA-1 scenario ${scenarioId}`);
   }

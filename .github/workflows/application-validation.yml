@@ -28,49 +28,89 @@ jobs:
     name: Application Validation & Build
     runs-on: ubuntu-latest
     steps:
-      - name: Determine validation scope
-        id: scope
+      - name: Collect pull request changed paths
+        id: changed-files
         uses: actions/github-script@v7
         with:
           script: |
             if (context.eventName !== 'pull_request') {
-              core.setOutput('run', 'true');
+              core.setOutput('files', '[]');
+              core.setOutput('complete', 'false');
               return;
             }
 
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              per_page: 100,
-            });
-            const relevant = files.some(({ filename }) =>
-              filename.startsWith('src/') ||
-              filename.startsWith('tests/') ||
-              filename.startsWith('scripts/') ||
-              filename.startsWith('public/') ||
-              /^package.*\.json$/.test(filename) ||
-              filename === 'tsconfig.json' ||
-              filename === '.github/workflows/application-validation.yml'
-            );
-            core.setOutput('run', relevant ? 'true' : 'false');
-            if (!relevant) {
-              core.notice('Fast-pass: no application-validation inputs changed.');
+            try {
+              const pullNumber = context.issue.number;
+              const expectedHeadSha = context.payload.pull_request?.head?.sha;
+              const expectedBaseSha = context.payload.pull_request?.base?.sha;
+              if (!expectedHeadSha || !expectedBaseSha) {
+                core.warning('Pull request identity is unavailable; Application Validation will run fully.');
+                core.setOutput('files', '[]');
+                core.setOutput('complete', 'false');
+                return;
+              }
+
+              const before = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+              });
+              if (before.data.head.sha !== expectedHeadSha || before.data.base.sha !== expectedBaseSha) {
+                core.warning('Pull request moved after this event; Application Validation will run fully.');
+                core.setOutput('files', '[]');
+                core.setOutput('complete', 'false');
+                return;
+              }
+
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+                per_page: 100,
+              });
+              const after = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+              });
+              const sameEventRevision = after.data.head.sha === expectedHeadSha
+                && after.data.base.sha === expectedBaseSha
+                && before.data.head.sha === after.data.head.sha
+                && before.data.base.sha === after.data.base.sha;
+              const complete = sameEventRevision && files.length === after.data.changed_files;
+              if (!complete) {
+                core.warning('Changed-file list or event identity is incomplete; Application Validation will run fully.');
+              }
+              core.setOutput('files', JSON.stringify(files.map(({ filename }) => filename)));
+              core.setOutput('complete', complete ? 'true' : 'false');
+            } catch {
+              core.warning('Could not read the complete pull request file list; Application Validation will run fully.');
+              core.setOutput('files', '[]');
+              core.setOutput('complete', 'false');
             }
 
       - name: Checkout repository
-        if: steps.scope.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
-        if: steps.scope.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
+          cache: npm
+
+      - name: Determine validation scope
+        id: scope
+        run: node --experimental-strip-types scripts/ci/selectProtectedCiScope.ts
+        env:
+          PROTECTED_CI_SCOPE: application
+          PROTECTED_CI_CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
+          PROTECTED_CI_FILE_LIST_COMPLETE: ${{ steps.changed-files.outputs.complete }}
+
+      - name: Report validation scope
+        run: echo "Application Validation mode=${{ steps.scope.outputs.mode }} reason=${{ steps.scope.outputs.reason }}"
 
       - name: Install dependencies
         if: steps.scope.outputs.run == 'true'
@@ -80,10 +120,14 @@ jobs:
         if: steps.scope.outputs.run == 'true'
         run: npm run lint
 
+      - name: Run focused Demo QA tooling tests
+        if: steps.scope.outputs.mode == 'qa-only'
+        run: node --test --experimental-strip-types tests/demoQa*.test.ts tests/structuredBrowserEvidence.test.ts tests/protectedCiScope.test.ts
+
       - name: Run Affected Application Tests & Smoke Suite
-        if: steps.scope.outputs.run == 'true'
+        if: steps.scope.outputs.mode == 'application'
         run: npm run test:affected:agent -- --github-summary
 
       - name: Production Bundle Build
-        if: steps.scope.outputs.run == 'true'
+        if: steps.scope.outputs.mode == 'application'
         run: npm run build

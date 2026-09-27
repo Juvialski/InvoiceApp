@@ -6,7 +6,10 @@ const billingPanel = readFileSync(new URL("../src/components/projects/ClientBill
 const collectionSettlementPanel = readFileSync(new URL("../src/components/projects/ClientCollectionSettlementPanel.tsx", import.meta.url), "utf8");
 const cashWorkspace = readFileSync(new URL("../src/components/CashSettlementAllocationWorkspace.tsx", import.meta.url), "utf8");
 const projectWorkspace = readFileSync(new URL("../src/components/projects/ProjectWorkspace.tsx", import.meta.url), "utf8");
-const qaScenarios = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+const qaScenarios = [
+  readFileSync(new URL("../scripts/qa/scenarios/projects.ts", import.meta.url), "utf8"),
+  readFileSync(new URL("../scripts/qa/demoScenarioMetadata.ts", import.meta.url), "utf8"),
+].join("\n");
 
 test("Wave 1B client invoice detail exposes derived collection position and guarded CTA", () => {
   assert.match(billingPanel, /calculateClientBillingCollectionSummary/);
