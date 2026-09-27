@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 IMPLEMENTED FOR RECORDED SCOPE / WB-3+ NOT STARTED**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 MERGED PR #263 / WB-3A NEXT**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-27**
 
@@ -2145,7 +2145,9 @@ Apply, or additional production editing adapter was started.
 
 Implementation branch: `codex/wb-2-multisheet-xlsx-roundtrip`
 Synchronized base `main` SHA: `7f1c0905a7b9f9a4a36e8a6c3444e68d7e7085fb`
-Status: **WB-2 IMPLEMENTED FOR RECORDED SCOPE / WB-3+ AND WB-CERT NOT STARTED**
+Merged PR: **#263** as `6c67e595936f86aa9de5b5f5771e5aa1359fb8e7`
+Reviewed exact PR head: `976746585f1cd66cb325efa5c41d24e61d980af7`
+Status: **MERGED / WB-2 COMPLETE FOR RECORDED SCOPE / WB-3A NEXT / WB-CERT LATER**
 
 The user explicitly activated WB-2 after the WB-1 closeout. The combined
 Operations Workbook now exports one versioned `.xlsx` containing the fixed
@@ -2189,7 +2191,17 @@ Validation on the implementation working tree:
   output tokens, 493 ms, `fallback=false`.
 - No database, migration, Docker/Supabase, provider, hosted-QA, or production
   validation was applicable.
+- Final PR review corrected two concrete isolation defects before merge:
+  `expenses.manage` no longer substitutes for `expenses.read`, and an imported
+  review is cleared whenever company/access/demo context changes so stale
+  cross-company proposal values cannot remain visible.
+- On exact head `976746585f1cd66cb325efa5c41d24e61d980af7`, Application
+  Validation & Build, Database Migrations & Upgrade Suite, Graph and Source
+  Contract Consistency, and `chromium-demo-qa` all completed successfully.
 
-WB-3+ domain onboarding and WB-CERT full round-trip certification remain
-separate planned phases. This WB-2 slice does not add domain tabs, database or
-permission contracts, migrations, or production workbook adapters.
+The next bounded workbook phase is **WB-3A — Project Controls Production
+Sheets**: onboard Projects + Cost Codes only into the in-app Operations
+Workbook using the existing Projects domain authority, validation, concurrency,
+and save/apply paths. Do not bundle Expenses, Procurement, Supplier Invoices,
+Payroll, Inventory, Equipment, or other domains into WB-3A. WB-CERT remains
+later, after bounded WB-3 domain onboarding.
