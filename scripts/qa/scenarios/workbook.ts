@@ -85,6 +85,7 @@ export const verifyOperationsWorkbookEditableAndProtectedCells: QaScenarioAction
   await editControl.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   await editControl.fill("Synthetic QA project name");
   await page.keyboard.press("Enter");
+  const importDisabledWhileDirty = await page.getByRole("button", { name: "Import workbook", exact: true }).isDisabled();
   await page.getByRole("tab", { name: /Cost codes/i }).click();
   const dirtySwitchState = await page.evaluate(() => ({
     selectedSheet: document.querySelector<HTMLElement>('[data-operations-workbook="true"]')?.dataset.workbookSheet || "",
@@ -110,6 +111,7 @@ export const verifyOperationsWorkbookEditableAndProtectedCells: QaScenarioAction
   return [
     { id: "workbook-demo-project-name-enters-edit-mode", passed: true, details: "Synthetic project name opened a single-click text editor." },
     { id: "workbook-unsaved-edit-blocks-sheet-switch", passed: dirtySwitchState.selectedSheet === "projects" && dirtySwitchState.warningVisible, details: `selected sheet after attempted switch: ${dirtySwitchState.selectedSheet || "none"}; warning visible=${dirtySwitchState.warningVisible}` },
+    { id: "workbook-unsaved-edit-disables-import-refresh", passed: importDisabledWhileDirty, details: `combined workbook import disabled while sheet is dirty: ${importDisabledWhileDirty}` },
     { id: "workbook-lifecycle-status-remains-protected", passed: !statusState.editable && statusState.protected && statusState.readonly && statusState.editorCount === 0, details: `editable=${statusState.editable}; protected=${statusState.protected}; readonly=${statusState.readonly}; editors=${statusState.editorCount}` },
     { id: "workbook-edit-cancel-leaves-no-open-editor", passed: editableControlCount === 0, details: `visible project-name editors after Escape: ${editableControlCount}` },
   ] satisfies readonly QaAssertion[];
