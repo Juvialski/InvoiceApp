@@ -1,6 +1,6 @@
 # UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **UX-EDIT-1A, WB-1, WB-2, AND WB-3A IMPLEMENTED FOR RECORDED SCOPES / WB-3B+ AND WB-CERT NOT STARTED**
+Status: **UX-EDIT-1A, WB-1, WB-2, AND WB-3A MERGED FOR RECORDED SCOPES / WB-3B NEXT / WB-CERT LATER**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -302,7 +302,9 @@ claim full `export -> edit -> import review -> apply` certification.
 - Synchronized base `main` SHA: `822f16b8c75f83d9f2ff0100fb5f17f94d9aac93`
 - Implementation source commit: `78c1c850bf11e874318fd7d5d3952611ba75a2b5`
 - Pull request: [#265](https://github.com/Juvialski/InvoiceApp/pull/265)
-- Status: **OPEN / WB-3A IMPLEMENTED FOR RECORDED SCOPE / WB-3B+ NOT STARTED / WB-CERT LATER**
+- Reviewed exact PR head: `a00c569c960b8b046d320d3a10887e35b5f4305a`
+- Merged as: `c62a2676ea84ea43de1ac6fbeac160595c1cbf8b`
+- Status: **MERGED / WB-3A COMPLETE FOR RECORDED SCOPE / WB-3B NEXT / WB-CERT LATER**
 
 WB-3A enables Projects and Cost Codes as production sheets in `/workbook`.
 Both require the existing `projects.read` permission; editing additionally
@@ -349,7 +351,17 @@ WB-2 combined XLSX schemas and review/apply paths are unchanged.
 - No database schema, migration, RLS, RPC, provider, hosted-QA, or production
   change was made. Database validation was not applicable.
 
-WB-3A closes only Projects and Cost Codes production sheet onboarding. Other
-workbook domains and WB-CERT remain separate work; this record does not
-activate WB-3B or certify the complete combined `export -> edit -> import
-review -> apply` round trip.
+Final review additionally closes two WB-3A safety gaps: duplicate Project Codes
+proposed across multiple staged rows are rejected before Apply begins, and dirty
+worksheet state must be saved/discarded before switching sheets or invoking a
+combined-workbook transfer that can refresh the source rows. Exact-head
+protected CI passed on
+`a00c569c960b8b046d320d3a10887e35b5f4305a` before PR #265 merged.
+
+WB-3A closes only Projects and Cost Codes production sheet onboarding.
+**WB-3B — Direct Expense Production Sheet** is the next bounded workbook slice.
+It may onboard only eligible direct Expense drafts using the existing Expense
+authority; Supplier Invoice evidence/review, settlement/payment, correction,
+archive/void, Procurement, Payroll, Inventory, Equipment, and other workbook
+domains remain separate. WB-CERT remains later and the complete combined
+`export -> edit -> import review -> apply` round trip is not yet certified.
