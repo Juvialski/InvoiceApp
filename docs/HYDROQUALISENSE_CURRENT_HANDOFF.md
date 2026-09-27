@@ -2903,9 +2903,9 @@ their callers were not changed.
 - The fixed workbook structure includes blank rows for data scopes that were
   not exported. The hidden manifest records source sheet sets and schema
   versions for compatibility; it is not a permission credential. Current
-  `projects.read`, `expenses.read`/`expenses.manage`, `invoices.read`, and
-  `procurement.read` permissions are independently checked at export and
-  review. Invoice-linked Expenses and Supplier Payables are withheld when
+  `projects.read`, `expenses.read`, `invoices.read`, and `procurement.read`
+  permissions are independently checked at export and review. Domain write
+  permissions never substitute for the corresponding read permission. Invoice-linked Expenses and Supplier Payables are withheld when
   `invoices.read` is absent.
 - Synchronization identity is namespaced by source domain, while each source
   domain's hidden state/fingerprint/version is preserved for its existing
