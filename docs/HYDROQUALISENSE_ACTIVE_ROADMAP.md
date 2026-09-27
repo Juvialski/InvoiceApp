@@ -1965,7 +1965,9 @@ Implementation branch: codex/ci-eff-2-domain-scoped-browser-qa
 
 Synchronized base SHA: 72ed6b857f3c22eb1a8e0a58523a9126b24dbed3
 
-Status: **IMPLEMENTED FOR RECORDED SCOPE**
+Implementation head: 790aadd29624f6f8caad44555f54904385a4b8b0
+
+Status: **IMPLEMENTED FOR RECORDED SCOPE / PR #260 OPEN / REQUIRED CI PASSED**
 
 ### Root cause and bounded baseline
 
@@ -2038,6 +2040,18 @@ console errors, page errors, failed requests, and horizontal overflow were all
 zero. This local timing is not a same-runner comparison with the historical
 GitHub Ubuntu baseline. The pinned Playwright setup was not changed or cached;
 exact-head protected CI remains authoritative.
+
+PR #260 passed all four required checks on implementation head
+790aadd29624f6f8caad44555f54904385a4b8b0. Chromium deliberately selected FULL
+for this PR because the diff changed the central scenario registry, action
+registry, selector, and protected workflow infrastructure. It captured all
+374 scenarios with four workers in 203 seconds, and the full browser job took
+271 seconds. Setup steps were dependency install 12 seconds, QA Playwright
+package install 1 second, production build 15 seconds, and Chromium install
+20 seconds. Application Validation passed in 1m43s, Workflow Map in 31 seconds,
+and database checks in 5 seconds. This confirms the full fallback still reports
+and passes for cross-cutting changes; the 100-scenario local Invoice capture
+demonstrates the bounded domain path.
 
 ### Validation and limits
 

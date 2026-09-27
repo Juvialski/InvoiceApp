@@ -2676,7 +2676,9 @@ Implementation branch: codex/ci-eff-2-domain-scoped-browser-qa
 
 Synchronized base SHA: 72ed6b857f3c22eb1a8e0a58523a9126b24dbed3
 
-Status: **IMPLEMENTED FOR RECORDED SCOPE; READY FOR PR DELIVERY**
+Implementation head: 790aadd29624f6f8caad44555f54904385a4b8b0
+
+Status: **IMPLEMENTED FOR RECORDED SCOPE / PR #260 OPEN / REQUIRED CI PASSED**
 
 The user explicitly inserted CI-EFF-2 after UX-EDIT-1A and before WB-1.
 WB-1 was not started.
@@ -2755,6 +2757,16 @@ command took **59.6 seconds**. All 100 passed with zero console errors, page
 errors, failed requests, and horizontal overflow. This Windows-local timing is
 not directly comparable to the historical GitHub Ubuntu timing. Local demo
 evidence does not certify hosted QA, provider readiness, or production.
+
+PR #260 passed all four required checks on implementation head
+790aadd29624f6f8caad44555f54904385a4b8b0. Demo Visual QA deliberately selected
+FULL because this PR changed the central catalog/action registry, selector, and
+workflow infrastructure. It captured 374 scenarios in 203 seconds; the browser
+job took 4m31s. Setup was 12s for app dependencies, 1s for the isolated
+Playwright package, 15s for the production build, and 20s for Chromium.
+Application Validation passed in 1m43s, Workflow Map in 31s, and Database
+Migration & Upgrade Suite in 5s. Supabase Preview skipped. This exact-head full
+run remains the protected regression evidence for the modularization.
 
 ### Validation
 
