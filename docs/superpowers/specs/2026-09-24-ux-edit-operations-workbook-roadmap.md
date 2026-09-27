@@ -1,15 +1,15 @@
 # UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **UX-EDIT-1A, WB-1, WB-2, WB-3A, AND WB-3B MERGED FOR RECORDED SCOPES / WB-3C PR #269 OPEN / WB-CERT LATER**
+Status: **UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, AND WB-3C MERGED FOR RECORDED SCOPES / WB-CERT NEXT / WB-3D+ DEFERRED**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
 WB-1 implementation closeout: **2026-09-27**
 
 This document records the UX-EDIT/WB direction and acceptance boundaries.
-UX-EDIT-1A, WB-1, WB-2, WB-3A, and WB-3B are implemented for their recorded
-scopes. WB-3C is implemented in PR #269; WB-3D+ and WB-CERT remain separate
-later phases. WB-1 and WB-2 do not change database, security,
+UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, and WB-3C are implemented for their
+recorded scopes. WB-CERT is the next bounded phase; WB-3D+ domain expansion is
+deferred and is not required for the current maturity gate. WB-1 and WB-2 do not change database, security,
 financial, history, lifecycle, approval, or permission authority.
 
 It extends, rather than replaces:
@@ -369,12 +369,12 @@ WB-CERT stays separately bounded.
 ## WB-3C implementation record — 2026-09-27
 
 - Branch: `codex/wb-3c-procurement-sheets`; base `main`: `c56234cf4a50359af1118f58986a24b870597cbf`
-- Implementation source commit: `e3c53e4074a020bf8e069cc0b821bef99ce65dae`; PR [#269](https://github.com/Juvialski/InvoiceApp/pull/269) is open.
+- Implementation source commit: `e3c53e4074a020bf8e069cc0b821bef99ce65dae`; reviewed exact PR head: `8bd1851d51d596b423250825b2ea41d81db68f8b`; PR [#269](https://github.com/Juvialski/InvoiceApp/pull/269) merged as `3c0dcdacc40d37f1adb5c754841161cd5740ec8a`.
 - Only existing DRAFT RFQ Title/Due Date and Purchase Order Description cells are editable. Reading requires `procurement.read`; writing also requires `procurement.manage`. All identity, status, lines, invitation, calculated, linked-record, and lifecycle values remain protected.
 - Save refreshes company-scoped rows, checks `updatedAt` and DRAFT state, merges only the safe headers, delegates to existing save callbacks, then refreshes again. A forward migration makes those existing callbacks preserve RFQ/PO lines for header-only saves without changing the ordinary form/XLSX path. No table, RLS, grant, or permission changes were made.
 - Synthetic demo saves remain browser-local. Dirty edits block sheet changes and combined workbook transfer/import.
 - Focused tests: 61/61. Affected selection: 541/541 across 87/393 files. Lint, build, Workflow Map check/consistency, local Supabase clean replay, pgTAP (52 files / 1,707 tests), and all migration upgrade checks passed.
-- Local Demo QA passed 16/16 scenarios across desktop, laptop, tablet, and phone. RFQ/PO screenshots were inspected at constrained laptop and phone sizes; artifacts are local synthetic evidence only. Exact-head protected CI is pending; no hosted QA or production promotion was performed.
+- Local Demo QA passed 16/16 scenarios across desktop, laptop, tablet, and phone. RFQ/PO screenshots were inspected at constrained laptop and phone sizes; artifacts are local synthetic evidence only. Exact-head protected CI on `8bd1851d51d596b423250825b2ea41d81db68f8b` passed Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA before merge; no hosted QA or production promotion was performed.
 - Jev context found no candidates (`fallback=true`); test triage retained 87/87 required tests (`jev-1.13.0`, 12,537 input / 1,296 output tokens, 1,459 ms, `fallback=false`). No subagents were used.
 
-WB-3C closes only RFQ and Purchase Order production sheets when this PR is merged. WB-CERT remains later; no other workbook domain was started.
+WB-3C closes RFQ and Purchase Order production-sheet onboarding for its recorded scope. **WB-CERT — Full Round-trip Certification** is next and covers the currently supported production set only: Projects, Cost Codes, Direct Expenses, RFQs, and Purchase Orders. Supplier Invoices, Materials, Equipment, Warehouse, Vendors, Payroll, and other WB-3D+ candidates remain deferred; the candidate list is directional and no additional domain is required merely to maximize sheet count before certification.
