@@ -110,6 +110,7 @@ test("available sheets are filtered by enabled adapter and the existing domain r
 
 test("combined workbook access follows existing domain reads without enabling more production tabs", () => {
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.expensesRead]), true);
+  assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.expensesWrite]), false);
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.procurementRead]), true);
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.payrollRead]), false);
   assert.equal(canAccessOperationsWorkbook((function* () { yield PERMISSION_KEYS.expensesRead; })()), true);
