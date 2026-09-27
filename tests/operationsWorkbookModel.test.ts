@@ -4,6 +4,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   availableOperationsWorkbookSheets,
+  canAccessOperationsWorkbook,
   canEditOperationsWorkbookField,
   canReadOperationsWorkbookSheet,
   findOperationsWorkbookSheet,
@@ -107,6 +108,26 @@ test("available sheets are filtered by enabled adapter and the existing domain r
   assert.deepEqual(payrollOnly.map((sheet) => sheet.id), ["payroll"]);
 });
 
+test("combined workbook access follows existing domain reads without enabling more production tabs", () => {
+  assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.expensesRead]), true);
+  assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.procurementRead]), true);
+  assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.payrollRead]), false);
+  assert.equal(canAccessOperationsWorkbook((function* () { yield PERMISSION_KEYS.expensesRead; })()), true);
+  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.expensesRead]), []);
+  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.procurementRead]), []);
+  assert.deepEqual(availableOperationsWorkbookSheets((function* () { yield PERMISSION_KEYS.procurementRead; })()), []);
+
+  const procurementOnlyHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    permissions: [PERMISSION_KEYS.procurementRead],
+    search: "",
+  }));
+  assert.match(procurementOnlyHtml, /Download workbook/);
+  assert.match(procurementOnlyHtml, /Import workbook/);
+  assert.doesNotMatch(procurementOnlyHtml, /role="tablist"/);
+  assert.doesNotMatch(procurementOnlyHtml, /data-workbook-sheet=/);
+});
+
 test("write access is separate from read access and workbook metadata cannot enable production writes", () => {
   const projectRow = { ...project };
   const demoAdapter = adapterFor();
@@ -200,6 +221,8 @@ test("Operations Workbook shell filters unauthorized tabs and exposes accessible
   assert.match(html, /data-worksheet-editable="false"/);
   assert.match(html, /read only/);
   assert.match(html, /data-worksheet-protected="true"/);
+  assert.match(html, /Download workbook/);
+  assert.match(html, /Import workbook/);
   assert.doesNotMatch(html, /Payroll/);
 
   const demoHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
@@ -211,6 +234,7 @@ test("Operations Workbook shell filters unauthorized tabs and exposes accessible
   }));
   assert.match(demoHtml, /data-worksheet-editable="true"/);
   assert.match(demoHtml, /Save demo edits/);
+  assert.match(demoHtml, /Apply is disabled/);
 
   const payrollOnlyHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
     projects: [project],

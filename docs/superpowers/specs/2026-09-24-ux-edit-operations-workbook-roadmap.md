@@ -1,14 +1,14 @@
 # UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / WB-1 IMPLEMENTED FOR RECORDED SCOPE / WB-2+ NOT STARTED**
+Status: **UX-EDIT-1A, WB-1, AND WB-2 IMPLEMENTED FOR RECORDED SCOPES / WB-3+ AND WB-CERT NOT STARTED**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
 WB-1 implementation closeout: **2026-09-27**
 
 This document records the UX-EDIT/WB direction and acceptance boundaries.
-UX-EDIT-1A and WB-1 are implemented for their recorded scopes. WB-2 and later
-remain separate planned phases. WB-1 does not change database, security,
+UX-EDIT-1A, WB-1, and WB-2 are implemented for their recorded scopes. WB-3+
+and WB-CERT remain separate planned phases. WB-1 and WB-2 do not change database, security,
 financial, history, lifecycle, approval, or permission authority.
 
 It extends, rather than replaces:
@@ -275,7 +275,23 @@ Projects exemplar. Those remain WB-2 and WB-3+ work.
 ## Priority and activation boundary
 
 The original 2026-09-24 plan preceded the user's explicit WB-1 activation on
-2026-09-27, recorded above. WB-2, WB-3+, and WB-CERT remain planned and are not
-authorized by this WB-1 closeout. The hardening-first feature freeze and all
+2026-09-27, recorded above. A later explicit implementation handoff activated
+WB-2. WB-3+ and WB-CERT remain planned and are not authorized by the WB-2
+closeout. The hardening-first feature freeze and all
 existing database, security, financial, history, lifecycle, approval, and
 permission boundaries remain in force.
+
+## WB-2 implementation record — 2026-09-27
+
+The bounded WB-2 implementation is recorded in
+`docs/HYDROQUALISENSE_CURRENT_HANDOFF.md` and the active roadmap. It adds a
+versioned combined Operations Workbook XLSX contract over only the existing
+Projects, Cost Codes, Expenses, Supplier Payables, RFQ, RFQ Line, Purchase
+Order, and PO Line schemas. Its fixed sheet order, hidden source-version
+manifest, namespaced synchronization identity, permission-filtered source
+scopes, safe import review, and separate domain Apply actions preserve the
+standalone workbook contracts. It adds no workbook permission, production
+editing adapter, database schema, migration, or cross-domain transaction.
+
+WB-3+ and WB-CERT remain separately bounded follow-up work. WB-2 does not claim
+full `export -> edit -> import review -> apply` certification.
