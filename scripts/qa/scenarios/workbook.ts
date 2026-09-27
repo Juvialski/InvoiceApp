@@ -85,7 +85,8 @@ export const verifyOperationsWorkbookEditableAndProtectedCells: QaScenarioAction
   await editControl.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   await editControl.fill("Synthetic QA project name");
   await page.keyboard.press("Enter");
-  const importDisabledWhileDirty = await page.getByRole("button", { name: "Import workbook", exact: true }).isDisabled();
+  const importDisabledWhileDirty = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
+    .some((button) => button.textContent?.trim() === "Import workbook" && button.disabled));
   await page.getByRole("tab", { name: /Cost codes/i }).click();
   const dirtySwitchState = await page.evaluate(() => ({
     selectedSheet: document.querySelector<HTMLElement>('[data-operations-workbook="true"]')?.dataset.workbookSheet || "",
