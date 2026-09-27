@@ -75,7 +75,7 @@ function safeDomainForDisplay(
   const requiredRead = domain.id === "projects"
     ? [PERMISSION_KEYS.projectsRead]
     : domain.id === "expenses"
-      ? [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite]
+      ? [PERMISSION_KEYS.expensesRead]
       : [PERMISSION_KEYS.procurementRead];
   if (!hasAnyPermission(permissions, requiredRead)) {
     return {
@@ -221,7 +221,7 @@ export function OperationsWorkbookTransfer({
 
   const latestContext = async (): Promise<CombinedOperationsWorkbookImportContext> => {
     const canReadProjects = hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead]);
-    const canReadExpenses = hasAnyPermission(permissions, [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite]);
+    const canReadExpenses = hasAnyPermission(permissions, [PERMISSION_KEYS.expensesRead]);
     const canReadProcurement = hasAnyPermission(permissions, [PERMISSION_KEYS.procurementRead]);
     const [freshProjects, freshExpenses, freshProcurement] = await Promise.all([
       canReadProjects && onRefreshProjects ? onRefreshProjects() : Promise.resolve(projectRecords),
