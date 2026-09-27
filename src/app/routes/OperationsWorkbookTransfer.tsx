@@ -202,8 +202,11 @@ export function OperationsWorkbookTransfer({
   const permissionSnapshotKey = useMemo(() => [...permissions].sort().join("\u0000"), [permissions]);
 
   useEffect(() => {
+    setReview(null);
     setSelectedByDomain(EMPTY_SELECTION);
     setConfirmedByDomain(EMPTY_CONFIRMATION);
+    setNotice("");
+    setError("");
   }, [companyId, demoMode, permissionSnapshotKey]);
 
   const callbacks = useMemo<CombinedOperationsWorkbookApplyCallbacks>(() => ({
