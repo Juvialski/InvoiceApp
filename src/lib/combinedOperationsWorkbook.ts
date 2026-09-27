@@ -849,3 +849,12 @@ export function refreshCombinedOperationsWorkbookDomainReview(
   const current = safeProcurementContext(accessContext);
   return procurementDomainReview(buildProcurementImportReview(review.underlyingReview.bytes, current, { fileName: review.underlyingReview.fileName }), current.canWrite);
 }
+
+export function retainApplicableCombinedOperationsWorkbookProposalIds(
+  review: CombinedOperationsWorkbookDomainReview,
+  selectedProposalIds: readonly string[],
+): string[] {
+  if (review.state !== "READY") return [];
+  const applicable = new Set(review.proposals.filter((proposal) => proposal.canApply).map((proposal) => proposal.id));
+  return selectedProposalIds.filter((proposalId) => applicable.has(proposalId));
+}

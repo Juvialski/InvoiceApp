@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "44e26302c80c9f6153d0b32be0a1f488055f14ea",
+  "branch": "codex/wb-cert-round-trip-certification",
+  "environment": "Local Vite production-build preview",
+  "applicationMode": "Synthetic Demo Workspace",
+  "route": "/demo/app/workbook?sheet=projects",
+  "dataQualification": "Synthetic fixture data only; authenticated production access and Apply are not mounted.",
+  "scenarioSet": {
+    "feature": "operations-workbook",
+    "count": 16,
+    "passed": 16,
+    "failed": 0
+  },
+  "combinedRoundTrip": {
+    "steps": ["download", "edit typed XLSX cell", "reopen XLSX", "import", "review"],
+    "literalFormulaLikeTextPreserved": true,
+    "formulaCellCreated": false,
+    "readableExpenseSheets": ["Expenses"],
+    "supplierPayablesRowsWithoutInvoicesRead": 0,
+    "reviewedDomainCount": 3,
+    "applyDisabledInSyntheticDemo": true,
+    "roundTripViewports": 4
+  },
+  "networkAndLayout": {
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "failedRequests": 0,
+    "horizontalOverflowPixels": 0
+  },
+  "captures": [
+    {
+      "viewport": "1440x900",
+      "scenarioId": "operations-workbook--workbook--wb-2-combined-workbook-controls-and-responsive-shell--wb1-desktop-1440",
+      "result": "PASS",
+      "screenshot": "desktop-1440x900.png"
+    },
+    {
+      "viewport": "1280x800",
+      "scenarioId": "operations-workbook--workbook--wb-2-combined-workbook-controls-and-responsive-shell--wb1-laptop-1280",
+      "result": "PASS",
+      "screenshot": "laptop-1280x800.png"
+    },
+    {
+      "viewport": "390x844",
+      "scenarioId": "operations-workbook--workbook--wb-2-combined-workbook-controls-and-responsive-shell--wb1-phone-390",
+      "result": "PASS",
+      "screenshot": "phone-390x844.png"
+    }
+  ],
+  "manualInspection": "Lead inspected the desktop, constrained-laptop, and phone captures at the source SHA above.",
+  "certificationBoundary": "This is local synthetic browser evidence. It is not authenticated-company, hosted, QA-provider, or production certification."
+}

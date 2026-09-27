@@ -1,15 +1,17 @@
 # UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, AND WB-3C MERGED FOR RECORDED SCOPES / WB-CERT NEXT / WB-3D+ DEFERRED**
+Status: **UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, AND WB-3C MERGED FOR RECORDED SCOPES / WB-CERT PR #271 OPEN / WB-3D+ DEFERRED**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
 WB-1 implementation closeout: **2026-09-27**
 
 This document records the UX-EDIT/WB direction and acceptance boundaries.
-UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, and WB-3C are implemented for their
-recorded scopes. WB-CERT is the next bounded phase; WB-3D+ domain expansion is
-deferred and is not required for the current maturity gate. WB-1 and WB-2 do not change database, security,
+UX-EDIT-1A and WB-1 through WB-CERT are implemented for their recorded scopes.
+WB-CERT certifies the existing workbook contracts; WB-3D+ domain expansion
+remains deferred and is not required for the current maturity gate. The durable
+certification record is `docs/HYDROQUALISENSE_OPERATIONS_WORKBOOK_CERTIFICATION.md`.
+WB-1 and WB-2 do not change database, security,
 financial, history, lifecycle, approval, or permission authority.
 
 It extends, rather than replaces:
@@ -377,4 +379,15 @@ WB-CERT stays separately bounded.
 - Local Demo QA passed 16/16 scenarios across desktop, laptop, tablet, and phone. RFQ/PO screenshots were inspected at constrained laptop and phone sizes; artifacts are local synthetic evidence only. Exact-head protected CI on `8bd1851d51d596b423250825b2ea41d81db68f8b` passed Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA before merge; no hosted QA or production promotion was performed.
 - Jev context found no candidates (`fallback=true`); test triage retained 87/87 required tests (`jev-1.13.0`, 12,537 input / 1,296 output tokens, 1,459 ms, `fallback=false`). No subagents were used.
 
-WB-3C closes RFQ and Purchase Order production-sheet onboarding for its recorded scope. **WB-CERT — Full Round-trip Certification** is next and covers the currently supported production set only: Projects, Cost Codes, Direct Expenses, RFQs, and Purchase Orders. Supplier Invoices, Materials, Equipment, Warehouse, Vendors, Payroll, and other WB-3D+ candidates remain deferred; the candidate list is directional and no additional domain is required merely to maximize sheet count before certification.
+WB-3C closed RFQ and Purchase Order production-sheet onboarding for its recorded scope. At that closeout, **WB-CERT — Full Round-trip Certification** was selected for the currently supported production set only: Projects, Cost Codes, Direct Expenses, RFQs, and Purchase Orders. The implementation and evidence follow. Supplier Invoices, Materials, Equipment, Warehouse, Vendors, Payroll, and other WB-3D+ candidates remain deferred.
+
+## WB-CERT implementation record — 2026-09-27
+
+- Branch: `codex/wb-cert-round-trip-certification`
+- Synchronized base `main` SHA: `32d30f15e8ed89c3dcca0e2249e05a0e21220b3a`
+- Implementation source commit: `b566795c96cf701d77a51150c95292f5cd24f6ef`
+- Pull request: [#271](https://github.com/Juvialski/InvoiceApp/pull/271)
+- Status: **PR #271 OPEN / WB-3D+ DEFERRED**
+- Certification record: `docs/HYDROQUALISENSE_OPERATIONS_WORKBOOK_CERTIFICATION.md`
+
+The combined `export -> edit -> import review -> domain Apply -> authoritative refresh` path is certified for the already supported Projects, Cost Codes, Direct Expenses, RFQ, and Purchase Order sheets. Existing Supplier Payables, RFQ Lines, PO Lines, synchronization metadata, and all three authoritative standalone workbook contracts remain in scope. No new production sheet, invoice editor, permission, persistence authority, migration, or workbook-wide transaction was added. See the certification record for tests, local Supabase evidence, visual captures, limitations, and Jev diagnostics.

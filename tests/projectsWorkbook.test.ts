@@ -129,6 +129,31 @@ test("review detects stale application edits and workbook identity tampering", (
   assert.equal(fingerprintProposal?.canApply, false);
 });
 
+test("review distinguishes application-only changes from workbook-only changes and stale conflicts", () => {
+  const artifact = exportProjectsWorkbook(context());
+  const applicationOnly = buildProjectsImportReview(artifact.bytes, context({
+    projects: [
+      { ...project(), projectName: "Changed in the application", updatedAt: "2026-01-03T00:00:00.000Z" },
+      project(SECOND_PROJECT_ID, "PRJ-002"),
+    ],
+  }));
+  const applicationProposal = applicationOnly.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(applicationProposal?.status, "APP_ONLY_CHANGE");
+  assert.equal(applicationProposal?.canApply, false);
+
+  const workbookEdit = setCell(artifact.bytes, "Projects", "Project Name", "Workbook-only name");
+  const workbookOnly = buildProjectsImportReview(workbookEdit, context());
+  assert.equal(workbookOnly.proposals.find((candidate) => candidate.projectId === PROJECT_ID)?.status, "WORKBOOK_ONLY_CHANGE");
+
+  const stale = buildProjectsImportReview(workbookEdit, context({
+    projects: [
+      { ...project(), projectName: "Different application name", updatedAt: "2026-01-04T00:00:00.000Z" },
+      project(SECOND_PROJECT_ID, "PRJ-002"),
+    ],
+  }));
+  assert.equal(stale.proposals.find((candidate) => candidate.projectId === PROJECT_ID)?.status, "STALE_CONFLICT");
+});
+
 test("combined cost-code budgets are validated per project and new or missing rows never imply deletion", () => {
   const artifact = exportProjectsWorkbook(context());
   const overBudget = setCell(artifact.bytes, "Cost Codes", "Approved Budget", 800);

@@ -119,11 +119,6 @@ export function fingerprintValue(value: unknown) {
   return `${(first >>> 0).toString(16).padStart(8, "0")}${(second >>> 0).toString(16).padStart(8, "0")}`;
 }
 
-function safeExportValue(value: WorkbookCellValue): WorkbookCellValue {
-  if (typeof value === "string" && /^[=+\-@]/.test(value)) return `'${value}`;
-  return value;
-}
-
 function sheetHeaders(sheet: XLSX.WorkSheet) {
   const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true, defval: null, blankrows: false });
   return Array.isArray(rows[0]) ? rows[0].map((value) => String(value ?? "")) : [];
@@ -194,7 +189,7 @@ export function exportOperationsWorkbook(input: WorkbookExportInput): WorkbookEx
     const supplied = suppliedSheets.get(definition.name);
     if (!supplied) throw new Error(`Missing workbook sheet ${definition.name}.`);
     const hiddenHeaders = new Set(supplied.hiddenHeaders || definition.hiddenHeaders || []);
-    const rows: WorkbookCellValue[][] = [[...definition.headers], ...supplied.rows.map((row) => definition.headers.map((header) => safeExportValue(row[header])))];
+    const rows: WorkbookCellValue[][] = [[...definition.headers], ...supplied.rows.map((row) => definition.headers.map((header) => row[header]))];
     const sheet = XLSX.utils.aoa_to_sheet(rows);
     sheet["!cols"] = definition.headers.map((header) => ({ hidden: hiddenHeaders.has(header), wch: Math.min(42, Math.max(12, header.length + 3)) }));
     XLSX.utils.book_append_sheet(workbook, sheet, definition.name);
@@ -215,7 +210,7 @@ export function exportOperationsWorkbook(input: WorkbookExportInput): WorkbookEx
   ];
   const metadataSheet = XLSX.utils.aoa_to_sheet([
     metadataHeaders,
-    ...metadataRows.map((row) => metadataHeaders.map((header) => safeExportValue(row[header]))),
+    ...metadataRows.map((row) => metadataHeaders.map((header) => row[header])),
   ]);
   metadataSheet["!cols"] = metadataHeaders.map((header) => ({ hidden: header !== METADATA_ROW_TYPE, wch: Math.min(64, Math.max(16, header.length + 3)) }));
   XLSX.utils.book_append_sheet(workbook, metadataSheet, metadataSheetName);

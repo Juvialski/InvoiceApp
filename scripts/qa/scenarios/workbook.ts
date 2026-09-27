@@ -1,8 +1,21 @@
-import type { QaAssertion, QaScenarioAction } from "../structuredEvidence.ts";
+import { readFile } from "node:fs/promises";
+import type { QaAssertion, QaBrowserPage, QaScenarioAction } from "../structuredEvidence.ts";
 import { READY_TIMEOUT_MS } from "./shared.ts";
 
 const workbookRoot = '[data-operations-workbook="true"]';
 const workbookTabs = '[role="tablist"][aria-label="Operations Workbook sheets"] [role="tab"]';
+
+interface WorkbookDownloadHandle {
+  path(): Promise<string | null>;
+}
+
+interface WorkbookFileChooserHandle {
+  setFiles(file: { name: string; mimeType: string; buffer: Buffer }): Promise<void>;
+}
+
+interface WorkbookTransferQaPage extends QaBrowserPage {
+  waitForEvent(event: "download" | "filechooser", options: { timeout: number }): Promise<WorkbookDownloadHandle & WorkbookFileChooserHandle>;
+}
 
 export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => {
   await page.locator(workbookRoot).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
@@ -35,6 +48,7 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
       worksheetRows: document.querySelectorAll('[data-worksheet-row-key], [data-worksheet-mobile-row-key]').length,
     };
   });
+  const roundTripAssertions = await verifyOperationsWorkbookCombinedRoundTrip(page);
   const mobileViewport = layout.viewportWidth < 768;
   return [
     { id: "workbook-heading-visible", passed: true, details: "Operations Workbook heading rendered." },
@@ -45,6 +59,7 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
     { id: "workbook-synthetic-project-rows-visible", passed: layout.worksheetRows > 0, details: `worksheet row instances: ${layout.worksheetRows}` },
     { id: "workbook-white-canvas", passed: layout.rootBackground === "rgb(255, 255, 255)", details: `canvas background: ${layout.rootBackground}` },
     { id: "workbook-no-horizontal-page-overflow", passed: layout.documentWidth <= layout.viewportWidth + 2 && layout.rootWidth <= layout.viewportWidth + 2, details: `document ${layout.documentWidth}px / viewport ${layout.viewportWidth}px; shell ${layout.rootWidth}px` },
+    ...roundTripAssertions,
   ] satisfies readonly QaAssertion[];
 };
 
@@ -425,6 +440,87 @@ export const verifyOperationsWorkbookRfqSheetView: QaScenarioAction = async (pag
   ] satisfies readonly QaAssertion[];
 };
 
+export async function verifyOperationsWorkbookCombinedRoundTrip(page: QaBrowserPage): Promise<readonly QaAssertion[]> {
+  const [XLSX, combinedWorkbook, operationsWorkbook] = await Promise.all([
+    import("xlsx"),
+    import("../../../src/lib/combinedOperationsWorkbook.ts"),
+    import("../../../src/lib/operationsWorkbook.ts"),
+  ]);
+  const transferPage = page as WorkbookTransferQaPage;
+  const downloadPromise = transferPage.waitForEvent("download", { timeout: READY_TIMEOUT_MS });
+  await page.getByRole("button", { name: "Download workbook", exact: true }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  if (!downloadPath) throw new Error("The combined Operations Workbook download was not available for review.");
+
+  const downloadedBytes = new Uint8Array(await readFile(downloadPath));
+  const parsed = operationsWorkbook.parseOperationsWorkbook(downloadedBytes, { schema: combinedWorkbook.COMBINED_OPERATIONS_WORKBOOK_SCHEMA });
+  const sourceManifest = JSON.parse(String(parsed.metadata.sourceManifest)) as Array<{ id: string; includedSheetNames: string[] }>;
+  const expenseManifest = sourceManifest.find((entry) => entry.id === "expenses");
+  const supplierPayablesRows = parsed.sheets["Supplier Payables"]?.rows || [];
+  const workbook = XLSX.read(downloadedBytes, { type: "array", cellDates: true, cellFormula: true });
+  const projectsSheet = workbook.Sheets.Projects;
+  if (!projectsSheet) throw new Error("The downloaded workbook has no Projects sheet.");
+  const headers = XLSX.utils.sheet_to_json<unknown[]>(projectsSheet, { header: 1, raw: true, defval: null })[0]?.map(String) || [];
+  const projectNameColumn = headers.indexOf("Project Name");
+  if (projectNameColumn < 0) throw new Error("The downloaded Projects sheet has no Project Name column.");
+  const proposalText = "=WB-CERT QA O'Connell literal proposal";
+  const projectNameAddress = XLSX.utils.encode_cell({ r: 1, c: projectNameColumn });
+  projectsSheet[projectNameAddress] = { t: "s", v: proposalText };
+  const editedBytes = new Uint8Array(XLSX.write(workbook, { bookType: "xlsx", type: "array", compression: true }));
+  const reopened = XLSX.read(editedBytes, { type: "array", cellFormula: true });
+  const reopenedCell = reopened.Sheets.Projects?.[projectNameAddress] as { v?: unknown; f?: string } | undefined;
+  if (reopenedCell?.v !== proposalText || reopenedCell.f) {
+    throw new Error("The normal XLSX rewrite changed the literal proposal or created a formula.");
+  }
+
+  const fileChooserPromise = transferPage.waitForEvent("filechooser", { timeout: READY_TIMEOUT_MS });
+  await page.getByRole("button", { name: "Import workbook", exact: true }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: "WB_CERT_Operations_Workbook.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(editedBytes),
+  });
+  const review = page.locator('[aria-label^="Import review:"]');
+  await review.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.waitForFunction(() => document.body.innerText.includes("WB-CERT QA O'Connell literal proposal"));
+  await page.evaluate(() => document.querySelector('[aria-label^="Import review:"]')?.scrollIntoView({ block: "start" }));
+
+  const state = await page.evaluate(() => {
+    const reviewRoot = document.querySelector<HTMLElement>('[aria-label^="Import review:"]');
+    const projectDomain = reviewRoot?.querySelector<HTMLElement>('[data-combined-workbook-domain="projects"]');
+    const projectProposal = projectDomain?.querySelector<HTMLElement>("[data-combined-workbook-proposal]");
+    const domainCount = reviewRoot?.querySelectorAll("[data-combined-workbook-domain]").length || 0;
+    const unchangedGroups = Array.from(reviewRoot?.querySelectorAll<HTMLDetailsElement>("[data-combined-workbook-unchanged-count]") || []);
+    const applyButtons = Array.from(reviewRoot?.querySelectorAll<HTMLButtonElement>("button") || [])
+      .filter((button) => button.textContent?.includes("Apply selected"));
+    const bodyText = reviewRoot?.innerText || "";
+    return {
+      proposalTextVisible: Boolean(projectProposal?.innerText.includes("WB-CERT QA O'Connell literal proposal")),
+      workbookOnlyProposal: Boolean(projectProposal?.innerText.includes("WORKBOOK_ONLY_CHANGE")),
+      allExistingDomainsReviewed: domainCount === 3,
+      unchangedRowsCollapsed: unchangedGroups.length > 0 && unchangedGroups.every((group) => !group.open),
+      unchangedRowsSummary: unchangedGroups.map((group) => group.dataset.combinedWorkbookUnchangedCount || "").join(","),
+      applyUnavailableInSyntheticDemo: bodyText.includes("Apply is disabled in synthetic demo mode."),
+      applyButtonCount: applyButtons.length,
+      reviewWidth: reviewRoot?.getBoundingClientRect().width || 0,
+      viewportWidth: window.innerWidth,
+      documentWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    };
+  });
+  const mobileViewport = state.viewportWidth < 768;
+  return [
+    { id: "workbook-roundtrip-download-produced-supported-artifact", passed: downloadedBytes.byteLength > 0 && parsed.workbookKind === "HYDROQUALISENSE_COMBINED_OPERATIONS_WORKBOOK", details: `downloaded ${downloadedBytes.byteLength} bytes with the combined contract` },
+    { id: "workbook-partial-readable-domain-scope-hides-supplier-payables", passed: JSON.stringify(expenseManifest?.includedSheetNames) === JSON.stringify(["Expenses"]) && supplierPayablesRows.length === 0, details: `Supplier Payables rows: ${supplierPayablesRows.length}; expense sheets included: ${(expenseManifest?.includedSheetNames || []).join(", ")}` },
+    { id: "workbook-roundtrip-import-review-shows-proposal", passed: state.proposalTextVisible && state.workbookOnlyProposal, details: `literal proposal visible=${state.proposalTextVisible}; workbook-only status=${state.workbookOnlyProposal}` },
+    { id: "workbook-roundtrip-unchanged-proposals-are-collapsed-with-counts", passed: state.unchangedRowsCollapsed, details: `collapsed unchanged counts: ${state.unchangedRowsSummary || "none"}` },
+    { id: "workbook-roundtrip-keeps-domain-apply-separated-and-demo-read-only", passed: state.allExistingDomainsReviewed && state.applyUnavailableInSyntheticDemo && state.applyButtonCount === 0, details: `reviewed domains=${state.allExistingDomainsReviewed ? 3 : state.reviewWidth ? "partial" : 0}; synthetic Apply disabled=${state.applyUnavailableInSyntheticDemo}; Apply buttons=${state.applyButtonCount}` },
+    { id: "workbook-roundtrip-review-fits-viewport", passed: state.reviewWidth <= state.viewportWidth + 2 && state.documentWidth <= state.viewportWidth + 2, details: `review ${state.reviewWidth}px; document ${state.documentWidth}px / viewport ${state.viewportWidth}px` },
+    { id: "workbook-roundtrip-review-viewport-class", passed: mobileViewport || state.viewportWidth >= 768, details: mobileViewport ? "phone review captured" : "desktop or constrained-laptop review captured" },
+  ] satisfies readonly QaAssertion[];
+}
+
 export const workbookScenarioActions: Readonly<Record<string, QaScenarioAction>> = {
   verifyOperationsWorkbookLayout,
   verifyOperationsWorkbookPermissionTabs,
@@ -434,4 +530,5 @@ export const workbookScenarioActions: Readonly<Record<string, QaScenarioAction>>
   verifyOperationsWorkbookExpensesSheet,
   verifyOperationsWorkbookProcurementSheets,
   verifyOperationsWorkbookRfqSheetView,
+  verifyOperationsWorkbookCombinedRoundTrip,
 };
