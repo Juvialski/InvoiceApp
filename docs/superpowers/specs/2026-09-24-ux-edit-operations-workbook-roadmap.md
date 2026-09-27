@@ -1,6 +1,6 @@
 # UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, AND WB-3C MERGED FOR RECORDED SCOPES / WB-CERT IMPLEMENTED FOR RECORDED SCOPE / PR DELIVERY PENDING / WB-3D+ DEFERRED**
+Status: **UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, AND WB-3C MERGED FOR RECORDED SCOPES / WB-CERT PR #271 OPEN / WB-3D+ DEFERRED**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -386,7 +386,8 @@ WB-3C closed RFQ and Purchase Order production-sheet onboarding for its recorded
 - Branch: `codex/wb-cert-round-trip-certification`
 - Synchronized base `main` SHA: `32d30f15e8ed89c3dcca0e2249e05a0e21220b3a`
 - Implementation source commit: `b566795c96cf701d77a51150c95292f5cd24f6ef`
-- Status: **IMPLEMENTED FOR RECORDED SCOPE / PR DELIVERY PENDING / WB-3D+ DEFERRED**
+- Pull request: [#271](https://github.com/Juvialski/InvoiceApp/pull/271)
+- Status: **PR #271 OPEN / WB-3D+ DEFERRED**
 - Certification record: `docs/HYDROQUALISENSE_OPERATIONS_WORKBOOK_CERTIFICATION.md`
 
 The combined `export -> edit -> import review -> domain Apply -> authoritative refresh` path is certified for the already supported Projects, Cost Codes, Direct Expenses, RFQ, and Purchase Order sheets. Existing Supplier Payables, RFQ Lines, PO Lines, synchronization metadata, and all three authoritative standalone workbook contracts remain in scope. No new production sheet, invoice editor, permission, persistence authority, migration, or workbook-wide transaction was added. See the certification record for tests, local Supabase evidence, visual captures, limitations, and Jev diagnostics.

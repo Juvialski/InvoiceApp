@@ -1,9 +1,10 @@
 # HydroQualiSense Operations Workbook — WB-CERT
 
-Status: **WB-CERT implementation and local certification complete for the recorded scope; PR delivery pending**  
-Synchronized base `main`: `32d30f15e8ed89c3dcca0e2249e05a0e21220b3a`  
-Implementation source commit: `b566795c96cf701d77a51150c95292f5cd24f6ef`  
-Branch: `codex/wb-cert-round-trip-certification`
+- Status: **WB-CERT implementation and local certification complete for the recorded scope; PR #271 open**
+- Synchronized base `main`: `32d30f15e8ed89c3dcca0e2249e05a0e21220b3a`
+- Implementation source commit: `b566795c96cf701d77a51150c95292f5cd24f6ef`
+- Branch: `codex/wb-cert-round-trip-certification`
+- Pull request: [#271](https://github.com/Juvialski/InvoiceApp/pull/271)
 
 ## Certified boundary
 
