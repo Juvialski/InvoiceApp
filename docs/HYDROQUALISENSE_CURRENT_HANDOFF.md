@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 IMPLEMENTED FOR RECORDED SCOPE / WB-3+ AND WB-CERT NOT STARTED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 MERGED PR #263 / WB-3A NEXT / WB-CERT LATER**
 Date: **2026-09-27**
 Repository: `Juvialski/InvoiceApp`
 
@@ -2883,7 +2883,9 @@ handoff and is recorded below. WB-3+ and WB-CERT remain separate planned work.
 
 Implementation branch: `codex/wb-2-multisheet-xlsx-roundtrip`
 Synchronized base `main` SHA: `7f1c0905a7b9f9a4a36e8a6c3444e68d7e7085fb`
-Status: **WB-2 IMPLEMENTED FOR RECORDED SCOPE / WB-3+ AND WB-CERT NOT STARTED**
+Merged PR: **#263** as `6c67e595936f86aa9de5b5f5771e5aa1359fb8e7`
+Reviewed exact PR head: `976746585f1cd66cb325efa5c41d24e61d980af7`
+Status: **MERGED / WB-2 COMPLETE FOR RECORDED SCOPE / WB-3A NEXT / WB-CERT LATER**
 
 The user explicitly activated WB-2 after the WB-1 closeout. This phase composes
 the already-hardened Projects, Expenses/Supplier Payables, and Procurement
@@ -2951,7 +2953,19 @@ their callers were not changed.
   output tokens, 493 ms, `fallback=false`.
 - No database, Docker/Supabase, migration, provider, hosted-QA, or production
   validation was applicable.
+- Final ChatGPT review fixed two merge blockers on the PR branch:
+  `expenses.manage` no longer grants combined-workbook read access without
+  `expenses.read`, and imported review state is cleared when company,
+  permission, or demo context changes.
+- Exact-head protected CI on
+  `976746585f1cd66cb325efa5c41d24e61d980af7` passed Application Validation &
+  Build, Database Migrations & Upgrade Suite, Graph and Source Contract
+  Consistency, and `chromium-demo-qa`. No unresolved review threads remained.
 
-WB-3+ domain onboarding and WB-CERT full round-trip certification remain
-separately planned. The exact PR identity and PR-head checks are reported in
-the delivery summary.
+Next bounded phase: **WB-3A — Project Controls Production Sheets**. Onboard
+Projects and Cost Codes only into the in-app Operations Workbook, reusing the
+existing Projects-domain save/apply/concurrency authority. Keep lifecycle and
+calculated fields protected and keep existing standalone/combined XLSX flows
+compatible. Expenses, Procurement, Supplier Invoices, Payroll, Inventory,
+Equipment, and other workbook domains stay out of WB-3A. WB-CERT remains a
+later certification gate after bounded WB-3 onboarding.
