@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / WB-1 PLANNED NOT STARTED**
-Date: **2026-09-26**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 IMPLEMENTED FOR RECORDED SCOPE / WB-1 PLANNED NOT STARTED**
+Date: **2026-09-27**
 Repository: `Juvialski/InvoiceApp`
 
 RI-0 Repository Intelligence planning was prepared from the earlier current
@@ -2669,3 +2669,113 @@ authoritative.
 
 Next planned phase: **WB-1 — Unified Operations Workbook Schema & Shell**.
 It was not started in this run.
+
+## 2026-09-27 — CI-EFF-2 — Domain-Scoped Browser QA & Protected CI Fast Paths
+
+Implementation branch: codex/ci-eff-2-domain-scoped-browser-qa
+
+Synchronized base SHA: 72ed6b857f3c22eb1a8e0a58523a9126b24dbed3
+
+Status: **IMPLEMENTED FOR RECORDED SCOPE; READY FOR PR DELIVERY**
+
+The user explicitly inserted CI-EFF-2 after UX-EDIT-1A and before WB-1.
+WB-1 was not started.
+
+### Finding and changed architecture
+
+CI-EFF-1's conservative scripts/** rule treated every browser action assertion
+edit as shared infrastructure. Because scripts/qa/demoScenarios.ts held both
+the registry and all action implementations, a Supplier Invoice or Payroll
+assertion-only change selected all browser routes.
+
+The scenario contract is now split into:
+
+- scripts/qa/demoScenarioMetadata.ts — stable scenario identity, route,
+  viewport, interaction state, and action ID;
+- scripts/qa/scenarios/<domain>.ts — domain assertion/actions, with
+  scripts/qa/scenarios/shared.ts reserved for cross-cutting checks;
+- scripts/qa/demoScenarioActions.ts — deterministic action-ID resolution; and
+- scripts/qa/demoScenarios.ts — ordered runtime assembly used by the runner.
+
+Workflow Map consistency-contracts and validate consume scenario metadata
+directly. Workflow Map tests use metadata and synthetic no-op actions, so they
+do not load domain browser assertion modules. The only QA-side Workflow Map
+bridge inputs are scenario metadata and structuredEvidence.ts.
+
+The browser selector maps scripts/qa/scenarios/invoices.ts and
+scripts/qa/scenarios/payroll.ts to their route families. Known Supplier Invoice
+product source files and QA test file names map to the Invoice family. Each
+affected scope adds only shared-shell-smoke@dashboard: two scenarios checking
+the desktop shell and mobile navigation. Shared shell/navigation/theme/CSS,
+central catalog/action registry, runner/selector/evidence infrastructure,
+unknown or incomplete input, main push, and explicit non-PR event paths remain
+full-catalog cases. Documentation-only PRs still skip browser execution.
+
+The original 372 scenario IDs and their relative order were verified by a
+stable SHA-256 signature. Two smoke scenarios are appended; the catalog now
+contains 374 scenarios. Four-worker order, DEMO_QA_WORKERS=1, failure rows,
+and context cleanup behavior remain covered.
+
+### Protected workflow behavior
+
+The protected check names did not change:
+
+- Application Validation & Build
+- Database Migrations & Upgrade Suite
+- chromium-demo-qa
+- Graph and Source Contract Consistency
+
+Application Validation classifies browser-QA-only changes for lint/typecheck
+and focused selector/catalog tests, skipping the product affected-test sweep
+and build. Demo Visual QA builds the exact app head. Actual product changes
+remain on the full validation path.
+
+Workflow Map keeps metadata and structured evidence changes heavy, but fast
+passes known domain assertion modules without npm ci, graph generation, or
+Workflow Map tests. Unknown scripts/qa/ paths fail closed to the heavy path.
+Its main-push path list was narrowed to the proven QA bridge inputs. Database
+workflow behavior and all migrations were left untouched.
+
+### Baseline and measurements
+
+PR #259 final head 943bcac0d3cfcb7e7e55cc0f8fa43bcd20370364 had protected run
+36278717162. It selected the full 372-scenario catalog because the change was
+classified as shared/browser infrastructure. Capture took 170 seconds and the
+whole browser job 230 seconds. On that exact PR head, Application Validation
+took 108 seconds, Workflow Map 26 seconds, and Database validation 4 seconds.
+
+The Supplier Invoice source and Invoice action module now select **100
+scenarios, 8 route IDs, and 32 feature selectors**. Payroll action changes
+select **28 scenarios, 2 routes, and 7 feature selectors**. The Invoice scope
+reduces unrelated catalog coverage by 272 scenarios (73.1%).
+
+Local production-preview QA on the synchronized app SHA captured the 100
+Invoice scenarios in **54.6 seconds**, with four workers; the full local
+command took **59.6 seconds**. All 100 passed with zero console errors, page
+errors, failed requests, and horizontal overflow. This Windows-local timing is
+not directly comparable to the historical GitHub Ubuntu timing. Local demo
+evidence does not certify hosted QA, provider readiness, or production.
+
+### Validation
+
+- Focused selector/catalog/QA scope tests passed, including all 372 legacy IDs,
+  the two appended smoke scenarios, domain-path mapping, full fallback,
+  one-worker behavior, evidence ordering, worker failures, and runner context
+  cleanup.
+- Supplier Invoice worksheet consumer tests passed **13/13**.
+- Final npm.cmd run test:affected:agent passed **240/240 tests** across
+  **26/388 selected test files**, no fallback, and database unaffected.
+- npm.cmd run lint:eslint and npm.cmd run typecheck passed.
+- npm.cmd run build passed; existing Inter font, chunk-size, and CommonJS
+  import.meta warnings remain.
+- npm.cmd run test:workflow-map passed **68/68**.
+- workflow-map:check passed; workflow-map:consistency reported **266 nodes,
+  355 edges, 36 invariants, and 11 diagrams**. Generated outputs are unchanged.
+- No Docker, Supabase, database, migration, provider, hosted-QA, or production
+  validation was applicable.
+- Jev context preflight found no candidates (fallback=true, requestCount=0);
+  deterministic source and selector evidence remained authoritative.
+
+PR exact-head protected CI remains the final workflow authority. Do not infer
+hosted or production certification from the local browser run. After CI-EFF-2
+is reviewed, the next planned product phase remains WB-1.

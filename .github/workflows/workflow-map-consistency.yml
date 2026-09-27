@@ -19,7 +19,8 @@ on:
       - "src/demo/**"
       - "src/main.tsx"
       - "scripts/workflow-map/**"
-      - "scripts/qa/**"
+      - "scripts/qa/demoScenarioMetadata.ts"
+      - "scripts/qa/structuredEvidence.ts"
       - "tests/workflowMap*.test.ts"
       - "supabase/migrations/**"
       - "docs/architecture/**"
@@ -43,71 +44,101 @@ jobs:
     name: Graph and Source Contract Consistency
     runs-on: ubuntu-latest
     steps:
-      - name: Determine validation scope
-        id: scope
+      - name: Collect pull request changed paths
+        id: changed-files
         uses: actions/github-script@v7
         with:
           script: |
             if (context.eventName !== 'pull_request') {
-              core.setOutput('run', 'true');
+              core.setOutput('files', '[]');
+              core.setOutput('complete', 'false');
               return;
             }
 
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              per_page: 100,
-            });
-            const relevant = files.some(({ filename }) =>
-              filename.startsWith('src/utils/') ||
-              filename.startsWith('src/features/') ||
-              filename === 'src/lib/engineeringCoordination.ts' ||
-              filename === 'src/lib/dailySiteLogs.ts' ||
-              filename === 'src/lib/financialSettlement.ts' ||
-              filename === 'src/lib/payroll.ts' ||
-              filename === 'src/types.ts' ||
-              filename.startsWith('src/assistant/') ||
-              filename.startsWith('src/server/assistant/') ||
-              filename === 'src/app/applicationMode.ts' ||
-              filename.startsWith('src/demo/') ||
-              filename === 'src/main.tsx' ||
-              filename.startsWith('scripts/workflow-map/') ||
-              filename.startsWith('scripts/qa/') ||
-              /^tests\/workflowMap.*\.test\.ts$/.test(filename) ||
-              filename.startsWith('supabase/migrations/') ||
-              filename.startsWith('docs/architecture/') ||
-              filename === 'docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md' ||
-              filename === 'package.json' ||
-              filename === 'package-lock.json' ||
-              filename === 'tsconfig.json' ||
-              filename === '.github/workflows/workflow-map-consistency.yml'
-            );
-            core.setOutput('run', relevant ? 'true' : 'false');
-            if (!relevant) {
-              core.notice('Fast-pass: no workflow-map or source-contract inputs changed.');
+            try {
+              const pullNumber = context.issue.number;
+              const expectedHeadSha = context.payload.pull_request?.head?.sha;
+              const expectedBaseSha = context.payload.pull_request?.base?.sha;
+              if (!expectedHeadSha || !expectedBaseSha) {
+                core.warning('Pull request identity is unavailable; Workflow Map checks will run fully.');
+                core.setOutput('files', '[]');
+                core.setOutput('complete', 'false');
+                return;
+              }
+
+              const before = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+              });
+              if (before.data.head.sha !== expectedHeadSha || before.data.base.sha !== expectedBaseSha) {
+                core.warning('Pull request moved after this event; Workflow Map checks will run fully.');
+                core.setOutput('files', '[]');
+                core.setOutput('complete', 'false');
+                return;
+              }
+
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+                per_page: 100,
+              });
+              const after = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+              });
+              const sameEventRevision = after.data.head.sha === expectedHeadSha
+                && after.data.base.sha === expectedBaseSha
+                && before.data.head.sha === after.data.head.sha
+                && before.data.base.sha === after.data.base.sha;
+              const complete = sameEventRevision && files.length === after.data.changed_files;
+              if (!complete) {
+                core.warning('Changed-file list or event identity is incomplete; Workflow Map checks will run fully.');
+              }
+              core.setOutput('files', JSON.stringify(files.map(({ filename }) => filename)));
+              core.setOutput('complete', complete ? 'true' : 'false');
+            } catch {
+              core.warning('Could not read the complete pull request file list; Workflow Map checks will run fully.');
+              core.setOutput('files', '[]');
+              core.setOutput('complete', 'false');
             }
 
       - name: Checkout repository
-        if: steps.scope.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
       - name: Setup Node.js
-        if: steps.scope.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      - name: Determine validation scope
+        id: scope
+        run: node --experimental-strip-types scripts/ci/selectProtectedCiScope.ts
+        env:
+          PROTECTED_CI_SCOPE: workflow-map
+          PROTECTED_CI_CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
+          PROTECTED_CI_FILE_LIST_COMPLETE: ${{ steps.changed-files.outputs.complete }}
+
+      - name: Report validation scope
+        run: echo "Workflow Map mode=${{ steps.scope.outputs.mode }} reason=${{ steps.scope.outputs.reason }}"
+
       - name: Install dependencies
         if: steps.scope.outputs.run == 'true'
         run: npm ci
+
       - name: Check generated workflow map
         if: steps.scope.outputs.run == 'true'
         run: npm run workflow-map:check
+
       - name: Check graph/source consistency
         if: steps.scope.outputs.run == 'true'
         run: npm run workflow-map:consistency
+
       - name: Run focused workflow-map tests
         if: steps.scope.outputs.run == 'true'
         run: npm run test:workflow-map

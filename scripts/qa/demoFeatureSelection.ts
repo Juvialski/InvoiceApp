@@ -42,7 +42,35 @@ const ROUTE_FAMILIES = {
 
 type RouteFamily = keyof typeof ROUTE_FAMILIES;
 
+const SCENARIO_MODULE_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
+  cash: "cash",
+  dashboard: "dashboard",
+  documents: "documents",
+  engineering: "engineering",
+  expenses: "expenses",
+  help: "help",
+  inventory: "inventory",
+  invoices: "invoices",
+  messaging: "messaging",
+  payroll: "payroll",
+  procurement: "procurement",
+  projects: "projects",
+  settings: "settings",
+};
+
+const ROUTE_FILE_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
+  "src/app/routes/InvoicesRoute.tsx": "invoices",
+};
+
+const ROOT_COMPONENT_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
+  "src/components/SupplierInvoiceReview.tsx": "invoices",
+  "src/components/VerificationWorkspace.tsx": "invoices",
+};
+
+const SHARED_SMOKE_FEATURES = ["shared-shell-smoke@dashboard"] as const;
+
 const COMPONENT_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
+  cash: "cash",
   dashboard: "dashboard",
   documents: "documents",
   engineering: "engineering",
@@ -55,14 +83,26 @@ const COMPONENT_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
   payroll: "payroll",
   procurement: "procurement",
   projects: "projects",
+  reports: "reports",
+  settings: "settings",
+  "supplier-invoices": "invoices",
+  supplierinvoices: "invoices",
 };
 
 const FEATURE_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
+  cash: "cash",
+  documents: "documents",
   engineering: "engineering",
+  expenses: "expenses",
   finance: "financial",
+  help: "help",
   inventory: "inventory",
+  invoices: "invoices",
+  messaging: "messaging",
+  payroll: "payroll",
   procurement: "procurement",
   projects: "projects",
+  settings: "settings",
 };
 
 const TEST_FILE_ROUTE_FAMILIES: readonly { readonly pattern: RegExp; readonly family: RouteFamily }[] = [
@@ -123,6 +163,8 @@ function isDocumentationOnlyPath(repoPath: string): boolean {
 }
 
 function isSharedOrInfrastructurePath(repoPath: string): boolean {
+  const scenarioFamily = scenarioModuleFamilyForPath(repoPath);
+  if (scenarioFamily || ROUTE_FILE_ROUTE_FAMILIES[repoPath] || ROOT_COMPONENT_ROUTE_FAMILIES[repoPath]) return false;
   return repoPath.startsWith(".github/")
     || repoPath.startsWith("scripts/")
     || repoPath.startsWith("public/")
@@ -154,7 +196,18 @@ function isSharedOrInfrastructurePath(repoPath: string): boolean {
     || repoPath.toLowerCase().endsWith(".css");
 }
 
+function scenarioModuleFamilyForPath(repoPath: string): RouteFamily | undefined {
+  const match = /^scripts\/qa\/scenarios\/([a-z0-9-]+)\.ts$/i.exec(repoPath);
+  return match ? SCENARIO_MODULE_ROUTE_FAMILIES[match[1]!.toLowerCase()] : undefined;
+}
+
 function routeFamilyForPath(repoPath: string): RouteFamily | undefined {
+  const knownRouteFileFamily = ROUTE_FILE_ROUTE_FAMILIES[repoPath] || ROOT_COMPONENT_ROUTE_FAMILIES[repoPath];
+  if (knownRouteFileFamily) return knownRouteFileFamily;
+
+  const scenarioModuleFamily = scenarioModuleFamilyForPath(repoPath);
+  if (scenarioModuleFamily) return scenarioModuleFamily;
+
   if (repoPath.startsWith("src/components/")) {
     const componentArea = repoPath.slice("src/components/".length).split("/")[0]?.toLowerCase();
     return componentArea ? COMPONENT_ROUTE_FAMILIES[componentArea] : undefined;
@@ -218,7 +271,8 @@ export function selectDemoQaScope(changedFiles: unknown, options: DemoQaScopeOpt
   const routeSet = new Set(routeIds);
   const features = [...new Set(DEMO_QA_SCENARIOS
     .filter((scenario) => routeSet.has(scenario.route.id))
-    .map((scenario) => `${scenario.feature}@${scenario.route.id}`))].sort();
+    .map((scenario) => `${scenario.feature}@${scenario.route.id}`)
+    .concat(SHARED_SMOKE_FEATURES))].sort();
   if (features.length === 0) return fullScope("route-family-has-no-scenarios");
   return { mode: "affected", routeIds, features, reason: "mapped-domain-routes" };
 }

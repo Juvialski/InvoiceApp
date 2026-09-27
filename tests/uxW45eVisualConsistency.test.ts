@@ -33,10 +33,11 @@ test("document preview uses an explicit state frame instead of an unconditional 
 });
 
 test("demo RFI and Submittal scenarios label missing demo records as recovery evidence", () => {
-  const scenarios = source("scripts/qa/demoScenarios.ts");
+  const scenarios = source("scripts/qa/scenarios/engineering.ts");
+  const scenarioMetadata = source("scripts/qa/demoScenarioMetadata.ts");
   assert.match(scenarios, /rfi-missing-record-recovery-visible/);
   assert.match(scenarios, /submittal-missing-record-recovery-visible/);
-  assert.match(scenarios, /interactionState: "missing-record recovery rendered"/);
-  assert.doesNotMatch(scenarios, /interactionState: "RFI detail opened"/);
-  assert.doesNotMatch(scenarios, /interactionState: "Submittal detail and round opened"/);
+  assert.match(scenarioMetadata, /interactionState: "missing-record recovery rendered"/);
+  assert.doesNotMatch(scenarioMetadata, /interactionState: "RFI detail opened"/);
+  assert.doesNotMatch(scenarioMetadata, /interactionState: "Submittal detail and round opened"/);
 });

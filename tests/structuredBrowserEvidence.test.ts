@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { DEMO_QA_SCENARIOS } from "../scripts/qa/demoScenarios.ts";
 import {
   QA_EVIDENCE_SCHEMA_VERSION,
@@ -65,6 +66,24 @@ test("shared viewport definitions retain useful responsive metadata", () => {
 test("demo scenario catalog is unique and covers the required product surfaces", () => {
   const ids = DEMO_QA_SCENARIOS.map((scenario) => scenario.id);
   assert.equal(new Set(ids).size, ids.length);
+  const sharedSmokeIds = [
+    "shared-shell-smoke--dashboard--app-shell-content-visible--desktop-1440",
+    "shared-shell-smoke--dashboard--mobile-navigation-can-open-and-restore-focus--mobile-390",
+  ];
+  const legacyIds = ids.filter((id) => !sharedSmokeIds.includes(id));
+  assert.equal(ids.length, 374, "only the two explicit shared smoke scenarios should be added");
+  assert.equal(legacyIds.length, 372, "scenario count must not shrink during modularization");
+  assert.equal(
+    createHash("sha256").update(legacyIds.join("\n")).digest("hex"),
+    "806d96d5c6c0326d0f4794deed20d6a0aabd131095dbc4e2a7df63f7603a26e3",
+    "all pre-refactor scenario IDs and relative evidence ordering must remain intact",
+  );
+  assert.deepEqual(ids.slice(-2), sharedSmokeIds, "shared smoke evidence must stay appended in deterministic order");
+  assert.equal(
+    createHash("sha256").update(ids.join("\n")).digest("hex"),
+    "08abc6d6d302f412aac36cfd38117b55eeef4675f65ba10ef228365d9320685b",
+    "the full catalog evidence order must remain deterministic",
+  );
   for (const feature of ["dashboard", "projects", "project-workspace", "engineering-documents", "rfis", "submittals", "site-logs", "cash-banking", "invoices", "payroll", "expenses", "reports", "warehouse-inventory", "assistant"]) {
     assert.ok(DEMO_QA_SCENARIOS.some((scenario) => scenario.feature === feature), `missing ${feature} coverage`);
   }

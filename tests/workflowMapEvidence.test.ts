@@ -7,14 +7,22 @@ import {
   parseQaManifest,
   WORKFLOW_MAP_EVIDENCE_SCHEMA_VERSION,
 } from "../scripts/workflow-map/evidence.ts";
-import { DEMO_QA_SCENARIOS } from "../scripts/qa/demoScenarios.ts";
+import { DEMO_QA_SCENARIO_METADATA } from "../scripts/qa/demoScenarioMetadata.ts";
 import {
   createOverflowResult,
   createQaManifest,
   createScenarioEvidence,
   type QaRunManifest,
+  type QaScenarioAction,
+  type QaScenarioDefinition,
   type QaScenarioEvidence,
 } from "../scripts/qa/structuredEvidence.ts";
+
+const noOpScenarioAction: QaScenarioAction = async () => {};
+const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = DEMO_QA_SCENARIO_METADATA.map(({ actionId, ...scenario }) => ({
+  ...scenario,
+  ...(actionId === undefined ? {} : { action: noOpScenarioAction }),
+}));
 
 function createSyntheticEvidence(
   scenarioDef = DEMO_QA_SCENARIOS[0],

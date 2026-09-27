@@ -1,7 +1,7 @@
 import { applicationModeForPath, isDemoApplicationPath } from "../../src/app/applicationMode.ts";
 import { ASSISTANT_PREPARED_ACTION_STATUSES } from "../../src/assistant/assistantTypes.ts";
 import { CONFIRMATION_REQUIRED } from "../../src/assistant/confirmationPolicy.ts";
-import { DEMO_QA_SCENARIOS } from "../qa/demoScenarios.ts";
+import { DEMO_QA_SCENARIO_METADATA } from "../qa/demoScenarioMetadata.ts";
 import { DEMO_APP_ROOT_PATH, DEMO_ROOT_PATH, DEMO_ROUTE_CONTRACTS } from "../../src/demo/demoRouting.ts";
 import { PRODUCT_FEATURE_REGISTRY } from "../../src/features/registry.ts";
 import { DAILY_LOG_TRANSITIONS, DAILY_SITE_LOG_STATUSES } from "../../src/lib/dailySiteLogs.ts";
@@ -364,7 +364,7 @@ export const WORKFLOW_MAP_CONSISTENCY_CONTRACTS: WorkflowMapConsistencyContracts
       { label: "workflow-map developer surface", pathname: "/workflow-map", expectedMode: "workflow-map" },
     ],
   },
-  qaScenarios: DEMO_QA_SCENARIOS.map((scenario) => ({ id: scenario.id, route: scenario.route, path: scenario.path, hasAction: Boolean(scenario.action) })),
+  qaScenarios: DEMO_QA_SCENARIO_METADATA.map((scenario) => ({ id: scenario.id, route: scenario.route, path: scenario.path, hasAction: Boolean(scenario.actionId) })),
   requiredCoverageNodeIds: [
     "platform-entry",
     "route-project-workspace",

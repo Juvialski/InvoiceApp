@@ -45,7 +45,7 @@ test("Payroll demo coverage includes the next-step overview and approved Cash ha
 });
 
 test("Projects attention-filter QA follows the card-first default instead of requiring the optional compact list", () => {
-  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const scenariosSource = readFileSync(new URL("../scripts/qa/scenarios/projects.ts", import.meta.url), "utf8");
   const attentionActionStart = scenariosSource.indexOf("const verifyPortfolioAttention");
   const attentionActionEnd = scenariosSource.indexOf("const verifyProjectAttentionAndEngineering", attentionActionStart);
   assert.ok(attentionActionStart >= 0 && attentionActionEnd > attentionActionStart);
@@ -56,7 +56,7 @@ test("Projects attention-filter QA follows the card-first default instead of req
 });
 
 test("Projects attention-filter QA opens the shared Filters disclosure", () => {
-  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const scenariosSource = readFileSync(new URL("../scripts/qa/scenarios/projects.ts", import.meta.url), "utf8");
   const attentionActionStart = scenariosSource.indexOf("const verifyPortfolioAttention");
   const attentionActionEnd = scenariosSource.indexOf("const verifyProjectAttentionAndEngineering", attentionActionStart);
   const attentionAction = scenariosSource.slice(attentionActionStart, attentionActionEnd);
@@ -71,7 +71,7 @@ test("Projects action QA opens the lifecycle popover at constrained laptop and p
   assert.deepEqual(new Set(scenarios.map((scenario) => scenario.interactionState.includes("Dark") ? "dark" : "light")), new Set(["light", "dark"]));
   assert.ok(scenarios.every((scenario) => typeof scenario.action === "function"));
 
-  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const scenariosSource = readFileSync(new URL("../scripts/qa/scenarios/projects.ts", import.meta.url), "utf8");
   const actionStart = scenariosSource.indexOf("const verifyProjectCardActionPopover");
   const actionEnd = scenariosSource.indexOf("const verifyProjectAttentionAndEngineering", actionStart);
   assert.ok(actionStart >= 0 && actionEnd > actionStart);
@@ -104,9 +104,9 @@ test("R4C browser catalog captures Home and Project Portfolio in Light and Dark 
 });
 
 test("Procurement draft QA keeps approval hidden until the new PO is persisted", () => {
-  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const scenariosSource = readFileSync(new URL("../scripts/qa/scenarios/procurement.ts", import.meta.url), "utf8");
   const procurementActionStart = scenariosSource.indexOf("const verifyProcurementDraftWorksheets");
-  const procurementActionEnd = scenariosSource.indexOf("const verifyClientInvoiceDocumentDeliverySurface", procurementActionStart);
+  const procurementActionEnd = scenariosSource.indexOf("const verifyProcurementSubcontractParity", procurementActionStart);
   assert.ok(procurementActionStart >= 0 && procurementActionEnd > procurementActionStart);
   const procurementAction = scenariosSource.slice(procurementActionStart, procurementActionEnd);
   assert.match(procurementAction, /const approval = await page\.getByRole\("button", \{ name: "Approve PO", exact: true \}\)\.count\(\);/);
@@ -119,7 +119,11 @@ test("Procurement draft QA keeps approval hidden until the new PO is persisted",
 });
 
 test("S3E demo evidence targets deterministic missing records and shared keyboard/focus states", () => {
-  const scenariosSource = readFileSync(new URL("../scripts/qa/demoScenarios.ts", import.meta.url), "utf8");
+  const scenariosSource = [
+    readFileSync(new URL("../scripts/qa/scenarios/shared.ts", import.meta.url), "utf8"),
+    readFileSync(new URL("../scripts/qa/scenarios/messaging.ts", import.meta.url), "utf8"),
+    readFileSync(new URL("../scripts/qa/scenarios/procurement.ts", import.meta.url), "utf8"),
+  ].join("\n");
   const rfi = DEMO_QA_SCENARIOS.find((scenario) => scenario.route.id === "rfi-detail");
   const submittal = DEMO_QA_SCENARIOS.find((scenario) => scenario.route.id === "submittal-detail");
 
