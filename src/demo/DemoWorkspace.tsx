@@ -24,6 +24,7 @@ import { buildDemoDashboard, buildDemoProjectDashboard, buildDemoProjectSummarie
 import { DEMO_COMPANY_ID } from "./demoTypes.ts";
 import { demoAssistantPath, demoDocumentsPath, demoPathForAppPath, demoPathForInvoice, demoPathForProject, demoPathForTab, type DemoLocation } from "./demoRouting.ts";
 import { projectCostDataCompleteness } from "../utils/dataCompleteness.ts";
+import { PERMISSION_KEYS } from "../utils/accessControl.ts";
 import { demoTimestamp } from "./data/demoDates.ts";
 import { applyLocalClientBillingTransition, buildLocalClientBilling, type ClientBillingInput, type ClientBillingLineInput, type ClientBillingStatus } from "../lib/clientBilling.ts";
 import { buildLocalClientCollection, clientCollectionTotal, type ClientCollectionAllocationInput, type ClientCollectionInput } from "../lib/clientCollections.ts";
@@ -38,7 +39,7 @@ import { buildSupplierInvoiceSettlementProjections } from "../lib/supplierInvoic
 import { applyLocalChecks } from "../utils/invoiceLogic.ts";
 import { DEMO_MANAGED_DOCUMENT_DETAILS, DEMO_MANAGED_DOCUMENTS } from "./data/managedDocuments.ts";
 
-const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "documents", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
+const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "workbook", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "documents", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
 function activeTabFor(location: DemoLocation): AppTab {
   if (location.kind === "documents") return "documents";
@@ -50,7 +51,7 @@ function activeTabFor(location: DemoLocation): AppTab {
 function safeAppLocation(location: DemoLocation): AppLocation | null {
   if (location.kind !== "app") return null;
   if (location.appLocation.kind === "help") return null;
-  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extractor", "inbox", "review", "documents", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
+  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "workbook", "procurement", "warehouse", "equipment", "extractor", "inbox", "review", "documents", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
   return allowed.has(location.appLocation.tab) ? location.appLocation : null;
 }
 
@@ -601,6 +602,9 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
           <AppRouter
             route={appLocation}
             activeTab={activeTab}
+            permissions={activeTab === "workbook"
+              ? [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite]
+              : ["*"]}
             onNavigatePath={(path, replace = false) => onNavigate(path.startsWith("/demo/") ? path : demoPathForAppPath(path), replace)}
             dashboardData={dashboardData}
             supplierInvoiceSettlementProjections={supplierInvoiceSettlementProjections}

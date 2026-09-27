@@ -12,6 +12,7 @@ import { payrollScenarioActions } from "./scenarios/payroll.ts";
 import { procurementScenarioActions } from "./scenarios/procurement.ts";
 import { projectsScenarioActions } from "./scenarios/projects.ts";
 import { settingsScenarioActions } from "./scenarios/settings.ts";
+import { workbookScenarioActions } from "./scenarios/workbook.ts";
 
 const actionGroups: readonly Readonly<Record<string, QaScenarioAction>>[] = [
   sharedScenarioActions,
@@ -27,6 +28,7 @@ const actionGroups: readonly Readonly<Record<string, QaScenarioAction>>[] = [
   procurementScenarioActions,
   projectsScenarioActions,
   settingsScenarioActions,
+  workbookScenarioActions,
 ];
 const actionMap = new Map<string, QaScenarioAction>();
 for (const group of actionGroups) {

@@ -10,6 +10,7 @@ import {
 import { projectCostDataCompleteness } from "../src/utils/dataCompleteness.ts";
 import { ROUTE_DEFINITIONS } from "../src/utils/routes.ts";
 import { isAssistantActionAllowed, sanitizeAssistantClientAction } from "../src/assistant/assistantActionPolicy.ts";
+import { ASSISTANT_NAVIGATION_ROUTE_IDS } from "../src/assistant/assistantNavigation.ts";
 import { requireCompanyPermissions, routePermission } from "../src/server/assistant/toolAuthorization.ts";
 
 const dashboardRoute = readFileSync(new URL("../src/app/routes/DashboardRoute.tsx", import.meta.url), "utf8");
@@ -115,9 +116,12 @@ test("seeded roles have explicit project-cost completeness semantics", () => {
 });
 
 test("route authorization is canonical for Assistant navigation and supports alternatives", () => {
-  for (const route of ROUTE_DEFINITIONS) {
+  const assistantRouteIds = new Set<string>(ASSISTANT_NAVIGATION_ROUTE_IDS);
+  for (const route of ROUTE_DEFINITIONS.filter((candidate) => assistantRouteIds.has(candidate.id))) {
     assert.equal(routePermission(route.id), permissionOptionsForAppTab(route.appTab).join("|"), route.id);
   }
+  assert.equal(assistantRouteIds.has("workbook"), false, "Operations Workbook is not an Assistant navigation target in WB-1");
+  assert.throws(() => routePermission("workbook"), /no authorization contract/i);
   assert.equal(routePermission("extract"), PERMISSION_KEYS.invoicesExtract);
   assert.equal(routePermission("payroll"), PERMISSION_KEYS.payrollRead);
   assert.equal(routePermission("reports"), `${PERMISSION_KEYS.reportsRead}|${PERMISSION_KEYS.reportsPayrollRead}`);

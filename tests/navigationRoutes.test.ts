@@ -17,6 +17,7 @@ test("defines one predictable canonical route for every application destination"
     "dashboard",
     "cash",
     "projects",
+    "workbook",
     "procurement",
     "warehouse",
     "equipment",
@@ -35,6 +36,7 @@ test("defines one predictable canonical route for every application destination"
   assert.equal(getRouteForAppTab("extractor")?.id, "extract");
   assert.equal(getRouteForAppTab("inbox")?.path, "/email-sms");
   assert.equal(getRouteForAppTab("cash")?.path, "/cash");
+  assert.equal(getRouteForAppTab("workbook")?.path, "/workbook");
 });
 
 test("normalizes paths and resolves root and legacy extract aliases", () => {
@@ -47,6 +49,7 @@ test("normalizes paths and resolves root and legacy extract aliases", () => {
   assert.equal(resolveRoute("/email-intake").routeId, "inbox");
   assert.equal(resolveRoute("/inbox").routeId, "inbox");
   assert.equal(resolveRoute("/projects/project-42").routeId, "projects");
+  assert.equal(resolveRoute("/workbook?sheet=projects").routeId, "workbook");
 });
 
 test("resolves active route state and marks overflow destinations through More", () => {

@@ -12,6 +12,7 @@ import { PERMISSION_KEYS } from "../src/utils/accessControl.ts";
 test("exposes Email / SMS and Documents as primary modules while keeping settings outside the module row", () => {
   assert.deepEqual(NAVIGATION_MODULES.map((module) => module.id), [
     "dashboard",
+    "operations-workbook",
     "cash",
     "email-sms",
     "documents",
@@ -49,6 +50,16 @@ test("navigation grouping never bypasses permission filtering", () => {
   assert.deepEqual(model.groups.map((group) => group.id), ["people"]);
 });
 
+test("Operations Workbook navigation requires access to an enabled sheet and reuses domain permissions", () => {
+  const projectModel = getNavigationModel({ permissions: [PERMISSION_KEYS.projectsRead] });
+  assert.deepEqual(projectModel.modules.find((module) => module.id === "operations-workbook")?.routes.map((route) => route.id), ["workbook"]);
+
+  const payrollOnlyModel = getNavigationModel({ permissions: [PERMISSION_KEYS.payrollRead] });
+  assert.equal(payrollOnlyModel.modules.some((module) => module.id === "operations-workbook"), false);
+  const writeOnlyProjectModel = getNavigationModel({ permissions: [PERMISSION_KEYS.projectsWrite] });
+  assert.equal(writeOnlyProjectModel.modules.some((module) => module.id === "operations-workbook"), false);
+});
+
 test("filters modules and invoice subtabs by permissions", () => {
   const model = getNavigationModel({ permissions: [PERMISSION_KEYS.invoicesExtract] });
   assert.deepEqual(model.modules.map((module) => module.id), ["documents", "invoices"]);
@@ -71,10 +82,11 @@ test("filters modules and invoice subtabs by permissions", () => {
 });
 
 test("deployment visibility hides navigation without changing permission or route vocabulary", () => {
-  const hiddenModules = parseHiddenDeploymentModules("cash,payroll,settings");
+  const hiddenModules = parseHiddenDeploymentModules("cash,payroll,operations-workbook,settings");
   const model = getNavigationModel({ hiddenModules });
   assert.equal(model.modules.some((module) => module.id === "cash"), false);
   assert.equal(model.modules.some((module) => module.id === "payroll"), false);
+  assert.equal(model.modules.some((module) => module.id === "operations-workbook"), false);
   assert.equal(model.modules.some((module) => module.id === "projects"), true);
   assert.equal(model.settingsRoute, undefined);
 

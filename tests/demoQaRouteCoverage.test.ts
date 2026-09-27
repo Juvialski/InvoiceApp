@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DEMO_QA_SCENARIOS } from "../scripts/qa/demoScenarios.ts";
+import { selectDemoQaScope } from "../scripts/qa/demoFeatureSelection.ts";
 import { ROUTE_DEFINITIONS } from "../src/utils/routes.ts";
 
 test("every canonical active application route has demo browser smoke coverage", () => {
@@ -11,6 +12,28 @@ test("every canonical active application route has demo browser smoke coverage",
     .filter((routeId) => !coveredRouteIds.has(routeId));
 
   assert.deepEqual(missing, []);
+});
+
+test("WB-1 demo QA covers its responsive matrix and safety interactions", () => {
+  const workbookScenarios = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "operations-workbook");
+  assert.equal(workbookScenarios.length, 8);
+  assert.deepEqual(new Set(workbookScenarios.map((scenario) => scenario.viewport.width)), new Set([1440, 1280, 768, 390]));
+  assert.ok(workbookScenarios.some((scenario) => scenario.path === "/demo/app/workbook?sheet=payroll" && scenario.interactionState.includes("fallback")));
+  assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("permission-filtered")));
+  assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("editable and protected") && scenario.viewport.width === 1280));
+  assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("editable and protected") && scenario.viewport.width === 390));
+  assert.ok(workbookScenarios.every((scenario) => typeof scenario.action === "function"));
+});
+
+test("WB-1 route source maps to its focused browser family and preserves shell smoke coverage", () => {
+  const scope = selectDemoQaScope(["src/app/routes/OperationsWorkbookRoute.tsx"], {
+    eventName: "pull_request",
+    fileListComplete: true,
+  });
+  assert.equal(scope.mode, "affected");
+  assert.ok(scope.routeIds.includes("workbook"));
+  assert.ok(scope.features.includes("operations-workbook@workbook"));
+  assert.ok(scope.features.includes("shared-shell-smoke@dashboard"));
 });
 
 test("settings QA verifies the client settings surface without internal roadmap content", () => {

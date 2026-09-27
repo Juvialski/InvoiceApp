@@ -43,6 +43,7 @@ export interface HomeDashboardProps {
 
 const DESTINATION_ICONS: Readonly<Record<AppTab, LucideIcon>> = {
   dashboard: BarChart3,
+  workbook: ClipboardList,
   projects: BriefcaseBusiness,
   invoices: FileCheck2,
   review: FileCheck2,
