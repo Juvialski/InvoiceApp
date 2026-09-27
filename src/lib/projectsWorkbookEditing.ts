@@ -287,6 +287,7 @@ export function buildProjectControlsWorkbookApplyPlan(input: {
     const baseById = new Map(input.baseRecords.projects.map((project) => [project.id, project]));
     const currentById = new Map(input.currentRecords.projects.map((project) => [project.id, project]));
     const seen = new Set<string>();
+    const stagedProjectCodeOwner = new Map<string, string>();
 
     for (const candidate of input.stagedRows) {
       const staged = candidate as Project;
@@ -317,10 +318,19 @@ export function buildProjectControlsWorkbookApplyPlan(input: {
       for (const field of changedFields) proposed = copyProjectField(proposed, staged, field);
       validateProjectDraft(proposed, base, changedFields, issues);
 
+      const normalizedProjectCode = proposed.projectCode.trim().toUpperCase();
       const duplicateCode = input.currentRecords.projects.find((project) =>
-        project.id !== proposed.id && project.projectCode.trim().toUpperCase() === proposed.projectCode.trim().toUpperCase());
+        project.id !== proposed.id && project.projectCode.trim().toUpperCase() === normalizedProjectCode);
       if (duplicateCode && changedFields.includes("projectCode")) {
-        issue(issues, proposed.id, "projectCode", "validation", `Project code ${proposed.projectCode.trim().toUpperCase()} is already in use.`);
+        issue(issues, proposed.id, "projectCode", "validation", `Project code ${normalizedProjectCode} is already in use.`);
+      }
+      if (changedFields.includes("projectCode")) {
+        const stagedOwner = stagedProjectCodeOwner.get(normalizedProjectCode);
+        if (stagedOwner && stagedOwner !== proposed.id) {
+          issue(issues, proposed.id, "projectCode", "validation", `Project code ${normalizedProjectCode} is proposed for more than one project.`);
+        } else {
+          stagedProjectCodeOwner.set(normalizedProjectCode, proposed.id);
+        }
       }
 
       const activeBudget = input.currentRecords.costCodes
