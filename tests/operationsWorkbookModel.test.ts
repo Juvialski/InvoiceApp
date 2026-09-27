@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
@@ -127,6 +128,14 @@ test("combined workbook access follows existing domain reads without enabling mo
   assert.match(procurementOnlyHtml, /Import workbook/);
   assert.doesNotMatch(procurementOnlyHtml, /role="tablist"/);
   assert.doesNotMatch(procurementOnlyHtml, /data-workbook-sheet=/);
+});
+
+test("combined workbook review state is cleared when company or permission context changes", () => {
+  const transferSource = readFileSync(new URL("../src/app/routes/OperationsWorkbookTransfer.tsx", import.meta.url), "utf8");
+  assert.match(
+    transferSource,
+    /useEffect\(\(\) => \{[\s\S]*?setReview\(null\);[\s\S]*?setSelectedByDomain\(EMPTY_SELECTION\);[\s\S]*?setConfirmedByDomain\(EMPTY_CONFIRMATION\);[\s\S]*?\}, \[companyId, demoMode, permissionSnapshotKey\]\);/,
+  );
 });
 
 test("write access is separate from read access and workbook metadata cannot enable production writes", () => {
