@@ -252,6 +252,25 @@ test("export includes only currently readable domain records and records the dat
   assert.equal(parsed.metadataRows.every((row) => String(row.entity).startsWith("wb2:projects:")), true);
 });
 
+test("expense write permission never substitutes for expense read permission", () => {
+  const artifact = exportCombined(["expenses.manage"]);
+  const parsed = parseOperationsWorkbook(artifact.bytes, { schema: COMBINED_OPERATIONS_WORKBOOK_SCHEMA });
+  const manifest = JSON.parse(String(parsed.metadata.sourceManifest)) as Array<{ id: string; includedSheetNames: string[] }>;
+  assert.deepEqual(manifest.find((entry) => entry.id === "expenses")?.includedSheetNames, []);
+  assert.equal(parsed.sheets.Expenses.rows.length, 0);
+  assert.equal(parsed.sheets["Supplier Payables"].rows.length, 0);
+  assert.equal(parsed.metadataRows.length, 0);
+
+  const review = buildCombinedOperationsWorkbookImportReview(
+    exportCombined().bytes,
+    context({ permissions: ["expenses.manage"] }),
+    { fileName: "operations.xlsx" },
+  );
+  const expensesReview = review.domains.find((domain) => domain.id === "expenses");
+  assert.equal(expensesReview?.state, "UNAUTHORIZED");
+  assert.deepEqual(expensesReview?.proposals, []);
+});
+
 test("permission changes hide unauthorized rows and do not return their values in import review", () => {
   const artifact = exportCombined();
   const edited = editCell(artifact.bytes, "Expenses", "Description", "PRIVATE-UNAUTHORIZED-EXPENSE");
