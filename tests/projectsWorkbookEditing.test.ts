@@ -141,6 +141,32 @@ test("invalid required, numeric, date, email, and cost-code values block all gro
   assert.ok(codeErrors.issues.some((item) => item.fieldId === "approvedBudgetAmount"));
 });
 
+test("duplicate Project Codes proposed across multiple staged rows are rejected before Apply", () => {
+  const secondProject: Project = {
+    ...project,
+    id: "project-2",
+    projectCode: "PRJ-002",
+    projectName: "Pump Station",
+    updatedAt: "2026-01-02T00:00:00.000Z",
+  };
+  const baseRecords: ProjectControlsWorkbookRecords = {
+    projects: [project, secondProject],
+    costCodes: [costCode],
+  };
+  const firstDraft = applyProjectWorkbookDraftValue(project, "projectCode", "PRJ-NEW");
+  const secondDraft = applyProjectWorkbookDraftValue(secondProject, "projectCode", "prj-new");
+
+  const result = plan({
+    sheetId: "projects",
+    stagedRows: [firstDraft, secondDraft],
+    baseRecords,
+    currentRecords: baseRecords,
+  });
+
+  assert.equal(result.groups.length, 0);
+  assert.ok(result.issues.some((item) => item.fieldId === "projectCode" && /more than one project/i.test(item.message)));
+});
+
 test("active cost-code budgets cannot exceed the approved project budget from either sheet", () => {
   const lowerBudget = applyProjectWorkbookDraftValue(project, "projectBudget", 400);
   const projectPlan = plan({ sheetId: "projects", stagedRows: [lowerBudget] });
