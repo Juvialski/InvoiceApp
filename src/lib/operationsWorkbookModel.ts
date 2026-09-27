@@ -368,7 +368,7 @@ export function availableOperationsWorkbookSheets(
 export function canAccessOperationsWorkbook(permissions: Iterable<PermissionKey> | null | undefined): boolean {
   const permissionSnapshot = permissions ? [...permissions] : [];
   return availableOperationsWorkbookSheets(permissionSnapshot).length > 0
-    || hasAnyPermission(permissionSnapshot, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite, PERMISSION_KEYS.procurementRead]);
+    || hasAnyPermission(permissionSnapshot, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead]);
 }
 
 /** Resolve invalid, unknown, or unauthorized URL selections without returning hidden sheet metadata. */
