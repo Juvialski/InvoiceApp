@@ -13,12 +13,13 @@ import {
   OPERATIONS_WORKBOOK_ENABLED_ADAPTERS,
   OPERATIONS_WORKBOOK_SHEET_REGISTRY,
   operationsWorkbookColumns,
+  operationsWorkbookContextKey,
   resolveOperationsWorkbookSheetSelection,
   type OperationsWorkbookSheetAdapter,
 } from "../src/lib/operationsWorkbookModel.ts";
 import { OperationsWorkbookRoute } from "../src/app/routes/OperationsWorkbookRoute.tsx";
 import { PERMISSION_KEYS } from "../src/utils/accessControl.ts";
-import type { Project } from "../src/types.ts";
+import type { Project, ProjectCostCode } from "../src/types.ts";
 
 const project: Project = {
   id: "project-1",
@@ -31,8 +32,22 @@ const project: Project = {
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-02T00:00:00.000Z",
 };
+const costCode: ProjectCostCode = {
+  id: "cost-code-1",
+  companyId: "company-1",
+  projectId: project.id,
+  code: "01-GEN",
+  name: "General works",
+  description: "Mobilization",
+  status: "ACTIVE",
+  approvedBudgetAmount: 500,
+  forecastAmount: 450,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-02T00:00:00.000Z",
+};
 
 const projectSheet = findOperationsWorkbookSheet("projects")!;
+const costCodeSheet = findOperationsWorkbookSheet("cost-codes")!;
 const payrollSheet = findOperationsWorkbookSheet("payroll")!;
 const projectNameField = projectSheet.fields.find((field) => field.id === "projectName")!;
 
@@ -83,8 +98,7 @@ test("Operations Workbook sheet order and metadata vocabulary are deterministic"
     "source-evidence",
     "workflow-only",
   ]);
-  assert.equal(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS.length, 1);
-  assert.equal(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS[0], "projects");
+  assert.deepEqual(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS, ["projects", "cost-codes"]);
 });
 
 test("Payroll sheet metadata requires payroll detail read and never aggregate-report access", () => {
@@ -95,11 +109,13 @@ test("Payroll sheet metadata requires payroll detail read and never aggregate-re
 });
 
 test("available sheets are filtered by enabled adapter and the existing domain read permission", () => {
-  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.projectsRead]).map((sheet) => sheet.id), ["projects"]);
+  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.projectsRead]).map((sheet) => sheet.id), ["projects", "cost-codes"]);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.payrollRead]), []);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.projectsWrite]), []);
   assert.equal(canReadOperationsWorkbookSheet(projectSheet, [PERMISSION_KEYS.projectsRead]), true);
   assert.equal(canReadOperationsWorkbookSheet(projectSheet, [PERMISSION_KEYS.projectsWrite]), false);
+  assert.equal(canReadOperationsWorkbookSheet(costCodeSheet, [PERMISSION_KEYS.projectsRead]), true);
+  assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.projectsWrite]), false);
 
   const payrollAdapterEnabled = { ...payrollSheet, readiness: "available" as const };
   const payrollOnly = availableOperationsWorkbookSheets([PERMISSION_KEYS.payrollRead], {
@@ -128,6 +144,14 @@ test("combined workbook access follows existing domain reads without enabling mo
   assert.match(procurementOnlyHtml, /Import workbook/);
   assert.doesNotMatch(procurementOnlyHtml, /role="tablist"/);
   assert.doesNotMatch(procurementOnlyHtml, /data-workbook-sheet=/);
+
+  const hiddenProjectSheetHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    costCodes: [costCode],
+    permissions: [PERMISSION_KEYS.projectsWrite, PERMISSION_KEYS.expensesRead],
+    search: "?sheet=cost-codes",
+  }));
+  assert.doesNotMatch(hiddenProjectSheetHtml, /data-workbook-sheet|DEMO-01|01-GEN|Cost codes/);
 });
 
 test("combined workbook review state is cleared when company or permission context changes", () => {
@@ -136,6 +160,10 @@ test("combined workbook review state is cleared when company or permission conte
     transferSource,
     /useEffect\(\(\) => \{[\s\S]*?setReview\(null\);[\s\S]*?setSelectedByDomain\(EMPTY_SELECTION\);[\s\S]*?setConfirmedByDomain\(EMPTY_CONFIRMATION\);[\s\S]*?\}, \[companyId, demoMode, permissionSnapshotKey\]\);/,
   );
+  const routeSource = readFileSync(new URL("../src/app/routes/OperationsWorkbookRoute.tsx", import.meta.url), "utf8");
+  assert.match(routeSource, /key=\{`\$\{currentContextKey\}:\$\{selectedSheet\.id\}:\$\{editorRevision\}`\}/);
+  assert.match(routeSource, /previousContextKeyRef\.current === currentContextKey[\s\S]*?stagedEditsRef\.current = false;[\s\S]*?setCellIssues\(\{\}\);[\s\S]*?setFeedback\(null\)/);
+  assert.match(routeSource, /stagedEditsRef\.current[\s\S]*?Save or discard your worksheet edits before switching sheets/);
 });
 
 test("write access is separate from read access and workbook metadata cannot enable production writes", () => {
@@ -145,7 +173,7 @@ test("write access is separate from read access and workbook metadata cannot ena
   assert.equal(canEditOperationsWorkbookField(projectSheet, projectNameField, demoAdapter, projectRow, 0, [PERMISSION_KEYS.projectsWrite]), false);
 
   const productionAdapter = adapterFor(projectSheet, { writeMode: "existing-domain", dataScope: undefined });
-  assert.equal(canEditOperationsWorkbookField(projectSheet, projectNameField, productionAdapter, projectRow, 0, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite]), false);
+  assert.equal(canEditOperationsWorkbookField(projectSheet, projectNameField, productionAdapter, projectRow, 0, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite]), true);
 
   const readOnlyAdapter = adapterFor(projectSheet, {
     writeMode: "none",
@@ -183,9 +211,18 @@ test("protected, calculated, source-evidence, lifecycle, and workflow fields sta
 test("valid selection is retained and unknown or unauthorized selections recover without exposing metadata", () => {
   const visible = availableOperationsWorkbookSheets([PERMISSION_KEYS.projectsRead]);
   assert.equal(resolveOperationsWorkbookSheetSelection("projects", visible)?.id, "projects");
+  assert.equal(resolveOperationsWorkbookSheetSelection("cost-codes", visible)?.id, "cost-codes");
   assert.equal(resolveOperationsWorkbookSheetSelection("payroll", visible)?.id, "projects");
   assert.equal(resolveOperationsWorkbookSheetSelection("missing-sheet", visible)?.id, "projects");
   assert.equal(resolveOperationsWorkbookSheetSelection("payroll", []) , undefined);
+});
+
+test("workbook edit state is scoped to active company, effective permissions, and synthetic data mode", () => {
+  const original = operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.projectsRead], false);
+  assert.notEqual(original, operationsWorkbookContextKey("company-b", [PERMISSION_KEYS.projectsRead], false));
+  assert.notEqual(original, operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite], false));
+  assert.notEqual(original, operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.projectsRead], true));
+  assert.equal(original, operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.projectsRead], false));
 });
 
 test("generic WorksheetEditor adaptation preserves editable, protected, boolean, and validation state", () => {
@@ -215,9 +252,10 @@ test("generic WorksheetEditor adaptation preserves editable, protected, boolean,
   }), { valid: true, value: true });
 });
 
-test("Operations Workbook shell filters unauthorized tabs and exposes accessible, responsive worksheet semantics", () => {
+test("Operations Workbook shell exposes both read-authorized sheets without mutation controls for read-only roles", () => {
   const html = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
     projects: [project],
+    costCodes: [costCode],
     permissions: [PERMISSION_KEYS.projectsRead],
     search: "?sheet=payroll",
     onNavigatePath: () => undefined,
@@ -226,17 +264,43 @@ test("Operations Workbook shell filters unauthorized tabs and exposes accessible
   assert.match(html, /Operations Workbook sheets/);
   assert.match(html, /role="tablist" aria-label="Operations Workbook sheets" aria-orientation="horizontal"/);
   assert.match(html, /role="tab" aria-selected="true"/);
+  assert.match(html, /Cost codes/);
   assert.match(html, /data-worksheet-desktop-grid/);
   assert.match(html, /data-worksheet-mobile-fallback/);
   assert.match(html, /data-worksheet-editable="false"/);
   assert.match(html, /read only/);
   assert.match(html, /data-worksheet-protected="true"/);
+  assert.doesNotMatch(html, /data-worksheet-action-bar/);
+  assert.doesNotMatch(html, /Save changes/);
   assert.match(html, /Download workbook/);
   assert.match(html, /Import workbook/);
   assert.doesNotMatch(html, /Payroll/);
 
+  const manageWithoutReadHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    costCodes: [costCode],
+    permissions: [PERMISSION_KEYS.projectsWrite],
+    search: "?sheet=projects",
+  }));
+  assert.match(manageWithoutReadHtml, /not available for the current access profile/);
+  assert.doesNotMatch(manageWithoutReadHtml, /DEMO-01|01-GEN|Cost Codes/);
+
+  const configuredEditorHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    costCodes: [costCode],
+    permissions: [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite],
+    search: "?sheet=cost-codes",
+    onRefreshProjects: async () => ({ projects: [project], costCodes: [costCode] }),
+    onApplyProjectWorkbookGroup: async () => undefined,
+  }));
+  assert.match(configuredEditorHtml, /data-workbook-sheet="cost-codes"/);
+  assert.match(configuredEditorHtml, /data-worksheet-editable="true"/);
+  assert.match(configuredEditorHtml, /Save changes/);
+  assert.doesNotMatch(configuredEditorHtml, /:projectId|companyId|updatedAt/);
+
   const demoHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
     projects: [project],
+    costCodes: [costCode],
     permissions: ["*"],
     search: "?sheet=projects",
     demoMode: true,

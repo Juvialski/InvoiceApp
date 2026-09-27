@@ -2962,10 +2962,88 @@ their callers were not changed.
   Build, Database Migrations & Upgrade Suite, Graph and Source Contract
   Consistency, and `chromium-demo-qa`. No unresolved review threads remained.
 
-Next bounded phase: **WB-3A — Project Controls Production Sheets**. Onboard
-Projects and Cost Codes only into the in-app Operations Workbook, reusing the
-existing Projects-domain save/apply/concurrency authority. Keep lifecycle and
-calculated fields protected and keep existing standalone/combined XLSX flows
-compatible. Expenses, Procurement, Supplier Invoices, Payroll, Inventory,
-Equipment, and other workbook domains stay out of WB-3A. WB-CERT remains a
-later certification gate after bounded WB-3 onboarding.
+At WB-2 closeout, the next bounded phase was **WB-3A — Project Controls
+Production Sheets**. Its implementation and validation closeout is recorded
+below. The slice onboards Projects and Cost Codes only into the in-app
+Operations Workbook, reuses the existing Projects-domain save/apply/concurrency
+authority, keeps lifecycle and calculated fields protected, and retains the
+standalone/combined XLSX flows. Other domains and WB-CERT remain separate.
+
+## 2026-09-27 — WB-3A Project Controls Production Sheets
+
+- Implementation branch: `codex/wb-3a-project-controls-sheets`
+- Synchronized base `main` SHA: `822f16b8c75f83d9f2ff0100fb5f17f94d9aac93`
+- Implementation source commit: `78c1c850bf11e874318fd7d5d3952611ba75a2b5`
+- Pull request: [#265](https://github.com/Juvialski/InvoiceApp/pull/265)
+- Status: **PR OPEN / WB-3A COMPLETE FOR RECORDED SCOPE / WB-3B+ NOT STARTED / WB-CERT LATER**
+
+### Implemented boundary
+
+- `/workbook` now enables Projects and Cost Codes. Each tab independently
+  requires `projects.read`; ordinary edits require `projects.manage` as well.
+  Manage permission alone cannot expose Project or Cost Code rows or metadata.
+  Unknown and unauthorized sheet recovery continues to use the first
+  authorized adapter. No workbook permission was added.
+- Projects fields staged for direct edit are Project Code, Project Name,
+  Description, Client Name/Reference, Billing Contact/Email/Address, Location,
+  Site Address, Project Manager, Start/Target/Actual End Dates, Contract Value,
+  Approved Project Budget, Tax Treatment, and Notes. Required values, email,
+  dates, non-negative amounts, project-code uniqueness, and tax classification
+  rules are checked before delegation.
+- Cost Codes stages Code, Work Package, Description, Approved Budget, and
+  Forecast. Existing code/name/number validation, active-budget ceilings,
+  version freshness, and parent ownership are enforced. There is no Add Row or
+  re-parenting control.
+- Lifecycle status, Currency, calculated financials, IDs, company identity,
+  timestamps, archive metadata, cost-code parent, Cost Code status, Actual Cost,
+  Committed Cost, Variance, and other derived values remain protected. Where
+  this route receives no calculated financial projection, the read-only cells
+  say `Unavailable` instead of deriving a value.
+- The in-app save path uses the same `ProjectsApplyGroup` callback and existing
+  guarded `apply_project_cost_control_group` authority used by Projects XLSX
+  review/apply. It stages in `WorksheetEditor`, validates, refreshes before
+  apply, checks Project and Cost Code `updatedAt` snapshots, groups by project,
+  and refreshes after success. The operation is atomic only per existing
+  project group; multiple project groups are applied separately and partial
+  failure is surfaced. The route does not write to the database directly.
+- Company, permission, and demo-context changes clear the staged worksheet
+  editor, local validation, and conflict state. Synthetic demo saves use local
+  sample rows and cannot call Projects persistence or refresh. Existing
+  standalone Projects and combined WB-2 XLSX schemas and review/apply behavior
+  are unchanged.
+- `src/config/productFeatures.ts` now describes the Project and Cost Code sheets
+  and their protected financial/lifecycle values in the client-facing Project
+  management feature entry.
+
+### Validation and evidence
+
+- Focused Projects/workbook, standalone XLSX/concurrency, combined XLSX,
+  WorksheetEditor, and Workflow Map evidence tests passed **97/97**; Settings
+  product-feature tests passed **4/4**.
+- Final `npm.cmd run test:affected:agent`: **528 passed, 0 failed, 0 skipped**
+  across **85/391 selected test files (21.7%)**, no selector fallback, database
+  unaffected. The added Settings copy test was in the final affected selection.
+- `npm.cmd run lint` passed ESLint and TypeScript. `npm.cmd run build` passed;
+  existing warnings remain for unloaded Inter, large chunks, and CommonJS
+  `import.meta` handling.
+- `workflow-map:check` passed; `workflow-map:consistency` reported **266 nodes,
+  355 edges, 36 invariants, 11 diagrams**.
+- The local production-preview **synthetic Demo QA passed 10/10 scenarios** at
+  1440×900, 1280×800, 768×1024, and 390×844. Projects and Cost Codes were
+  inspected at constrained laptop and phone sizes. There were zero horizontal
+  overflows, console errors, page errors, or failed requests. The lead inspected
+  captures in `artifacts/demo-visual-qa-wb3a-final/`. Its manifest records the
+  synchronized base SHA because the run used the uncommitted implementation
+  tree; this is not hosted, authenticated-client, or production certification.
+- Jev context preflight had no candidates (`requestCount=0`, `fallback=true`),
+  so deterministic source inspection remained authoritative. Test triage kept
+  all **84/84** candidates across two chunks with `jev-1.13.0` (11,083 input /
+  1,248 output tokens, 982 ms, `fallback=false`). The final selector later added
+  one product-feature test and all 85 selected files passed. Completion triage
+  was skipped after the required evidence plan was fixed and completed.
+- No schema, migration, RLS, or RPC code changed. Database/Docker/Supabase,
+  hosted-QA, provider, and production validation were not applicable.
+
+WB-3A closes only the two Project Controls production sheet adapters. Do not
+infer WB-3B or WB-CERT completion from this PR; other workbook domains and
+full-round-trip certification remain separately bounded.

@@ -123,6 +123,59 @@ const projectStatusOptions: readonly WorksheetSelectOption[] = [
   { value: "ARCHIVED", label: "Archived" },
 ];
 
+const projectTaxTreatmentOptions: readonly WorksheetSelectOption[] = [
+  { value: "VAT", label: "VAT" },
+  { value: "NON_VAT", label: "Non-VAT" },
+  { value: "UNCLASSIFIED", label: "Unclassified" },
+];
+
+function requiredText(value: unknown, label: string): WorksheetValidationResult {
+  return String(value ?? "").trim() ? undefined : `Enter a ${label.toLowerCase()}.`;
+}
+
+function nonNegativeAmount(value: unknown, label: string, required = false): WorksheetValidationResult {
+  if ((value === null || value === undefined || value === "") && !required) return undefined;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) {
+    return `${label} ${required ? "is required and " : ""}must be a valid non-negative number.`;
+  }
+  return undefined;
+}
+
+function validBillingEmail(value: unknown): WorksheetValidationResult {
+  const email = String(value ?? "").trim();
+  return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ? undefined
+    : "Enter a valid billing email or leave it blank.";
+}
+
+function projectTaxTreatment(value: unknown, row: unknown): WorksheetValidationResult {
+  const next = String(value ?? "").trim().toUpperCase();
+  if (!(projectTaxTreatmentOptions as readonly WorksheetSelectOption[]).some((option) => option.value === next)) {
+    return "Choose VAT, Non-VAT, or the existing Unclassified value.";
+  }
+  const current = (row as { taxTreatment?: string }).taxTreatment || "UNCLASSIFIED";
+  return next === "UNCLASSIFIED" && current !== "UNCLASSIFIED"
+    ? "A classified project cannot be changed back to Unclassified."
+    : undefined;
+}
+
+function unavailableFinancialValue(): string {
+  return "Unavailable";
+}
+
+function formatProtectedCurrency(value: unknown, row: unknown): string {
+  if (value === null || value === undefined || value === "" || value === "Unavailable" || !Number.isFinite(Number(value))) {
+    return unavailableFinancialValue();
+  }
+  const currency = String((row as { currency?: string }).currency || "PHP").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-PH", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value));
+  } catch {
+    return `${currency} ${Number(value).toFixed(2)}`;
+  }
+}
+
 export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookSheetDefinition[] = Object.freeze([
   {
     id: "projects",
@@ -134,9 +187,18 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
       writeAllOf: [PERMISSION_KEYS.projectsWrite],
     },
     rowIdentity: { field: "id", label: "Project ID" },
-    capabilities: { read: true, write: "read-only" },
+    capabilities: { read: true, write: "domain-delegated" },
     fields: [
-      { id: "projectCode", label: "Project code", type: "identifier", authority: "read-only", display: { frozen: true, minWidth: "9rem" } },
+      {
+        id: "projectCode",
+        label: "Project code",
+        type: "identifier",
+        authority: "ordinary-editable",
+        required: true,
+        writeAllOf: [PERMISSION_KEYS.projectsWrite],
+        display: { frozen: true, minWidth: "9rem" },
+        validate: (value) => requiredText(value, "project code"),
+      },
       {
         id: "projectName",
         label: "Project name",
@@ -147,30 +209,58 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
         display: { minWidth: "15rem" },
         validate: (value) => String(value ?? "").trim() ? undefined : "Enter a project name.",
       },
-      { id: "clientName", label: "Client", type: "text", authority: "read-only", display: { minWidth: "12rem" } },
+      { id: "description", label: "Description", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "16rem" } },
+      { id: "clientName", label: "Client name", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "12rem" } },
+      { id: "clientReference", label: "Client reference", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "12rem" } },
+      { id: "billingContactName", label: "Billing contact", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "12rem" } },
+      { id: "billingEmail", label: "Billing email", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "14rem" }, validate: validBillingEmail },
+      { id: "billingAddress", label: "Billing address", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "18rem" } },
+      { id: "location", label: "Location", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "12rem" } },
+      { id: "siteAddress", label: "Site address", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "18rem" } },
+      { id: "projectManager", label: "Project manager", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "12rem" } },
+      { id: "startDate", label: "Start date", type: "date", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "9rem" } },
+      { id: "targetEndDate", label: "Target end date", type: "date", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "9rem" } },
+      { id: "actualEndDate", label: "Actual end date", type: "date", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "9rem" } },
+      { id: "contractValue", label: "Contract value", type: "currency", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { align: "right", minWidth: "11rem", currencyField: "currency" }, validate: (value) => nonNegativeAmount(value, "Contract value") },
+      { id: "projectBudget", label: "Approved project budget", type: "currency", authority: "ordinary-editable", required: true, writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { align: "right", minWidth: "13rem", currencyField: "currency" }, validate: (value) => nonNegativeAmount(value, "Approved project budget", true) },
+      { id: "currency", label: "Currency", type: "identifier", authority: "protected", display: { minWidth: "7rem" } },
+      { id: "taxTreatment", label: "Tax treatment", type: "select", authority: "ordinary-editable", required: true, writeAllOf: [PERMISSION_KEYS.projectsWrite], options: projectTaxTreatmentOptions, display: { minWidth: "10rem" }, validate: projectTaxTreatment },
+      { id: "notes", label: "Notes", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "16rem" } },
       { id: "status", label: "Status", type: "select", authority: "lifecycle-controlled", options: projectStatusOptions, display: { minWidth: "9rem" } },
+      { id: "actualCost", label: "Actual cost", type: "currency", authority: "calculated", display: { align: "right", minWidth: "11rem", currencyField: "currency" }, format: formatProtectedCurrency },
+      { id: "committedCost", label: "Committed cost", type: "currency", authority: "calculated", display: { align: "right", minWidth: "11rem", currencyField: "currency" }, format: formatProtectedCurrency },
+      { id: "billed", label: "Billed", type: "currency", authority: "calculated", display: { align: "right", minWidth: "11rem", currencyField: "currency" }, format: formatProtectedCurrency },
+      { id: "collected", label: "Collected", type: "currency", authority: "calculated", display: { align: "right", minWidth: "11rem", currencyField: "currency" }, format: formatProtectedCurrency },
+      { id: "outstandingReceivables", label: "Outstanding receivables", type: "currency", authority: "calculated", display: { align: "right", minWidth: "12rem", currencyField: "currency" }, format: formatProtectedCurrency },
+      { id: "remainingToBill", label: "Remaining to bill", type: "currency", authority: "calculated", display: { align: "right", minWidth: "12rem", currencyField: "currency" }, format: formatProtectedCurrency },
+      { id: "health", label: "Health", type: "text", authority: "calculated", display: { minWidth: "9rem" } },
     ],
     emptyState: "No project rows are available in this workspace.",
-    authorityBoundary: "Project records remain owned by the Projects domain; this WB-1 exemplar is read-only in production.",
+    authorityBoundary: "Project master data saves through the existing Projects domain; lifecycle and calculated financial fields stay controlled.",
   },
   {
     id: "cost-codes",
     name: "Cost Codes",
     shortName: "Cost codes",
     domainOwner: "projects",
-    readiness: "foundation-only",
+    readiness: "available",
     authorization: { readAnyOf: [PERMISSION_KEYS.projectsRead], writeAllOf: [PERMISSION_KEYS.projectsWrite] },
     rowIdentity: { field: "id", label: "Cost code ID" },
     capabilities: { read: true, write: "domain-delegated" },
     fields: [
-      { id: "code", label: "Code", type: "identifier", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite] },
-      { id: "name", label: "Name", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite] },
-      { id: "approvedBudget", label: "Approved budget", type: "currency", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { align: "right", currencyField: "currency" } },
-      { id: "actualCost", label: "Actual cost", type: "currency", authority: "calculated", display: { align: "right", currencyField: "currency" } },
-      { id: "status", label: "Status", type: "select", authority: "lifecycle-controlled" },
+      { id: "projectCode", label: "Project", type: "identifier", authority: "protected", display: { frozen: true, minWidth: "9rem" } },
+      { id: "code", label: "Code", type: "text", authority: "ordinary-editable", required: true, writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "10rem" }, validate: (value) => requiredText(value, "cost code") },
+      { id: "name", label: "Work package", type: "text", authority: "ordinary-editable", required: true, writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "16rem" }, validate: (value) => requiredText(value, "work package") },
+      { id: "description", label: "Description", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { minWidth: "18rem" } },
+      { id: "approvedBudgetAmount", label: "Approved budget", type: "currency", authority: "ordinary-editable", required: true, writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { align: "right", minWidth: "11rem", currencyField: "currency" }, validate: (value) => nonNegativeAmount(value, "Approved budget", true) },
+      { id: "forecastAmount", label: "Forecast", type: "currency", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.projectsWrite], display: { align: "right", minWidth: "10rem", currencyField: "currency" }, validate: (value) => nonNegativeAmount(value, "Forecast") },
+      { id: "status", label: "Status", type: "select", authority: "lifecycle-controlled", display: { minWidth: "9rem" } },
+      { id: "actualCost", label: "Actual cost", type: "currency", authority: "calculated", display: { align: "right", minWidth: "11rem", currencyField: "currency" }, format: formatProtectedCurrency },
+      { id: "committedCost", label: "Committed cost", type: "currency", authority: "calculated", display: { align: "right", minWidth: "11rem", currencyField: "currency" }, format: formatProtectedCurrency },
+      { id: "variance", label: "Variance", type: "currency", authority: "calculated", display: { align: "right", minWidth: "11rem", currencyField: "currency" }, format: formatProtectedCurrency },
     ],
-    emptyState: "Cost Codes will be available after its domain adapter is enabled.",
-    authorityBoundary: "Cost-code persistence and budget allocation remain with the Projects domain.",
+    emptyState: "No cost-code rows are available in this workspace.",
+    authorityBoundary: "Cost-code edits stay attached to their existing project and save through the Projects domain.",
   },
   {
     id: "supplier-invoices",
@@ -336,7 +426,7 @@ export const OPERATIONS_WORKBOOK: OperationsWorkbookDefinition = Object.freeze({
 });
 
 /** Only this list has a page adapter today; readiness alone never enables a tab. */
-export const OPERATIONS_WORKBOOK_ENABLED_ADAPTERS: readonly OperationsWorkbookSheetId[] = Object.freeze(["projects"]);
+export const OPERATIONS_WORKBOOK_ENABLED_ADAPTERS: readonly OperationsWorkbookSheetId[] = Object.freeze(["projects", "cost-codes"]);
 
 export function findOperationsWorkbookSheet(sheetId: string | null | undefined): OperationsWorkbookSheetDefinition | undefined {
   return OPERATIONS_WORKBOOK_SHEET_REGISTRY.find((sheet) => sheet.id === sheetId);
@@ -369,6 +459,15 @@ export function canAccessOperationsWorkbook(permissions: Iterable<PermissionKey>
   const permissionSnapshot = permissions ? [...permissions] : [];
   return availableOperationsWorkbookSheets(permissionSnapshot).length > 0
     || hasAnyPermission(permissionSnapshot, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead]);
+}
+
+/** A changed company, permission set, or data scope must remount and clear staged worksheet edits. */
+export function operationsWorkbookContextKey(
+  companyId: string | null | undefined,
+  permissions: Iterable<PermissionKey> | null | undefined,
+  demoMode: boolean,
+): string {
+  return `${companyId || "no-company"}|${demoMode ? "demo" : "live"}|${[...new Set(permissions || [])].sort().join(",")}`;
 }
 
 /** Resolve invalid, unknown, or unauthorized URL selections without returning hidden sheet metadata. */
