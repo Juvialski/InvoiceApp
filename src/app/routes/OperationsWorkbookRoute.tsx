@@ -11,8 +11,8 @@ import {
   resolveOperationsWorkbookSheetSelection,
   type OperationsWorkbookSheetAdapter,
 } from "../../lib/operationsWorkbookModel.ts";
-import type { Project, ProjectCostCode } from "../../types.ts";
-import { hasAllPermissions, PERMISSION_KEYS, type PermissionKey } from "../../utils/accessControl.ts";
+import type { Expense, Project, ProjectCostCode } from "../../types.ts";
+import { hasAllPermissions, hasAnyPermission, PERMISSION_KEYS, type PermissionKey } from "../../utils/accessControl.ts";
 import type { ExpensesWorkbookRecords } from "../../lib/expensesWorkbook.ts";
 import type { ProcurementRefreshContext } from "../../lib/procurementWorkbook.ts";
 import type { ProjectsWorkbookRecords } from "../../components/projects/ProjectsWorkbookPanel.tsx";
@@ -26,11 +26,18 @@ import {
   applyProjectWorkbookDraftValue,
   ProjectControlsWorkbookApplyError,
   saveProjectControlsWorkbookRows,
-  type ProjectControlsWorkbookIssue,
   type ProjectControlsWorkbookSheetId,
 } from "../../lib/projectsWorkbookEditing.ts";
+import {
+  applyExpenseWorkbookDraftValue,
+  canEditExpenseWorkbookField,
+  expenseWorkbookOptionsForField,
+  ExpenseWorkbookEditingError,
+  readExpenseWorkbookValue,
+  saveExpenseWorkbookRows,
+} from "../../lib/expensesWorkbookEditing.ts";
 
-type WorkbookRow = Project | ProjectCostCode;
+type WorkbookRow = Project | ProjectCostCode | Expense;
 type WorkbookIssueMap = Readonly<Record<string, string>>;
 
 interface SaveFeedback {
@@ -43,6 +50,12 @@ interface DemoWorkbookRecords {
   sourceProjects: readonly Project[];
   sourceCostCodes: readonly ProjectCostCode[];
   records: ProjectsWorkbookRecords;
+}
+
+interface DemoExpenseWorkbookRecords {
+  contextKey: string;
+  sourceExpenses: readonly Expense[];
+  records: ExpensesWorkbookRecords;
 }
 
 function projectValue(project: Project, fieldId: string): unknown {
@@ -96,12 +109,13 @@ function costCodeValue(costCode: ProjectCostCode, fieldId: string, projects: rea
   }
 }
 
-function issuesToCellMap(issues: readonly ProjectControlsWorkbookIssue[]): Record<string, string> {
+function issuesToCellMap(issues: readonly { rowId: string; fieldId: string; message: string }[]): Record<string, string> {
   return Object.fromEntries(issues.map((item) => [getWorksheetCellId(item.rowId, item.fieldId), item.message]));
 }
 
 function isConcurrencyConflict(error: unknown): boolean {
   if (error instanceof ProjectControlsWorkbookApplyError) return error.kind === "conflict";
+  if (error instanceof ExpenseWorkbookEditingError) return error.kind === "conflict";
   if (!(error instanceof Error)) return false;
   return /changed after|expected.version.mismatch|stale|conflict/i.test(error.message)
     || ("code" in error && (error as Error & { code?: unknown }).code === "40001");
@@ -121,6 +135,7 @@ export interface OperationsWorkbookRouteProps {
   onRefreshProjects?: () => Promise<ProjectsWorkbookRecords>;
   onApplyProjectWorkbookGroup?: ProjectsApplyCallbacks["applyGroup"];
   onRefreshExpenses?: () => Promise<ExpensesWorkbookRecords>;
+  onSaveExpenseDraft?: (expense: Expense) => Promise<void> | void;
   onApplyExpenseWorkbook?: ExpensesApplyCallbacks["saveExpense"];
   onRefreshProcurement?: () => Promise<ProcurementRefreshContext>;
   onSaveRFQ?: ProcurementApplyCallbacks["saveRFQ"];
@@ -141,6 +156,7 @@ export function OperationsWorkbookRoute({
   onRefreshProjects,
   onApplyProjectWorkbookGroup,
   onRefreshExpenses,
+  onSaveExpenseDraft,
   onApplyExpenseWorkbook,
   onRefreshProcurement,
   onSaveRFQ,
@@ -175,6 +191,9 @@ export function OperationsWorkbookRoute({
   const hasReadAndManage = hasAllPermissions(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite]);
   const productionSaveReady = Boolean(onRefreshProjects && onApplyProjectWorkbookGroup);
   const canSaveProjectSheets = !workspaceLoading && hasReadAndManage && (demoMode || productionSaveReady);
+  const hasExpenseReadAndManage = hasAllPermissions(permissions, [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite]);
+  const expenseProductionSaveReady = Boolean(onRefreshExpenses && onSaveExpenseDraft);
+  const canSaveExpenseSheet = !workspaceLoading && hasExpenseReadAndManage && (demoMode || expenseProductionSaveReady);
 
   const expenses = useMemo<ExpensesWorkbookRecords>(() => expenseRecords || ({
     expenses: [],
@@ -185,6 +204,12 @@ export function OperationsWorkbookRoute({
     vendors: [],
     expectedCompanyId: companyId,
   }), [companyId, costCodes, expenseRecords, projects]);
+  const [demoExpenseRecordsState, setDemoExpenseRecordsState] = useState<DemoExpenseWorkbookRecords>(() => ({
+    contextKey: currentContextKey,
+    sourceExpenses: expenses.expenses,
+    records: expenses,
+  }));
+  const demoExpenseRecords = demoExpenseRecordsState.contextKey === currentContextKey ? demoExpenseRecordsState.records : expenses;
   const procurement = useMemo<ProcurementRefreshContext>(() => procurementRecords || ({
     rfqs: [],
     purchaseOrders: [],
@@ -212,12 +237,117 @@ export function OperationsWorkbookRoute({
   }, [costCodes, currentContextKey, demoRecordsState, projectRecords, projects]);
 
   useEffect(() => {
+    if (demoExpenseRecordsState.contextKey !== currentContextKey
+      || demoExpenseRecordsState.sourceExpenses !== expenses.expenses) {
+      setDemoExpenseRecordsState({ contextKey: currentContextKey, sourceExpenses: expenses.expenses, records: expenses });
+    }
+  }, [currentContextKey, demoExpenseRecordsState, expenses]);
+
+  useEffect(() => {
     if (!selectedSheet || !onNavigatePath || requestedSheetId === selectedSheet.id) return;
     onNavigatePath(appPathForWorkbookSheet(selectedSheet.id), true);
   }, [onNavigatePath, requestedSheetId, selectedSheet]);
 
   const workbookAdapter = useMemo<OperationsWorkbookSheetAdapter<WorkbookRow> | null>(() => {
-    if (!selectedSheet || (selectedSheet.id !== "projects" && selectedSheet.id !== "cost-codes")) return null;
+    if (!selectedSheet) return null;
+
+    if (selectedSheet.id === "expenses") {
+      const sourceRecords = demoMode ? demoExpenseRecords : expenses;
+      const rows: readonly Expense[] = sourceRecords.expenses;
+      const canReadProjects = hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead]);
+      const saveExpenseRows = canSaveExpenseSheet ? async (nextRows: readonly WorkbookRow[]) => {
+        setCellIssues({});
+        setFeedback(null);
+        if (currentContextKeyRef.current !== currentContextKey) return;
+
+        setIsSaving(true);
+        try {
+          const result = await saveExpenseWorkbookRows({
+            writeMode: demoMode ? "synthetic-demo" : "existing-domain",
+            stagedRows: nextRows as readonly Expense[],
+            baseRecords: sourceRecords,
+            permissions,
+            expectedCompanyId: companyId,
+            saveSyntheticRows: demoMode ? async (syntheticRows) => {
+              setDemoExpenseRecordsState({
+                contextKey: currentContextKey,
+                sourceExpenses: expenses.expenses,
+                records: { ...demoExpenseRecords, expenses: syntheticRows },
+              });
+            } : undefined,
+            refresh: onRefreshExpenses,
+            saveExpense: onSaveExpenseDraft,
+            isContextCurrent: () => currentContextKeyRef.current === currentContextKey,
+          });
+          if (currentContextKeyRef.current !== currentContextKey) return;
+          stagedEditsRef.current = false;
+          setHasStagedEdits(false);
+          setEditorRevision((revision) => revision + 1);
+          setCellIssues({});
+          setFeedback({
+            kind: "success",
+            message: result.writeMode === "synthetic-demo"
+              ? "Demo Expense changes saved in this browser."
+              : result.appliedExpenseCount ? "Expense changes saved." : "No Expense changes to save.",
+          });
+        } catch (error) {
+          if (currentContextKeyRef.current !== currentContextKey) return;
+          const applyError = error instanceof ExpenseWorkbookEditingError ? error : null;
+          if (applyError?.issues.length) setCellIssues(issuesToCellMap(applyError.issues));
+
+          const appliedCount = applyError?.appliedCount || 0;
+          if (appliedCount > 0 || applyError?.allRowsApplied) {
+            stagedEditsRef.current = false;
+            setHasStagedEdits(false);
+            setEditorRevision((revision) => revision + 1);
+            setFeedback({
+              kind: "conflict",
+              message: applyError?.allRowsApplied
+                ? "Expense changes were saved, but the latest rows could not be confirmed. Reload latest before continuing."
+                : "Saved " + appliedCount + " Expense row" + (appliedCount === 1 ? "" : "s") + "; a later row was not saved. Reload and review before re-entering changes.",
+            });
+            if (onRefreshExpenses) {
+              try { await onRefreshExpenses(); } catch { /* Keep the save result visible if refresh also fails. */ }
+            }
+          } else if (applyError?.kind === "conflict" || isConcurrencyConflict(error)) {
+            stagedEditsRef.current = false;
+            setHasStagedEdits(false);
+            setEditorRevision((revision) => revision + 1);
+            setFeedback({ kind: "conflict", message: applyError?.message || "Expense data changed while you were editing. Review current rows before re-entering changes." });
+          } else if (applyError?.phase === "preflight" && applyError.kind === "apply") {
+            setFeedback({ kind: "error", message: applyError.message });
+          } else {
+            setFeedback({ kind: "error", message: applyError?.message || "Expense worksheet changes could not be saved. Review the highlighted values and try again." });
+          }
+        } finally {
+          setIsSaving(false);
+        }
+      } : undefined;
+
+      return {
+        sheet: selectedSheet,
+        rows,
+        writeMode: !canSaveExpenseSheet ? "none" : demoMode ? "synthetic-demo" : "existing-domain",
+        ...(demoMode && canSaveExpenseSheet ? { dataScope: "synthetic-demo" as const } : {}),
+        readValue: (row, fieldId) => readExpenseWorkbookValue(row as Expense, fieldId, canReadProjects),
+        selectOptionsForField: (field, row) => expenseWorkbookOptionsForField(
+          field.id,
+          row as Expense,
+          sourceRecords.projects,
+          sourceRecords.costCodes,
+          canReadProjects,
+        ),
+        ...(canSaveExpenseSheet ? {
+          applyDraftValue: (row: WorkbookRow, fieldId: string, value: unknown): WorkbookRow =>
+            applyExpenseWorkbookDraftValue(row as Expense, fieldId, value, sourceRecords.costCodes),
+          onSave: saveExpenseRows,
+        } : {}),
+        canEditField: (field, row, _rowIndex, currentPermissions) =>
+          canEditExpenseWorkbookField(field.id, row as Expense, currentPermissions),
+      };
+    }
+
+    if (selectedSheet.id !== "projects" && selectedSheet.id !== "cost-codes") return null;
     const sheetId: ProjectControlsWorkbookSheetId = selectedSheet.id;
     const projectSheet = sheetId === "projects";
     const sourceRecords = demoMode ? demoRecords : projectRecords;
@@ -233,7 +363,7 @@ export function OperationsWorkbookRoute({
         const result = await saveProjectControlsWorkbookRows({
           writeMode: demoMode ? "synthetic-demo" : "existing-domain",
           sheetId,
-          stagedRows: nextRows,
+          stagedRows: nextRows as readonly (Project | ProjectCostCode)[],
           baseRecords: projectRecords,
           expectedCompanyId: companyId,
           saveSyntheticRows: demoMode ? async (syntheticRows) => {
@@ -325,13 +455,20 @@ export function OperationsWorkbookRoute({
       canEditField: () => true,
     };
   }, [
+    canSaveExpenseSheet,
     canSaveProjectSheets,
     companyId,
     currentContextKey,
     demoMode,
+    demoExpenseRecords,
     demoRecords,
+    expenses,
     onApplyProjectWorkbookGroup,
+    onRefreshExpenses,
     onRefreshProjects,
+    onSaveExpenseDraft,
+    permissionSnapshotKey,
+    permissions,
     projectRecords,
     selectedSheet,
   ]);
@@ -360,11 +497,12 @@ export function OperationsWorkbookRoute({
       : "Combined workbook access";
 
   const reloadLatest = async () => {
-    if (!onRefreshProjects || demoMode) return;
+    const refreshCurrentSheet = selectedSheet?.id === "expenses" ? onRefreshExpenses : onRefreshProjects;
+    if (!refreshCurrentSheet || demoMode) return;
     const expectedContextKey = currentContextKey;
     setIsSaving(true);
     try {
-      await onRefreshProjects();
+      await refreshCurrentSheet();
       if (currentContextKeyRef.current !== expectedContextKey) return;
       stagedEditsRef.current = false;
       setHasStagedEdits(false);
@@ -373,7 +511,7 @@ export function OperationsWorkbookRoute({
       setEditorRevision((revision) => revision + 1);
     } catch {
       if (currentContextKeyRef.current === expectedContextKey) {
-        setFeedback({ kind: "error", message: "Could not reload project data. Try again before applying changes." });
+        setFeedback({ kind: "error", message: "Could not reload current worksheet rows. Try again before continuing." });
       }
     } finally {
       setIsSaving(false);

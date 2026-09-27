@@ -1564,12 +1564,12 @@ function InvoiceWorkspace() {
 
   const handleRefreshExpensesWorkbook = async (): Promise<ExpensesWorkbookRecords> => {
     if (session && supabase && !guestModeState) {
-      const canReadExpenses = can(PERMISSION_KEYS.expensesRead) || can(PERMISSION_KEYS.expensesWrite);
+      const canReadExpenses = can(PERMISSION_KEYS.expensesRead);
       const canReadProjects = can(PERMISSION_KEYS.projectsRead);
       const canReadInvoices = can(PERMISSION_KEYS.invoicesRead);
       const canReadProcurement = can(PERMISSION_KEYS.procurementRead);
       const [freshExpenses, freshProjects, freshCostCodes, freshInvoices, freshAllocations, freshPurchaseOrders, freshVendors] = await Promise.all([
-        canReadExpenses ? loadExpensesFromSupabase() : Promise.resolve(expenses),
+        canReadExpenses ? loadExpensesFromSupabase() : Promise.resolve([]),
         canReadProjects ? loadProjectsFromSupabase() : Promise.resolve(projects),
         canReadProjects ? loadProjectCostCodesFromSupabase() : Promise.resolve(costCodes),
         canReadInvoices ? loadInvoicesFromSupabase() : Promise.resolve(invoices),
@@ -3799,7 +3799,7 @@ function InvoiceWorkspace() {
           onFixSupplierInvoice={!isSupabaseConfigured || (can(PERMISSION_KEYS.invoicesWrite) && can(PERMISSION_KEYS.invoicesVerify) && can(PERMISSION_KEYS.expensesWrite)) ? handleFixSupplierInvoice : undefined}
           expenseFormContext={expenseFormContext}
           expenseCorrectionContext={expenseCorrectionContext}
-          onSaveExpense={(expense) => void handleSaveExpense(expense)}
+          onSaveExpense={handleSaveExpense}
           onRefreshExpenses={handleRefreshExpensesWorkbook}
           onApplyExpenseWorkbook={handleApplyExpenseWorkbook}
           onPreviewExpenseCorrection={previewExpenseCorrection}

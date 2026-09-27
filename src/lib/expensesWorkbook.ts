@@ -4,6 +4,7 @@ import {
   type FinancialSettlementHistoryItem,
   type FinancialSettlementSummary,
 } from "./financialSettlement.ts";
+import { isEditableDirectExpenseDraft } from "./expenseDraftRules.ts";
 import type { SupplierInvoiceSettlementMatch, SupplierInvoiceSettlementProjection } from "./supplierInvoiceSettlement.ts";
 import {
   exportOperationsWorkbook,
@@ -435,10 +436,6 @@ export function exportExpensesWorkbook(input: ExpensesWorkbookExportInput): Work
   });
 }
 
-function isEditableExpense(expense: Expense) {
-  return expense.status === "DRAFT" && !expense.archivedAt && !expense.supplierInvoiceId;
-}
-
 function parseMetadataState(metadata: MetadataRecord | undefined) {
   return metadata?.state;
 }
@@ -518,7 +515,7 @@ function expenseProposal(
   const proposed: Expense = { ...expense };
   const editableChanges: ExpensesFieldChange[] = [];
   const protectedChanges: ExpensesFieldChange[] = [];
-  const editable = isEditableExpense(expense);
+  const editable = isEditableDirectExpenseDraft(expense);
   const addText = (field: keyof Expense, header: string, required = false) => {
     const value = nullableText(row[header]);
     if (required && !value) {

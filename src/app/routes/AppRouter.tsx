@@ -366,7 +366,7 @@ export interface AppRouterProps {
   expenseCorrectionContext?: string | null;
   selectedExpenseId?: string | null;
   expenseReturnPath?: string;
-  onSaveExpense?: (expense: Expense) => void;
+  onSaveExpense?: (expense: Expense) => Promise<void> | void;
   onRefreshExpenses?: () => Promise<ExpensesWorkbookRecords>;
   onApplyExpenseWorkbook?: (expense: Expense) => Promise<void> | void;
   financialFxSnapshots?: readonly FinancialFxSnapshot[];
@@ -752,6 +752,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onRefreshProjects={onRefreshProjects}
         onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup}
         onRefreshExpenses={onRefreshExpenses}
+        onSaveExpenseDraft={onSaveExpense}
         onApplyExpenseWorkbook={onApplyExpenseWorkbook}
         onRefreshProcurement={onRefreshProcurement}
         onSaveRFQ={onSaveRFQ}

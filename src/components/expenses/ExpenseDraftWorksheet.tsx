@@ -11,18 +11,18 @@ import type {
 import { createLocalExpense } from "../../lib/expenses.ts";
 import { formatCostCodeOptionLabel, getSelectableCostCodes } from "../../lib/projectCostCodes.ts";
 import { displayFinancialAmountInPhp } from "../../utils/financialCurrency.ts";
+import {
+  EXPENSE_PAYMENT_METHODS,
+  isEditableExpenseDraft,
+  normalizeExpenseDraft,
+  validateExpenseDraftField,
+  validateExpenseDraftReferences,
+} from "../../lib/expenseDraftRules.ts";
+import type { ExpenseDraftValues } from "../../lib/expenseDraftRules.ts";
 import { WorksheetEditor, type WorksheetColumn } from "../ui/WorksheetEditor.tsx";
 
-export const EXPENSE_PAYMENT_METHODS = [
-  "Cash",
-  "GCash",
-  "Maya",
-  "Credit Card",
-  "Debit Card",
-  "Bank Transfer",
-  "Check",
-  "Petty Cash / Reimbursement",
-] as const;
+export { EXPENSE_PAYMENT_METHODS, isEditableExpenseDraft, normalizeExpenseDraft };
+export type { ExpenseDraftValues };
 
 export interface ExpenseDraftWorksheetRow {
   worksheetId: string;
@@ -50,20 +50,6 @@ export interface ExpenseDraftWorksheetRow {
   voidState: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface ExpenseDraftValues {
-  expenseDate?: string;
-  projectId?: string;
-  projectCostCodeId?: string;
-  category?: string;
-  description?: string;
-  payee?: string;
-  amount?: number | string | null;
-  currency?: string;
-  paymentMethod?: string;
-  referenceNumber?: string;
-  notes?: string;
 }
 
 export interface ExpenseDraftWorksheetProps {
@@ -110,10 +96,6 @@ function newExpenseDraft(initialProjectId?: string): Expense {
     status: "DRAFT",
     notes: "",
   });
-}
-
-export function isEditableExpenseDraft(expense?: Expense | null): boolean {
-  return !expense || (expense.status === "DRAFT" && !expense.archivedAt && !expense.supplierInvoiceId);
 }
 
 function rowFromExpense(
@@ -169,53 +151,6 @@ function rowFromExpense(
   };
 }
 
-export function normalizeExpenseDraft(row: ExpenseDraftValues, authoritative: Expense): Expense {
-  const description = textValue(row.description).trim();
-  const currency = textValue(row.currency).trim().toUpperCase();
-  const amount = Number(row.amount);
-  const expenseDate = textValue(row.expenseDate).trim();
-  if (!description) throw new Error("Enter an expense description before saving.");
-  if (!expenseDate) throw new Error("Enter an expense date before saving.");
-  if (!Number.isFinite(amount) || amount < 0) throw new Error("Enter a valid non-negative expense amount.");
-  if (!/^[A-Z]{3}$/.test(currency)) throw new Error("Enter a three-letter currency code such as PHP.");
-
-  const projectId = optionalText(row.projectId);
-  return {
-    ...authoritative,
-    expenseDate,
-    projectId,
-    projectCostCodeId: projectId ? optionalText(row.projectCostCodeId) : undefined,
-    category: textValue(row.category).trim() || "Miscellaneous",
-    description,
-    payee: optionalText(row.payee),
-    amount,
-    currency,
-    paymentMethod: optionalText(row.paymentMethod),
-    referenceNumber: optionalText(row.referenceNumber),
-    notes: optionalText(row.notes),
-  };
-}
-
-function requiredField(label: string) {
-  return (value: unknown) => textValue(value).trim() ? undefined : `${label} is required.`;
-}
-
-function nonNegativeAmount(value: unknown) {
-  if (value === null || value === undefined || value === "") return "Amount is required.";
-  const amount = Number(value);
-  return Number.isFinite(amount) && amount >= 0 ? undefined : "Amount must be zero or greater.";
-}
-
-function currencyCode(value: unknown) {
-  return /^[A-Z]{3}$/.test(textValue(value).trim().toUpperCase())
-    ? undefined
-    : "Currency must be a three-letter code such as PHP.";
-}
-
-function dateValue(value: unknown) {
-  return textValue(value).trim() ? undefined : "Expense Date is required.";
-}
-
 export function ExpenseDraftWorksheet({
   projects,
   costCodes = [],
@@ -250,7 +185,7 @@ export function ExpenseDraftWorksheet({
       protected: !editable,
       value: (row) => row.expenseDate,
       setValue: (row, value) => ({ ...row, expenseDate: textValue(value) }),
-      validate: dateValue,
+      validate: (value) => validateExpenseDraftField("expenseDate", value),
     },
     {
       key: "projectId",
@@ -310,7 +245,7 @@ export function ExpenseDraftWorksheet({
       protected: !editable,
       value: (row) => row.description,
       setValue: (row, value) => ({ ...row, description: textValue(value) }),
-      validate: requiredField("Description"),
+      validate: (value) => validateExpenseDraftField("description", value),
     },
     {
       key: "payee",
@@ -332,7 +267,7 @@ export function ExpenseDraftWorksheet({
       protected: !editable,
       value: (row) => row.amount,
       setValue: (row, value) => ({ ...row, amount: Number(value) }),
-      validate: nonNegativeAmount,
+      validate: (value) => validateExpenseDraftField("amount", value),
     },
     {
       key: "currency",
@@ -343,7 +278,7 @@ export function ExpenseDraftWorksheet({
       value: (row) => row.currency,
       parse: (raw) => raw.trim().toUpperCase(),
       setValue: (row, value) => ({ ...row, currency: textValue(value).trim().toUpperCase() }),
-      validate: currencyCode,
+      validate: (value) => validateExpenseDraftField("currency", value),
     },
     {
       key: "paymentMethod",
@@ -413,22 +348,10 @@ export function ExpenseDraftWorksheet({
 
     const current = nextRows[0] || rowRef.current;
     if (!current) return;
-    const projectId = optionalText(current.projectId);
-    const costCodeId = optionalText(current.projectCostCodeId);
-    if (costCodeId && !projectId) {
-      setLocalError("Choose a project before assigning a cost code.");
+    const referenceIssue = validateExpenseDraftReferences(current, projects, costCodes, expense);
+    if (referenceIssue) {
+      setLocalError(referenceIssue.message);
       return;
-    }
-    if (projectId) {
-      const selectedProject = projects.find((candidate) => candidate.id === projectId);
-      if (!selectedProject || (selectedProject.status === "ARCHIVED" && (!expense || selectedProject.id !== authoritativeExpense.projectId))) {
-        setLocalError("Choose an active project before saving the expense.");
-        return;
-      }
-      if (costCodeId && !getSelectableCostCodes(costCodes, projectId, authoritativeExpense.projectCostCodeId).some((costCode) => costCode.id === costCodeId)) {
-        setLocalError("Choose a cost code belonging to the selected project.");
-        return;
-      }
     }
 
     try {

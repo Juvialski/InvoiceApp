@@ -19,7 +19,8 @@ import {
 } from "../src/lib/operationsWorkbookModel.ts";
 import { OperationsWorkbookRoute } from "../src/app/routes/OperationsWorkbookRoute.tsx";
 import { PERMISSION_KEYS } from "../src/utils/accessControl.ts";
-import type { Project, ProjectCostCode } from "../src/types.ts";
+import type { Expense, Project, ProjectCostCode } from "../src/types.ts";
+import type { ExpensesWorkbookRecords } from "../src/lib/expensesWorkbook.ts";
 
 const project: Project = {
   id: "project-1",
@@ -46,8 +47,47 @@ const costCode: ProjectCostCode = {
   updatedAt: "2026-01-02T00:00:00.000Z",
 };
 
+const directExpense: Expense = {
+  id: "expense-direct-1",
+  projectId: project.id,
+  projectCostCodeId: costCode.id,
+  expenseDate: "2026-09-20",
+  category: "Fuel",
+  description: "Site fuel",
+  payee: "Direct Supplier",
+  amount: 100,
+  currency: "PHP",
+  paymentMethod: "Cash",
+  status: "DRAFT",
+  notes: "Original note",
+  createdAt: "2026-09-19T00:00:00.000Z",
+  updatedAt: "2026-09-20T00:00:00.000Z",
+};
+
+const linkedExpense: Expense = {
+  ...directExpense,
+  id: "expense-linked-1",
+  description: "Supplier source expense",
+  supplierInvoiceId: "invoice-secret-id",
+  vendorId: "vendor-secret-id",
+  purchaseOrderId: "po-secret-id",
+};
+
+function expenseRecords(expenses: readonly Expense[] = [directExpense, linkedExpense]): ExpensesWorkbookRecords {
+  return {
+    expenses,
+    projects: [project],
+    costCodes: [costCode],
+    invoices: [],
+    purchaseOrders: [],
+    vendors: [],
+    expectedCompanyId: "company-1",
+  };
+}
+
 const projectSheet = findOperationsWorkbookSheet("projects")!;
 const costCodeSheet = findOperationsWorkbookSheet("cost-codes")!;
+const expenseSheet = findOperationsWorkbookSheet("expenses")!;
 const payrollSheet = findOperationsWorkbookSheet("payroll")!;
 const projectNameField = projectSheet.fields.find((field) => field.id === "projectName")!;
 
@@ -98,7 +138,7 @@ test("Operations Workbook sheet order and metadata vocabulary are deterministic"
     "source-evidence",
     "workflow-only",
   ]);
-  assert.deepEqual(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS, ["projects", "cost-codes"]);
+  assert.deepEqual(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS, ["projects", "cost-codes", "expenses"]);
 });
 
 test("Payroll sheet metadata requires payroll detail read and never aggregate-report access", () => {
@@ -110,11 +150,14 @@ test("Payroll sheet metadata requires payroll detail read and never aggregate-re
 
 test("available sheets are filtered by enabled adapter and the existing domain read permission", () => {
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.projectsRead]).map((sheet) => sheet.id), ["projects", "cost-codes"]);
+  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.expensesRead]).map((sheet) => sheet.id), ["expenses"]);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.payrollRead]), []);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.projectsWrite]), []);
   assert.equal(canReadOperationsWorkbookSheet(projectSheet, [PERMISSION_KEYS.projectsRead]), true);
   assert.equal(canReadOperationsWorkbookSheet(projectSheet, [PERMISSION_KEYS.projectsWrite]), false);
   assert.equal(canReadOperationsWorkbookSheet(costCodeSheet, [PERMISSION_KEYS.projectsRead]), true);
+  assert.equal(canReadOperationsWorkbookSheet(expenseSheet, [PERMISSION_KEYS.expensesRead]), true);
+  assert.equal(canReadOperationsWorkbookSheet(expenseSheet, [PERMISSION_KEYS.expensesWrite]), false);
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.projectsWrite]), false);
 
   const payrollAdapterEnabled = { ...payrollSheet, readiness: "available" as const };
@@ -131,7 +174,7 @@ test("combined workbook access follows existing domain reads without enabling mo
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.procurementRead]), true);
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.payrollRead]), false);
   assert.equal(canAccessOperationsWorkbook((function* () { yield PERMISSION_KEYS.expensesRead; })()), true);
-  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.expensesRead]), []);
+  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.expensesRead]).map((sheet) => sheet.id), ["expenses"]);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.procurementRead]), []);
   assert.deepEqual(availableOperationsWorkbookSheets((function* () { yield PERMISSION_KEYS.procurementRead; })()), []);
 
@@ -150,8 +193,10 @@ test("combined workbook access follows existing domain reads without enabling mo
     costCodes: [costCode],
     permissions: [PERMISSION_KEYS.projectsWrite, PERMISSION_KEYS.expensesRead],
     search: "?sheet=cost-codes",
+    expenseRecords: expenseRecords(),
   }));
-  assert.doesNotMatch(hiddenProjectSheetHtml, /data-workbook-sheet|DEMO-01|01-GEN|Cost codes/);
+  assert.match(hiddenProjectSheetHtml, /data-workbook-sheet="expenses"/);
+  assert.doesNotMatch(hiddenProjectSheetHtml, /DEMO-01|01-GEN/);
 });
 
 test("combined workbook review state is cleared when company or permission context changes", () => {
@@ -164,6 +209,9 @@ test("combined workbook review state is cleared when company or permission conte
   assert.match(routeSource, /key=\{`\$\{currentContextKey\}:\$\{selectedSheet\.id\}:\$\{editorRevision\}`\}/);
   assert.match(routeSource, /previousContextKeyRef\.current === currentContextKey[\s\S]*?stagedEditsRef\.current = false;[\s\S]*?setCellIssues\(\{\}\);[\s\S]*?setFeedback\(null\)/);
   assert.match(routeSource, /stagedEditsRef\.current[\s\S]*?Save or discard your worksheet edits before switching sheets/);
+  assert.match(routeSource, /disabled=\{workspaceLoading \|\| isSaving \|\| hasStagedEdits\}/);
+  assert.match(transferSource, /disabled=\{busy \|\| disabled\}[^>]*>[\s\S]*?Download workbook/);
+  assert.match(transferSource, /disabled=\{busy \|\| disabled\}[^>]*>[\s\S]*?Import workbook/);
 });
 
 test("write access is separate from read access and workbook metadata cannot enable production writes", () => {
@@ -222,6 +270,8 @@ test("workbook edit state is scoped to active company, effective permissions, an
   assert.notEqual(original, operationsWorkbookContextKey("company-b", [PERMISSION_KEYS.projectsRead], false));
   assert.notEqual(original, operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite], false));
   assert.notEqual(original, operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.projectsRead], true));
+  assert.notEqual(original, operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.expensesRead], false));
+  assert.notEqual(original, operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite], false));
   assert.equal(original, operationsWorkbookContextKey("company-a", [PERMISSION_KEYS.projectsRead], false));
 });
 
@@ -318,4 +368,74 @@ test("Operations Workbook shell exposes both read-authorized sheets without muta
   }));
   assert.match(payrollOnlyHtml, /not available for the current access profile/);
   assert.doesNotMatch(payrollOnlyHtml, /Payroll/);
+});
+
+test("Expenses sheet separates read and manage access and keeps ineligible or cross-domain state protected", () => {
+  const rows: Expense[] = [
+    directExpense,
+    linkedExpense,
+    { ...directExpense, id: "expense-archived-1", description: "Archived direct Expense", archivedAt: "2026-09-21T00:00:00.000Z" },
+    { ...directExpense, id: "expense-approved-1", description: "Approved direct Expense", status: "APPROVED" },
+    { ...directExpense, id: "expense-void-1", description: "Void direct Expense", status: "VOID", voidedAt: "2026-09-21T00:00:00.000Z" },
+  ];
+  const records = expenseRecords(rows);
+  const readOnlyHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    costCodes: [costCode],
+    expenseRecords: records,
+    companyId: "company-1",
+    permissions: [PERMISSION_KEYS.expensesRead],
+    search: "?sheet=expenses",
+  }));
+  assert.match(readOnlyHtml, /data-workbook-sheet="expenses"/);
+  assert.match(readOnlyHtml, /Site fuel/);
+  assert.match(readOnlyHtml, /read only/);
+  assert.doesNotMatch(readOnlyHtml, /Save changes/);
+  assert.doesNotMatch(readOnlyHtml, /invoice-secret-id|vendor-secret-id|po-secret-id/);
+
+  const editableHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    costCodes: [costCode],
+    expenseRecords: records,
+    companyId: "company-1",
+    permissions: [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite, PERMISSION_KEYS.projectsRead],
+    search: "?sheet=expenses",
+    onRefreshExpenses: async () => records,
+    onSaveExpenseDraft: async () => undefined,
+  }));
+  assert.match(editableHtml, /data-worksheet-cell="expense-direct-1:description"[^>]*data-worksheet-editable="true"/);
+  assert.match(editableHtml, /data-worksheet-cell="expense-direct-1:amount"[^>]*data-worksheet-editable="true"/);
+  assert.match(editableHtml, /Save changes/);
+  assert.match(editableHtml, /Linked source · protected/);
+  assert.match(editableHtml, /data-worksheet-cell="expense-linked-1:description"[^>]*data-worksheet-editable="false"/);
+  for (const id of ["expense-archived-1", "expense-approved-1", "expense-void-1"]) {
+    assert.match(editableHtml, new RegExp(`data-worksheet-cell="${id}:description"[^>]*data-worksheet-editable="false"`));
+  }
+  for (const field of ["expenseId", "status", "sourceLinkage", "vendorLinkage", "purchaseOrderLinkage", "settlementState", "baseCurrencyValue", "fxProvenance", "archiveState", "voidCorrectionState", "createdAt", "updatedAt"]) {
+    assert.match(editableHtml, new RegExp(`data-worksheet-cell="expense-direct-1:${field}"[^>]*data-worksheet-editable="false"`), field);
+  }
+
+  const manageWithoutReadHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    costCodes: [costCode],
+    expenseRecords: expenseRecords([{ ...directExpense, description: "Expense permission leak sentinel" }]),
+    permissions: [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.expensesWrite],
+    search: "?sheet=expenses",
+  }));
+  assert.match(manageWithoutReadHtml, /data-workbook-sheet="projects"/);
+  assert.doesNotMatch(manageWithoutReadHtml, /Expense permission leak sentinel|role="tab"[^>]*>Expenses/);
+
+  const withoutProjectRead = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    costCodes: [costCode],
+    expenseRecords: records,
+    permissions: [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite],
+    search: "?sheet=expenses",
+    onRefreshExpenses: async () => records,
+    onSaveExpenseDraft: async () => undefined,
+  }));
+  assert.match(withoutProjectRead, /Assigned project/);
+  assert.match(withoutProjectRead, /Assigned cost code/);
+  assert.doesNotMatch(withoutProjectRead, /data-worksheet-cell="expense-direct-1:projectId"[^>]*data-worksheet-editable="true"/);
+  assert.doesNotMatch(withoutProjectRead, /project-1|cost-code-1/);
 });

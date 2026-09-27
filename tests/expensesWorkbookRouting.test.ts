@@ -11,6 +11,7 @@ test("Expenses route and AppRouter expose the workbook refresh and Apply boundar
   assert.match(read("src/app/routes/ExpensesRoute.tsx"), /onApplyExpenseWorkbook/);
   assert.match(read("src/app/routes/AppRouter.tsx"), /settlementProjections/);
   assert.match(read("src/app/routes/AppRouter.tsx"), /onRefreshExpenses/);
+  assert.match(read("src/app/routes/AppRouter.tsx"), /onSaveExpenseDraft=\{onSaveExpense\}/);
   assert.match(read("src/app/routes/AppRouter.tsx"), /onApplyExpenseWorkbook/);
 });
 
@@ -27,6 +28,11 @@ test("App owns Expense workbook permissions, refresh, and authoritative persiste
   assert.ok(applyStart >= 0 && refreshStart > applyStart);
   const applyBody = app.slice(applyStart, refreshStart);
   assert.doesNotMatch(applyBody, /applyExpenseCorrection|verifySupplierInvoiceAndCreateExpense/);
-  assert.match(app.slice(refreshStart), /PERMISSION_KEYS\.invoicesRead/);
-  assert.match(app.slice(refreshStart), /PERMISSION_KEYS\.procurementRead/);
+  const refreshBody = app.slice(refreshStart);
+  assert.match(refreshBody, /const canReadExpenses = can\(PERMISSION_KEYS\.expensesRead\);/);
+  assert.doesNotMatch(refreshBody, /can\(PERMISSION_KEYS\.expensesRead\)\s*\|\|\s*can\(PERMISSION_KEYS\.expensesWrite\)/);
+  assert.match(refreshBody, /canReadExpenses \? loadExpensesFromSupabase\(\) : Promise\.resolve\(\[\]\)/);
+  assert.match(refreshBody, /PERMISSION_KEYS\.invoicesRead/);
+  assert.match(refreshBody, /PERMISSION_KEYS\.procurementRead/);
+  assert.match(app, /onSaveExpense=\{handleSaveExpense\}/);
 });

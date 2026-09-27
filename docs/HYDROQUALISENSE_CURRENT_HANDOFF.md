@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 MERGED PR #263 / WB-3A MERGED PR #265 / WB-3B NEXT / WB-CERT LATER**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 MERGED PR #263 / WB-3A MERGED PR #265 / WB-3B IMPLEMENTED LOCALLY — PR PENDING / WB-CERT LATER**
 Date: **2026-09-27**
 Repository: `Juvialski/InvoiceApp`
 
@@ -3056,13 +3056,82 @@ standalone/combined XLSX flows. Other domains and WB-CERT remain separate.
 
 WB-3A closes only the two Project Controls production sheet adapters.
 
-Next bounded phase: **WB-3B — Direct Expense Production Sheet**. Enable only the
-existing direct Expense draft domain in the in-app Operations Workbook.
-Viewing must require `expenses.read`; `expenses.manage` is additional write
-authority and must never substitute for read access. Only DRAFT, non-archived,
-non-Supplier-Invoice-linked Expenses may use ordinary cell editing. Reuse the
-existing Expense worksheet/save validation, project/cost-code reference rules,
-company scope, authoritative refresh, and current Expense persistence path.
-Supplier Invoice review/source evidence, settlement/payment, correction,
-archive/void, Procurement, Payroll, Inventory, Equipment, and other workbook
-domains stay out of WB-3B. WB-CERT remains later.
+At the WB-3A closeout, WB-3B was selected as the next bounded workbook phase;
+its Expense-only scope and implementation/evidence are recorded below.
+
+## 2026-09-27 — WB-3B Direct Expense Production Sheet
+
+- Implementation branch: `codex/wb-3b-expenses-sheet`
+- Synchronized base `main` SHA: `501b3d7be6ba2657f739b141a945a710c7985b89`
+- Status: **IMPLEMENTED FOR RECORDED SCOPE / PR PENDING / WB-CERT LATER**
+
+### Implemented boundary
+
+- `/workbook?sheet=expenses` is available only with `expenses.read`. `expenses.manage`
+  adds editing authority; it never grants Expense-row read access by itself.
+  Workbook writes require both permissions and configured existing Expense
+  refresh/save callbacks. No `workbook.*` permission was added.
+- Only an Expense that is `DRAFT`, not archived, and not linked to a Supplier
+  Invoice can use ordinary cell editing. The rule is shared with the existing
+  Expense draft page and standalone Expenses XLSX review. Supplier Invoice,
+  archived, approved/paid/void, and other non-draft rows remain visible as
+  authorized but read-only.
+- Safe fields are Expense Date, Project, Cost Code, Category, Description,
+  Payee, Amount, Currency, Payment Method, Reference, and Notes. Existing
+  Expense draft normalization and required/date/amount/currency rules are
+  shared. Project/Cost Code labels and selections require `projects.read`;
+  active Projects, archived-current Project behavior, same-Project Cost Codes,
+  and active/current Cost Code selection are retained.
+- Identity, status, source linkage, canonical Vendor/PO links, settlement,
+  base-currency/FX values and provenance, archive/void/correction state, and
+  created/updated metadata are protected. Supplier Invoice detail and linked
+  IDs are not rendered by this sheet.
+- Production Save stages in `WorksheetEditor`, validates, refreshes
+  authoritative Expenses, checks expected company context and exact `updatedAt`
+  freshness, rechecks eligibility/references, and delegates to the existing
+  `handleSaveExpense` / `persistExpense` / `saveExpenseToSupabase` path. The
+  existing company-filtered, optimistic `updated_at` update remains the final
+  concurrency guard. Success triggers an authoritative refresh. Multiple
+  changed rows are saved sequentially; partial results are surfaced, with no
+  cross-row transaction or atomicity claim.
+- Demo Save only updates local synthetic state. Company, permission, or demo
+  context changes remount the editor and clear staged state. Dirty Expense
+  edits block both sheet changes and combined workbook import/refresh until
+  Save or Discard. Standalone Expenses XLSX, WB-2 combined XLSX, and WB-3A
+  Projects/Cost Codes behavior remain compatible.
+- `handleRefreshExpensesWorkbook` now requires `expenses.read` to load Expense
+  rows and returns an empty Expense collection without it; `expenses.manage`
+  alone is not treated as read access.
+
+### Validation and evidence
+
+- `tests/expensesWorkbookEditing.test.ts`: **8/8 passed**. The final affected
+  selection also covered Expenses draft/XLSX, WB-2 combined workbook, WB-3A
+  Project/Cost Code editing, the route model, product feature, and shared
+  `WorksheetEditor` behavior.
+- `npm.cmd run test:affected:agent`: **293 passed, 0 failed, 0 skipped** across
+  **43/392 selected test files (11.0%)**; selector fallback was false and the
+  database was unaffected.
+- `npm.cmd run lint`: passed ESLint and TypeScript. `npm.cmd run build` passed;
+  existing non-blocking warnings remain for unloaded Inter, large chunks, and
+  CommonJS `import.meta` handling.
+- `workflow-map:check`: valid, **266 nodes / 355 edges**.
+  `workflow-map:consistency`: **266 nodes / 355 edges / 36 invariants / 11
+  diagrams**.
+- Focused local synthetic Demo QA passed **12/12 Operations Workbook
+  scenarios** at 1440×900, 1280×800, 768×1024, and 390×844. Both WB-3B
+  viewports passed the direct draft edit, protected fields, dirty sheet-switch
+  and import guard, responsive fallback, and no-overflow assertions. There
+  were zero console errors, page errors, failed requests, or horizontal page
+  overflow. The lead inspected 1280×800 and 390×844 viewport captures under
+  `artifacts/demo-visual-qa-wb3b/screenshots/`. This is local synthetic demo
+  evidence, not hosted, authenticated-client, or production certification.
+- One bounded `agent:context` packet used domain `finance`; its Workflow Map
+  match was unavailable and it returned no curated primary source. Jev context
+  preflight had no candidates (`requestCount=0`, `fallback=true`). Jev
+  test-triage retained all **43/43** selected tests and recommended ordering
+  only (`jev-1.13.0`, 5,348 input / 639 output tokens, 572 ms,
+  `fallback=false`). No subagents were used.
+- No database schema, migration, RLS, RPC, or server authority changed.
+  Docker/Supabase and DB validation were not applicable. No provider, hosted-QA,
+  or production validation was performed.
