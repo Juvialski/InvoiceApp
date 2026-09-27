@@ -187,6 +187,7 @@ Future UX-EDIT/WB work must preserve the repository's existing invariants:
 
 Implementation branch: `codex/wb-1-operations-workbook`
 Synchronized base `main` SHA: `6a31facf172864b465f55defe46e897e10a1da64`
+Implementation source commit SHA: `e17760f94d83773be285f1ebc9eec917de0c4ff1`
 
 The user explicitly activated WB-1 with the bounded implementation handoff.
 This record closes only WB-1; WB-2, WB-3+, and WB-CERT remain unstarted.

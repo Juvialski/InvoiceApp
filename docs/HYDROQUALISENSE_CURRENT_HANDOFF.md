@@ -2799,6 +2799,7 @@ current closeout below.
 
 Implementation branch: `codex/wb-1-operations-workbook`
 Synchronized base `main` SHA: `6a31facf172864b465f55defe46e897e10a1da64`
+Implementation source commit SHA: `e17760f94d83773be285f1ebc9eec917de0c4ff1`
 Status: **IMPLEMENTED FOR RECORDED SCOPE / WB-2 AND WB-3+ NOT STARTED**
 
 The user explicitly activated this bounded WB-1 implementation after CI-EFF-2
