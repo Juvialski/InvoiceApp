@@ -358,14 +358,17 @@ export function availableOperationsWorkbookSheets(
 ): OperationsWorkbookSheetDefinition[] {
   const registry = options.registry || OPERATIONS_WORKBOOK_SHEET_REGISTRY;
   const enabledAdapters = new Set(options.enabledAdapters || OPERATIONS_WORKBOOK_ENABLED_ADAPTERS);
+  const permissionSnapshot = permissions ? [...permissions] : [];
   return registry.filter((sheet) =>
     sheet.readiness === "available"
     && enabledAdapters.has(sheet.id)
-    && canReadOperationsWorkbookSheet(sheet, permissions));
+    && canReadOperationsWorkbookSheet(sheet, permissionSnapshot));
 }
 
 export function canAccessOperationsWorkbook(permissions: Iterable<PermissionKey> | null | undefined): boolean {
-  return availableOperationsWorkbookSheets(permissions).length > 0;
+  const permissionSnapshot = permissions ? [...permissions] : [];
+  return availableOperationsWorkbookSheets(permissionSnapshot).length > 0
+    || hasAnyPermission(permissionSnapshot, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead]);
 }
 
 /** Resolve invalid, unknown, or unauthorized URL selections without returning hidden sheet metadata. */

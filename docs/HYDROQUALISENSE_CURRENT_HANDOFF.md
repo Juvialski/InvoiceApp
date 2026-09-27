@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 NEXT**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 IMPLEMENTED FOR RECORDED SCOPE / WB-3+ AND WB-CERT NOT STARTED**
 Date: **2026-09-27**
 Repository: `Juvialski/InvoiceApp`
 
@@ -2875,8 +2875,83 @@ and its adapter contract.
   Database Migrations & Upgrade Suite, Graph and Source Contract Consistency,
   and `chromium-demo-qa` all completed successfully before merge.
 
-WB-2 multi-sheet XLSX round trip is the **next separately bounded phase**.
-WB-1 does not export/import a combined workbook, add cross-domain fingerprints,
-apply changes across domains, or onboard Payroll/Procurement/Expenses/Inventory
-production editing adapters. Do not begin WB-2 without its own explicit
-implementation handoff.
+WB-2 multi-sheet XLSX round trip was the **next separately bounded phase at
+WB-1 closeout**. It was explicitly activated in the current implementation
+handoff and is recorded below. WB-3+ and WB-CERT remain separate planned work.
+
+## 2026-09-27 — WB-2 Multi-sheet XLSX Round Trip
+
+Implementation branch: `codex/wb-2-multisheet-xlsx-roundtrip`
+Synchronized base `main` SHA: `7f1c0905a7b9f9a4a36e8a6c3444e68d7e7085fb`
+Status: **WB-2 IMPLEMENTED FOR RECORDED SCOPE / WB-3+ AND WB-CERT NOT STARTED**
+
+The user explicitly activated WB-2 after the WB-1 closeout. This phase composes
+the already-hardened Projects, Expenses/Supplier Payables, and Procurement
+workbook contracts into one combined downloadable `.xlsx`. The deterministic
+visible sheet order is Projects, Cost Codes, Expenses, Supplier Payables, RFQs,
+RFQ Lines, Purchase Orders, and PO Lines, followed by the hidden
+`_HydroQualiSense` synchronization manifest. The combined contract has its own
+version/kind and source-schema compatibility manifest; standalone schemas and
+their callers were not changed.
+
+### Contract and authority
+
+- `src/lib/combinedOperationsWorkbook.ts` uses the existing
+  `exportOperationsWorkbook` parser/export primitives and calls the existing
+  domain workbook exporters and import reviewers. It does not create a second
+  XLSX engine.
+- The fixed workbook structure includes blank rows for data scopes that were
+  not exported. The hidden manifest records source sheet sets and schema
+  versions for compatibility; it is not a permission credential. Current
+  `projects.read`, `expenses.read`, `invoices.read`, and `procurement.read`
+  permissions are independently checked at export and review. Domain write
+  permissions never substitute for the corresponding read permission. Invoice-linked Expenses and Supplier Payables are withheld when
+  `invoices.read` is absent.
+- Synchronization identity is namespaced by source domain, while each source
+  domain's hidden state/fingerprint/version is preserved for its existing
+  reviewer. Formula, macro, external-link, malformed-workbook,
+  duplicate-identity, sheet/row/cell, and file-size checks reuse the hardened
+  parser path.
+- Import creates Projects/Cost Codes, Expenses/Supplier Payables, and
+  Procurement review groups. Each Apply button calls that domain's existing
+  apply/revalidation function and persistence callbacks. There is no combined
+  Apply transaction or global cross-domain Apply action. Cancel review discards
+  pending local review state; it does not claim to reverse a prior domain Apply.
+- `/workbook` exposes combined transfer controls to users with a supported
+  existing domain read permission. WB-1's only enabled production sheet tab
+  remains Projects; no Expense or Procurement page adapter was enabled.
+  Synthetic demo mode keeps Apply disabled and sample cell edits remain local.
+  No database, permission catalog, migration, provider, or production contract
+  changed.
+
+### Validation and evidence
+
+- Focused WB-2, standalone Projects/Expenses/Procurement, parser, workbook shell,
+  and Demo QA catalog tests passed **60/60**.
+- `npm.cmd run test:affected:agent` passed **202/202** across **31/390**
+  selected test files (**7.9%**), no fallback, database unaffected.
+- `npm.cmd run lint` and `npm.cmd run build` passed. Existing build warnings
+  remain for the unloaded Inter font, large chunks, and CommonJS
+  `import.meta` handling.
+- `workflow-map:check` passed. `workflow-map:consistency` reported **266
+  nodes, 355 edges, 36 invariants, and 11 diagrams**.
+- Local synthetic Demo QA passed **8/8** workbook scenarios at 1440×900,
+  1280×800, 768×1024, and 390×844. It recorded zero horizontal overflow,
+  console errors, page errors, or failed requests. The lead visually inspected
+  desktop and phone captures. The local output is in ignored
+  `artifacts/demo-visual-qa-wb2/`; it is not hosted, authenticated-client, or
+  production certification. The run used the implementation working tree;
+  its manifest commit field reflects the still-uncommitted base SHA, so this is
+  not exact-PR-head browser evidence.
+- The bounded deterministic `agent:context` query found no mapped workflow
+  node and emitted no packet. Jev context preflight also found no candidates
+  (`requestCount=0`, `fallback=true`), so direct source inspection remained
+  authoritative. Jev test-triage
+  retained all **31/31** required tests with `jev-1.13.0`: 3,926 input / 459
+  output tokens, 493 ms, `fallback=false`.
+- No database, Docker/Supabase, migration, provider, hosted-QA, or production
+  validation was applicable.
+
+WB-3+ domain onboarding and WB-CERT full round-trip certification remain
+separately planned. The exact PR identity and PR-head checks are reported in
+the delivery summary.

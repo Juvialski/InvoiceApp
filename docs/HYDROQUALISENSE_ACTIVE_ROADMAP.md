@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 NEXT**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 IMPLEMENTED FOR RECORDED SCOPE / WB-3+ NOT STARTED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-27**
 
@@ -19,7 +19,7 @@ Supplier Invoice monetary model: `docs/HYDROQUALISENSE_SUPPLIER_INVOICE_MONETARY
 **Repository & Architecture Professionalization design:** `docs/superpowers/specs/2026-09-17-repository-architecture-professionalization-design.md`
 **Excel-Native Operations UX workbook/authority design:** `docs/superpowers/specs/2026-09-18-excel-native-operations-ux-design.md` — foundations implemented through bounded Expenses/Supplier Payables
 **Current selective workbook-editing interaction direction:** `docs/superpowers/specs/2026-09-20-selective-workbook-editing-ux-direction.md` — browse visually, edit like a spreadsheet, keep consequential workflows controlled
-**UX-EDIT + Operations Workbook direction:** `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md` — UX-EDIT-1A implemented for its recorded scope; WB-1 implemented for recorded scope; WB-2 remains planned
+**UX-EDIT + Operations Workbook direction:** `docs/superpowers/specs/2026-09-24-ux-edit-operations-workbook-roadmap.md` — UX-EDIT-1A, WB-1, and WB-2 implemented for their recorded scopes; WB-3+ and WB-CERT remain planned
 **VIS-CANVA-1 visual direction:** `docs/superpowers/specs/2026-09-26-vis-canva-1-visual-direction.md` — completed seven-page Canva reference for the company site, QA showcase, Supplier Invoice review, and optional workbook shell
 **Blocking worksheet density/clarity correction:** `docs/superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md` — starts with app-wide screenshot investigation/visual triage before evidence-backed UI corrections and UX-W5
 **Next developer-tooling research plan:** `docs/repository-intelligence/JEV_WORKFLOW_INTELLIGENCE_V2_RESEARCH.md`
@@ -2140,3 +2140,56 @@ WB-2 multi-sheet XLSX round-trip is the **next bounded Excel phase**. WB-3+
 production domain onboarding remains
 separate planned work. No combined XLSX, combined fingerprint, cross-domain
 Apply, or additional production editing adapter was started.
+
+## 2026-09-27 — WB-2 Multi-sheet XLSX Round Trip
+
+Implementation branch: `codex/wb-2-multisheet-xlsx-roundtrip`
+Synchronized base `main` SHA: `7f1c0905a7b9f9a4a36e8a6c3444e68d7e7085fb`
+Status: **WB-2 IMPLEMENTED FOR RECORDED SCOPE / WB-3+ AND WB-CERT NOT STARTED**
+
+The user explicitly activated WB-2 after the WB-1 closeout. The combined
+Operations Workbook now exports one versioned `.xlsx` containing the fixed
+sheet order Projects, Cost Codes, Expenses, Supplier Payables, RFQs, RFQ Lines,
+Purchase Orders, and PO Lines. It composes the existing Projects, Expenses,
+and Procurement workbook exporters/import reviewers; the standalone workbook
+schemas and their callers remain unchanged.
+
+The combined contract records source-domain versions, included sheet scopes,
+domain-namespaced synchronization identities, and the stable sheet order in a
+hidden manifest. The manifest identifies compatibility only; current existing
+permissions are rechecked for every export, review, and Apply. Inaccessible
+scopes export no records and their uploaded values are not returned in review.
+Expenses linked to supplier invoices are withheld when `invoices.read` is
+absent. The workbook shell still enables only the WB-1 Projects sheet adapter;
+Expense and Procurement support here is limited to their existing XLSX
+round-trip contracts. Each review section delegates Apply to its existing
+domain-specific function and callbacks. There is no cross-domain Apply or
+global transaction.
+
+Validation on the implementation working tree:
+
+- Focused combined workbook, standalone Projects/Expenses/Procurement,
+  workbook-model, parser, and Demo QA catalog tests passed **60/60**.
+- `npm.cmd run test:affected:agent` passed **202/202** across **31/390**
+  selected test files (**7.9%**), no fallback, database unaffected.
+- `npm.cmd run lint` and `npm.cmd run build` passed. The build retained the
+  existing unloaded Inter font, chunk-size, and CommonJS `import.meta`
+  warnings.
+- `workflow-map:check` passed; `workflow-map:consistency` reported **266
+  nodes, 355 edges, 36 invariants, and 11 diagrams**.
+- Local synthetic Demo QA passed **8/8** workbook scenarios at desktop
+  1440×900, constrained laptop 1280×800, tablet 768×1024, and phone 390×844.
+  There were no console/page errors, failed requests, or horizontal overflow.
+  The lead inspected desktop and phone captures. The local manifest/screenshots
+  are in ignored `artifacts/demo-visual-qa-wb2/`; they are not hosted,
+  authenticated-client, or production certification.
+- Jev context preflight found no candidates (`requestCount=0`, `fallback=true`)
+  and deterministic source inspection remained authoritative. Live test-triage
+  kept all **31/31** required tests: model `jev-1.13.0`, 3,926 input / 459
+  output tokens, 493 ms, `fallback=false`.
+- No database, migration, Docker/Supabase, provider, hosted-QA, or production
+  validation was applicable.
+
+WB-3+ domain onboarding and WB-CERT full round-trip certification remain
+separate planned phases. This WB-2 slice does not add domain tabs, database or
+permission contracts, migrations, or production workbook adapters.

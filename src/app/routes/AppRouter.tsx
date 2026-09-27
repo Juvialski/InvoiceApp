@@ -724,11 +724,38 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <OperationsWorkbookRoute
         projects={projects}
+        costCodes={(costCodes || []) as ProjectCostCode[]}
+        companyId={companyId}
+        expenseRecords={{
+          expenses,
+          projects,
+          costCodes: (costCodes || []) as ProjectCostCode[],
+          invoices: supplierInvoicesForExpenses || [],
+          purchaseOrders: expensePurchaseOrders || [],
+          vendors: expenseVendors || [],
+          expectedCompanyId: companyId,
+          settlementProjections: supplierInvoiceSettlementProjections,
+          settlementMatches,
+          today: supplierSettlementToday,
+        }}
+        procurementRecords={{
+          rfqs,
+          purchaseOrders: purchaseOrders || [],
+          projects,
+          vendors: vendors || [],
+        }}
         permissions={permissions}
         search={route.search}
         demoMode={!showDeploymentAccessManagement}
         workspaceLoading={workspaceLoading}
         onNavigatePath={onNavigatePath}
+        onRefreshProjects={onRefreshProjects}
+        onApplyProjectWorkbookGroup={onApplyProjectWorkbookGroup}
+        onRefreshExpenses={onRefreshExpenses}
+        onApplyExpenseWorkbook={onApplyExpenseWorkbook}
+        onRefreshProcurement={onRefreshProcurement}
+        onSaveRFQ={onSaveRFQ}
+        onSavePurchaseOrder={onSavePO}
       />,
     );
   }

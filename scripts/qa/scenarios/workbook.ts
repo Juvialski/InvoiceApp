@@ -10,6 +10,8 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
   const tabCount = await page.locator(workbookTabs).count();
   const tab = page.getByRole("tab", { name: "Projects", exact: true });
   const projectTabCount = await tab.count();
+  const downloadButton = page.getByRole("button", { name: "Download workbook", exact: true });
+  const importButton = page.getByRole("button", { name: "Import workbook", exact: true });
   await tab.press("Home");
   const layout = await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>('[data-operations-workbook="true"]');
@@ -32,6 +34,7 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
   const mobileViewport = layout.viewportWidth < 768;
   return [
     { id: "workbook-heading-visible", passed: true, details: "Operations Workbook heading rendered." },
+    { id: "workbook-combined-roundtrip-actions", passed: await downloadButton.count() === 1 && await importButton.count() === 1, details: "Combined workbook download and import review controls rendered." },
     { id: "workbook-project-sheet-tab-visible", passed: tabCount === 1 && projectTabCount === 1, details: `authorized sheet tabs: ${tabCount}; Projects tabs: ${projectTabCount}` },
     { id: "workbook-tab-keyboard-focus", passed: layout.selectedTabFocused && layout.selectedTab === "Projects", details: `selected/focused tab: ${layout.selectedTab || "missing"}` },
     { id: "workbook-grid-responsive-mode", passed: mobileViewport ? layout.mobileGridVisible : layout.desktopGridVisible, details: mobileViewport ? `mobile fallback visible: ${layout.mobileGridVisible}` : `desktop grid visible: ${layout.desktopGridVisible}` },
