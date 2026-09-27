@@ -8,6 +8,7 @@ test("route target and active tab stay synchronized on every top-level navigatio
   const paths = [
     ["/dashboard", "dashboard"],
     ["/projects", "projects"],
+    ["/workbook?sheet=projects", "workbook"],
     ["/payroll", "payroll"],
     ["/cash", "cash"],
     ["/reports", "reports"],

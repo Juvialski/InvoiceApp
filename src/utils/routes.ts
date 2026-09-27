@@ -2,6 +2,7 @@ export type AppTab =
   | "dashboard"
   | "cash"
   | "projects"
+  | "workbook"
   | "procurement"
   | "warehouse"
   | "equipment"
@@ -20,6 +21,7 @@ export type RouteId =
   | "dashboard"
   | "cash"
   | "projects"
+  | "workbook"
   | "procurement"
   | "warehouse"
   | "equipment"
@@ -53,6 +55,7 @@ export const ROUTE_DEFINITIONS = [
   { id: "dashboard", path: "/dashboard", label: "Dashboard", appTab: "dashboard", navigationGroup: "primary", aliases: ["/"] },
   { id: "cash", path: "/cash", label: "Cash & Banking", appTab: "cash", navigationGroup: "primary" },
   { id: "projects", path: "/projects", label: "Projects", appTab: "projects", navigationGroup: "overflow" },
+  { id: "workbook", path: "/workbook", label: "Operations Workbook", appTab: "workbook", navigationGroup: "overflow" },
   { id: "procurement", path: "/procurement", label: "Procurement", appTab: "procurement", navigationGroup: "overflow", aliases: ["/purchase-orders"] },
   { id: "warehouse", path: "/warehouse", label: "Warehouse", appTab: "warehouse", navigationGroup: "overflow", aliases: ["/inventory"] },
   { id: "equipment", path: "/equipment", label: "Equipment", appTab: "equipment", navigationGroup: "overflow" },
@@ -72,7 +75,7 @@ export const DEFAULT_ROUTE_ID: RouteId = "dashboard";
 export const DEFAULT_ROUTE_PATH = "/dashboard";
 
 export const PRIMARY_NAVIGATION_ROUTE_IDS = ["dashboard", "cash", "inbox", "documents", "expenses"] as const satisfies readonly RouteId[];
-export const OVERFLOW_NAVIGATION_ROUTE_IDS = ["projects", "procurement", "warehouse", "equipment", "payroll", "reports", "settings"] as const satisfies readonly RouteId[];
+export const OVERFLOW_NAVIGATION_ROUTE_IDS = ["projects", "workbook", "procurement", "warehouse", "equipment", "payroll", "reports", "settings"] as const satisfies readonly RouteId[];
 
 export interface RouteResolution {
   readonly route: RouteDefinition | undefined;

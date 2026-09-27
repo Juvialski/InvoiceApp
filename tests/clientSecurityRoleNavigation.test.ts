@@ -90,6 +90,7 @@ test("Payroll permissions expose Payroll and its separate payroll Reports view",
 test("Finance exposes its granted finance and operational work without payroll detail or settings", () => {
   assert.deepEqual(moduleLabels(FINANCE_PERMISSIONS), [
     "dashboard",
+    "operations-workbook",
     "cash",
     "email-sms",
     "documents",
@@ -111,6 +112,7 @@ test("Finance exposes its granted finance and operational work without payroll d
 test("Viewer exposes only the read-capable modules in its profile", () => {
   assert.deepEqual(moduleLabels(VIEWER_PERMISSIONS), [
     "dashboard",
+    "operations-workbook",
     "documents",
     "projects",
     "procurement",
@@ -136,13 +138,14 @@ test("a restricted custom role follows selected permissions rather than a displa
 
 test("Company Admin retains the complete permitted workspace and Settings access", () => {
   const model = getNavigationModel({ permissions: ["*"] });
-  assert.equal(model.modules.length, 12);
+  assert.equal(model.modules.length, 13);
   assert.equal(model.settingsRoute?.id, "settings");
 });
 
 test("manual restricted URLs still pass through the permission guard", () => {
   const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   assert.match(appSource, /const routeDenied = Boolean/);
+  assert.match(appSource, /route\.tab === "workbook"\s*\?\s*!canAccessOperationsWorkbook\(permissions\)/);
   assert.match(appSource, /!canAccessAppTab\(route\.tab, permissions\)/);
   assert.match(appSource, /if \(routeDenied\) return <AccessDenied/);
   assert.match(appSource, /defaultAppTabForPermissions\(permissions\)/);

@@ -1,14 +1,15 @@
 # UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / WB-1 PLANNED, NOT STARTED**
+Status: **UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / WB-1 IMPLEMENTED FOR RECORDED SCOPE / WB-2+ NOT STARTED**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
+WB-1 implementation closeout: **2026-09-27**
+
 This document records the UX-EDIT/WB direction and acceptance boundaries.
-UX-EDIT-1A is implemented for the recorded scope; WB-1 remains a separate
-planned phase. This status does not resume deferred feature expansion or change
-database, security, financial, history, lifecycle, approval, or permission
-authority.
+UX-EDIT-1A and WB-1 are implemented for their recorded scopes. WB-2 and later
+remain separate planned phases. WB-1 does not change database, security,
+financial, history, lifecycle, approval, or permission authority.
 
 It extends, rather than replaces:
 
@@ -182,13 +183,99 @@ Future UX-EDIT/WB work must preserve the repository's existing invariants:
   authority;
 - domain-specific validation and audit/history rules remain authoritative.
 
+## WB-1 implementation record — 2026-09-27
+
+Implementation branch: `codex/wb-1-operations-workbook`
+Synchronized base `main` SHA: `6a31facf172864b465f55defe46e897e10a1da64`
+Implementation source commit SHA: `e17760f94d83773be285f1ebc9eec917de0c4ff1`
+
+The user explicitly activated WB-1 with the bounded implementation handoff.
+This record closes only WB-1; WB-2, WB-3+, and WB-CERT remain unstarted.
+
+### Shared model and registry
+
+`src/lib/operationsWorkbookModel.ts` defines an in-app workbook contract that
+is separate from `src/lib/operationsWorkbook.ts`, which remains the standalone
+XLSX parser/export contract. The new model includes workbook and sheet identity,
+stable ordering, domain ownership, readiness, read/write capability, existing
+permission requirements, row identity, typed field/value types, validation,
+formatting, empty state, and explicit ordinary-editable/read-only/protected/
+calculated/source-evidence/lifecycle-controlled/workflow-only authority.
+
+The registry order is Projects, Cost Codes, Supplier Invoices, Expenses, RFQs,
+Purchase Orders, Materials, Equipment, Warehouse, Vendors, and Payroll. Only
+Projects has an enabled page adapter: a bounded read-only production identity
+sheet containing Project Code, Project Name, Client, and Status. Cost Codes is
+foundation-only; every other entry is marked future-adapter. The Payroll
+definition requires the existing `payroll.detail.read` permission and does not
+use aggregate/report permissions.
+
+### Access, routing, and persistence boundary
+
+`/workbook` is a normal app route and `/workbook?sheet=projects` is its selected
+sheet deep link. Navigation and the direct-route guard use a small presentation
+access helper that requires at least one enabled sheet and that sheet's existing
+domain read permission. Sheet tabs are independently filtered. Unknown,
+disabled, and unauthorized IDs replace to the first authorized sheet without
+rendering hidden sheet metadata. The route is grouped in Operations and obeys
+the presentation-only `operations-workbook` deployment visibility setting.
+
+WB-1 adds no `workbook.*` permission or other authorization vocabulary. Write
+permission is checked separately from read permission. The production Projects
+exemplar has no write adapter, so its ordinary master-data field remains
+read-only there. The synthetic demo enables a local Project Name edit solely to
+exercise the worksheet interaction; Save updates component-local sample state
+and never reaches production persistence. Status stays lifecycle-controlled.
+The adapter contract provides domain-owned value access/draft staging,
+row-specific edit checks, save/apply delegation, validation/issues, dirty and
+conflict state, optional concurrency metadata, and reload behavior. It is not
+an arbitrary object/database writer.
+
+The shell uses the existing `WorksheetEditor` and `WorksheetTabs`; no second
+spreadsheet engine was added. The full page uses a white/light, grid-oriented
+canvas, accessible horizontal tabs, desktop grid, and the existing responsive
+row fallback. Existing standalone Projects, Procurement, and Expenses workbook
+imports/exports, hidden metadata, parser limits, review-before-Apply, and
+concurrency checks were not changed. No database/RLS/RPC/migration work was
+needed.
+
+### Validation and visual evidence
+
+- Synchronized base: `6a31facf172864b465f55defe46e897e10a1da64`.
+- Focused workbook, standalone parser, worksheet editor, route/navigation, role
+  visibility, browser catalog, and Workflow Map tests passed **132/132**.
+- `npm.cmd run test:affected:agent`: **665 passed, 0 failed, 0 skipped** across
+  **100/389 selected test files**, no fallback, database unaffected.
+- `npm.cmd run lint` and `npm.cmd run build` passed. Build retained the
+  repository's existing unloaded Inter font, large-chunk, and CommonJS
+  `import.meta` warnings.
+- Workflow Map check/consistency passed: **266 nodes, 355 edges, 36
+  invariants, 11 diagrams**; generated outputs contain no unrelated graph
+  changes.
+- Local production-preview Demo QA ran **8/8** synthetic scenarios at
+  1440×900, 1280×800, 768×1024, and 390×844. Permission-filtered tabs,
+  invalid/unauthorized recovery, and editable versus lifecycle-protected cells
+  passed. There were zero horizontal page overflow, console errors, page
+  errors, or failed requests. The lead inspected the screenshot matrix:
+  [desktop](../../evidence/wb-1/desktop-1440x900.png),
+  [constrained laptop](../../evidence/wb-1/laptop-1280x800.png),
+  [tablet](../../evidence/wb-1/tablet-768x1024.png), and
+  [phone](../../evidence/wb-1/phone-390x844.png). This is local synthetic demo
+  evidence, not hosted, authenticated-client, or production certification.
+- Jev start/context preflight found no candidates (`requestCount=0`,
+  `fallback=true`), so deterministic source inspection remained authoritative.
+  Jev test-triage completed with `jev-1.13.0`; it kept all **100/100** required
+  tests across 3 chunks (47/44/9 candidates), used 13,040 input and 1,483
+  output tokens, took 1,332 ms, and reported `fallback=false`.
+
+WB-1 did not create a multi-sheet XLSX export/import, combined fingerprints,
+cross-domain Apply, or new production editing adapters beyond the read-only
+Projects exemplar. Those remain WB-2 and WB-3+ work.
+
 ## Priority and activation boundary
 
-These items are **future planned work**. They remain behind the current
-hardening, reliability, certification, and release-readiness priorities. The
-existing net-new product feature freeze remains in force.
-
-Do not start UX-EDIT-1, WB-1, WB-2, WB-3+, or WB-CERT merely because this
-document exists. A future user instruction must explicitly activate the work,
-and the live `AGENTS.md`, active roadmap, repository state, and then-current
-risk boundaries remain authoritative when that happens.
+The original 2026-09-24 plan preceded the user's explicit WB-1 activation on
+2026-09-27, recorded above. WB-2, WB-3+, and WB-CERT remain planned and are not
+authorized by this WB-1 closeout. The hardening-first feature freeze and all
+existing database, security, financial, history, lifecycle, approval, and
+permission boundaries remain in force.

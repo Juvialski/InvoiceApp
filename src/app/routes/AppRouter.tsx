@@ -110,6 +110,7 @@ import type { FinancialFxSnapshotInput } from "../../lib/financialFx.ts";
 import { appRouteTargetForLocation } from "../../utils/appRouteTarget.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import type { ManagedDocumentDetail, ManagedDocumentSummary } from "../../lib/managedDocuments.ts";
+import type { PermissionKey } from "../../utils/accessControl.ts";
 
 import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
 
@@ -126,6 +127,7 @@ const SettingsRoute = lazy(() => import("./SettingsRoute"));
 const EmailSmsRoute = lazy(() => import("./EmailSmsRoute"));
 const DocumentsRoute = lazy(() => import("./DocumentsRoute"));
 const HelpRoute = lazy(() => import("./HelpRoute"));
+const OperationsWorkbookRoute = lazy(() => import("./OperationsWorkbookRoute").then(({ OperationsWorkbookRoute }) => ({ default: OperationsWorkbookRoute })));
 
 const lazyRouteFallback = <RouteLoadingSkeleton />;
 
@@ -140,6 +142,7 @@ export interface AppRouterProps {
   workspaceRouteVisible?: boolean;
   workspaceLoading?: boolean;
   onNavigatePath?: AppNavigate;
+  permissions?: readonly PermissionKey[];
 
   // Dashboard Data & Handlers
   dashboardData: DashboardViewData;
@@ -463,6 +466,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   workspaceRouteVisible = true,
   workspaceLoading = false,
   onNavigatePath,
+  permissions = [],
   dashboardData,
   dashboardProjectId,
   onDashboardProjectChange,
@@ -714,6 +718,19 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   if (routeTarget === "help") {
     return lazyRoute(<HelpRoute search={route.search} onNavigatePath={onNavigatePath} />);
+  }
+
+  if (routeTarget === "workbook") {
+    return lazyRoute(
+      <OperationsWorkbookRoute
+        projects={projects}
+        permissions={permissions}
+        search={route.search}
+        demoMode={!showDeploymentAccessManagement}
+        workspaceLoading={workspaceLoading}
+        onNavigatePath={onNavigatePath}
+      />,
+    );
   }
 
   // 1. Single Invoice Verification / Review Workspace Mode

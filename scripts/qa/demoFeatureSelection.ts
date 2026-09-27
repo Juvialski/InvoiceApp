@@ -25,6 +25,7 @@ const ROUTE_FAMILIES = {
   assistant: ["assistant"],
   cash: ["cash", "cash-settlement"],
   dashboard: ["dashboard"],
+  workbook: ["workbook"],
   documents: ["documents", "project-documents", "project-overview", "project-workspace", "blueprint-viewer", "engineering-documents", "procurement", "project-billing", "invoice-detail", "invoices", "review", "extract", "expenses", "cash", "equipment", "warehouse", "project-materials-equipment"],
   engineering: ["blueprint-viewer", "engineering-documents", "rfis", "rfi-detail", "submittals", "submittal-detail", "site-logs", "site-log-detail", "project-overview", "project-workspace", "project-documents", "project-financial-control", "reports", "payroll"],
   expenses: ["expenses", "invoice-detail", "cash", "cash-settlement"],
@@ -45,6 +46,7 @@ type RouteFamily = keyof typeof ROUTE_FAMILIES;
 const SCENARIO_MODULE_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
   cash: "cash",
   dashboard: "dashboard",
+  workbook: "workbook",
   documents: "documents",
   engineering: "engineering",
   expenses: "expenses",
@@ -60,6 +62,7 @@ const SCENARIO_MODULE_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
 
 const ROUTE_FILE_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
   "src/app/routes/InvoicesRoute.tsx": "invoices",
+  "src/app/routes/OperationsWorkbookRoute.tsx": "workbook",
 };
 
 const ROOT_COMPONENT_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
@@ -83,6 +86,7 @@ const COMPONENT_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
   payroll: "payroll",
   procurement: "procurement",
   projects: "projects",
+  "operations-workbook": "workbook",
   reports: "reports",
   settings: "settings",
   "supplier-invoices": "invoices",
@@ -95,6 +99,7 @@ const FEATURE_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
   engineering: "engineering",
   expenses: "expenses",
   finance: "financial",
+  "operations-workbook": "workbook",
   help: "help",
   inventory: "inventory",
   invoices: "invoices",
@@ -107,6 +112,7 @@ const FEATURE_ROUTE_FAMILIES: Readonly<Record<string, RouteFamily>> = {
 
 const TEST_FILE_ROUTE_FAMILIES: readonly { readonly pattern: RegExp; readonly family: RouteFamily }[] = [
   { pattern: /payroll|attendance/i, family: "payroll" },
+  { pattern: /operations.?workbook/i, family: "workbook" },
   { pattern: /cash|banking|settlement/i, family: "cash" },
   { pattern: /supplier|invoice|receivable|billing/i, family: "invoices" },
   { pattern: /procurement|purchase.?order|rfq|subcontract|vendor/i, family: "procurement" },
@@ -128,6 +134,7 @@ const LIB_FILE_ROUTE_FAMILIES: readonly { readonly pattern: RegExp; readonly fam
   { pattern: /^cashBanking/i, family: "cash" },
   { pattern: /^(?:financialSettlement|financialFx|financialLifecycle|accountingStatistics)/i, family: "financial" },
   { pattern: /^(?:clientBilling|clientCollections)/i, family: "invoices" },
+  { pattern: /^operationsWorkbook/i, family: "workbook" },
   { pattern: /^supplierInvoice/i, family: "invoices" },
   { pattern: /^(?:purchaseOrder|rfqs?|vendors?|subcontracts?|subcontractClaims?|subcontractVariations?)/i, family: "procurement" },
   { pattern: /^(?:expenses?|expenseDuplicateDetection)/i, family: "expenses" },

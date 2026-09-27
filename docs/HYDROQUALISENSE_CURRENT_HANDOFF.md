@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 IMPLEMENTED FOR RECORDED SCOPE / WB-1 PLANNED NOT STARTED**
+Status: **CURRENT — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED FOR RECORDED SCOPE / JEV WORKFLOW INTELLIGENCE V2A COMPLETE / V2B PAYLOAD-SAFE FOUNDATION IMPLEMENTED / REMAINING V2B EXPERIMENTAL SLICES DEFERRED / REMAINING UX-W5 BOUNDED / 3D LAST / PROVIDER READINESS SEPARATE / WORKER REGISTRATION PAUSED / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTENT PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 IMPLEMENTED FOR RECORDED SCOPE / WB-2 NOT STARTED**
 Date: **2026-09-27**
 Repository: `Juvialski/InvoiceApp`
 
@@ -49,7 +49,7 @@ Validation/evidence:
 - Final exact PR head `b453a269436d66af36c133598867cfa3f20af413` passed all four protected checks before merge: Application Validation & Build, Database Migrations & Upgrade Suite, Graph and Source Contract Consistency, and `chromium-demo-qa`. No review threads or review comments were open.
 - One bounded `agent:context` packet used the supported `platform-tenancy` domain; its Workflow Map match was unavailable, so it provided no curated primary files and listed 8/384 baseline test files. The lead used deterministic source inspection and final impact selection instead. Jev and subagents were not used, per the phase policy.
 
-REL-PAYROLL-2 merged as PR #251 after exact-head validation. UI-PROJECTS-ACTION-1 then merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`, resolving the Projects-card action clipping while preserving lifecycle authority. WEB-QA-1 then merged as PR #254 at `cd2f1e110f1cf5128e181bd39f6e93f8c2438b0a` after exact-head protected CI passed. No next implementation phase is selected in this handoff. Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, custom-field expansion, UX-EDIT-1, and Operations Workbook implementation remain deferred or planned until explicitly activated.
+REL-PAYROLL-2 merged as PR #251 after exact-head validation. UI-PROJECTS-ACTION-1 then merged as PR #253 at `f44defc99beb2d15b32b13bd983cf78c4ad24124`, resolving the Projects-card action clipping while preserving lifecycle authority. WEB-QA-1 then merged as PR #254 at `cd2f1e110f1cf5128e181bd39f6e93f8c2438b0a` after exact-head protected CI passed. At that earlier snapshot, no next implementation phase had been selected; WB-1 was explicitly activated later and is recorded in the current closeout below. Wave 4D provider certification remains dependent on safe provider credentials, device, and runtime prerequisites. Worker Registration, Attendance, Finance UX-W6, custom-field expansion, and UX-EDIT-1 remain deferred. Operations Workbook was later activated for WB-1 only; WB-2 and WB-3+ remain unstarted.
 
 ### 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 
@@ -2678,7 +2678,9 @@ Synchronized base SHA: 72ed6b857f3c22eb1a8e0a58523a9126b24dbed3
 
 Implementation head: 790aadd29624f6f8caad44555f54904385a4b8b0
 
-Status: **IMPLEMENTED FOR RECORDED SCOPE / PR #260 OPEN / REQUIRED CI PASSED**
+Status: **MERGED PR #260 / REQUIRED CI PASSED**
+
+Merged to `main` as `6a31facf172864b465f55defe46e897e10a1da64`.
 
 The user explicitly inserted CI-EFF-2 after UX-EDIT-1A and before WB-1.
 WB-1 was not started.
@@ -2789,5 +2791,86 @@ run remains the protected regression evidence for the modularization.
   deterministic source and selector evidence remained authoritative.
 
 PR exact-head protected CI remains the final workflow authority. Do not infer
-hosted or production certification from the local browser run. After CI-EFF-2
-is reviewed, the next planned product phase remains WB-1.
+hosted or production certification from the local browser run. PR #260 is
+merged to main. The user later activated WB-1, which is recorded in the
+current closeout below.
+
+## 2026-09-27 — WB-1 Unified Operations Workbook Schema & Shell
+
+Implementation branch: `codex/wb-1-operations-workbook`
+Synchronized base `main` SHA: `6a31facf172864b465f55defe46e897e10a1da64`
+Implementation source commit SHA: `e17760f94d83773be285f1ebc9eec917de0c4ff1`
+Status: **IMPLEMENTED FOR RECORDED SCOPE / WB-2 AND WB-3+ NOT STARTED**
+
+The user explicitly activated this bounded WB-1 implementation after CI-EFF-2
+was merged as PR #260. This closes only the unified workbook model, permission-
+aware available-sheet registry, `/workbook` route/navigation, reusable shell,
+and its adapter contract.
+
+### Architecture and authority
+
+- `src/lib/operationsWorkbookModel.ts` is the separate in-app workbook schema.
+  It leaves `src/lib/operationsWorkbook.ts` and every standalone XLSX schema,
+  hidden metadata format, parser rule, and import/export workflow unchanged.
+- The ordered catalog is Projects, Cost Codes, Supplier Invoices, Expenses,
+  RFQs, Purchase Orders, Materials, Equipment, Warehouse, Vendors, and Payroll.
+  Projects is the only enabled page adapter and is read-only in production.
+  Cost Codes is foundation-only; the other listed sheets are marked
+  future-adapter and are not shown as operational tabs.
+- The composite access helper requires an existing permission for at least one
+  enabled sheet. The Projects sheet requires `projects.read`; write checks are
+  separate and require `projects.manage` plus a domain adapter callback. There
+  is no `workbook.*` permission or other RBAC authority. The Payroll registry
+  entry is explicitly restricted to `payroll.detail.read`; payroll aggregate
+  and report permissions cannot reveal it.
+- `/workbook` accepts a `sheet` query value. An invalid, unknown, unavailable,
+  or unauthorized sheet selection replaces to the first available authorized
+  sheet without rendering hidden sheet names. The Operations navigation module
+  follows existing deployment-visibility presentation controls and does not
+  grant access.
+- The production Projects exemplar reads only Project Code, Project Name,
+  Client, and Status. It has no workbook persistence callback. Demo-only sample
+  Project Name edits stay in local component state; Status remains
+  lifecycle-controlled. No sensitive action is represented as a cell edit.
+- The page reuses `WorksheetEditor` and `WorksheetTabs`, with a white/light
+  grid canvas, keyboard-accessible tabs, desktop grid, and the existing
+  responsive row fallback. Domain adapter contracts expose domain-owned value
+  access/draft changes, row edit checks, save/apply delegation, validation,
+  dirty/conflict state, optional concurrency metadata, and refresh. There is no
+  generic database writer.
+
+### Validation and evidence
+
+- Focused WB-1 model/shell, existing standalone `operationsWorkbook`,
+  `WorksheetEditor`, route/navigation, role visibility, QA catalog, and Workflow
+  Map tests passed **132/132**.
+- Final `npm.cmd run test:affected:agent`: **665 passed, 0 failed, 0 skipped**
+  across **100/389 selected files**, no fallback, database unaffected.
+- `npm.cmd run lint`, `npm.cmd run build`, `workflow-map:check`, and
+  `workflow-map:consistency` passed. Workflow Map: **266 nodes, 355 edges, 36
+  invariants, 11 diagrams**. Build warnings for Inter font loading, large
+  chunks, and CommonJS `import.meta` are pre-existing.
+- Local production-preview Demo QA passed **8/8** scenarios across 1440×900,
+  1280×800, 768×1024, and 390×844. Permission-filtered tabs, invalid/unauthorized
+  sheet recovery, and editable-versus-protected demo cells passed. There were
+  zero horizontal page overflow, console errors, page errors, or failed
+  requests. The lead visually inspected all four captures:
+  [desktop](evidence/wb-1/desktop-1440x900.png),
+  [constrained laptop](evidence/wb-1/laptop-1280x800.png),
+  [tablet](evidence/wb-1/tablet-768x1024.png), and
+  [phone](evidence/wb-1/phone-390x844.png). Evidence is synthetic local/demo
+  only and does not certify hosted QA, authenticated client access, or
+  production.
+- Jev start/context preflight found no candidates (`requestCount=0`,
+  `fallback=true`), so deterministic context remained authoritative. Jev
+  test-triage succeeded with `jev-1.13.0`: 100 required and 100 recommended
+  tests; three chunks of 47, 44, and 9; 13,040 input / 1,483 output tokens;
+  1,332 ms; `fallback=false`.
+- No database changes were made; Docker/Supabase and database validation were
+  not applicable. No provider, hosted QA, or production checks were performed.
+
+WB-2 multi-sheet XLSX round trip remains the next separately bounded phase.
+WB-1 does not export/import a combined workbook, add cross-domain fingerprints,
+apply changes across domains, or onboard Payroll/Procurement/Expenses/Inventory
+production editing adapters. Do not begin WB-2 without its own explicit
+implementation handoff.

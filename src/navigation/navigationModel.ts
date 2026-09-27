@@ -14,9 +14,11 @@ import {
   isDeploymentModuleVisible,
   type DeploymentModuleKey,
 } from "../config/moduleVisibility.ts";
+import { canAccessOperationsWorkbook } from "../lib/operationsWorkbookModel.ts";
 
 export type PrimaryModuleId =
   | "dashboard"
+  | "operations-workbook"
   | "cash"
   | "invoices"
   | "email-sms"
@@ -87,6 +89,7 @@ const INVOICE_CONTEXTUAL_LABELS: Readonly<Partial<Record<RouteId, string>>> = Ob
  */
 export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.freeze([
   { id: "dashboard", label: "Dashboard", routeIds: ["dashboard"], defaultRouteId: "dashboard" },
+  { id: "operations-workbook", label: "Operations Workbook", routeIds: ["workbook"], defaultRouteId: "workbook" },
   { id: "cash", label: "Cash & Banking", routeIds: ["cash"], defaultRouteId: "cash" },
   { id: "email-sms", label: "Email / SMS", routeIds: ["inbox"], defaultRouteId: "inbox" },
   { id: "documents", label: "Documents", routeIds: ["documents"], defaultRouteId: "documents" },
@@ -101,7 +104,7 @@ export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.
 ]);
 
 export const NAVIGATION_GROUPS: readonly NavigationGroupDefinition[] = Object.freeze([
-  { id: "operations", label: "Operations", moduleIds: ["dashboard", "projects", "procurement", "warehouse", "equipment"] },
+  { id: "operations", label: "Operations", moduleIds: ["dashboard", "operations-workbook", "projects", "procurement", "warehouse", "equipment"] },
   { id: "finance", label: "Finance", moduleIds: ["cash", "invoices", "expenses", "reports"] },
   { id: "people", label: "People", moduleIds: ["payroll"] },
   { id: "communications", label: "Communications", moduleIds: ["email-sms", "documents"] },
@@ -126,6 +129,7 @@ function moduleIsVisible(moduleId: DeploymentModuleKey, filter: NavigationFilter
 function routeIsVisible(route: RouteDefinition, filter: NavigationFilter = {}) {
   if (filter.visibleRouteIds && !filter.visibleRouteIds.includes(route.id)) return false;
   if (filter.permissions === undefined) return true;
+  if (route.appTab === "workbook") return canAccessOperationsWorkbook(filter.permissions);
   return canAccessAppTab(route.appTab, filter.permissions);
 }
 

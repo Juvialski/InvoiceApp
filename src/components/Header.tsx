@@ -71,6 +71,7 @@ export interface HeaderBranding {
 
 const routeIcons: Record<RouteId, React.ElementType> = {
   dashboard: BarChart3,
+  workbook: Workflow,
   cash: WalletCards,
   projects: BriefcaseBusiness,
   procurement: ShoppingCart,

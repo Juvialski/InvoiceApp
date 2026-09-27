@@ -1,6 +1,7 @@
 export const DEPLOYMENT_MODULE_KEYS = [
   "dashboard",
   "cash",
+  "operations-workbook",
   "invoices",
   "email-sms",
   "documents",

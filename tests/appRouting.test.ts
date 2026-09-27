@@ -8,6 +8,7 @@ import {
   appPathForSubcontractClaim,
   appPathForWarehouseMovement,
   appPathForWarehouseReceipt,
+  appPathForWorkbookSheet,
   appPathForExpense,
   appPathForCashTarget,
   appPathForAttendanceDate,
@@ -24,6 +25,7 @@ import {
   parseAppLocation,
   procurementContextFromSearch,
   warehouseContextFromSearch,
+  workbookSheetFromSearch,
   attendanceDateFromSearch,
   cashSettlementTargetContextFromSearch,
   expenseIdFromSearch,
@@ -149,6 +151,12 @@ test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForTab("payroll"), "/payroll");
   assert.equal(appPathForTab("inbox"), "/email-sms");
   assert.equal(appPathForTab("warehouse"), "/warehouse");
+  assert.equal(appPathForTab("workbook"), "/workbook");
+  assert.equal(appPathForWorkbookSheet("projects"), "/workbook?sheet=projects");
+  assert.equal(appPathForWorkbookSheet(), "/workbook");
+  assert.equal(workbookSheetFromSearch("?sheet=projects"), "projects");
+  assert.equal(workbookSheetFromSearch("sheet=%20"), undefined);
+  assert.equal(parseAppLocation("/workbook?sheet=projects").kind, "tab");
   assert.equal(appPathForProject("project 42", "expenses"), "/projects/project%2042/expenses");
   assert.equal(appPathForProject("project 42", "documents", { docId: "doc-1", revId: "rev-2" }), "/projects/project%2042/documents?docId=doc-1&revId=rev-2");
   assert.equal(appPathForProject("project 42", "site-logs", { siteLogId: "log-7" }), "/projects/project%2042/site-logs?siteLogId=log-7");

@@ -163,6 +163,7 @@ import { useInventoryEquipmentController } from "./features/inventory/useInvento
 import { useCashBankingController } from "./features/finance/useCashBankingController.ts";
 import { ensureClientInvoiceDocumentSnapshot } from "./lib/documentSnapshots.ts";
 import { createLocalFinancialFxSnapshot, loadFinancialFxSnapshotsFromSupabase, readFinancialFxSnapshotsFromLocal, saveFinancialFxSnapshotToSupabase, writeFinancialFxSnapshotsToLocal, type FinancialFxSnapshotInput } from "./lib/financialFx.ts";
+import { canAccessOperationsWorkbook } from "./lib/operationsWorkbookModel.ts";
 
 function revisePayrollSourcePeriods(
   periods: PayrollPeriod[],
@@ -423,7 +424,7 @@ function InvoiceWorkspace() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !session || access.status !== "ready" || !activeCompanyId || route.kind === "unknown" || route.kind === "help") return;
-    if (canAccessAppTab(route.tab, permissions)) return;
+    if (route.tab === "workbook" ? canAccessOperationsWorkbook(permissions) : canAccessAppTab(route.tab, permissions)) return;
     const fallback = appPathForTab(defaultAppTabForPermissions(permissions));
     if (`${route.pathname}${route.search}` !== fallback) navigateToPath(fallback, true);
   }, [access.status, activeCompanyId, permissions, route, session]);
@@ -3437,12 +3438,18 @@ function InvoiceWorkspace() {
   const visibleRouteIds = useMemo<readonly RouteId[] | undefined>(() => {
     if (!isSupabaseConfigured || !session) return undefined;
     return ROUTE_DEFINITIONS
-      .filter((definition) => canAccessAppTab(definition.appTab, permissions))
+      .filter((definition) => definition.appTab === "workbook"
+        ? canAccessOperationsWorkbook(permissions)
+        : canAccessAppTab(definition.appTab, permissions))
       .map((definition) => definition.id);
   }, [permissions, session]);
   const routePermission = route.kind === "unknown" || route.kind === "help" ? null : requiredPermissionForAppTab(route.tab);
   const routeDenied = Boolean(isSupabaseConfigured && session && access.status === "ready" && (
-    (route.kind !== "unknown" && route.kind !== "help" && activeCompanyId && routePermission && !canAccessAppTab(route.tab, permissions))
+    route.kind !== "unknown" && route.kind !== "help" && activeCompanyId && (
+      route.tab === "workbook"
+        ? !canAccessOperationsWorkbook(permissions)
+        : Boolean(routePermission && !canAccessAppTab(route.tab, permissions))
+    )
   ));
   const workspaceRouteVisible = !routeNotFound && !routeDenied;
   useEffect(() => {
@@ -3539,6 +3546,7 @@ function InvoiceWorkspace() {
           route={route}
           activeTab={activeTab}
           onNavigatePath={navigateToPath}
+          permissions={permissions}
           onExportInvoicesExcel={() => { void handleBatchExportExcel(); }}
           workspaceRouteVisible={workspaceRouteVisible}
           workspaceLoading={workspaceLoading}

@@ -158,6 +158,7 @@ export const HELP_ROUTE_REGISTRY: Readonly<Record<RouteId, HelpRouteRegistryEntr
   dashboard: { routeId: "dashboard", topicId: "getting-started" },
   cash: { routeId: "cash", topicId: "cash-banking" },
   projects: { routeId: "projects", topicId: "project-costing" },
+  workbook: { routeId: "workbook", topicId: "worksheet-tips" },
   procurement: { routeId: "procurement", topicId: "procurement-workbook" },
   warehouse: { routeId: "warehouse", topicId: "warehouse-inventory" },
   equipment: { routeId: "equipment", topicId: "equipment-lifecycle" },

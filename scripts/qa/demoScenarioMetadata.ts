@@ -31,6 +31,13 @@ export const UX_EDIT_1A_VIEWPORTS = [
   { name: "ux-edit-phone-390", width: 390, height: 844 },
 ] as const;
 
+export const WB1_VIEWPORTS = [
+  { name: "wb1-desktop-1440", width: 1440, height: 900 },
+  { name: "wb1-laptop-1280", width: 1280, height: 800 },
+  { name: "wb1-tablet-768", width: 768, height: 1024 },
+  { name: "wb1-phone-390", width: 390, height: 844 },
+] as const;
+
 export const R4D_CONSTRAINED_LAPTOP = { name: "r4d-laptop-1280", width: 1280, height: 800 } as const;
 
 export const R4D_TABLET = { name: "r4d-tablet-768", width: 768, height: 1024 } as const;
@@ -286,4 +293,12 @@ export const DEMO_QA_SCENARIO_METADATA: readonly DemoQaScenarioMetadata[] = [
   defineQaScenarioMetadata({ feature: "ui-r4e-keyboard-touch", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "R4E mobile navigation and account menu verified", viewport: R4E_VIEWPORTS[3], actionId: "verifyR4eMobileNavigationAndAccount" }),
   defineQaScenarioMetadata({ feature: "shared-shell-smoke", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "app shell content visible", viewport: QA_VIEWPORTS.desktop, actionId: "verifyR4eResponsiveShell" }),
   defineQaScenarioMetadata({ feature: "shared-shell-smoke", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "mobile navigation can open and restore focus", viewport: QA_VIEWPORTS.mobile, actionId: "openMobileNavigation" }),
+  defineQaScenarioMetadata({ feature: "operations-workbook", route: route("workbook", "/workbook"), path: "/demo/app/workbook?sheet=projects", interactionState: "WB-1 workbook shell and responsive layout", viewport: WB1_VIEWPORTS[0], actionId: "verifyOperationsWorkbookLayout" }),
+  defineQaScenarioMetadata({ feature: "operations-workbook", route: route("workbook", "/workbook"), path: "/demo/app/workbook?sheet=projects", interactionState: "WB-1 workbook shell and responsive layout", viewport: WB1_VIEWPORTS[1], actionId: "verifyOperationsWorkbookLayout" }),
+  defineQaScenarioMetadata({ feature: "operations-workbook", route: route("workbook", "/workbook"), path: "/demo/app/workbook?sheet=projects", interactionState: "WB-1 workbook shell and responsive layout", viewport: WB1_VIEWPORTS[2], actionId: "verifyOperationsWorkbookLayout" }),
+  defineQaScenarioMetadata({ feature: "operations-workbook", route: route("workbook", "/workbook"), path: "/demo/app/workbook?sheet=projects", interactionState: "WB-1 workbook shell and responsive layout", viewport: WB1_VIEWPORTS[3], actionId: "verifyOperationsWorkbookLayout" }),
+  defineQaScenarioMetadata({ feature: "operations-workbook", route: route("workbook", "/workbook"), path: "/demo/app/workbook?sheet=projects", interactionState: "WB-1 permission-filtered sheet tabs", viewport: WB1_VIEWPORTS[0], actionId: "verifyOperationsWorkbookPermissionTabs" }),
+  defineQaScenarioMetadata({ feature: "operations-workbook", route: route("workbook", "/workbook"), path: "/demo/app/workbook?sheet=payroll", interactionState: "WB-1 invalid and unauthorized sheet fallback", viewport: WB1_VIEWPORTS[1], actionId: "verifyOperationsWorkbookInvalidSheetRecovery" }),
+  defineQaScenarioMetadata({ feature: "operations-workbook", route: route("workbook", "/workbook"), path: "/demo/app/workbook?sheet=projects", interactionState: "WB-1 editable and protected exemplar cells", viewport: WB1_VIEWPORTS[1], actionId: "verifyOperationsWorkbookEditableAndProtectedCells" }),
+  defineQaScenarioMetadata({ feature: "operations-workbook", route: route("workbook", "/workbook"), path: "/demo/app/workbook?sheet=projects", interactionState: "WB-1 editable and protected exemplar cells", viewport: WB1_VIEWPORTS[3], actionId: "verifyOperationsWorkbookEditableAndProtectedCells" }),
 ];

@@ -202,6 +202,19 @@ export function appPathForTab(tab: AppTab) {
   return getRouteForAppTab(tab)?.path || "/dashboard";
 }
 
+export function workbookSheetFromSearch(search: string): string | undefined {
+  const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  return query.get("sheet")?.trim() || undefined;
+}
+
+export function appPathForWorkbookSheet(sheetId?: string): string {
+  if (!sheetId?.trim()) return appPathForTab("workbook");
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "workbook", "sheet", sheetId);
+  const suffix = query.toString();
+  return `${appPathForTab("workbook")}${suffix ? `?${suffix}` : ""}`;
+}
+
 export function dashboardViewFromSearch(search: string): DashboardWorkspaceView {
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   return query.get("view") === "insights" ? "insights" : "home";
