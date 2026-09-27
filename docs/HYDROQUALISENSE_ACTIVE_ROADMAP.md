@@ -2199,9 +2199,73 @@ Validation on the implementation working tree:
   Validation & Build, Database Migrations & Upgrade Suite, Graph and Source
   Contract Consistency, and `chromium-demo-qa` all completed successfully.
 
-The next bounded workbook phase is **WB-3A — Project Controls Production
-Sheets**: onboard Projects + Cost Codes only into the in-app Operations
-Workbook using the existing Projects domain authority, validation, concurrency,
-and save/apply paths. Do not bundle Expenses, Procurement, Supplier Invoices,
-Payroll, Inventory, Equipment, or other domains into WB-3A. WB-CERT remains
-later, after bounded WB-3 domain onboarding.
+At WB-2 closeout, the next bounded workbook phase was **WB-3A — Project
+Controls Production Sheets**: onboard Projects + Cost Codes only into the
+in-app Operations Workbook using the existing Projects domain authority,
+validation, concurrency, and save/apply paths. The WB-3A implementation record
+follows below. Expenses, Procurement, Supplier Invoices, Payroll, Inventory,
+Equipment, and other domains were not bundled into WB-3A; WB-CERT remains a
+later certification gate after bounded WB-3 domain onboarding.
+
+## 2026-09-27 — WB-3A Project Controls Production Sheets
+
+- Implementation branch: `codex/wb-3a-project-controls-sheets`
+- Synchronized base `main` SHA: `822f16b8c75f83d9f2ff0100fb5f17f94d9aac93`
+- Implementation source commit: `78c1c850bf11e874318fd7d5d3952611ba75a2b5`
+- Pull request: [#265](https://github.com/Juvialski/InvoiceApp/pull/265)
+- Status: **OPEN / WB-3A IMPLEMENTED FOR RECORDED SCOPE / WB-3B+ AND WB-CERT NOT STARTED**
+
+WB-3A enables the Projects and Cost Codes sheets inside `/workbook`. Both
+sheets require `projects.read`; editing also requires `projects.manage` and
+the existing Projects-domain refresh/apply callbacks. A manage-only permission
+cannot read either sheet. No `workbook.*` permission was added.
+
+The Projects sheet stages ordinary Project master-data fields supported by the
+existing Projects workbook contract. The Cost Codes sheet stages Code, Work
+Package, Description, Approved Budget, and Forecast. Project lifecycle status,
+currency, calculated financial values, identities/version metadata, Cost Code
+status, and parent-project identity remain protected. Calculated summary cells
+show `Unavailable` when the route has no corresponding financial projection;
+the sheet does not derive financial truth.
+
+Save validates the local draft, refreshes authoritative Projects data, checks
+the expected Project and Cost Code `updatedAt` values, enforces required values
+and the active cost-code budget ceiling, then sends one changed group per
+project through the existing `applyGroup` callback and guarded Projects RPC.
+It refreshes rows after success. Separate project groups remain separate
+operations; no cross-project transaction is claimed. Synthetic demo saves
+remain browser-local. Standalone Projects XLSX and WB-2 combined XLSX contracts,
+sheet schemas, fingerprints, and review/apply flows are unchanged. The
+Settings Project management description now mentions the Operations Workbook
+Project and Cost Code sheets and their protected financial/lifecycle values.
+
+### Validation and evidence
+
+- Focused workbook, Projects XLSX/concurrency, combined XLSX, WorksheetEditor,
+  and Workflow Map evidence tests passed **97/97**. Settings product-feature
+  tests passed **4/4**.
+- `npm.cmd run test:affected:agent`: **528 passed, 0 failed, 0 skipped** across
+  **85/391 selected test files (21.7%)**, no fallback, database unaffected.
+- `npm.cmd run lint` and `npm.cmd run build` passed. Existing build warnings
+  remain for unloaded Inter, large chunks, and CommonJS `import.meta` handling.
+- `workflow-map:check` passed; consistency reported **266 nodes, 355 edges, 36
+  invariants, 11 diagrams**.
+- Local synthetic Demo QA passed **10/10** workbook scenarios across
+  1440×900, 1280×800, 768×1024, and 390×844. Both sheets were visually
+  inspected at 1280×800 and 390×844. Horizontal overflow, console errors, page
+  errors, and failed requests were zero. Local captures are in ignored
+  `artifacts/demo-visual-qa-wb3a-final/`; the manifest records the synchronized
+  base SHA, so this is working-tree demo evidence rather than exact-PR-head,
+  hosted, authenticated-client, or production certification.
+- Jev context preflight found no candidates (`requestCount=0`, `fallback=true`).
+  Jev test-triage kept all 84 candidates it received across two chunks with
+  `jev-1.13.0` (11,083 input / 1,248 output tokens, 982 ms, `fallback=false`).
+  The later Settings copy sync added one test to the final 85-file affected
+  selection, which passed in full.
+- No database schema, migration, RLS, or RPC changes were made. Local
+  Supabase/Docker, provider, hosted-QA, and production validation were not
+  applicable.
+
+WB-3A closes only Projects and Cost Codes in-app sheet onboarding. WB-3B+ and
+WB-CERT remain unstarted and separately bounded; the full combined workbook
+round trip is not certified by this phase.

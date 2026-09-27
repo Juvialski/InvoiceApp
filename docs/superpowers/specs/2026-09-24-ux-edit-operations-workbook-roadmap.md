@@ -1,6 +1,6 @@
 # UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **UX-EDIT-1A, WB-1, AND WB-2 IMPLEMENTED FOR RECORDED SCOPES / WB-3+ AND WB-CERT NOT STARTED**
+Status: **UX-EDIT-1A, WB-1, WB-2, AND WB-3A IMPLEMENTED FOR RECORDED SCOPES / WB-3B+ AND WB-CERT NOT STARTED**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -293,5 +293,63 @@ scopes, safe import review, and separate domain Apply actions preserve the
 standalone workbook contracts. It adds no workbook permission, production
 editing adapter, database schema, migration, or cross-domain transaction.
 
-WB-3+ and WB-CERT remain separately bounded follow-up work. WB-2 does not claim
-full `export -> edit -> import review -> apply` certification.
+WB-3A is recorded below; WB-CERT remains separately bounded. WB-2 does not
+claim full `export -> edit -> import review -> apply` certification.
+
+## WB-3A implementation record — 2026-09-27
+
+- Implementation branch: `codex/wb-3a-project-controls-sheets`
+- Synchronized base `main` SHA: `822f16b8c75f83d9f2ff0100fb5f17f94d9aac93`
+- Implementation source commit: `78c1c850bf11e874318fd7d5d3952611ba75a2b5`
+- Pull request: [#265](https://github.com/Juvialski/InvoiceApp/pull/265)
+- Status: **OPEN / WB-3A IMPLEMENTED FOR RECORDED SCOPE / WB-3B+ NOT STARTED / WB-CERT LATER**
+
+WB-3A enables Projects and Cost Codes as production sheets in `/workbook`.
+Both require the existing `projects.read` permission; editing additionally
+requires `projects.manage` and the configured Projects-domain callbacks. A
+manage-only membership cannot read or discover either sheet. The workbook adds
+no permission vocabulary. Project master data and ordinary Cost Code fields
+are editable; lifecycle, currency, calculated financial values, IDs, company
+identity, version metadata, and Cost Code project assignment stay protected.
+
+Save stages locally, validates required values, dates, amounts, duplicate Cost
+Codes, and active-budget limits, then refreshes current Projects data and
+compares the expected Project and Cost Code timestamps. Each changed project
+is delegated to the existing Projects `applyGroup` callback and guarded
+`apply_project_cost_control_group` authority, followed by an authoritative
+refresh. Calls remain grouped and atomic only at the existing per-project RPC
+boundary; the sheet does not claim a cross-project transaction. Synthetic demo
+Save updates local sample state only. The standalone Projects workbook and
+WB-2 combined XLSX schemas and review/apply paths are unchanged.
+
+### Validation and evidence
+
+- Focused workbook, Projects XLSX/concurrency, combined XLSX, WorksheetEditor,
+  and Workflow Map evidence tests passed **97/97**; Settings product-feature
+  truth tests passed **4/4**.
+- `npm.cmd run test:affected:agent` passed **528/528** tests across **85/391
+  selected files (21.7%)**, with no fallback and no database impact.
+- `npm.cmd run lint` and `npm.cmd run build` passed. Build retains the existing
+  unloaded Inter font, large-chunk, and CommonJS `import.meta` warnings.
+- `workflow-map:check` passed; `workflow-map:consistency` reported **266
+  nodes, 355 edges, 36 invariants, and 11 diagrams**.
+- Local synthetic Demo QA passed **10/10** workbook scenarios at 1440×900,
+  1280×800, 768×1024, and 390×844. Projects and Cost Codes were inspected at
+  constrained-laptop and phone sizes. There were zero horizontal overflows,
+  console errors, page errors, or failed requests. Screenshots and the manifest
+  are in ignored `artifacts/demo-visual-qa-wb3a-final/`. The manifest records
+  the synchronized base SHA because the run used the implementation working
+  tree; this is local synthetic evidence, not hosted, authenticated-client, or
+  production certification.
+- TypeSafe context preflight had no candidates (`requestCount=0`,
+  `fallback=true`). Test triage retained all **84/84** candidates across two
+  chunks with `jev-1.13.0` (11,083 input / 1,248 output tokens, 982 ms,
+  `fallback=false`). A Settings feature-copy synchronization added one test to
+  the final affected set, and all **85** selected files were run successfully.
+- No database schema, migration, RLS, RPC, provider, hosted-QA, or production
+  change was made. Database validation was not applicable.
+
+WB-3A closes only Projects and Cost Codes production sheet onboarding. Other
+workbook domains and WB-CERT remain separate work; this record does not
+activate WB-3B or certify the complete combined `export -> edit -> import
+review -> apply` round trip.
