@@ -603,7 +603,14 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             route={appLocation}
             activeTab={activeTab}
             permissions={activeTab === "workbook"
-              ? [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite]
+              ? [
+                  PERMISSION_KEYS.projectsRead,
+                  PERMISSION_KEYS.projectsWrite,
+                  PERMISSION_KEYS.expensesRead,
+                  PERMISSION_KEYS.expensesWrite,
+                  PERMISSION_KEYS.procurementRead,
+                  PERMISSION_KEYS.procurementWrite,
+                ]
               : ["*"]}
             onNavigatePath={(path, replace = false) => onNavigate(path.startsWith("/demo/") ? path : demoPathForAppPath(path), replace)}
             dashboardData={dashboardData}

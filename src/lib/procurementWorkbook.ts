@@ -79,7 +79,8 @@ export interface ProcurementImportContext {
   canWrite: boolean;
 }
 
-export type ProcurementRefreshContext = Pick<ProcurementImportContext, "rfqs" | "purchaseOrders" | "projects" | "vendors">;
+export type ProcurementRefreshContext = Pick<ProcurementImportContext, "rfqs" | "purchaseOrders" | "projects" | "vendors">
+  & Pick<ProcurementImportContext, "expectedCompanyId">;
 
 export interface ProcurementFieldChange {
   field: string;
@@ -129,8 +130,19 @@ export interface ProcurementImportReview {
 }
 
 export interface ProcurementApplyCallbacks {
-  saveRFQ: (rfq: RFQSavePayload["rfq"], lines: RFQSavePayload["lines"], invitedVendorIds?: string[]) => Promise<void>;
-  savePurchaseOrder: (po: POSavePayload["po"], lines: POSavePayload["lines"]) => Promise<void>;
+  saveRFQ: (
+    rfq: RFQSavePayload["rfq"],
+    lines: RFQSavePayload["lines"],
+    invitedVendorIds?: string[],
+    expectedUpdatedAt?: string,
+    preserveCurrentLines?: boolean,
+  ) => Promise<void>;
+  savePurchaseOrder: (
+    po: POSavePayload["po"],
+    lines: POSavePayload["lines"],
+    expectedUpdatedAt?: string,
+    preserveCurrentLines?: boolean,
+  ) => Promise<void>;
 }
 
 function text(value: unknown) {

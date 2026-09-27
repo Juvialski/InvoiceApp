@@ -323,36 +323,38 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
     id: "rfqs",
     name: "RFQs",
     domainOwner: "procurement",
-    readiness: "future-adapter",
+    readiness: "available",
     authorization: { readAnyOf: [PERMISSION_KEYS.procurementRead], writeAllOf: [PERMISSION_KEYS.procurementWrite] },
     rowIdentity: { field: "id", label: "RFQ ID" },
     capabilities: { read: true, write: "domain-delegated" },
     fields: [
-      { id: "rfqNumber", label: "RFQ number", type: "identifier", authority: "read-only" },
+      { id: "rfqNumber", label: "RFQ Number", type: "identifier", authority: "protected" },
       { id: "title", label: "Title", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.procurementWrite] },
-      { id: "dueDate", label: "Due date", type: "date", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.procurementWrite] },
+      { id: "dueDate", label: "Due Date", type: "date", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.procurementWrite] },
       { id: "status", label: "Status", type: "select", authority: "workflow-only" },
+      { id: "updatedAt", label: "Updated", type: "text", authority: "protected", display: { minWidth: "18rem" } },
     ],
-    emptyState: "RFQs are not onboarded to the unified workbook yet.",
-    authorityBoundary: "Quotation comparison, selection, issue, and cancellation remain procurement workflows.",
+    emptyState: "No RFQs are available in this workspace.",
+    authorityBoundary: "Only Title and Due Date on existing DRAFT RFQs are editable; identity, status, lines, invitations, history, quotation comparison, selection, issue, and cancellation remain protected.",
   },
   {
     id: "purchase-orders",
     name: "Purchase Orders",
     shortName: "Purchase orders",
     domainOwner: "procurement",
-    readiness: "future-adapter",
+    readiness: "available",
     authorization: { readAnyOf: [PERMISSION_KEYS.procurementRead], writeAllOf: [PERMISSION_KEYS.procurementWrite] },
     rowIdentity: { field: "id", label: "Purchase Order ID" },
     capabilities: { read: true, write: "domain-delegated" },
     fields: [
-      { id: "poNumber", label: "PO number", type: "identifier", authority: "read-only" },
+      { id: "poNumber", label: "PO Number", type: "identifier", authority: "protected" },
       { id: "description", label: "Description", type: "text", authority: "ordinary-editable", writeAllOf: [PERMISSION_KEYS.procurementWrite] },
       { id: "total", label: "Total", type: "currency", authority: "calculated", display: { align: "right", currencyField: "currency" } },
       { id: "status", label: "Status", type: "select", authority: "workflow-only" },
+      { id: "updatedAt", label: "Updated", type: "text", authority: "protected", display: { minWidth: "18rem" } },
     ],
-    emptyState: "Purchase Orders are not onboarded to the unified workbook yet.",
-    authorityBoundary: "Approval, issue, receiving, close, matching, settlement, and lifecycle remain explicit procurement workflows.",
+    emptyState: "No Purchase Orders are available in this workspace.",
+    authorityBoundary: "Only Description on existing DRAFT Purchase Orders is editable; identity, calculated totals, lines, vendor/project links, approval, issue, receiving, matching, settlement, and lifecycle remain protected.",
   },
   {
     id: "materials",
@@ -445,7 +447,13 @@ export const OPERATIONS_WORKBOOK: OperationsWorkbookDefinition = Object.freeze({
 });
 
 /** Only this list has a page adapter today; readiness alone never enables a tab. */
-export const OPERATIONS_WORKBOOK_ENABLED_ADAPTERS: readonly OperationsWorkbookSheetId[] = Object.freeze(["projects", "cost-codes", "expenses"]);
+export const OPERATIONS_WORKBOOK_ENABLED_ADAPTERS: readonly OperationsWorkbookSheetId[] = Object.freeze([
+  "projects",
+  "cost-codes",
+  "expenses",
+  "rfqs",
+  "purchase-orders",
+]);
 
 export function findOperationsWorkbookSheet(sheetId: string | null | undefined): OperationsWorkbookSheetDefinition | undefined {
   return OPERATIONS_WORKBOOK_SHEET_REGISTRY.find((sheet) => sheet.id === sheetId);

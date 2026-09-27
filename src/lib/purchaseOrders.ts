@@ -151,19 +151,31 @@ export async function savePurchaseOrder(
   po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
   lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
   expectedUpdatedAt?: string,
+  preserveCurrentLines = false,
 ): Promise<PurchaseOrder> {
+  if (preserveCurrentLines && (!po.id || !expectedUpdatedAt)) {
+    throw new Error("Preserving Purchase Order lines requires an existing record and its expected updatedAt version.");
+  }
   const companyId = requireActiveCompanyId();
 
   if (!supabase || !companyId) {
     const local = readPurchaseOrdersFromLocal();
     const existingIdx = po.id ? local.findIndex((p) => p.id === po.id) : -1;
+    if (preserveCurrentLines && existingIdx < 0) {
+      throw new Error("Purchase order not found; header-only draft save cannot create a new record.");
+    }
+    if (preserveCurrentLines && local[existingIdx]!.status !== "DRAFT") {
+      throw new Error("Only draft purchase orders can be edited.");
+    }
     if (existingIdx >= 0 && expectedUpdatedAt && local[existingIdx].updatedAt !== expectedUpdatedAt) {
       throw new Error("Purchase order changed after export; refresh and review the current record before applying the workbook.");
     }
     const poId = po.id || globalThis.crypto?.randomUUID?.() || `po-${Date.now()}`;
     const now = new Date().toISOString();
 
-    const mappedLines: PurchaseOrderLine[] = lines.map((line, idx) => {
+    const mappedLines: PurchaseOrderLine[] = preserveCurrentLines && existingIdx >= 0
+      ? (local[existingIdx]!.lines || [])
+      : lines.map((line, idx) => {
       const qty = Math.max(0.0001, Number(line.quantity) || 1);
       const unitPrice = Math.max(0, Number(line.unitPrice) || 0);
       const amount = Math.round(qty * unitPrice * 100) / 100;
@@ -183,7 +195,9 @@ export async function savePurchaseOrder(
       };
     });
 
-    const totalAmount = Math.round(mappedLines.reduce((sum, l) => sum + l.amount, 0) * 100) / 100;
+    const totalAmount = preserveCurrentLines && existingIdx >= 0
+      ? local[existingIdx]!.totalAmount
+      : Math.round(mappedLines.reduce((sum, l) => sum + l.amount, 0) * 100) / 100;
 
     const saved: PurchaseOrder = {
       id: poId,
@@ -228,7 +242,7 @@ export async function savePurchaseOrder(
       description: po.description || null,
       notes: po.notes || null,
     },
-    p_lines: lines.map((l, idx) => ({
+    p_lines: preserveCurrentLines ? null : lines.map((l, idx) => ({
       id: l.id || null,
       description: l.description.trim(),
       quantity: Number(l.quantity) || 1,

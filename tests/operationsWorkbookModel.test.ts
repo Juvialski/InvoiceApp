@@ -19,7 +19,7 @@ import {
 } from "../src/lib/operationsWorkbookModel.ts";
 import { OperationsWorkbookRoute } from "../src/app/routes/OperationsWorkbookRoute.tsx";
 import { PERMISSION_KEYS } from "../src/utils/accessControl.ts";
-import type { Expense, Project, ProjectCostCode } from "../src/types.ts";
+import type { Expense, Project, ProjectCostCode, PurchaseOrder, RFQ } from "../src/types.ts";
 import type { ExpensesWorkbookRecords } from "../src/lib/expensesWorkbook.ts";
 
 const project: Project = {
@@ -88,6 +88,8 @@ function expenseRecords(expenses: readonly Expense[] = [directExpense, linkedExp
 const projectSheet = findOperationsWorkbookSheet("projects")!;
 const costCodeSheet = findOperationsWorkbookSheet("cost-codes")!;
 const expenseSheet = findOperationsWorkbookSheet("expenses")!;
+const rfqSheet = findOperationsWorkbookSheet("rfqs")!;
+const purchaseOrderSheet = findOperationsWorkbookSheet("purchase-orders")!;
 const payrollSheet = findOperationsWorkbookSheet("payroll")!;
 const projectNameField = projectSheet.fields.find((field) => field.id === "projectName")!;
 
@@ -138,7 +140,7 @@ test("Operations Workbook sheet order and metadata vocabulary are deterministic"
     "source-evidence",
     "workflow-only",
   ]);
-  assert.deepEqual(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS, ["projects", "cost-codes", "expenses"]);
+  assert.deepEqual(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS, ["projects", "cost-codes", "expenses", "rfqs", "purchase-orders"]);
 });
 
 test("Payroll sheet metadata requires payroll detail read and never aggregate-report access", () => {
@@ -151,13 +153,19 @@ test("Payroll sheet metadata requires payroll detail read and never aggregate-re
 test("available sheets are filtered by enabled adapter and the existing domain read permission", () => {
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.projectsRead]).map((sheet) => sheet.id), ["projects", "cost-codes"]);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.expensesRead]).map((sheet) => sheet.id), ["expenses"]);
+  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.procurementRead]).map((sheet) => sheet.id), ["rfqs", "purchase-orders"]);
+  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.procurementApprove]), []);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.payrollRead]), []);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.projectsWrite]), []);
+  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.procurementWrite]), []);
   assert.equal(canReadOperationsWorkbookSheet(projectSheet, [PERMISSION_KEYS.projectsRead]), true);
   assert.equal(canReadOperationsWorkbookSheet(projectSheet, [PERMISSION_KEYS.projectsWrite]), false);
   assert.equal(canReadOperationsWorkbookSheet(costCodeSheet, [PERMISSION_KEYS.projectsRead]), true);
   assert.equal(canReadOperationsWorkbookSheet(expenseSheet, [PERMISSION_KEYS.expensesRead]), true);
   assert.equal(canReadOperationsWorkbookSheet(expenseSheet, [PERMISSION_KEYS.expensesWrite]), false);
+  assert.equal(canReadOperationsWorkbookSheet(rfqSheet, [PERMISSION_KEYS.procurementRead]), true);
+  assert.equal(canReadOperationsWorkbookSheet(rfqSheet, [PERMISSION_KEYS.procurementWrite]), false);
+  assert.equal(canReadOperationsWorkbookSheet(purchaseOrderSheet, [PERMISSION_KEYS.procurementApprove]), false);
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.projectsWrite]), false);
 
   const payrollAdapterEnabled = { ...payrollSheet, readiness: "available" as const };
@@ -168,25 +176,72 @@ test("available sheets are filtered by enabled adapter and the existing domain r
   assert.deepEqual(payrollOnly.map((sheet) => sheet.id), ["payroll"]);
 });
 
-test("combined workbook access follows existing domain reads without enabling more production tabs", () => {
+test("Procurement workbook tabs require read permission and stay read-only without manage", () => {
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.expensesRead]), true);
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.expensesWrite]), false);
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.procurementRead]), true);
+  assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.procurementWrite]), false);
+  assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.procurementApprove]), false);
   assert.equal(canAccessOperationsWorkbook([PERMISSION_KEYS.payrollRead]), false);
   assert.equal(canAccessOperationsWorkbook((function* () { yield PERMISSION_KEYS.expensesRead; })()), true);
   assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.expensesRead]).map((sheet) => sheet.id), ["expenses"]);
-  assert.deepEqual(availableOperationsWorkbookSheets([PERMISSION_KEYS.procurementRead]), []);
-  assert.deepEqual(availableOperationsWorkbookSheets((function* () { yield PERMISSION_KEYS.procurementRead; })()), []);
+  assert.deepEqual(availableOperationsWorkbookSheets((function* () { yield PERMISSION_KEYS.procurementRead; })()).map((sheet) => sheet.id), ["rfqs", "purchase-orders"]);
 
   const procurementOnlyHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
     projects: [project],
     permissions: [PERMISSION_KEYS.procurementRead],
     search: "",
+    procurementRecords: {
+      rfqs: [{ id: "read-rfq", companyId: "company-1", rfqNumber: "RFQ-READ-001", title: "Authorized RFQ", currency: "PHP", status: "DRAFT", lines: [], updatedAt: "2026-09-20T00:00:00.000Z" } satisfies RFQ],
+      purchaseOrders: [{ id: "read-po", companyId: "company-1", poNumber: "PO-READ-001", vendorId: "vendor-1", projectId: project.id, currency: "PHP", status: "DRAFT", description: "Authorized Purchase Order", totalAmount: 100, lines: [], updatedAt: "2026-09-20T00:00:00.000Z" } satisfies PurchaseOrder],
+      projects: [project],
+      vendors: [],
+      expectedCompanyId: "company-1",
+    },
   }));
   assert.match(procurementOnlyHtml, /Download workbook/);
   assert.match(procurementOnlyHtml, /Import workbook/);
-  assert.doesNotMatch(procurementOnlyHtml, /role="tablist"/);
-  assert.doesNotMatch(procurementOnlyHtml, /data-workbook-sheet=/);
+  assert.match(procurementOnlyHtml, /role="tablist"/);
+  assert.match(procurementOnlyHtml, /data-workbook-sheet="rfqs"/);
+  assert.match(procurementOnlyHtml, /RFQ-READ-001/);
+  assert.match(procurementOnlyHtml, /Purchase orders/);
+  assert.doesNotMatch(procurementOnlyHtml, /Save changes/);
+
+  const poReadOnlyHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    permissions: [PERMISSION_KEYS.procurementRead],
+    search: "?sheet=purchase-orders",
+    procurementRecords: {
+      rfqs: [],
+      purchaseOrders: [{ id: "read-po", companyId: "company-1", poNumber: "PO-READ-001", vendorId: "vendor-1", projectId: project.id, currency: "PHP", status: "DRAFT", description: "Authorized Purchase Order", totalAmount: 100, lines: [], updatedAt: "2026-09-20T00:00:00.000Z" } satisfies PurchaseOrder],
+      projects: [project],
+      vendors: [],
+      expectedCompanyId: "company-1",
+    },
+  }));
+  assert.match(poReadOnlyHtml, /data-workbook-sheet="purchase-orders"/);
+  assert.match(poReadOnlyHtml, /PO-READ-001/);
+  assert.doesNotMatch(poReadOnlyHtml, /Save changes/);
+
+  const manageWithoutReadHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    permissions: [PERMISSION_KEYS.procurementWrite],
+    search: "?sheet=purchase-orders",
+    procurementRecords: {
+      rfqs: [{ id: "hidden-rfq", companyId: "company-1", rfqNumber: "RFQ-HIDDEN-001", title: "Hidden RFQ", currency: "PHP", status: "DRAFT" } satisfies RFQ],
+      purchaseOrders: [{ id: "hidden-po", companyId: "company-1", poNumber: "PO-HIDDEN-001", vendorId: "hidden-vendor", projectId: "hidden-project", currency: "PHP", status: "DRAFT", description: "Hidden Purchase Order" } satisfies PurchaseOrder],
+      projects: [],
+      vendors: [],
+      expectedCompanyId: "company-1",
+    },
+  }));
+  assert.doesNotMatch(manageWithoutReadHtml, /RFQ-HIDDEN-001|PO-HIDDEN-001|Hidden RFQ|Hidden Purchase Order/);
+  assert.doesNotMatch(manageWithoutReadHtml, /role="tablist"/);
+
+  const approveWithoutReadHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project], permissions: [PERMISSION_KEYS.procurementApprove], search: "?sheet=rfqs",
+  }));
+  assert.doesNotMatch(approveWithoutReadHtml, /role="tablist"|RFQs|Purchase Orders/);
 
   const hiddenProjectSheetHtml = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
     projects: [project],
@@ -197,6 +252,22 @@ test("combined workbook access follows existing domain reads without enabling mo
   }));
   assert.match(hiddenProjectSheetHtml, /data-workbook-sheet="expenses"/);
   assert.doesNotMatch(hiddenProjectSheetHtml, /DEMO-01|01-GEN/);
+
+  const unauthorizedProcurementDeepLink = renderToStaticMarkup(React.createElement(OperationsWorkbookRoute, {
+    projects: [project],
+    permissions: [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementWrite],
+    search: "?sheet=purchase-orders",
+    expenseRecords: expenseRecords(),
+    procurementRecords: {
+      rfqs: [{ id: "hidden-rfq", companyId: "company-1", rfqNumber: "RFQ-HIDDEN-DEEP-LINK", title: "Hidden RFQ", currency: "PHP", status: "DRAFT" } satisfies RFQ],
+      purchaseOrders: [{ id: "hidden-po", companyId: "company-1", poNumber: "PO-HIDDEN-DEEP-LINK", vendorId: "hidden-vendor", projectId: "hidden-project", currency: "PHP", status: "DRAFT", description: "Hidden Purchase Order" } satisfies PurchaseOrder],
+      projects: [],
+      vendors: [],
+      expectedCompanyId: "company-1",
+    },
+  }));
+  assert.match(unauthorizedProcurementDeepLink, /data-workbook-sheet="expenses"/);
+  assert.doesNotMatch(unauthorizedProcurementDeepLink, /RFQ-HIDDEN-DEEP-LINK|PO-HIDDEN-DEEP-LINK|Hidden RFQ|Hidden Purchase Order/);
 });
 
 test("combined workbook review state is cleared when company or permission context changes", () => {

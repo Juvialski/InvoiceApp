@@ -297,13 +297,20 @@ export async function saveRFQ(
   lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
   invitedVendorIds?: string[],
   expectedUpdatedAt?: string,
+  preserveCurrentLines = false,
 ): Promise<RFQ> {
+  if (preserveCurrentLines && (!rfq.id || !expectedUpdatedAt)) {
+    throw new Error("Preserving RFQ lines requires an existing record and its expected updatedAt version.");
+  }
   const companyId = getActiveCompanyId();
 
   if (!supabase || !companyId) {
     const local = readRFQsFromLocal();
     const existingIdx = rfq.id ? local.findIndex((r) => r.id === rfq.id) : -1;
 
+    if (preserveCurrentLines && existingIdx < 0) {
+      throw new Error("RFQ not found; header-only draft save cannot create a new record.");
+    }
     if (existingIdx >= 0 && local[existingIdx].status !== "DRAFT") {
       throw new Error("Only draft RFQs may be modified");
     }
@@ -329,7 +336,9 @@ export async function saveRFQ(
     const rfqId = rfq.id || globalThis.crypto?.randomUUID?.() || `rfq-${Date.now()}`;
     const now = new Date().toISOString();
 
-    const mappedLines: RFQLine[] = lines.map((line, idx) => {
+    const mappedLines: RFQLine[] = preserveCurrentLines && existingIdx >= 0
+      ? (local[existingIdx]!.lines || [])
+      : lines.map((line, idx) => {
       const desc = (line.description || "").trim();
       if (desc.length < 1) {
         throw new Error(`Line ${idx + 1} description is required`);
@@ -354,8 +363,12 @@ export async function saveRFQ(
       };
     });
 
-    const vendorIds = invitedVendorIds || (rfq.invitedVendorIds ?? (existingIdx >= 0 ? local[existingIdx].invitedVendorIds : [])) || [];
-    const mappedVendors: RFQInvitedVendor[] = vendorIds.map((vendorId) => ({
+    const vendorIds = preserveCurrentLines && existingIdx >= 0
+      ? (local[existingIdx]!.invitedVendorIds || local[existingIdx]!.invitedVendors?.map((vendor) => vendor.vendorId) || [])
+      : invitedVendorIds || (rfq.invitedVendorIds ?? (existingIdx >= 0 ? local[existingIdx].invitedVendorIds : [])) || [];
+    const mappedVendors: RFQInvitedVendor[] = preserveCurrentLines && existingIdx >= 0
+      ? (local[existingIdx]!.invitedVendors || [])
+      : vendorIds.map((vendorId) => ({
       id: `iv-${rfqId}-${vendorId}`,
       companyId: companyId || undefined,
       rfqId,
@@ -407,7 +420,7 @@ export async function saveRFQ(
       dueDate: rfq.dueDate || null,
       notes: rfq.notes || null,
     },
-    p_lines: lines.map((l) => ({
+    p_lines: preserveCurrentLines ? null : lines.map((l) => ({
       description: l.description.trim(),
       quantity: Number(l.quantity),
       unit: (l.unit || "pcs").trim(),
@@ -415,7 +428,7 @@ export async function saveRFQ(
       requestedDeliveryDate: l.requestedDeliveryDate || null,
       notes: l.notes || null,
     })),
-    p_invited_vendor_ids: invitedVendorIds && invitedVendorIds.length > 0 ? invitedVendorIds : null,
+    p_invited_vendor_ids: preserveCurrentLines ? null : invitedVendorIds && invitedVendorIds.length > 0 ? invitedVendorIds : null,
     p_expected_updated_at: expectedUpdatedAt || null,
   });
 
