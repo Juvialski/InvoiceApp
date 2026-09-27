@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 MERGED PR #263 / WB-3A NEXT**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 MERGED PR #263 / WB-3A MERGED PR #265 / WB-3B NEXT**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-27**
 
@@ -2213,7 +2213,9 @@ later certification gate after bounded WB-3 domain onboarding.
 - Synchronized base `main` SHA: `822f16b8c75f83d9f2ff0100fb5f17f94d9aac93`
 - Implementation source commit: `78c1c850bf11e874318fd7d5d3952611ba75a2b5`
 - Pull request: [#265](https://github.com/Juvialski/InvoiceApp/pull/265)
-- Status: **OPEN / WB-3A IMPLEMENTED FOR RECORDED SCOPE / WB-3B+ AND WB-CERT NOT STARTED**
+- Reviewed exact PR head: `a00c569c960b8b046d320d3a10887e35b5f4305a`
+- Merged as: `c62a2676ea84ea43de1ac6fbeac160595c1cbf8b`
+- Status: **MERGED / WB-3A COMPLETE FOR RECORDED SCOPE / WB-3B NEXT / WB-CERT LATER**
 
 WB-3A enables the Projects and Cost Codes sheets inside `/workbook`. Both
 sheets require `projects.read`; editing also requires `projects.manage` and
@@ -2265,7 +2267,22 @@ Project and Cost Code sheets and their protected financial/lifecycle values.
 - No database schema, migration, RLS, or RPC changes were made. Local
   Supabase/Docker, provider, hosted-QA, and production validation were not
   applicable.
+- Final ChatGPT review fixed two correctness/usability gaps before merge:
+  duplicate Project Codes proposed across multiple staged Project rows are now
+  rejected before any per-project Apply begins, and unsaved direct worksheet
+  edits can no longer be silently lost by switching sheets or starting the
+  combined-workbook transfer/import flow.
+- Exact-head protected CI on
+  `a00c569c960b8b046d320d3a10887e35b5f4305a` passed Application Validation &
+  Build, Database Migrations & Upgrade Suite, Graph and Source Contract
+  Consistency, and `chromium-demo-qa`. No unresolved review blockers remained.
 
-WB-3A closes only Projects and Cost Codes in-app sheet onboarding. WB-3B+ and
-WB-CERT remain unstarted and separately bounded; the full combined workbook
-round trip is not certified by this phase.
+WB-3A closes only Projects and Cost Codes in-app sheet onboarding. The next
+bounded workbook phase is **WB-3B — Direct Expense Production Sheet**: onboard
+the existing direct Expense draft workflow only, retaining `expenses.read`
+as the read boundary and `expenses.manage` as an additional edit requirement.
+Supplier-Invoice-linked, archived, non-draft, settlement, correction, and other
+history/workflow-controlled Expense states remain read-only or purpose-built.
+Procurement, Supplier Invoices, Payroll, Inventory, Equipment, and other
+workbook domains remain later slices. WB-CERT remains a later certification
+gate; the full combined round trip is not certified by WB-3A.
