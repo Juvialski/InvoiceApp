@@ -11,6 +11,7 @@ import type {
   WorksheetSelectOption,
   WorksheetValidationResult,
 } from "../components/ui/worksheetEditorModel.ts";
+import { validateExpenseDraftField } from "./expenseDraftRules.ts";
 
 export type OperationsWorkbookSheetId =
   | "projects"
@@ -286,19 +287,37 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
     id: "expenses",
     name: "Expenses",
     domainOwner: "expenses",
-    readiness: "future-adapter",
+    readiness: "available",
     authorization: { readAnyOf: [PERMISSION_KEYS.expensesRead], writeAllOf: [PERMISSION_KEYS.expensesWrite] },
     rowIdentity: { field: "id", label: "Expense ID" },
     capabilities: { read: true, write: "domain-delegated" },
     fields: [
-      { id: "date", label: "Date", type: "date", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite] },
-      { id: "category", label: "Category", type: "select", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite] },
-      { id: "description", label: "Description", type: "text", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite] },
-      { id: "amount", label: "Amount", type: "currency", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { align: "right", currencyField: "currency" } },
+      { id: "expenseDate", label: "Expense Date", type: "date", authority: "conditionally-editable", required: true, writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { frozen: true, minWidth: "10rem" }, validate: (value) => validateExpenseDraftField("expenseDate", value) },
+      { id: "projectId", label: "Project", type: "select", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "18rem" } },
+      { id: "projectCostCodeId", label: "Cost Code", type: "select", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "17rem" } },
+      { id: "category", label: "Category", type: "text", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "14rem" } },
+      { id: "description", label: "Description", type: "text", authority: "conditionally-editable", required: true, writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "20rem" }, validate: (value) => validateExpenseDraftField("description", value) },
+      { id: "payee", label: "Payee", type: "text", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "16rem" } },
+      { id: "amount", label: "Amount", type: "currency", authority: "conditionally-editable", required: true, writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { align: "right", minWidth: "11rem", currencyField: "currency" }, validate: (value) => validateExpenseDraftField("amount", value) },
+      { id: "currency", label: "Currency", type: "text", authority: "conditionally-editable", required: true, writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "8rem" }, validate: (value) => validateExpenseDraftField("currency", value) },
+      { id: "paymentMethod", label: "Payment Method", type: "select", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "16rem" } },
+      { id: "referenceNumber", label: "Reference", type: "text", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "13rem" } },
+      { id: "notes", label: "Notes", type: "text", authority: "conditionally-editable", writeAllOf: [PERMISSION_KEYS.expensesWrite], display: { minWidth: "18rem" } },
+      { id: "expenseId", label: "Expense ID", type: "identifier", authority: "protected", display: { minWidth: "14rem" } },
       { id: "status", label: "Status", type: "select", authority: "lifecycle-controlled" },
+      { id: "sourceLinkage", label: "Source", type: "text", authority: "source-evidence", display: { minWidth: "17rem" } },
+      { id: "vendorLinkage", label: "Vendor identity", type: "identifier", authority: "protected", display: { minWidth: "15rem" } },
+      { id: "purchaseOrderLinkage", label: "Purchase Order", type: "identifier", authority: "protected", display: { minWidth: "15rem" } },
+      { id: "settlementState", label: "Settlement", type: "text", authority: "workflow-only", display: { minWidth: "20rem" } },
+      { id: "baseCurrencyValue", label: "Base-currency value", type: "text", authority: "calculated", display: { minWidth: "18rem" } },
+      { id: "fxProvenance", label: "FX provenance", type: "text", authority: "source-evidence", display: { minWidth: "18rem" } },
+      { id: "archiveState", label: "Archive", type: "text", authority: "lifecycle-controlled", display: { minWidth: "17rem" } },
+      { id: "voidCorrectionState", label: "Void / correction", type: "text", authority: "lifecycle-controlled", display: { minWidth: "20rem" } },
+      { id: "createdAt", label: "Created", type: "text", authority: "protected", display: { minWidth: "20rem" } },
+      { id: "updatedAt", label: "Updated / version", type: "text", authority: "protected", display: { minWidth: "20rem" } },
     ],
-    emptyState: "Expenses are not onboarded to the unified workbook yet.",
-    authorityBoundary: "Only eligible direct draft Expense fields may delegate to the existing Expense save path.",
+    emptyState: "No Expense rows are available in this workspace.",
+    authorityBoundary: "Only direct, active DRAFT Expense fields may save through the existing Expense workflow; source, settlement, identity, history, and lifecycle state stay protected.",
   },
   {
     id: "rfqs",
@@ -426,7 +445,7 @@ export const OPERATIONS_WORKBOOK: OperationsWorkbookDefinition = Object.freeze({
 });
 
 /** Only this list has a page adapter today; readiness alone never enables a tab. */
-export const OPERATIONS_WORKBOOK_ENABLED_ADAPTERS: readonly OperationsWorkbookSheetId[] = Object.freeze(["projects", "cost-codes"]);
+export const OPERATIONS_WORKBOOK_ENABLED_ADAPTERS: readonly OperationsWorkbookSheetId[] = Object.freeze(["projects", "cost-codes", "expenses"]);
 
 export function findOperationsWorkbookSheet(sheetId: string | null | undefined): OperationsWorkbookSheetDefinition | undefined {
   return OPERATIONS_WORKBOOK_SHEET_REGISTRY.find((sheet) => sheet.id === sheetId);
@@ -486,6 +505,12 @@ export interface OperationsWorkbookSheetAdapter<Row> {
   readonly readValue: (row: Row, fieldId: string) => unknown;
   /** Domain-owned draft mutation. The workbook does not map metadata to arbitrary object/database fields. */
   readonly applyDraftValue?: (row: Row, fieldId: string, value: unknown) => Row;
+  /** Domain-backed choices such as authorized Projects and active Cost Codes. */
+  readonly selectOptionsForField?: (
+    field: OperationsWorkbookFieldDefinition,
+    row: Row,
+    rowIndex: number,
+  ) => readonly WorksheetSelectOption[] | undefined;
   /** Domain lifecycle/permission conditions that vary by row or field. */
   readonly canEditField?: (
     field: OperationsWorkbookFieldDefinition,
@@ -558,7 +583,9 @@ export function operationsWorkbookColumns<Row>(
         : row,
     options: field.type === "boolean"
       ? [{ value: "true", label: "Yes" }, { value: "false", label: "No" }]
-      : field.options,
+      : adapter.selectOptionsForField
+        ? (row, rowIndex) => adapter.selectOptionsForField?.(field, row, rowIndex) ?? field.options ?? []
+        : field.options,
     currency: field.display?.currencyCode || (field.display?.currencyField
       ? (row) => String(adapter.readValue(row, field.display!.currencyField!) || "")
       : undefined),

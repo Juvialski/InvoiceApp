@@ -11,6 +11,7 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
   const tab = page.getByRole("tab", { name: "Projects", exact: true });
   const projectTabCount = await tab.count();
   const costCodeTabCount = await page.getByRole("tab", { name: /Cost codes/i }).count();
+  const expensesTabCount = await page.getByRole("tab", { name: "Expenses", exact: true }).count();
   const downloadButton = page.getByRole("button", { name: "Download workbook", exact: true });
   const importButton = page.getByRole("button", { name: "Import workbook", exact: true });
   await tab.press("Home");
@@ -36,7 +37,7 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
   return [
     { id: "workbook-heading-visible", passed: true, details: "Operations Workbook heading rendered." },
     { id: "workbook-combined-roundtrip-actions", passed: await downloadButton.count() === 1 && await importButton.count() === 1, details: "Combined workbook download and import review controls rendered." },
-    { id: "workbook-project-controls-tabs-visible", passed: tabCount === 2 && projectTabCount === 1 && costCodeTabCount === 1, details: `authorized sheet tabs: ${tabCount}; Projects: ${projectTabCount}; Cost Codes: ${costCodeTabCount}` },
+    { id: "workbook-project-controls-and-expenses-tabs-visible", passed: tabCount === 3 && projectTabCount === 1 && costCodeTabCount === 1 && expensesTabCount === 1, details: `authorized sheet tabs: ${tabCount}; Projects: ${projectTabCount}; Cost Codes: ${costCodeTabCount}; Expenses: ${expensesTabCount}` },
     { id: "workbook-tab-keyboard-focus", passed: layout.selectedTabFocused && layout.selectedTab === "Projects", details: `selected/focused tab: ${layout.selectedTab || "missing"}` },
     { id: "workbook-grid-responsive-mode", passed: mobileViewport ? layout.mobileGridVisible : layout.desktopGridVisible, details: mobileViewport ? `mobile fallback visible: ${layout.mobileGridVisible}` : `desktop grid visible: ${layout.desktopGridVisible}` },
     { id: "workbook-synthetic-project-rows-visible", passed: layout.worksheetRows > 0, details: `worksheet row instances: ${layout.worksheetRows}` },
@@ -55,8 +56,8 @@ export const verifyOperationsWorkbookPermissionTabs: QaScenarioAction = async (p
     workbookTabs: Array.from(document.querySelectorAll<HTMLElement>('[role="tablist"][aria-label="Operations Workbook sheets"] [role="tab"]')).map((tab) => tab.textContent?.trim() || ""),
   }));
   return [
-    { id: "workbook-project-read-shows-both-project-controls-sheets", passed: tabs.length === 2 && tabs[0]?.label === "Projects" && tabs[1]?.label.toLowerCase() === "cost codes" && tabs.every((tab) => !tab.disabled), details: `visible worksheet tabs: ${tabs.map((tab) => tab.label).join(", ") || "none"}` },
-    { id: "workbook-unavailable-domain-names-not-rendered-as-tabs", passed: !route.workbookTabs.some((label) => /payroll|invoice|expense|procurement|warehouse|equipment|vendor/i.test(label)), details: `tab labels: ${route.workbookTabs.join(", ") || "none"}` },
+    { id: "workbook-read-authorized-sheets-are-visible", passed: tabs.length === 3 && tabs[0]?.label === "Projects" && tabs[1]?.label.toLowerCase() === "cost codes" && tabs[2]?.label === "Expenses" && tabs.every((tab) => !tab.disabled), details: `visible worksheet tabs: ${tabs.map((tab) => tab.label).join(", ") || "none"}` },
+    { id: "workbook-unavailable-domain-names-not-rendered-as-tabs", passed: !route.workbookTabs.some((label) => /payroll|supplier invoice|procurement|warehouse|equipment|vendor/i.test(label)), details: `tab labels: ${route.workbookTabs.join(", ") || "none"}` },
     { id: "workbook-route-selects-only-one-sheet-at-a-time", passed: route.tabIds.length === 1 && route.tabIds[0] === "projects", details: `active sheet IDs: ${route.tabIds.join(", ") || "none"}` },
   ] satisfies readonly QaAssertion[];
 };
@@ -72,7 +73,7 @@ export const verifyOperationsWorkbookInvalidSheetRecovery: QaScenarioAction = as
   return [
     { id: "workbook-invalid-sheet-replaced-in-url", passed: new URL(page.url()).searchParams.get("sheet") === "projects", details: `recovered URL sheet: ${new URL(page.url()).searchParams.get("sheet") || "none"}` },
     { id: "workbook-invalid-sheet-selects-authorized-projects", passed: state.selectedSheet === "projects" && state.selectedTab === "Projects", details: `active sheet: ${state.selectedSheet || "none"}; tab: ${state.selectedTab || "none"}` },
-    { id: "workbook-invalid-sheet-does-not-render-hidden-tab", passed: state.tabLabels.length === 2 && !state.tabLabels.some((label) => /payroll|invoice|expense|procurement|warehouse|equipment|vendor/i.test(label)), details: `visible tabs: ${state.tabLabels.join(", ") || "none"}` },
+    { id: "workbook-invalid-sheet-keeps-only-authorized-tabs", passed: state.tabLabels.length === 3 && state.tabLabels.includes("Expenses") && !state.tabLabels.some((label) => /payroll|supplier invoice|procurement|warehouse|equipment|vendor/i.test(label)), details: `visible tabs: ${state.tabLabels.join(", ") || "none"}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -164,10 +165,95 @@ export const verifyOperationsWorkbookCostCodesSheet: QaScenarioAction = async (p
   ] satisfies readonly QaAssertion[];
 };
 
+export const verifyOperationsWorkbookExpensesSheet: QaScenarioAction = async (page) => {
+  await page.locator(workbookRoot).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.getByRole("tab", { name: "Expenses", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector<HTMLElement>('[data-operations-workbook="true"]')?.dataset.workbookSheet === "expenses");
+
+  const editableDescription = page.locator('[data-worksheet-cell$=":description"][data-worksheet-editable="true"]:visible').first();
+  await editableDescription.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const rowState = await page.evaluate(() => {
+    const editable = Array.from(document.querySelectorAll<HTMLElement>('[data-worksheet-cell$=":description"][data-worksheet-editable="true"]'))
+      .find((element) => element.getClientRects().length > 0 && getComputedStyle(element).display !== "none");
+    const expenseId = editable?.dataset.worksheetCell?.split(":")[0] || "";
+    const paidStatus = Array.from(document.querySelectorAll<HTMLElement>('[data-worksheet-cell$=":status"]'))
+      .find((candidate) => candidate.textContent?.includes("PAID")
+        && candidate.getClientRects().length > 0
+        && getComputedStyle(candidate).display !== "none");
+    const paidId = paidStatus?.dataset.worksheetCell?.split(":")[0] || "";
+    const paidDescription = Array.from(document.querySelectorAll<HTMLElement>("[data-worksheet-cell]"))
+      .find((candidate) => candidate.dataset.worksheetCell === paidId + ":description"
+        && candidate.getClientRects().length > 0
+        && getComputedStyle(candidate).display !== "none");
+    const status = Array.from(document.querySelectorAll<HTMLElement>("[data-worksheet-cell]"))
+      .find((candidate) => candidate.dataset.worksheetCell === expenseId + ":status"
+        && candidate.getClientRects().length > 0
+        && getComputedStyle(candidate).display !== "none");
+    const source = Array.from(document.querySelectorAll<HTMLElement>("[data-worksheet-cell]"))
+      .find((candidate) => candidate.dataset.worksheetCell === expenseId + ":sourceLinkage"
+        && candidate.getClientRects().length > 0
+        && getComputedStyle(candidate).display !== "none");
+    return {
+      expenseId,
+      statusProtected: status?.dataset.worksheetProtected === "true",
+      statusReadonly: status?.getAttribute("aria-readonly") === "true",
+      statusEditable: status?.dataset.worksheetEditable === "true",
+      statusEditors: status?.querySelectorAll("input, select").length || 0,
+      sourceText: source?.textContent?.trim() || "",
+      paidStatusText: paidStatus?.textContent?.trim() || "",
+      paidRowId: paidId,
+      paidDescriptionFound: Boolean(paidDescription),
+      paidRowEditable: paidDescription?.dataset.worksheetEditable === "true",
+      paidRowReadonly: paidDescription?.getAttribute("aria-readonly") === "true",
+    };
+  });
+  const expenseId = rowState.expenseId;
+  await editableDescription.click();
+  const editor = page.locator('[data-worksheet-cell$=":description"]:visible input').first();
+  await editor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await editor.fill("Synthetic WB-3B worksheet edit");
+  await page.keyboard.press("Enter");
+
+  const importDisabledWhileDirty = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
+    .some((button) => button.textContent?.trim() === "Import workbook" && button.disabled));
+  await page.getByRole("tab", { name: /Cost codes/i }).click();
+  const dirtyGuard = await page.evaluate(() => ({
+    selectedSheet: document.querySelector<HTMLElement>('[data-operations-workbook="true"]')?.dataset.workbookSheet || "",
+    warningVisible: document.body.textContent?.includes("Save or discard your worksheet edits before switching sheets.") || false,
+  }));
+
+  const saveButton = page.getByRole("button", { name: "Save demo edits", exact: true });
+  await saveButton.click();
+  await page.waitForFunction(() => document.body.textContent?.includes("Demo Expense changes saved in this browser.") === true);
+  const state = await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>('[data-operations-workbook="true"]');
+    const mobileGrid = document.querySelector<HTMLElement>("[data-worksheet-mobile-fallback]");
+    const savedDescription = Array.from(document.querySelectorAll<HTMLElement>('[data-worksheet-cell$=":description"]'))
+      .some((cell) => cell.textContent?.includes("Synthetic WB-3B worksheet edit") && cell.getClientRects().length > 0);
+    return {
+      selectedSheet: root?.dataset.workbookSheet || "",
+      savedDescription,
+      documentWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      viewportWidth: window.innerWidth,
+      mobileGridVisible: Boolean(mobileGrid && getComputedStyle(mobileGrid).display !== "none" && mobileGrid.getClientRects().length),
+      whiteCanvas: root ? getComputedStyle(root).backgroundColor === "rgb(255, 255, 255)" : false,
+    };
+  });
+  return [
+    { id: "workbook-expenses-sheet-selects-authorized-tab", passed: state.selectedSheet === "expenses", details: `selected sheet: ${state.selectedSheet || "missing"}` },
+    { id: "workbook-expense-draft-safe-cell-edits-with-one-tap", passed: Boolean(expenseId) && state.savedDescription && await saveButton.count() === 1, details: `edited local Expense row: ${expenseId || "missing"}; Save updated value=${state.savedDescription}` },
+    { id: "workbook-expense-protected-lifecycle-and-source-state", passed: !rowState.statusEditable && rowState.statusProtected && rowState.statusReadonly && rowState.statusEditors === 0 && rowState.sourceText.includes("Direct entry") && rowState.paidDescriptionFound && !rowState.paidRowEditable && rowState.paidRowReadonly, details: `status editable=${rowState.statusEditable}; protected=${rowState.statusProtected}; readonly=${rowState.statusReadonly}; editors=${rowState.statusEditors}; source=${rowState.sourceText}; paid status=${rowState.paidStatusText}; row=${rowState.paidRowId}; description found=${rowState.paidDescriptionFound}; editable=${rowState.paidRowEditable}; readonly=${rowState.paidRowReadonly}` },
+    { id: "workbook-expense-unsaved-edit-blocks-sheet-switch-and-import", passed: importDisabledWhileDirty && dirtyGuard.selectedSheet === "expenses" && dirtyGuard.warningVisible, details: `import disabled=${importDisabledWhileDirty}; selected sheet=${dirtyGuard.selectedSheet}; warning=${dirtyGuard.warningVisible}` },
+    { id: "workbook-expenses-responsive-without-page-overflow", passed: state.viewportWidth < 768 ? state.mobileGridVisible && state.documentWidth <= state.viewportWidth + 2 : state.documentWidth <= state.viewportWidth + 2, details: `mobile fallback=${state.mobileGridVisible}; document ${state.documentWidth}px / viewport ${state.viewportWidth}px` },
+    { id: "workbook-expenses-uses-white-grid-canvas", passed: state.whiteCanvas, details: `white canvas=${state.whiteCanvas}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 export const workbookScenarioActions: Readonly<Record<string, QaScenarioAction>> = {
   verifyOperationsWorkbookLayout,
   verifyOperationsWorkbookPermissionTabs,
   verifyOperationsWorkbookInvalidSheetRecovery,
   verifyOperationsWorkbookEditableAndProtectedCells,
   verifyOperationsWorkbookCostCodesSheet,
+  verifyOperationsWorkbookExpensesSheet,
 };

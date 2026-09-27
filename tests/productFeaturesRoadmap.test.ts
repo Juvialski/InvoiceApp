@@ -53,6 +53,10 @@ test("supplier payment feature truth reflects the inline linked-Expense workflow
   assert.match(text, /linked-Expense settlement evidence/i);
   assert.match(text, /Cash & Banking remains available for deeper reconciliation/i);
   assert.doesNotMatch(text, /continue to Cash & Banking without searching/i);
+  assert.match(text, /Operations Workbook/);
+  assert.match(text, /Expense read access/);
+  assert.match(text, /Expense management access/);
+  assert.match(text, /direct, active DRAFT Expenses/);
 });
 
 test("approved next and future items are explicit and do not imply unfinished access", () => {
