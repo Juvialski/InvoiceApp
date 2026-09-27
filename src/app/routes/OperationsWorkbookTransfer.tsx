@@ -9,6 +9,7 @@ import {
   applyCombinedOperationsWorkbookDomain,
   buildCombinedOperationsWorkbookImportReview,
   exportCombinedOperationsWorkbook,
+  retainApplicableCombinedOperationsWorkbookProposalIds,
   refreshCombinedOperationsWorkbookDomainReview,
   type CombinedOperationsWorkbookApplyCallbacks,
   type CombinedOperationsWorkbookDomainId,
@@ -17,6 +18,7 @@ import {
   type CombinedOperationsWorkbookImportReview,
   type CombinedOperationsWorkbookProposal,
 } from "../../lib/combinedOperationsWorkbook.ts";
+import { operationsWorkbookContextKey } from "../../lib/operationsWorkbookModel.ts";
 import {
   downloadWorkbookArtifact,
 } from "../../lib/operationsWorkbook.ts";
@@ -53,6 +55,20 @@ export interface OperationsWorkbookTransferProps {
 
 const EMPTY_SELECTION: SelectedByDomain = { projects: [], expenses: [], procurement: [] };
 const EMPTY_CONFIRMATION: ConfirmedByDomain = { projects: false, expenses: false, procurement: false };
+
+interface ContextBoundCombinedReview {
+  contextKey: string;
+  generation: number;
+  review: CombinedOperationsWorkbookImportReview;
+}
+
+export function combinedWorkbookReviewForContext(
+  snapshot: ContextBoundCombinedReview | null,
+  contextKey: string,
+  generation: number,
+): CombinedOperationsWorkbookImportReview | null {
+  return snapshot?.contextKey === contextKey && snapshot.generation === generation ? snapshot.review : null;
+}
 
 function statusClass(status: string) {
   if (status === "WORKBOOK_ONLY_CHANGE") return "bg-amber-100 text-amber-900";
@@ -193,21 +209,30 @@ export function OperationsWorkbookTransfer({
   disabled = false,
 }: OperationsWorkbookTransferProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [review, setReview] = useState<CombinedOperationsWorkbookImportReview | null>(null);
+  const [reviewSnapshot, setReviewSnapshot] = useState<ContextBoundCombinedReview | null>(null);
   const [selectedByDomain, setSelectedByDomain] = useState<SelectedByDomain>(EMPTY_SELECTION);
   const [confirmedByDomain, setConfirmedByDomain] = useState<ConfirmedByDomain>(EMPTY_CONFIRMATION);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const permissionSnapshotKey = useMemo(() => [...permissions].sort().join("\u0000"), [permissions]);
+  const currentContextKey = operationsWorkbookContextKey(companyId, permissions, demoMode);
+  const contextSnapshotRef = useRef({ contextKey: currentContextKey, generation: 0 });
+  if (contextSnapshotRef.current.contextKey !== currentContextKey) {
+    contextSnapshotRef.current = {
+      contextKey: currentContextKey,
+      generation: contextSnapshotRef.current.generation + 1,
+    };
+  }
+  const currentContextGeneration = contextSnapshotRef.current.generation;
+  const review = combinedWorkbookReviewForContext(reviewSnapshot, currentContextKey, currentContextGeneration);
 
   useEffect(() => {
-    setReview(null);
+    setReviewSnapshot(null);
     setSelectedByDomain(EMPTY_SELECTION);
     setConfirmedByDomain(EMPTY_CONFIRMATION);
     setNotice("");
     setError("");
-  }, [companyId, demoMode, permissionSnapshotKey]);
+  }, [currentContextKey]);
 
   const callbacks = useMemo<CombinedOperationsWorkbookApplyCallbacks>(() => ({
     ...(onApplyProjectWorkbookGroup ? { projects: { applyGroup: onApplyProjectWorkbookGroup } } : {}),
@@ -221,6 +246,11 @@ export function OperationsWorkbookTransfer({
     () => review?.domains.map((domain) => safeDomainForDisplay(domain, permissions)) || [],
     [permissions, review],
   );
+
+  const captureContextSnapshot = () => ({ contextKey: currentContextKey, generation: currentContextGeneration });
+  const contextSnapshotIsCurrent = (snapshot: { contextKey: string; generation: number }) =>
+    contextSnapshotRef.current.contextKey === snapshot.contextKey
+    && contextSnapshotRef.current.generation === snapshot.generation;
 
   const latestContext = async (): Promise<CombinedOperationsWorkbookImportContext> => {
     const canReadProjects = hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead]);
@@ -256,14 +286,17 @@ export function OperationsWorkbookTransfer({
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
+    const operationContext = captureContextSnapshot();
     setBusy(true);
     setNotice("");
     setError("");
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
+      if (!contextSnapshotIsCurrent(operationContext)) return;
       const latest = await latestContext();
+      if (!contextSnapshotIsCurrent(operationContext)) return;
       const nextReview = buildCombinedOperationsWorkbookImportReview(bytes, latest, { fileName: file.name });
-      setReview(nextReview);
+      setReviewSnapshot({ ...operationContext, review: nextReview });
       const selected: SelectedByDomain = { projects: [], expenses: [], procurement: [] };
       for (const domain of nextReview.domains) {
         selected[domain.id] = domain.state === "READY" && domain.canWrite && callbackForDomain(domain.id, callbacks)
@@ -274,10 +307,12 @@ export function OperationsWorkbookTransfer({
       setConfirmedByDomain(EMPTY_CONFIRMATION);
       setNotice("Workbook reviewed. Changes remain pending until you apply them within a domain.");
     } catch (nextError) {
-      setReview(null);
-      setSelectedByDomain(EMPTY_SELECTION);
-      setConfirmedByDomain(EMPTY_CONFIRMATION);
-      setError(nextError instanceof Error ? nextError.message : "Could not review the combined workbook.");
+      if (contextSnapshotIsCurrent(operationContext)) {
+        setReviewSnapshot(null);
+        setSelectedByDomain(EMPTY_SELECTION);
+        setConfirmedByDomain(EMPTY_CONFIRMATION);
+        setError(nextError instanceof Error ? nextError.message : "Could not review the combined workbook.");
+      }
     } finally {
       setBusy(false);
     }
@@ -293,37 +328,103 @@ export function OperationsWorkbookTransfer({
     setConfirmedByDomain((current) => ({ ...current, [domainId]: false }));
   };
 
-  const updateDomainReview = (domainReview: CombinedOperationsWorkbookDomainReview) => {
-    setReview((current) => current ? {
+  const updateDomainReview = (domainReview: CombinedOperationsWorkbookDomainReview, operationContext: { contextKey: string; generation: number }) => {
+    setReviewSnapshot((current) => current && current.contextKey === operationContext.contextKey && current.generation === operationContext.generation ? {
       ...current,
-      domains: current.domains.map((domain) => domain.id === domainReview.id ? domainReview : domain),
+      review: {
+        ...current.review,
+        domains: current.review.domains.map((domain) => domain.id === domainReview.id ? domainReview : domain),
+      },
     } : current);
   };
 
   const handleApply = async (domain: CombinedOperationsWorkbookDomainReview) => {
     const proposalIds = selectedByDomain[domain.id];
-    if (!proposalIds.length || !confirmedByDomain[domain.id] || !callbackForDomain(domain.id, callbacks)) return;
+    const operationContext = captureContextSnapshot();
+    if (!review || !proposalIds.length || !confirmedByDomain[domain.id] || !callbackForDomain(domain.id, callbacks)) return;
     setBusy(true);
     setNotice("");
     setError("");
     try {
       const latest = await latestContext();
-      const result = await applyCombinedOperationsWorkbookDomain(domain, latest, callbacks, proposalIds);
+      if (!contextSnapshotIsCurrent(operationContext)) throw new Error("Company, access, or demo context changed during Apply.");
+      const assertContextCurrent = () => {
+        if (!contextSnapshotIsCurrent(operationContext)) throw new Error("Company, access, or demo context changed during Apply.");
+      };
+      const guardedCallbacks: CombinedOperationsWorkbookApplyCallbacks = {
+        ...(callbacks.projects ? { projects: { applyGroup: async (group) => {
+          assertContextCurrent();
+          await callbacks.projects!.applyGroup(group);
+          assertContextCurrent();
+        } } } : {}),
+        ...(callbacks.expenses ? { expenses: { saveExpense: async (expense) => {
+          assertContextCurrent();
+          await callbacks.expenses!.saveExpense(expense);
+          assertContextCurrent();
+        } } } : {}),
+        ...(callbacks.procurement ? { procurement: {
+          saveRFQ: async (...args) => {
+            assertContextCurrent();
+            await callbacks.procurement!.saveRFQ(...args);
+            assertContextCurrent();
+          },
+          savePurchaseOrder: async (...args) => {
+            assertContextCurrent();
+            await callbacks.procurement!.savePurchaseOrder(...args);
+            assertContextCurrent();
+          },
+        } } : {}),
+      };
+      const result = await applyCombinedOperationsWorkbookDomain(domain, latest, guardedCallbacks, proposalIds);
+      if (!contextSnapshotIsCurrent(operationContext)) throw new Error("Company, access, or demo context changed during Apply.");
       const after = await latestContext();
+      if (!contextSnapshotIsCurrent(operationContext)) throw new Error("Company, access, or demo context changed during Apply.");
       const refreshedDomain = refreshCombinedOperationsWorkbookDomainReview(result.domainReview, after);
-      updateDomainReview(refreshedDomain);
+      updateDomainReview(refreshedDomain, operationContext);
       setSelectedByDomain((current) => ({ ...current, [domain.id]: [] }));
       setConfirmedByDomain((current) => ({ ...current, [domain.id]: false }));
       setNotice(`Applied ${result.appliedProposalIds.length} reviewed change${result.appliedProposalIds.length === 1 ? "" : "s"} in ${domainTitle(domain)}.`);
     } catch (nextError) {
+      if (!contextSnapshotIsCurrent(operationContext)) {
+        setReviewSnapshot(null);
+        setSelectedByDomain(EMPTY_SELECTION);
+        setConfirmedByDomain(EMPTY_CONFIRMATION);
+        setError("Company, access, or demo context changed while Apply was running. The review was cleared; refresh the intended company before importing again.");
+        return;
+      }
+      let refreshFailure = false;
+      let deselectedCount = 0;
       try {
         const latest = await latestContext();
-        updateDomainReview(refreshCombinedOperationsWorkbookDomainReview(domain, latest));
+        if (!contextSnapshotIsCurrent(operationContext)) {
+          setReviewSnapshot(null);
+          setSelectedByDomain(EMPTY_SELECTION);
+          setConfirmedByDomain(EMPTY_CONFIRMATION);
+          setError("Company, access, or demo context changed while Apply was running. The review was cleared; refresh the intended company before importing again.");
+          return;
+        }
+        const refreshedDomain = refreshCombinedOperationsWorkbookDomainReview(domain, latest);
+        updateDomainReview(refreshedDomain, operationContext);
+        const retained = retainApplicableCombinedOperationsWorkbookProposalIds(refreshedDomain, proposalIds);
+        deselectedCount = proposalIds.length - retained.length;
+        setSelectedByDomain((current) => ({ ...current, [domain.id]: retained }));
       } catch {
-        // Keep the original review available when a refresh itself is unavailable.
+        if (!contextSnapshotIsCurrent(operationContext)) {
+          setReviewSnapshot(null);
+          setSelectedByDomain(EMPTY_SELECTION);
+          setConfirmedByDomain(EMPTY_CONFIRMATION);
+          setError("Company, access, or demo context changed while Apply was running. The review was cleared; refresh the intended company before importing again.");
+          return;
+        }
+        refreshFailure = true;
+        setReviewSnapshot(null);
+        setSelectedByDomain(EMPTY_SELECTION);
       }
       setConfirmedByDomain((current) => ({ ...current, [domain.id]: false }));
-      setError(nextError instanceof Error ? nextError.message : `Could not apply ${domainTitle(domain)} changes.`);
+      const applyMessage = nextError instanceof Error ? nextError.message : `Could not apply ${domainTitle(domain)} changes.`;
+      setError(refreshFailure
+        ? `${applyMessage} Current data could not be refreshed, so the review was closed. Import again before retrying.`
+        : `${applyMessage} The review now reflects current domain data${deselectedCount ? `; ${deselectedCount} no-longer-applicable proposal(s) were removed from selection` : ""}. Confirm again before retrying any remaining safe proposals.`);
     } finally {
       setBusy(false);
     }
@@ -360,17 +461,38 @@ export function OperationsWorkbookTransfer({
             <h3 className="text-xs font-bold text-slate-900">Review: {review.fileName || "Combined workbook"}</h3>
             {review.workbookWarnings.map((warning) => <p key={warning} className="mt-1 text-[11px] text-slate-600">{warning}</p>)}
           </div>
-          <button type="button" onClick={() => { setReview(null); setSelectedByDomain(EMPTY_SELECTION); setConfirmedByDomain(EMPTY_CONFIRMATION); setNotice("Review closed."); }} disabled={busy} className="min-h-8 rounded-md border border-slate-300 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel review</button>
+          <button type="button" onClick={() => { setReviewSnapshot(null); setSelectedByDomain(EMPTY_SELECTION); setConfirmedByDomain(EMPTY_CONFIRMATION); setNotice("Review closed."); }} disabled={busy} className="min-h-8 rounded-md border border-slate-300 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel review</button>
         </div>
         {visibleDomains.map((domain) => {
           const selected = selectedByDomain[domain.id];
           const callbackReady = callbackForDomain(domain.id, callbacks);
           const actionable = domain.state === "READY" && domain.canWrite && callbackReady && !demoMode;
+          const unchangedProposals = domain.proposals.filter((proposal) => proposal.status === "UNCHANGED");
+          const changedProposals = domain.proposals.filter((proposal) => proposal.status !== "UNCHANGED");
+          const renderProposal = (proposal: CombinedOperationsWorkbookProposal) => <article key={proposal.id} className="rounded-md border border-slate-200 p-2.5" data-combined-workbook-proposal={proposal.id}>
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="checkbox" checked={selected.includes(proposal.id)} onChange={() => toggleProposal(domain.id, proposal.id)} disabled={!actionable || !proposal.canApply || busy} aria-label={`Select ${domain.label}: ${proposal.label}`} />
+              <span className="break-words font-mono text-xs font-semibold text-slate-900">{proposal.label}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusClass(proposal.status)}`}>{proposal.status}</span>
+            </div>
+            {proposal.messages.map((message, index) => <p key={`${proposal.id}:message:${index}`} className="mt-1 text-[11px] text-slate-600">{message}</p>)}
+            {proposal.changes.length > 0 && <div className="mt-2 overflow-x-auto">
+              <table className="min-w-full text-left text-[11px]">
+                <thead className="border-b border-slate-100 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-2 py-1">Field</th><th className="px-2 py-1">Current</th><th className="px-2 py-1">Workbook</th><th className="px-2 py-1">Result</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">{proposal.changes.map((change, index) => <tr key={`${proposal.id}:change:${index}`}>
+                  <td className="px-2 py-1 font-semibold text-slate-700">{change.field}</td>
+                  <td className="max-w-48 break-words px-2 py-1 text-slate-600">{formatReviewValue(change.currentValue)}</td>
+                  <td className="max-w-48 break-words px-2 py-1 text-slate-900">{formatReviewValue(change.workbookValue)}</td>
+                  <td className={`px-2 py-1 font-semibold ${change.editable ? "text-emerald-700" : "text-rose-700"}`}>{change.editable ? "Change" : "Protected"}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>}
+          </article>;
           return <details key={domain.id} open className="rounded-md border border-slate-200 bg-white" data-combined-workbook-domain={domain.id}>
             <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
               <span className="text-xs font-bold text-slate-900">{domain.label}</span>
               <span className="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-600">
-                {domain.state === "READY" && <span>{domain.proposals.length} proposal(s) · {domain.changeCount} changed field(s)</span>}
+                {domain.state === "READY" && <span>{domain.proposals.length} proposal(s) · {domain.changeCount} changed field(s){unchangedProposals.length ? ` · ${unchangedProposals.length} unchanged` : ""}</span>}
                 {domain.state === "READY" && domain.omittedRowCount > 0 && <span>{domain.omittedRowCount} omitted row(s) preserved</span>}
                 <span className={`rounded-full px-2 py-0.5 ${domain.state === "READY" ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-700"}`}>{statusLabel(domain.state)}</span>
               </span>
@@ -379,25 +501,11 @@ export function OperationsWorkbookTransfer({
               {domain.workbookWarnings.map((warning) => <p key={warning} className="rounded-md bg-amber-50 px-2.5 py-2 text-[11px] font-medium text-amber-900">{warning}</p>)}
               {domain.sheetIssues.map((issue) => <p key={issue.sheetName} role="status" className="rounded-md bg-slate-50 px-2.5 py-2 text-[11px] font-medium text-slate-700">{issue.message}</p>)}
               {domain.state === "READY" && domain.proposals.length === 0 && <p className="text-xs text-slate-600">No records to review in this section.</p>}
-              {domain.proposals.map((proposal: CombinedOperationsWorkbookProposal) => <article key={proposal.id} className="rounded-md border border-slate-200 p-2.5" data-combined-workbook-proposal={proposal.id}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input type="checkbox" checked={selected.includes(proposal.id)} onChange={() => toggleProposal(domain.id, proposal.id)} disabled={!actionable || !proposal.canApply || busy} aria-label={`Select ${domain.label}: ${proposal.label}`} />
-                  <span className="break-words font-mono text-xs font-semibold text-slate-900">{proposal.label}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusClass(proposal.status)}`}>{proposal.status}</span>
-                </div>
-                {proposal.messages.map((message, index) => <p key={`${proposal.id}:message:${index}`} className="mt-1 text-[11px] text-slate-600">{message}</p>)}
-                {proposal.changes.length > 0 && <div className="mt-2 overflow-x-auto">
-                  <table className="min-w-full text-left text-[11px]">
-                    <thead className="border-b border-slate-100 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-2 py-1">Field</th><th className="px-2 py-1">Current</th><th className="px-2 py-1">Workbook</th><th className="px-2 py-1">Result</th></tr></thead>
-                    <tbody className="divide-y divide-slate-100">{proposal.changes.map((change, index) => <tr key={`${proposal.id}:change:${index}`}>
-                      <td className="px-2 py-1 font-semibold text-slate-700">{change.field}</td>
-                      <td className="max-w-48 break-words px-2 py-1 text-slate-600">{formatReviewValue(change.currentValue)}</td>
-                      <td className="max-w-48 break-words px-2 py-1 text-slate-900">{formatReviewValue(change.workbookValue)}</td>
-                      <td className={`px-2 py-1 font-semibold ${change.editable ? "text-emerald-700" : "text-rose-700"}`}>{change.editable ? "Change" : "Protected"}</td>
-                    </tr>)}</tbody>
-                  </table>
-                </div>}
-              </article>)}
+              {changedProposals.map(renderProposal)}
+              {unchangedProposals.length > 0 && <details className="rounded-md border border-slate-200 bg-slate-50" data-combined-workbook-unchanged-count={unchangedProposals.length}>
+                <summary className="cursor-pointer px-2.5 py-2 text-[11px] font-semibold text-slate-600">Show {unchangedProposals.length} unchanged record{unchangedProposals.length === 1 ? "" : "s"}</summary>
+                <div className="space-y-2 border-t border-slate-200 p-2">{unchangedProposals.map(renderProposal)}</div>
+              </details>}
               {domain.state === "READY" && <div className="border-t border-slate-100 pt-3">
                 {actionable && <label className="flex items-start gap-2 text-[11px] text-slate-700">
                   <input type="checkbox" className="mt-0.5" checked={confirmedByDomain[domain.id]} onChange={(event) => setConfirmedByDomain((current) => ({ ...current, [domain.id]: event.currentTarget.checked }))} disabled={!selected.length || busy} />

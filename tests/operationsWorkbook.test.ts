@@ -41,6 +41,22 @@ test("exports and parses typed cells with hidden synchronization metadata", () =
   assert.deepEqual(parsed.sheets.Records.headers, schema.sheets[0].headers);
 });
 
+test("formula-like business text round-trips as a literal string without creating a formula cell", () => {
+  const formulaLikeText = `=SUM(1,1) O'Connell`;
+  const artifact = exportOperationsWorkbook({
+    schema,
+    metadata: { reference: formulaLikeText },
+    sheets: [{ name: "Records", rows: [{ "Record ID": "record-1", Quantity: 12.5, Date: "2026-09-27", Description: formulaLikeText }] }],
+  });
+  const workbook = XLSX.read(artifact.bytes, { type: "array", cellFormula: true });
+  const cell = workbook.Sheets.Records?.D2 as { v?: unknown; f?: string } | undefined;
+  assert.equal(cell?.v, formulaLikeText);
+  assert.equal(cell?.f, undefined);
+  const parsed = parseOperationsWorkbook(artifact.bytes, { schema });
+  assert.equal(parsed.sheets.Records.rows[0]?.Description, formulaLikeText);
+  assert.equal(parsed.metadata.reference, formulaLikeText);
+});
+
 test("fingerprints are deterministic across object key order and change with values", () => {
   assert.equal(fingerprintValue({ b: 2, a: 1 }), fingerprintValue({ a: 1, b: 2 }));
   assert.notEqual(fingerprintValue({ a: 1 }), fingerprintValue({ a: 2 }));

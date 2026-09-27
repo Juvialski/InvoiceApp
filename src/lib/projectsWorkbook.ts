@@ -481,7 +481,8 @@ function projectProposal(
     if (next) protectedChanges.push(next);
   }
   proposal.changes = [...editableChanges, ...protectedChanges];
-  const workbookChanged = proposal.changes.length > 0;
+  const workbookChanged = [...editableChanges, ...protectedChanges]
+    .some((candidate) => !equalValue(candidate.workbookValue, candidate.exportedValue));
   if (protectedChanges.length > 0) {
     proposal.status = "UNSUPPORTED_PROTECTED_FIELD";
     proposal.messages.push("One or more protected lifecycle, currency, or derived financial fields changed in the workbook.");
@@ -611,7 +612,7 @@ export function buildProjectsImportReview(
     const changes = costCodeChangesForRow(row, code, meta, context);
     proposal.costCodeChanges.push(...changes);
     const protectedChange = changes.some((candidate) => !candidate.editable);
-    const codeWorkbookChanged = changes.length > 0;
+    const codeWorkbookChanged = changes.some((candidate) => !equalValue(candidate.workbookValue, candidate.exportedValue));
     const projectState = projectStates.get(parentId);
     if (projectState) {
       projectState.workbookChanged ||= codeWorkbookChanged;

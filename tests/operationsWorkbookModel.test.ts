@@ -272,9 +272,12 @@ test("Procurement workbook tabs require read permission and stay read-only witho
 
 test("combined workbook review state is cleared when company or permission context changes", () => {
   const transferSource = readFileSync(new URL("../src/app/routes/OperationsWorkbookTransfer.tsx", import.meta.url), "utf8");
+  assert.match(transferSource, /const currentContextKey = operationsWorkbookContextKey\(companyId, permissions, demoMode\);/);
+  assert.match(transferSource, /contextSnapshotRef\.current\.contextKey !== currentContextKey[\s\S]*?generation: contextSnapshotRef\.current\.generation \+ 1/);
+  assert.match(transferSource, /combinedWorkbookReviewForContext\(reviewSnapshot, currentContextKey, currentContextGeneration\)/);
   assert.match(
     transferSource,
-    /useEffect\(\(\) => \{[\s\S]*?setReview\(null\);[\s\S]*?setSelectedByDomain\(EMPTY_SELECTION\);[\s\S]*?setConfirmedByDomain\(EMPTY_CONFIRMATION\);[\s\S]*?\}, \[companyId, demoMode, permissionSnapshotKey\]\);/,
+    /useEffect\(\(\) => \{[\s\S]*?setReviewSnapshot\(null\);[\s\S]*?setSelectedByDomain\(EMPTY_SELECTION\);[\s\S]*?setConfirmedByDomain\(EMPTY_CONFIRMATION\);[\s\S]*?\}, \[currentContextKey\]\);/,
   );
   const routeSource = readFileSync(new URL("../src/app/routes/OperationsWorkbookRoute.tsx", import.meta.url), "utf8");
   assert.match(routeSource, /key=\{`\$\{currentContextKey\}:\$\{selectedSheet\.id\}:\$\{editorRevision\}`\}/);

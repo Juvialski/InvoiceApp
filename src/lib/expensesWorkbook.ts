@@ -623,17 +623,22 @@ function expenseProposal(
     if (next) protectedChanges.push(next);
   }
 
-  proposal.changes = [...editableChanges, ...protectedChanges];
-  const workbookChanged = proposal.changes.length > 0;
+  const workbookChanges = editableChanges.filter((candidate) => !equalValue(candidate.workbookValue, candidate.exportedValue));
+  const outstandingWorkbookChanges = workbookChanges.filter((candidate) => !equalValue(candidate.currentValue, candidate.workbookValue));
+  proposal.changes = [...outstandingWorkbookChanges, ...protectedChanges];
+  const workbookChanged = workbookChanges.length > 0 || protectedChanges.length > 0;
   if (protectedChanges.length > 0 || (!editable && workbookChanged)) {
     if (protectedChanges.length > 0) proposal.messages.push("One or more protected Expense, lifecycle, source, or settlement fields changed.");
     if (!editable && workbookChanged && protectedChanges.length === 0) proposal.messages.push("Only direct, unlinked DRAFT Expenses can be edited through this workbook.");
     if (proposal.status !== "INVALID" && proposal.status !== "UNKNOWN_REFERENCE") proposal.status = "UNSUPPORTED_PROTECTED_FIELD";
   } else if (proposal.status === "INVALID" || proposal.status === "UNKNOWN_REFERENCE") {
     // Keep the validation status.
-  } else if (workbookChanged && appChanged) {
+  } else if (workbookChanged && appChanged && outstandingWorkbookChanges.length > 0) {
     proposal.status = "STALE_CONFLICT";
     proposal.messages.push("The Expense changed in HydroQualiSense after export and the workbook also proposes changes.");
+  } else if (workbookChanged && appChanged) {
+    proposal.status = "APP_ONLY_CHANGE";
+    proposal.messages.push("The workbook values already match the current Expense. No Apply is needed.");
   } else if (workbookChanged) {
     proposal.status = "WORKBOOK_ONLY_CHANGE";
   } else if (appChanged) {

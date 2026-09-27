@@ -363,6 +363,48 @@ test("read-only context cannot apply and Apply revalidates before calling the au
   await assert.rejects(() => applyExpensesImport(review, context({ expenses: [changedDirectExpense(), ...records().expenses.slice(1)] }), { saveExpense: async () => {} }, [proposalFor(review, DIRECT_EXPENSE_ID).id]), /stale|changed/i);
 });
 
+test("Expense Apply stays sequential and a retry starts from the authoritative partial result", async () => {
+  const secondExpenseId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2";
+  const secondExpense = expense({ id: secondExpenseId, description: "Second direct Expense" });
+  const initialRecords = records({ expenses: [expense(), secondExpense, ...records().expenses.slice(1)] });
+  const initialContext: ExpensesImportContext = { ...initialRecords, canWrite: true };
+  let bytes = exportedBytes(initialRecords);
+  bytes = setExpenseCells(bytes, { Description: "First workbook update" }, 0);
+  bytes = setExpenseCells(bytes, { Description: "Second workbook update" }, 1);
+  const review = buildExpensesImportReview(bytes, initialContext);
+  const selected = [proposalFor(review, DIRECT_EXPENSE_ID), proposalFor(review, secondExpenseId)].map((proposal) => proposal.id);
+  let authoritative = [...initialRecords.expenses];
+  const firstAttemptIds: string[] = [];
+  await assert.rejects(() => applyExpensesImport(review, initialContext, {
+    saveExpense: async (next) => {
+      firstAttemptIds.push(next.id);
+      if (next.id === secondExpenseId) throw new Error("simulated later Expense save failure");
+      authoritative = authoritative.map((current) => current.id === next.id ? { ...next, updatedAt: NEXT_UPDATED_AT } : current);
+    },
+  }, selected), /simulated later Expense save failure/);
+  assert.deepEqual(firstAttemptIds, [DIRECT_EXPENSE_ID, secondExpenseId]);
+
+  const refreshedContext: ExpensesImportContext = { ...initialRecords, expenses: authoritative, canWrite: true };
+  const refreshedReview = buildExpensesImportReview(bytes, refreshedContext);
+  assert.equal(proposalFor(refreshedReview, DIRECT_EXPENSE_ID).status, "APP_ONLY_CHANGE");
+  assert.equal(proposalFor(refreshedReview, DIRECT_EXPENSE_ID).canApply, false);
+  const retryProposal = proposalFor(refreshedReview, secondExpenseId);
+  assert.equal(retryProposal.status, "WORKBOOK_ONLY_CHANGE");
+  assert.equal(retryProposal.canApply, true);
+
+  const retryCalls: string[] = [];
+  const retryResult = await applyExpensesImport(refreshedReview, refreshedContext, {
+    saveExpense: async (next) => {
+      retryCalls.push(next.id);
+      authoritative = authoritative.map((current) => current.id === next.id ? { ...next, updatedAt: "2026-09-22T00:00:00.000Z" } : current);
+    },
+  }, [retryProposal.id]);
+  assert.deepEqual(retryCalls, [secondExpenseId]);
+  assert.deepEqual(retryResult.appliedProposalIds, [retryProposal.id]);
+  assert.equal(authoritative.find((current) => current.id === DIRECT_EXPENSE_ID)?.description, "First workbook update");
+  assert.equal(authoritative.find((current) => current.id === secondExpenseId)?.description, "Second workbook update");
+});
+
 test("real XLSX round trip re-exports the authoritative applied direct Expense state", async () => {
   let authoritative = records().expenses.map((item) => ({ ...item }));
   const edited = setExpenseCells(exportExpensesWorkbook(records()).bytes, { Description: "Authoritative re-export" }, 0);

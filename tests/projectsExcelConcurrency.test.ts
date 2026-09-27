@@ -48,8 +48,8 @@ test("controller and page callback shapes preserve explicit expected versions", 
   const projectsPage = source("src/components/projects/ProjectsPage.tsx");
   const app = source("src/App.tsx");
   assert.match(procurementController, /expectedUpdatedAt\??: string/);
-  assert.match(procurementController, /savePurchaseOrder\(po, lines, expectedUpdatedAt \|\| po\.updatedAt\)/);
-  assert.match(procurementController, /saveRFQ\(rfq, lines, invitedVendorIds, expectedUpdatedAt \|\| rfq\.updatedAt\)/);
+  assert.match(procurementController, /savePurchaseOrder\(po, lines, expectedUpdatedAt \|\| po\.updatedAt, preserveCurrentLines\)/);
+  assert.match(procurementController, /saveRFQ\(rfq, lines, invitedVendorIds, expectedUpdatedAt \|\| rfq\.updatedAt, preserveCurrentLines\)/);
   assert.match(projectsController, /saveProjectToSupabase\(project, previous\?\.updatedAt\)/);
   assert.match(procurementPage, /expectedUpdatedAt\??: string/);
   assert.match(projectsPage, /onSaveProject: \(project: Project\) => Promise<void> \| void/);
