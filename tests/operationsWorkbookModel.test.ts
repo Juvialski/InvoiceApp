@@ -162,7 +162,8 @@ test("combined workbook review state is cleared when company or permission conte
   );
   const routeSource = readFileSync(new URL("../src/app/routes/OperationsWorkbookRoute.tsx", import.meta.url), "utf8");
   assert.match(routeSource, /key=\{`\$\{currentContextKey\}:\$\{selectedSheet\.id\}:\$\{editorRevision\}`\}/);
-  assert.match(routeSource, /previousContextKeyRef\.current === currentContextKey[\s\S]*?setCellIssues\(\{\}\);[\s\S]*?setFeedback\(null\)/);
+  assert.match(routeSource, /previousContextKeyRef\.current === currentContextKey[\s\S]*?stagedEditsRef\.current = false;[\s\S]*?setCellIssues\(\{\}\);[\s\S]*?setFeedback\(null\)/);
+  assert.match(routeSource, /stagedEditsRef\.current[\s\S]*?Save or discard your worksheet edits before switching sheets/);
 });
 
 test("write access is separate from read access and workbook metadata cannot enable production writes", () => {
