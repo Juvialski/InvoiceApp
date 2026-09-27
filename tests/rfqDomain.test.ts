@@ -63,6 +63,29 @@ test("rfqDomain: preserves line item ordering strictly as 1..N", async () => {
   assert.equal(rfq.lines?.[2].lineNumber, 3);
 });
 
+test("rfqDomain: header-only draft save preserves RFQ lines and invitation history", async () => {
+  const rfq = await saveRFQ(
+    { rfqNumber: "rfq-header-only", title: "Original title" },
+    [{ description: "Preserved line", quantity: 5, notes: "Line note" }],
+    ["vendor-header-only"],
+  );
+  const lines = structuredClone(rfq.lines);
+  const invitations = structuredClone(rfq.invitedVendors);
+  const saved = await saveRFQ(
+    { ...rfq, title: "Updated title" },
+    rfq.lines || [],
+    undefined,
+    rfq.updatedAt,
+    true,
+  );
+
+  assert.equal(saved.title, "Updated title");
+  assert.ok(saved.updatedAt);
+  assert.deepEqual(saved.lines, JSON.parse(JSON.stringify(lines)));
+  assert.deepEqual(saved.invitedVendors, JSON.parse(JSON.stringify(invitations)));
+  assert.deepEqual(saved.invitedVendorIds, rfq.invitedVendorIds);
+});
+
 test("rfqDomain: validates required header and line fields on save", async () => {
   await assert.rejects(
     async () => {

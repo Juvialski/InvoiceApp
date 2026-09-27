@@ -136,7 +136,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Manage purchase orders and receipts, requests for quotation, supplier quotations, supplier selection, and controlled project-linked procurement workbooks.",
     details: [
       "Track purchase commitments and received quantities, with supplier invoice matching available in the review workflow.",
-      "Edit ordinary RFQ and Purchase Order drafts in structured worksheet surfaces while calculated amounts, received quantities, lifecycle, approval, issue, and settlement actions remain protected or purpose-built.",
+      "In the Operations Workbook, users with Procurement read and manage access can edit the Title and Due Date of an existing draft RFQ and the Description of an existing draft Purchase Order. Record numbers, lines, totals, linked suppliers and Projects, and lifecycle actions remain protected by the procurement workflow.",
       "After recording a receipt, continue to the exact Warehouse receipt context when explicit stock posting is required.",
       "Manage subcontracts, progress claims, and variations with their project context and history.",
       "Export RFQ and Purchase Order registers to a controlled workbook, review proposed draft updates and stale conflicts, and Apply permitted changes through the existing procurement workflow.",

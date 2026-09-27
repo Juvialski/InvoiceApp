@@ -743,6 +743,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
           purchaseOrders: purchaseOrders || [],
           projects,
           vendors: vendors || [],
+          expectedCompanyId: companyId || undefined,
         }}
         permissions={permissions}
         search={route.search}

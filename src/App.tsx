@@ -3653,8 +3653,30 @@ function InvoiceWorkspace() {
           onUnmatchPurchaseOrderMatch={handleUnmatchPurchaseOrderMatch}
           onOpenPurchaseOrder={(id) => navigateToPath(appPathForPurchaseOrder(id, appPathForTab(activeTab)))}
           onRefreshProcurement={async () => {
+            if (!session || !supabase || guestModeState) {
+              return {
+                purchaseOrders,
+                rfqs,
+                projects,
+                vendors,
+                expectedCompanyId: companyAccess.activeCompanyId || undefined,
+              };
+            }
+            if (!can(PERMISSION_KEYS.procurementRead)) {
+              throw new Error("Procurement read access is required to refresh Procurement rows.");
+            }
             const [freshPurchaseOrders, freshRfqs] = await Promise.all([fetchPurchaseOrders(), fetchRFQs()]);
-            return { purchaseOrders: freshPurchaseOrders, rfqs: freshRfqs, projects, vendors };
+            procurementController.applyWorkbookRecords({
+              purchaseOrders: freshPurchaseOrders,
+              rfqs: freshRfqs,
+            });
+            return {
+              purchaseOrders: freshPurchaseOrders,
+              rfqs: freshRfqs,
+              projects,
+              vendors,
+              expectedCompanyId: companyAccess.activeCompanyId || undefined,
+            };
           }}
           rfqs={rfqs}
           supplierQuotations={supplierQuotations}

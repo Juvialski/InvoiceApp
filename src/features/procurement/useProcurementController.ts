@@ -98,11 +98,13 @@ export interface ProcurementControllerOptions {
 
 export interface ProcurementController extends ProcurementWorkspaceData {
   applyWorkspaceData: (data: ProcurementWorkspaceData) => void;
+  applyWorkbookRecords: (data: Pick<ProcurementWorkspaceData, "purchaseOrders" | "rfqs">) => void;
   reset: () => void;
   savePurchaseOrder: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
     expectedUpdatedAt?: string,
+    preserveCurrentLines?: boolean,
   ) => Promise<void>;
   transitionPurchaseOrder: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   deletePurchaseOrder: (id: string) => Promise<void>;
@@ -148,6 +150,7 @@ export interface ProcurementController extends ProcurementWorkspaceData {
     lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
     invitedVendorIds?: string[],
     expectedUpdatedAt?: string,
+    preserveCurrentLines?: boolean,
   ) => Promise<void>;
   transitionRFQ: (id: string, targetStatus: RFQStatus, reason?: string) => Promise<void>;
   deleteRFQ: (id: string) => Promise<void>;
@@ -190,6 +193,11 @@ export function useProcurementController({
     setVendors(data.vendors);
   }, []);
 
+  const applyWorkbookRecords = useCallback((data: Pick<ProcurementWorkspaceData, "purchaseOrders" | "rfqs">) => {
+    setPurchaseOrders(data.purchaseOrders);
+    setRfqs(data.rfqs);
+  }, []);
+
   const reset = useCallback(() => {
     setPurchaseOrders([]);
     setSubcontracts([]);
@@ -206,12 +214,13 @@ export function useProcurementController({
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
     expectedUpdatedAt?: string,
+    preserveCurrentLines = false,
   ) => {
     try {
       if (remoteWorkspaceConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
         throw new Error("You do not have permission to create or edit purchase orders.");
       }
-      const saved = await savePurchaseOrder(po, lines, expectedUpdatedAt || po.updatedAt);
+      const saved = await savePurchaseOrder(po, lines, expectedUpdatedAt || po.updatedAt, preserveCurrentLines);
       setPurchaseOrders((previous) => {
         const index = previous.findIndex((item) => item.id === saved.id);
         const next = index >= 0 ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
@@ -601,10 +610,11 @@ export function useProcurementController({
     lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
     invitedVendorIds?: string[],
     expectedUpdatedAt?: string,
+    preserveCurrentLines = false,
   ) => {
     try {
       if (remoteWorkspaceConfigured && !can(PERMISSION_KEYS.procurementWrite)) throw new Error("You do not have permission to create or edit RFQs.");
-      const saved = await saveRFQ(rfq, lines, invitedVendorIds, expectedUpdatedAt || rfq.updatedAt);
+      const saved = await saveRFQ(rfq, lines, invitedVendorIds, expectedUpdatedAt || rfq.updatedAt, preserveCurrentLines);
       setRfqs((previous) => {
         const index = previous.findIndex((item) => item.id === saved.id);
         const next = index >= 0 ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
@@ -743,6 +753,7 @@ export function useProcurementController({
     supplierQuotations,
     vendors,
     applyWorkspaceData,
+    applyWorkbookRecords,
     reset,
     savePurchaseOrder: savePurchaseOrderHandler,
     transitionPurchaseOrder: transitionPurchaseOrderHandler,

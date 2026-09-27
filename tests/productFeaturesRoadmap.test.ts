@@ -59,6 +59,17 @@ test("supplier payment feature truth reflects the inline linked-Expense workflow
   assert.match(text, /direct, active DRAFT Expenses/);
 });
 
+test("Procurement roadmap explains the bounded Operations Workbook draft fields", () => {
+  const procurementFeature = getProductFeatureById("procurement");
+  assert.equal(procurementFeature?.status, "AVAILABLE");
+  const text = JSON.stringify(procurementFeature);
+  assert.match(text, /existing draft RFQ/);
+  assert.match(text, /Title and Due Date/);
+  assert.match(text, /existing draft Purchase Order/);
+  assert.match(text, /Description of an existing draft Purchase Order/);
+  assert.match(text, /Record numbers, lines, totals, linked suppliers and Projects/);
+});
+
 test("approved next and future items are explicit and do not imply unfinished access", () => {
   const templates = getProductFeatureById("company-document-templates");
   assert.equal(templates?.status, "AVAILABLE");

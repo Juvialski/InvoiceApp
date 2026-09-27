@@ -13,6 +13,7 @@ import {
   writeVendorsToLocal,
   saveVendor,
 } from "../src/lib/vendors.ts";
+import { clearCompanyContext, getActiveCompanyId, setActiveCompanyId } from "../src/lib/companyContext.ts";
 
 function createMockStorage(): Storage {
   const store = new Map<string, string>();
@@ -48,6 +49,61 @@ test("local storage PO persistence reads and writes correctly", () => {
   const loaded = readPurchaseOrdersFromLocal(storage);
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0].poNumber, "PO-LOCAL-001");
+});
+
+test("header-only local Purchase Order save preserves existing line identities and versions", async () => {
+  const storage = createMockStorage();
+  const previousCompanyId = getActiveCompanyId();
+  const previousStorage = (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage;
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
+  clearCompanyContext();
+  setActiveCompanyId("company-header-only");
+  try {
+    const po: PurchaseOrder = {
+      id: "po-header-only",
+      companyId: "company-header-only",
+      poNumber: "PO-HEADER-ONLY",
+      vendorId: "vendor-1",
+      projectId: "project-1",
+      currency: "PHP",
+      status: "DRAFT",
+      description: "Original description",
+      totalAmount: 25,
+      lines: [{
+        id: "po-line-header-only",
+        companyId: "company-header-only",
+        purchaseOrderId: "po-header-only",
+        lineNumber: 1,
+        description: "Preserved line",
+        quantity: 2,
+        unit: "pcs",
+        unitPrice: 12.5,
+        amount: 25,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      }],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-09-20T00:00:00.000Z",
+    };
+    writePurchaseOrdersToLocal([po], storage);
+    const saved = await savePurchaseOrder(
+      { ...po, description: "Updated description" },
+      po.lines || [],
+      po.updatedAt,
+      true,
+    );
+
+    assert.equal(saved.description, "Updated description");
+    assert.equal(saved.totalAmount, 25);
+    assert.equal(saved.lines?.[0]?.id, "po-line-header-only");
+    assert.equal(saved.lines?.[0]?.createdAt, "2026-01-01T00:00:00.000Z");
+    assert.equal(saved.lines?.[0]?.updatedAt, "2026-01-01T00:00:00.000Z");
+  } finally {
+    clearCompanyContext();
+    if (previousCompanyId) setActiveCompanyId(previousCompanyId);
+    if (previousStorage) Object.defineProperty(globalThis, "localStorage", { configurable: true, value: previousStorage });
+    else delete (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage;
+  }
 });
 
 test("local storage vendor persistence reads and writes correctly", () => {
