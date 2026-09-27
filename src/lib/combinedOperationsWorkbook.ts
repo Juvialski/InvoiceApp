@@ -82,7 +82,7 @@ const DOMAIN_DEFINITIONS = {
   expenses: {
     label: "Expenses / Supplier Payables",
     schema: EXPENSES_WORKBOOK_SCHEMA,
-    readAnyOf: [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite],
+    readAnyOf: [PERMISSION_KEYS.expensesRead],
     writeAnyOf: [PERMISSION_KEYS.expensesWrite],
   },
   procurement: {
@@ -101,7 +101,6 @@ const DOMAIN_DEFINITIONS = {
 export const COMBINED_OPERATIONS_WORKBOOK_READ_PERMISSIONS: readonly PermissionKey[] = Object.freeze([
   PERMISSION_KEYS.projectsRead,
   PERMISSION_KEYS.expensesRead,
-  PERMISSION_KEYS.expensesWrite,
   PERMISSION_KEYS.procurementRead,
 ]);
 
