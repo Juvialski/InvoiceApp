@@ -1,6 +1,6 @@
 # UX-EDIT-1 and Operations Workbook — Direction
 
-Status: **UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, AND WB-3C MERGED FOR RECORDED SCOPES / WB-CERT PR #271 OPEN / WB-3D+ DEFERRED**
+Status: **UX-EDIT-1A, WB-1, WB-2, WB-3A, WB-3B, WB-3C, AND WB-CERT MERGED FOR RECORDED SCOPES / REL-QA-WB-1 HOSTED CERTIFICATION IN PROGRESS, NOT COMPLETE / WB-3D+ DEFERRED**
 Date recorded: **2026-09-24**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -387,7 +387,17 @@ WB-3C closed RFQ and Purchase Order production-sheet onboarding for its recorded
 - Synchronized base `main` SHA: `32d30f15e8ed89c3dcca0e2249e05a0e21220b3a`
 - Implementation source commit: `b566795c96cf701d77a51150c95292f5cd24f6ef`
 - Pull request: [#271](https://github.com/Juvialski/InvoiceApp/pull/271)
-- Status: **PR #271 OPEN / WB-3D+ DEFERRED**
+- Status: **PR #271 MERGED as `32d59ec04afe09b653f6e210525f9094f26234a7` / WB-3D+ DEFERRED**
 - Certification record: `docs/HYDROQUALISENSE_OPERATIONS_WORKBOOK_CERTIFICATION.md`
 
 The combined `export -> edit -> import review -> domain Apply -> authoritative refresh` path is certified for the already supported Projects, Cost Codes, Direct Expenses, RFQ, and Purchase Order sheets. Existing Supplier Payables, RFQ Lines, PO Lines, synchronization metadata, and all three authoritative standalone workbook contracts remain in scope. No new production sheet, invoice editor, permission, persistence authority, migration, or workbook-wide transaction was added. See the certification record for tests, local Supabase evidence, visual captures, limitations, and Jev diagnostics.
+
+## 2026-09-28 — REL-QA-WB-1 Hosted QA certification follow-up
+
+- Base `main` and current QA app SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
+- Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`
+- Hosted QA migration history: **153/153 exact canonical version/name matches**; latest `20260927095636`.
+- Status: **CSP and route-readiness hardening implemented; combined authenticated workbook review/Apply certification remains blocked until the implementation is deployed to QA, route loading resolves, and the opt-in matrix passes.**
+- Evidence: `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md`.
+
+The manual Hosted QA run on the exact current `main` deployment authenticated and passed the deployment/migration identity checks, but all nine route checks remained on the app loading shell. Console evidence also showed the production Content Security Policy blocked the single inline theme bootstrap. The evidence does not prove that the CSP violation caused the full loading duration. The implementation allows only the exact SHA-256 of that existing script, teaches route readiness to keep loading shells unresolved, and adds a protected opt-in authenticated workbook matrix. No workbook sheet/domain or authority changed. The matrix has not been represented as run or passed; WB-3D+ remains deferred.

@@ -2,7 +2,7 @@
 
 Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 MERGED PR #263 / WB-3A MERGED PR #265 / WB-3B MERGED PR #267 / WB-3C MERGED PR #269 / WB-CERT COMPLETE FOR RECORDED SCOPE / WB-3D+ DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-27**
+Last updated: **2026-09-28**
 
 Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -32,6 +32,10 @@ Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 **Public-site brand separation plan:** `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md` — WEB-BRAND-1 implementation is recorded for repository scope; production company site and QA software showcase remain separate audiences
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
+
+## 2026-09-28 REL-QA-WB-1 — Authenticated Operations Workbook Hosted QA
+
+Status: **BOUNDED HARDENING IMPLEMENTED ON `codex/rel-qa-wb-1-hosted-workbook-cert`; HOSTED WORKBOOK CERTIFICATION IS NOT COMPLETE.** The current QA app is still at base `main` SHA `32d59ec04afe09b653f6e210525f9094f26234a7`. Authenticated route checks remained on the loading shell and separately recorded a production CSP violation for the inline theme bootstrap; the cause of the full loading duration is not yet established. The branch corrects the concrete CSP violation and makes route readiness fail closed on the shell, but that behavior awaits hosted rerun. QA migration history matches all **153/153** canonical repository migrations. No production writes or promotion occurred. See `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md`; WB-3D+ remains deferred.
 
 ## 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 
