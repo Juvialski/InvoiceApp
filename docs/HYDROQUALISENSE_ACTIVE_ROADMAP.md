@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE — UX-S3A + S3A2 COMPLETE / UX-S3B EVIDENCE CLOSED / UX-S3C IMPLEMENTED FOR RECORDED SCOPE / UX-S3D SUPPLIER INVOICE + CASH SETTLEMENT + PROCUREMENT LIFECYCLE + PAYROLL NORMAL-CYCLE SLICES IMPLEMENTED FOR RECORDED SCOPES / UX-S3E ACCESSIBILITY + RESPONSIVE + VISUAL CERTIFICATION COMPLETE FOR RECORDED LOCAL/DEMO SCOPE / REPOSITORY PROFESSIONALIZATION COMPLETE / UX-W1–UX-W5C IMPLEMENTED FOR RECORDED SCOPES / WIDE DOCUMENTS MANAGED FOUNDATION IMPLEMENTED / JEV V2A + V2B FOUNDATION COMPLETE / PROVIDER & RELEASE CERTIFICATION PARALLEL / UI-R4A + UI-R4B COMPLETE FOR RECORDED SCOPE / UI-R4C IMPLEMENTED FOR LOCAL/DEMO SCOPE / UI-R4D MERGED / REL-AUTH-1 MERGED, HOSTED RUNTIME TRIGGER STILL UNVERIFIED / UI-R4E MERGED / CI-EFF-1 MERGED / WEB-BRAND-1 MERGED; COMPANY CONTACT/PORTFOLIO VERIFICATION PENDING / REL-PAYROLL-2 MERGED / UI-PROJECTS-ACTION-1 MERGED PR #253 / WEB-QA-1 MERGED PR #254 / VIS-CANVA-1 VISUAL REFERENCE COMPLETE / LANDING-VIS-1 MERGED PR #258 / UX-EDIT-1A IMPLEMENTED FOR RECORDED SCOPE / CI-EFF-2 MERGED PR #260 / WB-1 MERGED PR #261 / WB-2 MERGED PR #263 / WB-3A MERGED PR #265 / WB-3B MERGED PR #267 / WB-3C MERGED PR #269 / WB-CERT COMPLETE FOR RECORDED SCOPE / REL-QA-WB-1 HOSTED CLOSEOUT IN PROGRESS / WB-3D+ DEFERRED**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / PROVIDER & RELEASE CERTIFICATION PARALLEL / REL-QA-WB-1 HOSTED CERTIFICATION COMPLETE FOR THE RECORDED SINGLE-COMPANY QA PROFILE AT SHA 44F92B9; PROFILE LIMITATIONS RECORDED / CI-EFF-3 PROTECTED CI AND RELEASE-ORCHESTRATION SCOPE HARDENING IMPLEMENTED FOR THIS PR / WB-3D+ DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-28**
 
@@ -43,6 +43,19 @@ Status: **COMPLETE FOR THE RECORDED SINGLE-COMPANY QA PROFILE; ALTERNATE PERMISS
 - The test updated only synthetic QA Project, Cost Code, direct DRAFT Expense, RFQ, and PO fields. It performed no lifecycle actions. Production was not queried or mutated, and no migration promotion occurred.
 
 See `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md` for the evidence and remaining profile limitations. No new customer-facing product phase is selected. The strongest prerequisite-bound follow-up is Wave 4D provider/readiness certification when safe credentials, device, and runtime are available. WB-3D+ remains deferred.
+
+## 2026-09-28 CI-EFF-3 — Protected CI / Release-Orchestration Scope Hardening
+
+Status: **IMPLEMENTED FOR THE RECORDED SCOPE; PR DELIVERY IN PROGRESS.** Base: `e699d9b90d6e63a1b3109d44c023719e0a3d5ffc`; branch: `codex/ci-eff-3-protected-scope-hardening`.
+
+- Demo Visual QA now ignores unrelated top-level `.github/workflows/*.yml` and `.yaml` changes on complete pull-request file lists. Added and removed workflow paths both fast-pass. A simultaneous mapped application path still selects its affected browser routes.
+- `.github/workflows/demo-visual-qa.yml`, browser runner/catalog/selector infrastructure, shared browser surfaces, unknown relevant paths, and invalid or incomplete file lists still run the full catalog. Documentation-only changes still skip.
+- The other protected classifiers were audited. Application Validation and Workflow Map already fast-passed unrelated workflow-only changes; regression coverage now locks that behavior while confirming mapped application/source changes remain heavy. The Database Migration workflow already matches only database, invariant-test, package, and its own workflow paths; no scope change was needed. Required protected check names and unconditional pull-request reporting are unchanged.
+- The reported mixed-currency scenario did not reproduce in one local run of its five-scenario Project Financial Control subset. The run passed **5/5** with zero browser console errors, page errors, or failed requests. Source inspection shows the Solar demo fixture is PHP-only and the scenario action checks for that PHP-only state, although its interaction label says “mixed-currency.” This label mismatch is recorded for follow-up; no product or scenario behavior change was made.
+- Focused classifier and Demo QA tests passed **41/41**. `npm.cmd run test:affected:agent` passed **135/135 across 16/395 files (4.1%, no fallback; DB unaffected)**. The focused run exposed a stale Operations Workbook catalog count; the assertion now reflects all **16** live workbook scenarios and checks the WB-3A/WB-3C laptop and phone entries.
+- The Jev context checkpoint preflight-rejected an empty candidate set (`candidateCount=0`, `requestCount=0`, `fallback=true`); deterministic source and test selection remained authoritative.
+- Current migration ledger: Production and QA each have **153/153** canonical migrations through `20260927095636_wb3c_header_only_procurement_saves`, with zero version/name divergence. This CI-efficiency phase made no QA or production changes.
+- Because this changes the browser selector infrastructure, the PR's exact-head `chromium-demo-qa` run must exercise the full catalog. No DB, financial, security, lifecycle, history, or product runtime contract changed.
 
 ## 2026-09-24 CI-EFF-1 — Protected CI Proportional Browser Execution
 

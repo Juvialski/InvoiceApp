@@ -16,14 +16,18 @@ test("every canonical active application route has demo browser smoke coverage",
 
 test("Operations Workbook demo QA covers its responsive matrix and safety interactions", () => {
   const workbookScenarios = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "operations-workbook");
-  assert.equal(workbookScenarios.length, 12);
+  assert.equal(workbookScenarios.length, 16);
   assert.deepEqual(new Set(workbookScenarios.map((scenario) => scenario.viewport.width)), new Set([1440, 1280, 768, 390]));
   assert.ok(workbookScenarios.some((scenario) => scenario.path === "/demo/app/workbook?sheet=payroll" && scenario.interactionState.includes("fallback")));
   assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("permission-filtered")));
   assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("editable and protected") && scenario.viewport.width === 1280));
   assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("editable and protected") && scenario.viewport.width === 390));
+  assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("WB-3A") && scenario.viewport.width === 1280));
+  assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("WB-3A") && scenario.viewport.width === 390));
   assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("WB-3B") && scenario.viewport.width === 1280));
   assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("WB-3B") && scenario.viewport.width === 390));
+  assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("WB-3C") && scenario.viewport.width === 1280));
+  assert.ok(workbookScenarios.some((scenario) => scenario.interactionState.includes("WB-3C") && scenario.viewport.width === 390));
   assert.ok(workbookScenarios.every((scenario) => typeof scenario.action === "function"));
 });
 
