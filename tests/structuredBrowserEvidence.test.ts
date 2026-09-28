@@ -94,6 +94,7 @@ test("demo scenario catalog is unique and covers the required product surfaces",
     "r4d-laptop-1280", "r4d-tablet-768",
     "r4e-desktop-1440", "r4e-laptop-1280", "r4e-tablet-768", "r4e-phone-390",
     "ux-edit-desktop-1440", "ux-edit-laptop-1280", "ux-edit-tablet-768", "ux-edit-phone-390",
+    "wb1-desktop-1440", "wb1-laptop-1280", "wb1-tablet-768", "wb1-phone-390",
   ]));
   const supplierInvoiceMatrix = DEMO_QA_SCENARIOS.filter((scenario) => scenario.feature === "supplier-invoice-ux-edit-1a");
   assert.deepEqual(new Set(supplierInvoiceMatrix.map((scenario) => scenario.viewport.name)), new Set([
