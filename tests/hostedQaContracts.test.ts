@@ -17,10 +17,12 @@ const DOCUMENT_ID = "d1234567-0000-4000-a000-000000000001";
 const REVISION_ID = "e1234567-0000-4000-a000-000000000001";
 
 test("hosted QA route readiness stays unresolved while app/auth/company access is loading", () => {
+  assert.equal(hostedQaRouteReadinessState("Loading Engineering Operations Platform..."), "loading");
   assert.equal(hostedQaRouteReadinessState("Loading HydroQualiSense…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Loading Hydroqualisense…"), "loading");
   assert.equal(hostedQaRouteReadinessState("LOADING HYDROQUALISENSE…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Loading company access…"), "loading");
+  assert.equal(hostedQaRouteReadinessState("Rechecking company access…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Checking your workspace session…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Loading workspace…"), "loading");
   assert.equal(hostedQaRouteReadinessState("QA ENVIRONMENT · SYNTHETIC DATA ONLY HydroQualiSense QA Synthetic"), "resolved");

@@ -16,7 +16,26 @@ on:
         description: Protected QA Render deployment identity.
         required: false
         type: string
+      run_operations_workbook_matrix:
+        default: false
+        description: Run the authenticated five-sheet Operations Workbook export/import/review/Apply matrix.
+        required: false
+        type: boolean
   workflow_dispatch:
+    inputs:
+      expected_repository_sha:
+        description: Exact application SHA already deployed to the isolated QA app.
+        required: true
+        type: string
+      expected_migration_level:
+        description: Exact repository migration level already verified in the QA database.
+        required: true
+        type: string
+      run_operations_workbook_matrix:
+        default: false
+        description: Run the authenticated five-sheet Operations Workbook export/import/review/Apply matrix.
+        required: false
+        type: boolean
 
 concurrency:
   group: hosted-qa-${{ github.ref }}
@@ -43,7 +62,7 @@ jobs:
       QA_E2E_STORAGE_PROBE: "1"
       QA_E2E_STORAGE_STATE_PATH: .qa-e2e/qa-storage-state.json
     steps:
-      - name: Checkout exact workflow SHA
+      - name: Checkout exact certified source SHA
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.expected_repository_sha || github.sha }}
@@ -82,6 +101,10 @@ jobs:
 
       - name: Run authenticated hosted QA certification
         run: npm run qa:hosted
+
+      - name: Run authenticated Operations Workbook matrix
+        if: ${{ always() && inputs.run_operations_workbook_matrix == true }}
+        run: npx tsx scripts/hosted-qa-workbook-certification.ts
 
       - name: Upload hosted QA evidence
         if: always()

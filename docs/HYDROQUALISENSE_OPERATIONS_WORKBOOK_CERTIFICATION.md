@@ -1,10 +1,12 @@
 # HydroQualiSense Operations Workbook — WB-CERT
 
-- Status: **WB-CERT implementation and local certification complete for the recorded scope; delivered through PR #271**
+- Status: **WB-CERT implementation and local certification complete for the recorded scope; PR #271 merged. Hosted authenticated certification is a separate REL-QA-WB-1 follow-up and is not complete.**
 - Synchronized base `main`: `32d30f15e8ed89c3dcca0e2249e05a0e21220b3a`
 - Implementation source commit: `b566795c96cf701d77a51150c95292f5cd24f6ef`
 - Branch: `codex/wb-cert-round-trip-certification`
 - Pull request: [#271](https://github.com/Juvialski/InvoiceApp/pull/271)
+- Merged to `main` as: `32d59ec04afe09b653f6e210525f9094f26234a7`
+- Hosted QA follow-up: `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md`
 
 ## Certified boundary
 
@@ -93,7 +95,9 @@ corpus were not run for WB-CERT.
 The browser evidence is local synthetic Demo Workspace evidence. It is not
 authenticated-company, hosted QA, provider, production, or release
 certification. The demo correctly keeps Apply disabled. No QA database promotion
-or production write was performed.
+or production write was performed. REL-QA-WB-1 is separately exercising the
+authenticated hosted boundary; its current findings and unverified workflow are
+recorded in `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md`.
 
 ## TypeSafe/Jev diagnostics
 

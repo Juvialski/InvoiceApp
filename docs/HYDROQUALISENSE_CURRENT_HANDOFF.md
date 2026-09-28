@@ -3187,7 +3187,28 @@ At WB-3C closeout, **WB-CERT — Full Round-trip Certification** was selected fo
 - Synchronized base `main` SHA: `32d30f15e8ed89c3dcca0e2249e05a0e21220b3a`
 - Implementation source commit: `b566795c96cf701d77a51150c95292f5cd24f6ef`
 - Pull request: [#271](https://github.com/Juvialski/InvoiceApp/pull/271)
-- Status: **LOCAL CERTIFICATION COMPLETE / DELIVERY PR #271 / WB-3D+ DEFERRED**
+- Status: **LOCAL CERTIFICATION COMPLETE / PR #271 MERGED as `32d59ec04afe09b653f6e210525f9094f26234a7` / WB-3D+ DEFERRED**
 - Durable certification record: `docs/HYDROQUALISENSE_OPERATIONS_WORKBOOK_CERTIFICATION.md`
 
 WB-CERT certifies the combined XLSX, its three existing standalone workbook contracts, review-before-Apply, current permission/company/demo context, protected fields, optimistic concurrency, sequential partial failure and retry, formatting round trips, and direct worksheet no-silent-loss behavior. It adds no production workbook domain, permission, schema, migration, or cross-domain transaction. The workbook phase remains bounded to existing sheets and supporting sheets; no Supplier Invoice sheet or editor was added. Exact-head PR checks are tracked by GitHub; this local handoff does not claim hosted or production certification.
+
+
+## 2026-09-28 — REL-QA-WB-1 Authenticated Operations Workbook Hosted QA
+
+- Base `main` SHA and QA app SHA at certification start: `32d59ec04afe09b653f6e210525f9094f26234a7`.
+- Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`; executable hardening commit: `1f7908292eb16985859df026ebd562ec51a0317f`.
+- Delivery pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272); exact-head protected CI status is tracked on GitHub.
+- QA mapping: Render `qa-hydroqualisense` -> Supabase `hydroqualisense-qa`, project ref `vrpuznofrntyqsbugrib`.
+- Migration parity: **153/153** canonical version/name matches; latest `20260927095636`. No migration promotion was needed or performed.
+- Status: **implementation and local validation complete; hosted combined workbook review/Apply matrix is unverified because the deployed QA application on the exact base SHA remained on its loading shell. No production write or promotion occurred.**
+- Durable evidence: `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md`.
+
+The authenticated Hosted QA run was GitHub Actions run [36356618577](https://github.com/Juvialski/InvoiceApp/actions/runs/36356618577). QA health identified the correct environment/deployment/SHA/migration state. The auth preflight verified persisted session recovery across reload and fresh protected navigation, and the Storage probe passed. General route checks were 0/9: captured pages remained on “Loading Engineering Operations Platform...”; nine console errors included the production CSP blocking the inline theme script. Page errors and failed requests were zero. The branch now allows only the exact SHA-256 of that theme bootstrap, treats initial and rechecking company-access shells as unresolved, and provides a manually opt-in authenticated workbook matrix. The cause of the full loading duration is not established, and these fixes have not been deployed to QA.
+
+The QA account used only synthetic QA records. A direct DRAFT Expense (`REL-QA-WB-1 synthetic direct draft Expense`) was edited through the existing worksheet and survived reload; a DRAFT PO (`PO-26-6630`, synthetic ₱1.00 PHP line) was created through the existing Procurement workflow. Neither record was approved, issued, received, settled, or otherwise advanced. The pending matrix targets the five existing edit sheets and checks stale Expense version rejection, protected lifecycle/source/settlement values, RFQ/PO line preservation, deliberate domain Apply, authoritative export values, and cropped laptop/phone review captures.
+
+**Not certified in this run:** combined XLSX upload/review/Apply, alternate read/manage-only profiles, company-context changes, partial sequential failure/retry, and real terminal auth expiry. The REL-AUTH-1 verification trigger was not reproduced; an ordinary authenticated reload succeeded. CUA's local file chooser continued to report Chrome extension file-URL access unavailable even after the user enabled it for Profile Al and restarted the extension. The browser security policy blocked extension-settings navigation, so no workaround was attempted. The optional GitHub-hosted Playwright matrix is the approved upload path, but it has not run against an app with the branch changes. Direct worksheet viewport checks at 1280×800 and 390×844 showed no whole-page horizontal overflow; those were not combined import-review screenshots, were not persisted, and do not count as combined-workbook visual certification.
+
+The protected Hosted QA migration history was read-only and exactly matched the repository. No database schema, RLS, RPC, permission, or migration changed. Local validation passed **16/16 focused tests**, **97/97 affected tests across 16/395 files (4.1%, no fallback)**, lint/typecheck, Workflow Map validation (**266 nodes / 355 edges**) and consistency (**266 nodes / 355 edges / 36 invariants / 11 diagrams**). The build passed after the CSP source change with existing non-blocking Inter font, bundle-size, and CommonJS `import.meta` warnings; later edits only changed hosted-QA scripts, tests, and workflow wiring. Exact-head protected CI for the final PR head remains a delivery check.
+
+WB-CERT's local/synthetic completion remains valid for its recorded scope. REL-QA-WB-1 is **not complete** until the implementation is deployed to the mapped QA app, the loading shell is resolved, and the authenticated matrix, screenshots, and assertions are inspected and recorded. WB-3D+ remains deferred.

@@ -8,8 +8,10 @@ import { normalizeErrorMessage, redactSensitiveText } from "./structuredEvidence
 export const HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS = 30_000;
 export const HOSTED_QA_ROUTE_READINESS_POLL_MS = 100;
 export const HOSTED_QA_ROUTE_LOADING_MARKERS = [
+  "Loading Engineering Operations Platform",
   "Loading HydroQualiSense",
   "Loading company access",
+  "Rechecking company access",
   "Checking your workspace session",
   "Loading workspace",
 ] as const;
