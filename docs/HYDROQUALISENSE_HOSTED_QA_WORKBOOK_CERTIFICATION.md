@@ -1,9 +1,9 @@
 # HydroQualiSense Hosted QA Operations Workbook Certification — REL-QA-WB-1
 
-- Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; EXACT-SHA RUN 36408195369 PASSED AUTHENTICATED ROUTES 9/9 AND REVIEW CHECKS, THEN PROCUREMENT APPLY FAILED BECAUSE THE IMPORTER OMITTED THE EXPORTED `updatedAt` PRECONDITION. THE QA-SIDE RPC FAIL-CLOSED; PROJECT, COST CODE, AND DRAFT EXPENSE CHANGES HAD ALREADY SAVED. A SOURCE FIX AND REGRESSION COVERAGE ARE ON THE CURRENT BRANCH; POST-FIX HOSTED VERIFICATION IS PENDING.**
+- Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; PR #282 FIXED THE PROCUREMENT VERSION-TOKEN DEFECT, BUT ITS PROTECTED QA RELEASE 36412892974 SKIPPED THE WORKBOOK MATRIX BECAUSE THE RELEASE CLASSIFIER DID NOT MATCH `src/lib/procurementWorkbook.ts`. AUTHENTICATED ROUTES PASSED 9/9 AT EXACT SHA `aacb40441984b5773e54a0f4dfc3f729d25baf5e`; THE WORKBOOK MATRIX MUST RUN AFTER THE CURRENT CLASSIFIER CORRECTION.**
 - Initial `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
-- Latest merged `main` and QA app SHA: `3a2320b94a2932132a4bad7ebae04110336542f6`
-- Current correction branch: `codex/rel-qa-wb-1-procurement-workbook-apply`
+- Latest merged `main` and QA app SHA: `aacb40441984b5773e54a0f4dfc3f729d25baf5e`
+- Current matrix-routing correction branch: `codex/rel-qa-wb-1-workbook-matrix-trigger`
 - Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`
 - Delivery pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272); exact-head protected CI status is tracked on GitHub.
 - Executable hardening commit: `1f7908292eb16985859df026ebd562ec51a0317f`
@@ -104,19 +104,19 @@ The matrices in runs 36364232002 and 36369354473 stopped at `prepare-stale-workb
 | Area | Result |
 | --- | --- |
 | QA target / deployment mapping | Verified: `qa-hydroqualisense` -> `vrpuznofrntyqsbugrib` |
-| App and migration identity | Run 36408195369 verified QA SHA `3a2320b94a2932132a4bad7ebae04110336542f6`; migration parity **153/153** through `20260927095636` |
+| App and migration identity | Run 36412892974 verified QA SHA `aacb40441984b5773e54a0f4dfc3f729d25baf5e`; migration parity **153/153** through `20260927095636` |
 | Auth preflight / ordinary session recovery | Passed persisted reload, fresh protected navigation, and unauthenticated protected-route check; no identity details persisted |
-| Hosted authenticated routes | Run 36408195369 passed **9/9** route contracts; 0 console errors, 0 page errors, 0 failed requests |
-| Hosted combined XLSX export/import/review/Apply | Export and parsing, stale-conflict review, protected-field classification, unchanged collapse, confirmation gating, and responsive checks passed. Procurement Apply stopped at the guarded save because the importer omitted the exported `updatedAt` token; the correction is locally validated and post-fix Hosted QA is pending |
+| Hosted authenticated routes | Run 36412892974 passed **9/9** route contracts; 0 console errors, 0 page errors, 0 failed requests |
+| Hosted combined XLSX export/import/review/Apply | Latest matrix run 36408195369 passed export/parsing and review checks, then Procurement Apply failed on the missing exported `updatedAt` token. PR #282 fixes it. Run 36412892974 did not execute the matrix because its changed-file classifier skipped the source path; post-classifier exact-SHA verification is pending |
 | Protected-field classification and authoritative post-Apply refresh | Protected-field classification passed; authoritative refresh and post-Apply line-preservation checks were not reached |
 | Supplier Payables permission boundary | Read-enabled export observed; no read-disabled profile available |
 | Company-context invalidation | Not exercised in the single-company QA deployment |
 | Partial sequential failure/retry | No safe deterministic hosted trigger available; not induced |
 | REL-AUTH-1 intermittent verification trigger | Not reproduced; ordinary reload succeeded; temporary verification state, terminal expiry, and invalidation of an existing review were not exercised |
-| Responsive combined import review | Run 36408195369 produced and the lead inspected review/Apply captures at 1280×800 and 390×844; the manifest reports no page-level overflow and Projects Apply reachable. The successful post-fix run still needs fresh screenshot inspection |
+| Responsive combined import review | Run 36408195369 produced and the lead inspected review/Apply captures at 1280×800 and 390×844; the manifest reports no page-level overflow and Projects Apply reachable. Fresh captures from a successful post-fix matrix are still required |
 | Production writes or migration promotion | None |
 
-The hosted matrix uses Playwright on the protected CI runner. Run 36408195369 reached stale-version review, workbook review, and responsive captures; it stopped at Procurement Apply before authoritative refresh or post-Apply line checks. No hosted workbook certification, provider certification, or production readiness is claimed by this record.
+The hosted matrix uses Playwright on the protected CI runner. Run 36408195369 reached stale-version review, workbook review, and responsive captures, then stopped at Procurement Apply before authoritative refresh or post-Apply line checks. Run 36412892974 passed authenticated routes but skipped the matrix due to release-path classification. No hosted workbook certification, provider certification, or production readiness is claimed by this record.
 
 ## Local implementation validation
 
@@ -133,4 +133,4 @@ The hosted matrix uses Playwright on the protected CI runner. Run 36408195369 re
 
 ## Completion gate
 
-REL-QA-WB-1 remains open. Run 36408195369 passed authenticated routes and workbook review checks, then failed when the Procurement save omitted the exported optimistic-concurrency token. The correction on `codex/rel-qa-wb-1-procurement-workbook-apply` must reach the standard exact-SHA Protected QA Release. Then the complete matrix must pass its protected-field, stale-version, Apply/refresh, and line-preservation assertions, and the successful run's **1280×800** and **390×844** review/Apply captures must be manually inspected. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.
+REL-QA-WB-1 remains open. PR #282 fixed the importer version-token defect, but Protected QA Release 36412892974 skipped the workbook matrix because `src/lib/procurementWorkbook.ts` was not in the classifier's matrix-trigger paths. The correction on `codex/rel-qa-wb-1-workbook-matrix-trigger` must reach the protected QA workflow and run the matrix on the exact merged SHA. Then verify protected fields, stale-version refusal, each Apply/authoritative refresh, line preservation, and manually inspect fresh **1280×800** and **390×844** review/Apply captures. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.

@@ -25,6 +25,16 @@ const OPERATIONS_WORKBOOK_MATRIX_PATHS = new Set([
   ".github/workflows/hosted-qa-certification.yml",
   ".github/workflows/qa-release.yml",
   "scripts/hosted-qa-workbook-certification.ts",
+  "src/app/routes/OperationsWorkbookRoute.tsx",
+  "src/app/routes/OperationsWorkbookTransfer.tsx",
+  "src/components/ui/WorksheetEditor.tsx",
+  "src/lib/combinedOperationsWorkbook.ts",
+  "src/lib/expensesWorkbook.ts",
+  "src/lib/expensesWorkbookEditing.ts",
+  "src/lib/operationsWorkbook.ts",
+  "src/lib/procurementWorkbook.ts",
+  "src/lib/projectsWorkbook.ts",
+  "src/lib/qaReleaseOrchestration.ts",
 ]);
 
 export type QaReleaseChangeClass = "docs-only" | "tests-only" | "orchestration-only" | "runtime-only" | "migration-bearing";

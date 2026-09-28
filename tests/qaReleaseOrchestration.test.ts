@@ -34,6 +34,23 @@ test("QA release change decisions distinguish docs, runtime, migration, and orch
   assert.equal(workbookRelease.requiresHostedQa, true);
   assert.equal(workbookRelease.runOperationsWorkbookMatrix, true);
   assert.equal(classifyQaReleasePaths(["scripts/hosted-qa-workbook-certification.ts"]).runOperationsWorkbookMatrix, true);
+  const workbookApplicationPaths = [
+    "src/app/routes/OperationsWorkbookRoute.tsx",
+    "src/app/routes/OperationsWorkbookTransfer.tsx",
+    "src/components/ui/WorksheetEditor.tsx",
+    "src/lib/combinedOperationsWorkbook.ts",
+    "src/lib/expensesWorkbook.ts",
+    "src/lib/expensesWorkbookEditing.ts",
+    "src/lib/operationsWorkbook.ts",
+    "src/lib/procurementWorkbook.ts",
+    "src/lib/projectsWorkbook.ts",
+    "src/lib/qaReleaseOrchestration.ts",
+  ];
+  for (const path of workbookApplicationPaths) {
+    const classification = classifyQaReleasePaths([path]);
+    assert.equal(classification.runOperationsWorkbookMatrix, true, `${path} triggers the hosted Operations Workbook matrix`);
+    assert.equal(classification.requiresHostedQa, true, `${path} requires hosted QA`);
+  }
   assert.equal(classifyQaReleasePaths(["scripts/qa/run-supabase.ts", "src/lib/qaDatabaseTarget.ts"]).requiresHostedQa, false);
   assert.equal(classifyQaReleasePaths([], true).requiresHostedQa, true);
 });
