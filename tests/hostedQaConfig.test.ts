@@ -78,7 +78,7 @@ test("Hosted QA workflow is reusable after protected parity and remains manually
 test("hosted workbook QA checks the five-sheet round trip without logging credentials", () => {
   assert.match(workbookCertification, /parseOperationsWorkbook/);
   assert.match(workbookCertification, /STALE_CONFLICT/);
-  assert.match(workbookCertification, /UNSUPPORTED_PROTECTED_FIELD/);
+  assert.match(workbookCertification, /getByText\("Protected", \{ exact: true \}\)/);
   assert.match(workbookCertification, /Apply selected/);
   assert.match(workbookCertification, /SUPPLIER_LINKED_SETTLEMENT_FIXTURE_MISSING/);
   assert.match(workbookCertification, /"Supplier Invoice"/);

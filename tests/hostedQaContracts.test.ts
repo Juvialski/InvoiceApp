@@ -9,6 +9,7 @@ import {
   hostedQaRouteReadinessState,
   sanitizeHostedQaWorkbookAdvanceExpenseStep,
   hostedQaWorkbookRowSelector,
+  hostedQaExpenseProposalSelector,
   probeHostedQaStorageObject,
   sanitizeHostedQaFailureCode,
   sanitizeHostedQaStorageError,
@@ -231,4 +232,12 @@ test("hosted workbook row locator uses stable UUID identity and rejects selector
   const expenseId = "a1234567-89ab-4cde-8f01-234567890abc";
   assert.equal(hostedQaWorkbookRowSelector(expenseId), `[data-worksheet-row-key="${expenseId}"]`);
   assert.throws(() => hostedQaWorkbookRowSelector('a1234567-89ab-4cde-8f01-234567890abc"] input'), /HOSTED_QA_WORKBOOK_ROW_ID_INVALID/);
+});
+
+test("hosted workbook Expense proposal locator survives edited display text and rejects selector injection", () => {
+  const expenseId = "a1234567-89ab-4cde-8f01-234567890abc";
+  assert.equal(hostedQaExpenseProposalSelector(expenseId), `[data-combined-workbook-proposal="EXPENSE:${expenseId}"]`);
+  assert.throws(() => hostedQaExpenseProposalSelector('a1234567-89ab-4cde-8f01-234567890abc"] article'), /HOSTED_QA_WORKBOOK_ROW_ID_INVALID/);
+  assert.match(workbookHarnessSource, /hostedQaExpenseProposalSelector\(linkedDraftExpenseId\)/);
+  assert.doesNotMatch(workbookHarnessSource, /filter\(\{ hasText: "Synthetic pump calibration service" \}\)/);
 });

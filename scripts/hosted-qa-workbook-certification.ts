@@ -13,6 +13,7 @@ import {
   sanitizeHostedQaFailureCode,
   sanitizeHostedQaWorkbookAdvanceExpenseStep,
   hostedQaWorkbookRowSelector,
+  hostedQaExpenseProposalSelector,
   waitForHostedQaHealth,
   waitForHostedQaRouteReadiness,
   type HostedQaWorkbookAdvanceExpenseStep,
@@ -414,8 +415,7 @@ async function main() {
     // review result instead of assuming one protected status badge per edited field.
     const protectedFieldCount = await review.getByText("Protected", { exact: true }).count();
     if (protectedFieldCount < 5) throw new Error("PROTECTED_FIELDS_NOT_CLASSIFIED");
-    const linkedExpenseProposal = review.locator('[data-combined-workbook-domain="expenses"] [data-combined-workbook-proposal]')
-      .filter({ hasText: "Synthetic pump calibration service" });
+    const linkedExpenseProposal = review.locator(hostedQaExpenseProposalSelector(linkedDraftExpenseId));
     const linkedExpenseProposalText = await linkedExpenseProposal.innerText();
     if (["supplierInvoice", "confirmedPaid", "settlementState"].some((field) => !linkedExpenseProposalText.includes(field))) {
       throw new Error("SUPPLIER_LINKED_SOURCE_OR_SETTLEMENT_NOT_CLASSIFIED");
