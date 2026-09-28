@@ -3,7 +3,7 @@
 - Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; LATEST EXACT-SHA RUN PASSED AUTHENTICATED ROUTES 9/9 BUT THE MATRIX STOPPED AT `wait-description-editor`; THE HARNESS ROW LOCATOR LOST ITS DESCRIPTION-TEXT MATCH WHEN THE CELL BECAME AN INPUT. A STABLE ROW-KEY FIX AND FOCUSED REGRESSION ARE ON THE CURRENT BRANCH; POST-FIX HOSTED VERIFICATION IS PENDING.**
 - Initial `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
 - Latest merged `main` and QA app SHA: `169812902591276c9ce32a3670f1c9dbdf18071b`
-- Current root-cause fix branch: `codex/rel-qa-wb-1-stable-expense-row-locator` (focused PR pending)
+- Current root-cause fix branch: `codex/rel-qa-wb-1-stable-expense-row-locator` ([PR #276](https://github.com/Juvialski/InvoiceApp/pull/276), open)
 - Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`
 - Delivery pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272); exact-head protected CI status is tracked on GitHub.
 - Executable hardening commit: `1f7908292eb16985859df026ebd562ec51a0317f`
