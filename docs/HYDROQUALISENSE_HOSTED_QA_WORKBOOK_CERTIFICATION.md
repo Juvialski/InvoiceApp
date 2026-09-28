@@ -13,7 +13,7 @@
 
 This record covers the bounded authenticated certification follow-up to local/synthetic WB-CERT. It does not change the supported workbook domains, permissions, persistence authorities, lifecycle actions, schema, or RLS. WB-3D+ remains deferred.
 
-Latest exact-SHA revalidation: source and QA app `864ec90ed5737cbb3deeef2b5b21b7a0768af761`; Hosted QA run [36364232002](https://github.com/Juvialski/InvoiceApp/actions/runs/36364232002), which failed. The closeout implementation branch is `codex/rel-qa-wb-1b-cert-closeout`, executable commit `f8ae23bad1ef0c795ff9937942ce899c815fd7bf`, delivery PR [#273](https://github.com/Juvialski/InvoiceApp/pull/273). It updates stale route assertions and adds sanitized matrix failure codes. These branch changes are not deployed to QA and are not evidence of a successful rerun.
+Latest exact-SHA revalidation: source and QA app `864ec90ed5737cbb3deeef2b5b21b7a0768af761`; Hosted QA run [36364232002](https://github.com/Juvialski/InvoiceApp/actions/runs/36364232002), which failed. The closeout implementation branch is `codex/rel-qa-wb-1b-cert-closeout`, executable commit `f8ae23bad1ef0c795ff9937942ce899c815fd7bf`, delivery PR [#273](https://github.com/Juvialski/InvoiceApp/pull/273). It updates stale route assertions and adds sanitized matrix failure codes. This record does not claim a successful hosted rerun of that correction.
 
 ## Hosted target and database evidence
 
@@ -77,7 +77,7 @@ The latest matrix **ran but did not complete**: it passed authenticated workbook
 | Responsive combined import review | Not inspected; the matrix stopped before review screenshots at 1280×800 and 390×844 |
 | Production writes or migration promotion | None |
 
-The local browser permission issue does not change the hosted matrix result: the matrix uses Playwright on the protected CI runner, not the local Chrome file chooser. Route readiness now passes on current `main`, but the route assertions need to match the visible product and the workbook matrix must pass before this certification can close. The current candidate changes have only local validation; a PR review/merge and the normal QA deployment path are still required before another exact-SHA hosted run. No hosted workbook certification, provider certification, or production readiness is claimed by this record.
+The local browser permission issue does not change the hosted matrix result: the matrix uses Playwright on the protected CI runner, not the local Chrome file chooser. Route readiness now passes on the previously deployed `main`, but the corrected route assertions and workbook matrix must pass against the exact delivered QA SHA before this certification can close. The correction has local validation recorded here; an exact-SHA hosted rerun after normal QA deployment is still required. No hosted workbook certification, provider certification, or production readiness is claimed by this record.
 
 ## Local implementation validation
 
@@ -92,4 +92,4 @@ The local browser permission issue does not change the hosted matrix result: the
 
 ## Completion gate
 
-REL-QA-WB-1 remains open until the closeout candidate reaches the mapped QA deployment through the normal release path, the exact deployed SHA passes the standard authenticated route contracts, and the workbook matrix completes with protected-field, stale-version, Apply/refresh, and line-preservation assertions plus manually inspected 1280×800 and 390×844 review captures. Record sanitized evidence from that run. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.
+REL-QA-WB-1 remains open until the delivered closeout correction reaches the mapped QA deployment through the normal release path, the exact deployed SHA passes the standard authenticated route contracts, and the workbook matrix completes with protected-field, stale-version, Apply/refresh, and line-preservation assertions plus manually inspected 1280×800 and 390×844 review captures. Record sanitized evidence from that run. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.
