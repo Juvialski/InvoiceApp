@@ -5,6 +5,7 @@ import test from "node:test";
 const script = readFileSync(new URL("../scripts/hosted-qa-certification.ts", import.meta.url), "utf8");
 const hostedQaContracts = readFileSync(new URL("../scripts/qa/hostedQaContracts.ts", import.meta.url), "utf8");
 const authPreflight = readFileSync(new URL("../scripts/hosted-qa-auth-preflight.ts", import.meta.url), "utf8");
+const workbookCertification = readFileSync(new URL("../scripts/hosted-qa-workbook-certification.ts", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../.github/workflows/hosted-qa-certification.yml", import.meta.url), "utf8");
 const packageJson = readFileSync(new URL("../package.json", import.meta.url), "utf8");
 const gitignore = readFileSync(new URL("../.gitignore", import.meta.url), "utf8");
@@ -27,6 +28,8 @@ test("hosted QA harness fails closed on production and requires authenticated st
   assert.match(script, /createHostedQaEngineeringStorageFixture/);
   assert.match(script, /probeHostedQaStorageObject/);
   assert.match(hostedQaContracts, /upsert: false/);
+  assert.match(hostedQaContracts, /Loading Engineering Operations Platform/);
+  assert.match(hostedQaContracts, /Rechecking company access/);
   assert.match(script, /metadataRowsCreated: 0/);
   assert.doesNotMatch(script, /SUPABASE_SERVICE_ROLE|SUPABASE_AI_SERVER_KEY/i);
   assert.match(gitignore, /\.qa-e2e\//);
@@ -67,5 +70,26 @@ test("Hosted QA workflow is reusable after protected parity and remains manually
   assert.match(workflow, /npx --no-install tsx scripts\/repository-migration-level\.ts/);
   assert.match(workflow, /QA_E2E_EXPECTED_MIGRATION_LEVEL=\$migration_level/);
   assert.match(workflow, /\$GITHUB_ENV/);
-  assert.match(workflow, /ref: \$\{\{ inputs\.expected_repository_sha \|\| github\.sha \}\}/);
+  assert.match(workflow, /ref: \$\{\{ github\.event_name == 'workflow_dispatch' && github\.sha \|\| inputs\.expected_repository_sha \|\| github\.sha \}\}/);
+  assert.match(workflow, /run_operations_workbook_matrix/);
+  assert.match(workflow, /always\(\).*inputs\.run_operations_workbook_matrix == true/);
+});
+
+test("hosted workbook QA checks the five-sheet round trip without logging credentials", () => {
+  assert.match(workbookCertification, /parseOperationsWorkbook/);
+  assert.match(workbookCertification, /STALE_CONFLICT/);
+  assert.match(workbookCertification, /UNSUPPORTED_PROTECTED_FIELD/);
+  assert.match(workbookCertification, /Apply selected/);
+  assert.match(workbookCertification, /SUPPLIER_LINKED_SETTLEMENT_FIXTURE_MISSING/);
+  assert.match(workbookCertification, /"Supplier Invoice"/);
+  assert.match(workbookCertification, /"Confirmed Paid"/);
+  assert.match(workbookCertification, /"Settlement State"/);
+  assert.match(workbookCertification, /RUNTIME_ERROR_CHECK_FAILED/);
+  assert.match(workbookCertification, /screenshotVisibleReview/);
+  assert.match(workbookCertification, /rfqLineIdsUnchanged/);
+  assert.match(workbookCertification, /purchaseOrderLineIdsUnchanged/);
+  assert.match(workbookCertification, /laptop-1280x800/);
+  assert.match(workbookCertification, /phone-390x844/);
+  assert.doesNotMatch(workbookCertification, /QA_E2E_PASSWORD|QA_E2E_EMAIL/);
+  assert.doesNotMatch(workbookCertification, /SUPABASE_SERVICE_ROLE|SUPABASE_AI_SERVER_KEY/i);
 });

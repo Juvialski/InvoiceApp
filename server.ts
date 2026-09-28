@@ -17,21 +17,12 @@ import { createManagedDocumentRouter } from "./src/server/managedDocuments/manag
 import { createEntityMediaRouter } from "./src/server/storage/entityMediaRouter.ts";
 import { DOCUMENT_PDF_UNAVAILABLE_MESSAGE, getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
 import { releaseMetadataFromEnv } from "./src/server/releaseMetadata.ts";
+import { createProductionContentSecurityPolicy } from "./src/server/securityPolicy.ts";
 
 dotenv.config();
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-
-function configuredOrigin(value: unknown) {
-  try {
-    const parsed = new URL(String(value || "").trim());
-    return /^https?:$/.test(parsed.protocol) ? parsed.origin : "";
-  } catch {
-    return "";
-  }
-}
-
 
 app.disable("x-powered-by");
 app.use((_req, res, next) => {
@@ -40,13 +31,7 @@ app.use((_req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   if (process.env.NODE_ENV === "production") {
-    const connectSources = [
-      "'self'",
-      configuredOrigin(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
-      "https://generativelanguage.googleapis.com",
-      "wss:",
-    ].filter(Boolean).join(" ");
-    res.setHeader("Content-Security-Policy", `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src ${connectSources}`);
+    res.setHeader("Content-Security-Policy", createProductionContentSecurityPolicy(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL));
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
   next();
