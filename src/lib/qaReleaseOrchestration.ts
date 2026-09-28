@@ -21,6 +21,11 @@ const RELEASE_ORCHESTRATION_PATHS = new Set([
   "src/lib/qaReleaseOrchestration.ts",
 ]);
 const HOSTED_QA_HARNESS_PATH = /^(?:scripts\/hosted-qa[^/]*\.ts|scripts\/qa\/hostedQaContracts\.ts)$/i;
+const OPERATIONS_WORKBOOK_MATRIX_PATHS = new Set([
+  ".github/workflows/hosted-qa-certification.yml",
+  ".github/workflows/qa-release.yml",
+  "scripts/hosted-qa-workbook-certification.ts",
+]);
 
 export type QaReleaseChangeClass = "docs-only" | "tests-only" | "orchestration-only" | "runtime-only" | "migration-bearing";
 
@@ -29,6 +34,7 @@ export interface QaReleaseChangeClassification {
   hasMigration: boolean;
   hasRuntime: boolean;
   hasHostedQaHarness: boolean;
+  runOperationsWorkbookMatrix: boolean;
   requiresHostedQa: boolean;
 }
 
@@ -58,6 +64,7 @@ export function classifyQaReleasePaths(paths: readonly string[], manualHostedQa 
   const hasMigration = normalized.some(isMigrationPath);
   const hasRuntime = normalized.some(isRuntimePath);
   const hasHostedQaHarness = normalized.some((path) => HOSTED_QA_HARNESS_PATH.test(path));
+  const runOperationsWorkbookMatrix = normalized.some((path) => OPERATIONS_WORKBOOK_MATRIX_PATHS.has(path));
   const allDocs = normalized.length > 0 && normalized.every((path) => DOCS_ONLY_PATH.test(path));
   const allTests = normalized.length > 0 && normalized.every((path) => TEST_ONLY_PATH.test(path));
   const changeClass: QaReleaseChangeClass = hasMigration
@@ -75,7 +82,8 @@ export function classifyQaReleasePaths(paths: readonly string[], manualHostedQa 
     hasMigration,
     hasRuntime,
     hasHostedQaHarness,
-    requiresHostedQa: manualHostedQa || hasMigration || hasRuntime || hasHostedQaHarness,
+    runOperationsWorkbookMatrix,
+    requiresHostedQa: manualHostedQa || hasMigration || hasRuntime || hasHostedQaHarness || runOperationsWorkbookMatrix,
   };
 }
 

@@ -37,6 +37,7 @@ jobs:
       target_sha: ${{ steps.identity.outputs.target_sha }}
       expected_migration: ${{ steps.migration.outputs.expected_migration }}
       change_class: ${{ steps.classify.outputs.change_class }}
+      run_operations_workbook_matrix: ${{ steps.classify.outputs.run_operations_workbook_matrix }}
       requires_hosted_qa: ${{ steps.classify.outputs.requires_hosted_qa }}
     steps:
       - name: Checkout exact main SHA
@@ -240,4 +241,5 @@ jobs:
       expected_repository_sha: ${{ needs.classify.outputs.target_sha }}
       expected_migration_level: ${{ needs.classify.outputs.expected_migration }}
       expected_deployment_id: qa-hydroqualisense
+      run_operations_workbook_matrix: ${{ needs.classify.outputs.run_operations_workbook_matrix == 'true' }}
     secrets: inherit

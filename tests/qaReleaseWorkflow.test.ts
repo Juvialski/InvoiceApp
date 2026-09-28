@@ -24,6 +24,7 @@ test("protected QA release workflow is push-driven, QA-environment protected, an
   assert.match(releaseWorkflow, /verify-migration-parity\.ts --direct-db --phase after/);
   assert.match(releaseWorkflow, /needs: \[classify, qa_release\]/);
   assert.match(releaseWorkflow, /\.\/\.github\/workflows\/hosted-qa-certification\.yml/);
+  assert.match(releaseWorkflow, /run_operations_workbook_matrix:\s*\$\{\{\s*needs\.classify\.outputs\.run_operations_workbook_matrix == 'true'\s*\}\}/);
   assert.match(renderWaitScript, /render_deployment_timeout/);
   assert.match(renderWaitScript, /render_identity_mismatch/);
   assert.match(releaseWorkflow, /migration-history|migration parity|parity/i);

@@ -25,11 +25,15 @@ test("QA release change decisions distinguish docs, runtime, migration, and orch
     hasMigration: false,
     hasRuntime: false,
     hasHostedQaHarness: false,
+    runOperationsWorkbookMatrix: false,
     requiresHostedQa: false,
   });
   assert.equal(classifyQaReleasePaths(["src/server/releaseMetadata.ts"]).requiresHostedQa, true);
   assert.equal(classifyQaReleasePaths(["supabase/migrations/20270101000000_release.sql"]).changeClass, "migration-bearing");
-  assert.equal(classifyQaReleasePaths([".github/workflows/qa-release.yml", "scripts/qa/verify-migration-parity.ts"]).requiresHostedQa, false);
+  const workbookRelease = classifyQaReleasePaths([".github/workflows/qa-release.yml", "scripts/qa/verify-migration-parity.ts"]);
+  assert.equal(workbookRelease.requiresHostedQa, true);
+  assert.equal(workbookRelease.runOperationsWorkbookMatrix, true);
+  assert.equal(classifyQaReleasePaths(["scripts/hosted-qa-workbook-certification.ts"]).runOperationsWorkbookMatrix, true);
   assert.equal(classifyQaReleasePaths(["scripts/qa/run-supabase.ts", "src/lib/qaDatabaseTarget.ts"]).requiresHostedQa, false);
   assert.equal(classifyQaReleasePaths([], true).requiresHostedQa, true);
 });

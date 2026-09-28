@@ -9,9 +9,10 @@ const values = {
   has_migration: classification.hasMigration ? "true" : "false",
   has_runtime: classification.hasRuntime ? "true" : "false",
   has_hosted_qa_harness: classification.hasHostedQaHarness ? "true" : "false",
+  run_operations_workbook_matrix: classification.runOperationsWorkbookMatrix ? "true" : "false",
   requires_hosted_qa: classification.requiresHostedQa ? "true" : "false",
 };
 
-console.log(`QA release classification=${classification.changeClass} migration=${values.has_migration} runtime=${values.has_runtime} hosted-qa=${values.requires_hosted_qa}`);
+console.log(`QA release classification=${classification.changeClass} migration=${values.has_migration} runtime=${values.has_runtime} hosted-qa=${values.requires_hosted_qa} workbook-matrix=${values.run_operations_workbook_matrix}`);
 const outputPath = String(process.env.GITHUB_OUTPUT || "").trim();
 if (outputPath) appendFileSync(outputPath, `${Object.entries(values).map(([key, value]) => `${key}=${value}`).join("\n")}\n`, "utf8");
