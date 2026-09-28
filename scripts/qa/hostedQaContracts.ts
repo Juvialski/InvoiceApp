@@ -73,6 +73,16 @@ export function sanitizeHostedQaWorkbookAdvanceExpenseStep(value: unknown): Host
     : undefined;
 }
 
+const HOSTED_QA_WORKBOOK_ROW_KEY_PATTERN = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+/** Build a row locator from the stable UUID identity retained while a cell editor replaces its display text. */
+export function hostedQaWorkbookRowSelector(rowId: unknown): string {
+  if (typeof rowId !== "string" || !HOSTED_QA_WORKBOOK_ROW_KEY_PATTERN.test(rowId)) {
+    throw new Error("HOSTED_QA_WORKBOOK_ROW_ID_INVALID");
+  }
+  return `[data-worksheet-row-key="${rowId}"]`;
+}
+
 export interface HostedQaReadinessPage {
   waitForFunction: (...args: any[]) => Promise<unknown>;
 }

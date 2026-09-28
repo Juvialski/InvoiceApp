@@ -12,6 +12,7 @@ import {
   assertHostedQaTarget,
   sanitizeHostedQaFailureCode,
   sanitizeHostedQaWorkbookAdvanceExpenseStep,
+  hostedQaWorkbookRowSelector,
   waitForHostedQaHealth,
   waitForHostedQaRouteReadiness,
   type HostedQaWorkbookAdvanceExpenseStep,
@@ -124,6 +125,7 @@ async function uploadWorkbook(page: Page, filePath: string) {
 
 async function updateLiveExpenseDescription(
   page: Page,
+  expenseId: string,
   currentDescription: string,
   nextDescription: string,
   markStep: (step: HostedQaWorkbookAdvanceExpenseStep) => void,
@@ -133,7 +135,8 @@ async function updateLiveExpenseDescription(
   const grid = page.getByRole("grid", { name: "Expenses worksheet" });
   markStep("wait-expenses-grid");
   await grid.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  const targetRow = grid.getByRole("row").filter({ hasText: currentDescription });
+  // The display text is replaced by the input when editing starts, so keep the row locator anchored to its stable key.
+  const targetRow = grid.locator(hostedQaWorkbookRowSelector(expenseId));
   markStep("find-direct-expense-row");
   await targetRow.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   markStep("find-description-column");
@@ -361,7 +364,7 @@ async function main() {
 
     stage = "advance-expense-version";
     matrixFailureStep = undefined;
-    await updateLiveExpenseDescription(page, startingExpenseDescription, directVersion, (step) => { matrixFailureStep = step; });
+    await updateLiveExpenseDescription(page, draftExpenseId, startingExpenseDescription, directVersion, (step) => { matrixFailureStep = step; });
     matrixFailureStep = undefined;
     stage = "review-stale-workbook";
     const staleReview = await uploadWorkbook(page, stalePath);

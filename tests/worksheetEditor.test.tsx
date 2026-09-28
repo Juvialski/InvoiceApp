@@ -285,6 +285,30 @@ test("editable cells expose a non-color edit affordance and protected cells stay
   assert.match(protectedCell, /data-worksheet-editable="false"/);
 });
 
+test("worksheet row identity remains available while an editable cell replaces its display text", () => {
+  const html = renderToStaticMarkup(
+    <WorksheetEditor
+      ariaLabel="Expenses worksheet"
+      rows={[rows[0]]}
+      columns={[columns[0]]}
+      rowKey={(row) => row.id}
+      initialEditingCell={{ row: 0, column: 0 }}
+    />,
+  );
+  const rowMarker = html.indexOf('data-worksheet-row-key="row-1"');
+  const rowStart = html.lastIndexOf("<tr", rowMarker);
+  const rowEnd = html.indexOf("</tr>", rowMarker);
+  const rowMarkup = html.slice(rowStart, rowEnd);
+
+  assert.ok(rowStart >= 0);
+  assert.ok(rowEnd > rowStart);
+  assert.match(rowMarkup, /data-worksheet-row-key="row-1"/);
+  assert.match(rowMarkup, /data-worksheet-cell="row-1:name"/);
+  assert.match(rowMarkup, /<input\b/);
+  assert.match(rowMarkup, /value="Concrete"/);
+  assert.doesNotMatch(rowMarkup, /Concrete<\/span>/);
+});
+
 test("disabled worksheets do not expose or initialize editable cells", () => {
   const html = renderToStaticMarkup(
     <WorksheetEditor
