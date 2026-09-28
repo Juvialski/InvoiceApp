@@ -13,7 +13,7 @@
 
 This record covers the bounded authenticated certification follow-up to local/synthetic WB-CERT. It does not change the supported workbook domains, permissions, persistence authorities, lifecycle actions, schema, or RLS. WB-3D+ remains deferred.
 
-Latest exact-SHA revalidation: source and QA app `864ec90ed5737cbb3deeef2b5b21b7a0768af761`; Hosted QA run [36364232002](https://github.com/Juvialski/InvoiceApp/actions/runs/36364232002), which failed. The closeout implementation branch is `codex/rel-qa-wb-1b-cert-closeout`, commit `f8ae23bad1ef0c795ff9937942ce899c815fd7bf`; it updates stale route assertions and adds sanitized matrix failure codes. These branch changes are not deployed to QA and are not evidence of a successful rerun.
+Latest exact-SHA revalidation: source and QA app `864ec90ed5737cbb3deeef2b5b21b7a0768af761`; Hosted QA run [36364232002](https://github.com/Juvialski/InvoiceApp/actions/runs/36364232002), which failed. The closeout implementation branch is `codex/rel-qa-wb-1b-cert-closeout`, executable commit `f8ae23bad1ef0c795ff9937942ce899c815fd7bf`, delivery PR [#273](https://github.com/Juvialski/InvoiceApp/pull/273). It updates stale route assertions and adds sanitized matrix failure codes. These branch changes are not deployed to QA and are not evidence of a successful rerun.
 
 ## Hosted target and database evidence
 

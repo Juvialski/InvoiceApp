@@ -3217,6 +3217,7 @@ WB-CERT's local/synthetic completion remains valid for its recorded scope. REL-Q
 
 - Synchronized base `main` SHA and exact QA application SHA: `864ec90ed5737cbb3deeef2b5b21b7a0768af761`.
 - Closeout branch: `codex/rel-qa-wb-1b-cert-closeout`; local implementation commit: `f8ae23bad1ef0c795ff9937942ce899c815fd7bf`.
+- Delivery PR: [#273](https://github.com/Juvialski/InvoiceApp/pull/273); the implementation and this handoff are in the same focused PR. The PR has not been merged.
 - QA mapping: Render `qa-hydroqualisense` -> Supabase `hydroqualisense-qa`, project ref `vrpuznofrntyqsbugrib`; project status `ACTIVE_HEALTHY`.
 - QA migration history: **153/153** exact canonical version/name matches; latest `20260927095636`. The check was read-only; no migration promotion was required. Production was not queried or mutated.
 - Hosted run: [GitHub Actions run 36364232002](https://github.com/Juvialski/InvoiceApp/actions/runs/36364232002), dispatched against exact source SHA `864ec90ed5737cbb3deeef2b5b21b7a0768af761`.
