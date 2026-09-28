@@ -25,6 +25,7 @@ test("QA release change decisions distinguish docs, runtime, migration, and orch
     hasMigration: false,
     hasRuntime: false,
     hasHostedQaHarness: false,
+    runOperationsWorkbookMatrix: false,
     requiresHostedQa: false,
   });
   assert.equal(classifyQaReleasePaths(["src/server/releaseMetadata.ts"]).requiresHostedQa, true);
