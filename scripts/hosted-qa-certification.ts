@@ -47,12 +47,12 @@ interface HostedRouteContract {
 }
 
 const ROUTE_CONTRACTS: readonly HostedRouteContract[] = [
-  { route: "/dashboard", heading: "Executive Dashboard", requiredText: ["Supplier document operations"] },
+  { route: "/dashboard", heading: "Home", requiredText: ["What do you want to do today?"] },
   { route: "/projects", heading: "Portfolio Management", requiredText: ["Portfolio snapshot"] },
   { route: "/expenses", heading: "Expenses", requiredText: ["Expense register"] },
   { route: "/procurement", heading: "Procurement & Purchase Orders", requiredText: ["Purchase Orders"] },
   { route: "/warehouse", heading: "Warehouse Inventory", requiredText: ["Movement-derived stock truth"] },
-  { route: "/payroll", heading: "Payroll & labor", requiredText: ["Active workers"] },
+  { route: "/payroll", heading: "Payroll & labor", requiredText: ["Review payroll before calculation"] },
   { route: "/settings", heading: "Operational settings", requiredText: ["Regional display preferences", "AI configuration"] },
   { route: "/email-sms", heading: "Email / SMS", requiredText: ["Compose", "Email Provider Status"] },
   { route: "/documents", heading: "Documents", requiredText: ["Find records, then continue to the owning workflow", "Procurement"] },

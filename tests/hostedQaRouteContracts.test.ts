@@ -4,8 +4,10 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../scripts/hosted-qa-certification.ts", import.meta.url), "utf8");
 
-test("hosted QA route contracts track current task-first Expenses and Documents copy", () => {
+test("hosted QA route contracts track current task-first dashboard, Expenses, Payroll, and Documents copy", () => {
+  assert.match(source, /\{ route: "\/dashboard", heading: "Home", requiredText: \["What do you want to do today\?"\] \}/);
   assert.match(source, /\{ route: "\/expenses", heading: "Expenses", requiredText: \["Expense register"\] \}/);
+  assert.match(source, /\{ route: "\/payroll", heading: "Payroll & labor", requiredText: \["Review payroll before calculation"\] \}/);
   assert.match(source, /\{ route: "\/documents", heading: "Documents", requiredText: \["Find records, then continue to the owning workflow", "Procurement"\] \}/);
   assert.doesNotMatch(source, /Supplier invoices remain preserved evidence/);
   assert.doesNotMatch(source, /Unified access surface/);

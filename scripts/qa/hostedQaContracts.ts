@@ -40,6 +40,12 @@ export function hostedQaRequiredTextPresent(bodyText: unknown, requiredText: str
   return body.toLocaleLowerCase().includes(requiredText.toLocaleLowerCase());
 }
 
+/** Keep hosted matrix failure evidence useful without persisting arbitrary error text. */
+export function sanitizeHostedQaFailureCode(error: unknown): string {
+  const message = error instanceof Error ? error.message.trim() : "";
+  return /^[A-Z][A-Z0-9_]{0,79}$/.test(message) ? message : "UNCLASSIFIED_ERROR";
+}
+
 export interface HostedQaReadinessPage {
   waitForFunction: (...args: any[]) => Promise<unknown>;
 }

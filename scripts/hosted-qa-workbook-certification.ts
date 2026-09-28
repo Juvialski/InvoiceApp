@@ -9,6 +9,7 @@ import { chromium, type Browser, type BrowserContext, type Locator, type Page } 
 import * as XLSX from "xlsx";
 import {
   assertHostedQaTarget,
+  sanitizeHostedQaFailureCode,
   waitForHostedQaHealth,
   waitForHostedQaRouteReadiness,
 } from "./qa/hostedQaContracts.ts";
@@ -453,8 +454,9 @@ async function main() {
     manifest.status = "FAIL";
     manifest.failureStage = stage;
     manifest.failureCategory = error instanceof Error ? error.name : "Error";
+    manifest.failureCode = sanitizeHostedQaFailureCode(error);
     process.exitCode = 1;
-    console.error(`Hosted workbook QA status=FAIL stage=${stage} category=${String(manifest.failureCategory)}`);
+    console.error(`Hosted workbook QA status=FAIL stage=${stage} category=${String(manifest.failureCategory)} code=${String(manifest.failureCode)}`);
   } finally {
     manifest.runtime = { consoleErrorCount: consoleErrors.length, pageErrorCount: pageErrors.length, failedRequestCount: failedRequests.length };
     await writeFile(path.join(OUTPUT_DIR, "workbook-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
