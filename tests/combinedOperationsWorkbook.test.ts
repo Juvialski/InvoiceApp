@@ -503,18 +503,22 @@ test("combined export-edit-review-Apply-refresh round trip preserves values and 
 
   const procurementApplied = await applyCombinedOperationsWorkbookDomain(procurementReview, current, {
     procurement: {
-      saveRFQ: async (rfq, lines, invitedVendorIds) => {
+      saveRFQ: async (rfq, lines, invitedVendorIds, expectedUpdatedAt, preserveCurrentLines) => {
         callbacksInvoked.push("rfq");
         savedRFQ = rfq as RFQ;
+        assert.equal(expectedUpdatedAt, procurementRecords().rfqs[0]!.updatedAt);
+        assert.equal(preserveCurrentLines, true, "header-only RFQ changes preserve current line identities");
         assert.equal(lines[0]?.id, "rfq-line-1");
         assert.equal(lines[0]?.description, "Steel pipe");
         assert.equal(lines[0]?.quantity, 10);
         assert.equal(lines[0]?.projectCostCodeId, null);
         assert.deepEqual(invitedVendorIds, procurementRecords().rfqs[0]!.invitedVendorIds);
       },
-      savePurchaseOrder: async (po, lines) => {
+      savePurchaseOrder: async (po, lines, expectedUpdatedAt, preserveCurrentLines) => {
         callbacksInvoked.push("po");
         savedPO = po as PurchaseOrder;
+        assert.equal(expectedUpdatedAt, procurementRecords().purchaseOrders[0]!.updatedAt);
+        assert.equal(preserveCurrentLines, true, "header-only PO changes preserve current line identities");
         assert.equal(lines[0]?.id, "po-line-1");
         assert.equal(lines[0]?.description, "Steel pipe");
         assert.equal(lines[0]?.quantity, 10);

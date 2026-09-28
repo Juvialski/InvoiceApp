@@ -208,3 +208,40 @@ test("Apply revalidates current state and calls only the existing authoritative 
     /stale|changed/i,
   );
 });
+
+test("Apply carries the exact exported version and preserves child identities for header-only edits", async () => {
+  const rfqHeaderEdited = editWorkbook(exportedBytes(), "RFQs", "B2", "Header-only RFQ update");
+  const headerEdited = editWorkbook(rfqHeaderEdited, "Purchase Orders", "G2", "Header-only PO update");
+  const headerReview = buildProcurementImportReview(headerEdited, context());
+  const saves: Array<{ entity: "RFQ" | "PO"; expectedUpdatedAt?: string; preserveCurrentLines?: boolean }> = [];
+
+  await applyProcurementImport(headerReview, context(), {
+    saveRFQ: async (_next, _lines, _vendors, expectedUpdatedAt, preserveCurrentLines) => {
+      saves.push({ entity: "RFQ", expectedUpdatedAt, preserveCurrentLines });
+    },
+    savePurchaseOrder: async (_next, _lines, expectedUpdatedAt, preserveCurrentLines) => {
+      saves.push({ entity: "PO", expectedUpdatedAt, preserveCurrentLines });
+    },
+  });
+
+  assert.deepEqual(saves, [
+    { entity: "RFQ", expectedUpdatedAt: rfq.updatedAt, preserveCurrentLines: true },
+    { entity: "PO", expectedUpdatedAt: purchaseOrder.updatedAt, preserveCurrentLines: true },
+  ]);
+
+  const lineEdited = editWorkbook(exportedBytes(), "RFQ Lines", "C2", "Updated steel pipe line");
+  const lineReview = buildProcurementImportReview(lineEdited, context());
+  let lineSave: { expectedUpdatedAt?: string; preserveCurrentLines?: boolean; description?: string } | undefined;
+  await applyProcurementImport(lineReview, context(), {
+    saveRFQ: async (_next, lines, _vendors, expectedUpdatedAt, preserveCurrentLines) => {
+      lineSave = { expectedUpdatedAt, preserveCurrentLines, description: lines[0]?.description };
+    },
+    savePurchaseOrder: async () => {},
+  });
+
+  assert.deepEqual(lineSave, {
+    expectedUpdatedAt: rfq.updatedAt,
+    preserveCurrentLines: false,
+    description: "Updated steel pipe line",
+  });
+});

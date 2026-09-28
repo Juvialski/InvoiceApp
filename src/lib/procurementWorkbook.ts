@@ -98,11 +98,15 @@ type RFQSavePayload = {
   rfq: Partial<RFQ> & { rfqNumber: string; title: string };
   lines: Array<Partial<RFQLine> & { description: string; quantity: number }>;
   invitedVendorIds?: string[];
+  expectedUpdatedAt: string;
+  preserveCurrentLines: boolean;
 };
 
 type POSavePayload = {
   po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string };
   lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>;
+  expectedUpdatedAt: string;
+  preserveCurrentLines: boolean;
 };
 
 export interface ProcurementProposal {
@@ -365,6 +369,11 @@ function parseState(row: Record<string, unknown> | undefined) {
   }
 }
 
+function exportedUpdatedAt(state: Record<string, unknown> | undefined): string | undefined {
+  const value = state?.updatedAt;
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
 function projectIdForCode(value: unknown, projects: readonly Project[]) {
   const code = text(value).toUpperCase();
   if (!code) return { value: null as string | null };
@@ -453,6 +462,7 @@ function buildRfqProposal(rfq: RFQ, row: Record<string, unknown>, lineRows: Reco
   const sync = metadata.get(`RFQ:${rfq.id}:`);
   const exportedState = parseState(sync);
   const exportedFingerprint = text(sync?.fingerprint) || undefined;
+  const expectedUpdatedAt = exportedUpdatedAt(exportedState);
   const currentState = stateForRFQ(rfq);
   const changes: ProcurementFieldChange[] = [];
   const lineChanges: ProcurementLineChange[] = [];
@@ -463,6 +473,7 @@ function buildRfqProposal(rfq: RFQ, row: Record<string, unknown>, lineRows: Reco
   let protectedChange = false;
 
   if (!sync || !exportedState) messages.push("Synchronization metadata for this RFQ is missing or invalid.");
+  if (!expectedUpdatedAt) { invalid = true; messages.push("RFQ synchronization metadata is missing its exported version."); }
   if (exportedState && exportedFingerprint && fingerprintValue(exportedState) !== exportedFingerprint) { invalid = true; messages.push("RFQ synchronization state does not match its fingerprint."); }
   if (sync && exportedFingerprint && text(row["__HQ Fingerprint"]) !== exportedFingerprint) { invalid = true; messages.push("RFQ synchronization fingerprint does not match its metadata."); }
   if (sync && text(sync.companyId) && text(row["__HQ Company ID"]) !== text(sync.companyId)) { invalid = true; messages.push("RFQ synchronization company identity does not match its metadata."); }
@@ -604,6 +615,8 @@ function buildRfqProposal(rfq: RFQ, row: Record<string, unknown>, lineRows: Reco
       };
     }),
     invitedVendorIds: [...(rfq.invitedVendorIds || [])],
+    expectedUpdatedAt: expectedUpdatedAt || "",
+    preserveCurrentLines: lineChanges.length === 0,
   };
   return {
     id,
@@ -627,6 +640,7 @@ function buildPoProposal(po: PurchaseOrder, row: Record<string, unknown>, lineRo
   const sync = metadata.get(`PURCHASE_ORDER:${po.id}:`);
   const exportedState = parseState(sync);
   const exportedFingerprint = text(sync?.fingerprint) || undefined;
+  const expectedUpdatedAt = exportedUpdatedAt(exportedState);
   const currentState = stateForPO(po);
   const changes: ProcurementFieldChange[] = [];
   const lineChanges: ProcurementLineChange[] = [];
@@ -636,6 +650,7 @@ function buildPoProposal(po: PurchaseOrder, row: Record<string, unknown>, lineRo
   let missingReference = false;
   let protectedChange = false;
   if (!sync || !exportedState) messages.push("Synchronization metadata for this purchase order is missing or invalid.");
+  if (!expectedUpdatedAt) { invalid = true; messages.push("Purchase-order synchronization metadata is missing its exported version."); }
   if (exportedState && exportedFingerprint && fingerprintValue(exportedState) !== exportedFingerprint) { invalid = true; messages.push("Purchase-order synchronization state does not match its fingerprint."); }
   if (sync && exportedFingerprint && text(row["__HQ Fingerprint"]) !== exportedFingerprint) { invalid = true; messages.push("Purchase-order synchronization fingerprint does not match its metadata."); }
   if (sync && text(sync.companyId) && text(row["__HQ Company ID"]) !== text(sync.companyId)) { invalid = true; messages.push("Purchase-order synchronization company identity does not match its metadata."); }
@@ -753,6 +768,8 @@ function buildPoProposal(po: PurchaseOrder, row: Record<string, unknown>, lineRo
         projectCostCodeId: currentLine.projectCostCodeId || null,
       };
     }),
+    expectedUpdatedAt: expectedUpdatedAt || "",
+    preserveCurrentLines: lineChanges.length === 0,
   };
   return {
     id,
@@ -875,10 +892,23 @@ export async function applyProcurementImport(
     if (!proposal || !proposal.canApply || !proposal.applyPayload) throw new Error(`Workbook proposal ${proposalId} is stale or changed and is no longer safe to apply; review the current conflicts.`);
     if (proposal.entity === "RFQ") {
       const payload = proposal.applyPayload as RFQSavePayload;
-      await callbacks.saveRFQ(payload.rfq, payload.lines, payload.invitedVendorIds);
+      if (!payload.expectedUpdatedAt) throw new Error(`Workbook RFQ proposal ${proposalId} is missing its exported version; review the current conflict.`);
+      await callbacks.saveRFQ(
+        payload.rfq,
+        payload.lines,
+        payload.invitedVendorIds,
+        payload.expectedUpdatedAt,
+        payload.preserveCurrentLines,
+      );
     } else {
       const payload = proposal.applyPayload as POSavePayload;
-      await callbacks.savePurchaseOrder(payload.po, payload.lines);
+      if (!payload.expectedUpdatedAt) throw new Error(`Workbook purchase-order proposal ${proposalId} is missing its exported version; review the current conflict.`);
+      await callbacks.savePurchaseOrder(
+        payload.po,
+        payload.lines,
+        payload.expectedUpdatedAt,
+        payload.preserveCurrentLines,
+      );
     }
     appliedProposalIds.push(proposalId);
   }
