@@ -21,6 +21,11 @@ const RELEASE_ORCHESTRATION_PATHS = new Set([
   "src/lib/qaReleaseOrchestration.ts",
 ]);
 const HOSTED_QA_HARNESS_PATH = /^(?:scripts\/hosted-qa[^/]*\.ts|scripts\/qa\/hostedQaContracts\.ts)$/i;
+const OPERATIONS_WORKBOOK_MATRIX_PATHS = new Set([
+  ".github/workflows/hosted-qa-certification.yml",
+  ".github/workflows/qa-release.yml",
+  "scripts/hosted-qa-workbook-certification.ts",
+]);
 
 export type QaReleaseChangeClass = "docs-only" | "tests-only" | "orchestration-only" | "runtime-only" | "migration-bearing";
 
