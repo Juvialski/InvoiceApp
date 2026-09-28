@@ -70,7 +70,7 @@ test("Hosted QA workflow is reusable after protected parity and remains manually
   assert.match(workflow, /npx --no-install tsx scripts\/repository-migration-level\.ts/);
   assert.match(workflow, /QA_E2E_EXPECTED_MIGRATION_LEVEL=\$migration_level/);
   assert.match(workflow, /\$GITHUB_ENV/);
-  assert.match(workflow, /ref: \$\{\{ github\.event_name == 'workflow_dispatch' && github\.sha \|\| inputs\.expected_repository_sha \|\| github\.sha \}\}/);
+  assert.match(workflow, /ref: \$\{\{ inputs\.expected_repository_sha \|\| github\.sha \}\}/);
   assert.match(workflow, /run_operations_workbook_matrix/);
   assert.match(workflow, /always\(\).*inputs\.run_operations_workbook_matrix == true/);
 });
