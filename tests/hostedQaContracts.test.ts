@@ -7,6 +7,7 @@ import {
   hostedQaHealthFailureReasons,
   hostedQaRequiredTextPresent,
   hostedQaRouteReadinessState,
+  sanitizeHostedQaWorkbookAdvanceExpenseStep,
   probeHostedQaStorageObject,
   sanitizeHostedQaFailureCode,
   sanitizeHostedQaStorageError,
@@ -210,4 +211,6 @@ test("hosted QA workbook failure diagnostics retain safe sentinel codes and reda
   const unsafe = sanitizeHostedQaFailureCode(new Error("Timed out for user@example.com access_token=secret-token"));
   assert.equal(unsafe, "UNCLASSIFIED_ERROR");
   assert.doesNotMatch(unsafe, /user@example\.com|secret-token/);
+  assert.equal(sanitizeHostedQaWorkbookAdvanceExpenseStep("find-direct-expense-row"), "find-direct-expense-row");
+  assert.equal(sanitizeHostedQaWorkbookAdvanceExpenseStep("Timed out for user@example.com access_token=secret-token"), undefined);
 });
