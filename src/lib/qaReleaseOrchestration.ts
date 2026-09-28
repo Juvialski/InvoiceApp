@@ -64,6 +64,7 @@ export function classifyQaReleasePaths(paths: readonly string[], manualHostedQa 
   const hasMigration = normalized.some(isMigrationPath);
   const hasRuntime = normalized.some(isRuntimePath);
   const hasHostedQaHarness = normalized.some((path) => HOSTED_QA_HARNESS_PATH.test(path));
+  const runOperationsWorkbookMatrix = normalized.some((path) => OPERATIONS_WORKBOOK_MATRIX_PATHS.has(path));
   const allDocs = normalized.length > 0 && normalized.every((path) => DOCS_ONLY_PATH.test(path));
   const allTests = normalized.length > 0 && normalized.every((path) => TEST_ONLY_PATH.test(path));
   const changeClass: QaReleaseChangeClass = hasMigration
