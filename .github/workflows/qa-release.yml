@@ -241,4 +241,5 @@ jobs:
       expected_repository_sha: ${{ needs.classify.outputs.target_sha }}
       expected_migration_level: ${{ needs.classify.outputs.expected_migration }}
       expected_deployment_id: qa-hydroqualisense
+      run_operations_workbook_matrix: ${{ needs.classify.outputs.run_operations_workbook_matrix == 'true' }}
     secrets: inherit
