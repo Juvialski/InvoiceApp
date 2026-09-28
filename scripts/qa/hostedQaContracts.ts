@@ -83,6 +83,14 @@ export function hostedQaWorkbookRowSelector(rowId: unknown): string {
   return `[data-worksheet-row-key="${rowId}"]`;
 }
 
+/** Locate the combined-workbook Expense proposal by stable record identity. */
+export function hostedQaExpenseProposalSelector(rowId: unknown): string {
+  if (typeof rowId !== "string" || !HOSTED_QA_WORKBOOK_ROW_KEY_PATTERN.test(rowId)) {
+    throw new Error("HOSTED_QA_WORKBOOK_ROW_ID_INVALID");
+  }
+  return `[data-combined-workbook-proposal="EXPENSE:${rowId}"]`;
+}
+
 export interface HostedQaReadinessPage {
   waitForFunction: (...args: any[]) => Promise<unknown>;
 }
