@@ -1,6 +1,6 @@
 # HydroQualiSense Hosted QA Operations Workbook Certification — REL-QA-WB-1
 
-- Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; CSP VIOLATION AND ROUTE-READINESS DEFECT CORRECTED IN THE IMPLEMENTATION BRANCH, HOSTED ROUTE BEHAVIOR STILL UNVERIFIED**
+- Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; CURRENT QA CSP AND ROUTE READINESS PASS, BUT 2 OF 9 ROUTE CONTRACTS AND THE WORKBOOK MATRIX FAILED BEFORE REVIEW/APPLY**
 - Base `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
 - QA app SHA at investigation: `32d59ec04afe09b653f6e210525f9094f26234a7`
 - Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`
@@ -13,17 +13,29 @@
 
 This record covers the bounded authenticated certification follow-up to local/synthetic WB-CERT. It does not change the supported workbook domains, permissions, persistence authorities, lifecycle actions, schema, or RLS. WB-3D+ remains deferred.
 
+Latest exact-SHA revalidation: source and QA app `864ec90ed5737cbb3deeef2b5b21b7a0768af761`; Hosted QA run [36364232002](https://github.com/Juvialski/InvoiceApp/actions/runs/36364232002), which failed. The closeout implementation branch is `codex/rel-qa-wb-1b-cert-closeout`, commit `f8ae23bad1ef0c795ff9937942ce899c815fd7bf`; it updates stale route assertions and adds sanitized matrix failure codes. These branch changes are not deployed to QA and are not evidence of a successful rerun.
+
 ## Hosted target and database evidence
 
 The QA deployment mapping was taken from the repository QA runbook. The authenticated `/api/health` response identified environment `qa`, deployment `qa-hydroqualisense`, application SHA `32d59ec04afe09b653f6e210525f9094f26234a7`, and migration level `20260927095636`. The corresponding Supabase project ref is `vrpuznofrntyqsbugrib`.
 
 The canonical repository migration inventory and QA history matched **153/153** by version and name, with no missing, remote-only, or name-divergent entries. This check was read-only. No migration promotion was needed or performed, and no production database or production application was accessed for a write.
 
+## Latest exact-SHA revalidation — 2026-09-28
+
+Before the run, `https://hydroqualisense-qa.onrender.com/api/health` reported `environment=qa`, `deploymentId=qa-hydroqualisense`, application SHA `864ec90ed5737cbb3deeef2b5b21b7a0768af761`, and migration level `20260927095636`. The mapped QA Supabase project `vrpuznofrntyqsbugrib` was `ACTIVE_HEALTHY`; read-only migration history matched all **153/153** canonical version/name pairs, with no missing, remote-only, or divergent entries. No QA migration promotion was needed. Production was not queried or mutated.
+
+Run 36364232002 checked out that exact SHA. Authenticated preflight passed, including persisted-session reload, fresh protected navigation, unauthenticated protected-route handling, and the Storage probe. All **9/9 routes left the loading shell**. Seven route contracts passed; Dashboard failed two stale copy assertions and Payroll failed one. The captured pages showed the current `Home` Dashboard and Payroll task-first view. The lead inspected those two captures. There were **0 console errors, 0 page errors, and 0 failed requests**; the prior CSP violation did not recur. The full-page route captures contain authenticated account chrome and were not promoted into Git.
+
+The workbook matrix authenticated and exported the combined workbook. Its parser accepted the existing contract and the export contained the five editable sheets (`Projects`, `Cost Codes`, `Expenses`, `RFQs`, and `Purchase Orders`), the supporting line/payable sheets, and `_HydroQualiSense`; `Supplier Payables` was present for this profile's `invoices.read` permission. The export contained one RFQ line and one PO line. The matrix then failed at `prepare-stale-workbook`. The old harness recorded only the stage and generic error category, so the exact failure code is unknown. It stopped before stale-version review, upload, responsive captures, or any Apply; this matrix attempt made no workbook edits. No laptop/phone import-review screenshots were produced.
+
+The closeout branch updates the two outdated route contracts and records only bounded uppercase sentinel failure codes, replacing free-form errors with `UNCLASSIFIED_ERROR` so diagnostics cannot persist arbitrary error text. This improves diagnosis but has not yet run against the hosted target.
+
 ## Authenticated hosted findings
 
 Run 36356618577 was dispatched on exact source SHA `32d59ec04afe09b653f6e210525f9094f26234a7`. Deployment identity, migration identity, authenticated session persistence across reload, fresh protected-page navigation, and the QA Storage probe passed. The general authenticated route suite failed: **0/9** route checks resolved to their expected pages; captured pages remained on `Loading Engineering Operations Platform...`. The run recorded nine browser console errors, zero page errors, and zero failed HTTP requests. Console diagnostics showed the production Content Security Policy blocked the single inline theme bootstrap script because `script-src` allowed only `'self'`. The evidence confirms both a loading-shell/readiness problem and a concrete CSP violation, but it does not establish that the CSP violation caused the full loading duration.
 
-The route-readiness matcher did not recognize that specific loading shell, allowing it to be mistaken for a resolved route. The implementation commit adds the missing initial/rechecking loading markers and a regression test. The production CSP now allows the exact SHA-256 of the existing inline theme bootstrap while keeping `script-src 'self'` and without `unsafe-inline`; a regression test recomputes the hash from `index.html`. These corrections are in the implementation branch and have **not** been deployed to QA. A rerun must prove route readiness and app behavior rather than assuming the CSP fix clears the loading shell.
+At the time of run 36356618577, the route-readiness matcher did not recognize that loading shell, and the production CSP blocked the inline theme bootstrap. PR #272 added the missing initial/rechecking loading markers and regression coverage, and allows only the exact SHA-256 of the existing inline bootstrap while keeping `script-src 'self'` and excluding `unsafe-inline`. These corrections were later deployed; see the latest exact-SHA revalidation below for hosted results.
 
 ## Synthetic QA activity
 
@@ -46,26 +58,26 @@ When run against a corrected QA deployment, its assertions cover:
 - A review and Apply-action screenshot at **1280×800** and **390×844**, cropped to the import-review region; no whole-page horizontal overflow and the Projects Apply action reachable in the viewport.
 - Zero console errors, page errors, or failed HTTP requests.
 
-The matrix is **not yet run**. The deployed app is at the base SHA and its route loading-shell behavior remains unresolved; the CSP correction and readiness guard are in this unmerged implementation branch. Running the matrix before the corrected app is deployed cannot certify the target workflow. The local CUA file chooser also continued to report Chrome extension file-URL access unavailable after the user enabled it for Profile Al and restarted the extension. The browser security policy blocked extension-settings navigation, so no workaround was attempted. The protected hosted Playwright matrix is the intended XLSX upload path after QA has the implementation deployed and the standard routes resolve.
+The latest matrix **ran but did not complete**: it passed authenticated workbook export and schema parsing, then failed at `prepare-stale-workbook` before stale check, upload, review, or Apply. The previous local CUA file-chooser limitation remains historical; the hosted Playwright runner is the approved upload path. The sanitized failure-code change must reach the exact QA app/source checkout before another run can identify the cause and certify the workflow. Do not treat the initial export as evidence for stale guards, protected-field classification, domain Apply, authoritative refresh, or responsive review.
 
 ## Evidence status and limitations
 
 | Area | Result |
 | --- | --- |
 | QA target / deployment mapping | Verified: `qa-hydroqualisense` -> `vrpuznofrntyqsbugrib` |
-| App and migration identity | Verified at base SHA `32d59ec04afe09b653f6e210525f9094f26234a7`; exact migration parity **153/153** |
-| Auth preflight / ordinary session recovery | Passed reload and fresh protected navigation; no identity details persisted |
-| Hosted authenticated routes | 0/9 route checks; loading shell persisted and a CSP violation was separately observed; root cause of full loading duration remains unverified |
-| Hosted combined XLSX export/import/review/Apply | **Not run to completion** |
-| Protected-field classification and authoritative post-Apply refresh | Harness implemented; hosted evidence pending |
+| App and migration identity | Latest run verified exact SHA `864ec90ed5737cbb3deeef2b5b21b7a0768af761`; migration parity **153/153** |
+| Auth preflight / ordinary session recovery | Passed persisted reload, fresh protected navigation, and unauthenticated protected-route check; no identity details persisted |
+| Hosted authenticated routes | 9/9 readiness checks left the loading shell; 7/9 route contracts passed, with three stale Dashboard/Payroll text assertions; 0 console errors, 0 page errors, 0 failed requests; CSP violation absent |
+| Hosted combined XLSX export/import/review/Apply | Export and schema parsing passed; matrix failed at `prepare-stale-workbook` before stale check, upload, review, or Apply |
+| Protected-field classification and authoritative post-Apply refresh | Not reached in the hosted matrix |
 | Supplier Payables permission boundary | Read-enabled export observed; no read-disabled profile available |
 | Company-context invalidation | Not exercised in the single-company QA deployment |
 | Partial sequential failure/retry | No safe deterministic hosted trigger available; not induced |
-| REL-AUTH-1 intermittent verification trigger | Not reproduced; terminal expiry/access loss was not artificially induced |
-| Responsive combined import review | Not inspected; direct worksheet view at 1280×800 and 390×844 had no whole-page horizontal overflow, but those captures were not persisted and do not certify import review |
+| REL-AUTH-1 intermittent verification trigger | Not reproduced; ordinary reload succeeded; temporary verification state, terminal expiry, and invalidation of an existing review were not exercised |
+| Responsive combined import review | Not inspected; the matrix stopped before review screenshots at 1280×800 and 390×844 |
 | Production writes or migration promotion | None |
 
-The local browser permission issue does not change the hosted matrix result: the matrix uses Playwright on the protected CI runner, not the local Chrome file chooser. It remains pending until the implementation is deployed to QA and route readiness is confirmed. No hosted workbook certification, provider certification, or production readiness is claimed by this record.
+The local browser permission issue does not change the hosted matrix result: the matrix uses Playwright on the protected CI runner, not the local Chrome file chooser. Route readiness now passes on current `main`, but the route assertions need to match the visible product and the workbook matrix must pass before this certification can close. The current candidate changes have only local validation; a PR review/merge and the normal QA deployment path are still required before another exact-SHA hosted run. No hosted workbook certification, provider certification, or production readiness is claimed by this record.
 
 ## Local implementation validation
 
@@ -76,7 +88,8 @@ The local browser permission issue does not change the hosted matrix result: the
 - `workflow-map:check`: **266 nodes / 355 edges**, valid.
 - `workflow-map:consistency`: **266 nodes / 355 edges / 36 invariants / 11 diagrams**, consistent.
 - Exact-head protected CI for the final PR head is a delivery check and is not claimed in this record until GitHub reports it.
+- REL-QA-WB-1B closeout candidate commit `f8ae23bad1ef0c795ff9937942ce899c815fd7bf`: focused Hosted QA contract tests **17/17 passed**; `npm.cmd run test:affected:agent` **89/89 passed across 14/395 files (3.5%, no fallback)**; `npm.cmd run lint` passed. No app build was run because the candidate changes are hosted-QA scripts and tests only. These local checks do not replace the pending hosted rerun.
 
 ## Completion gate
 
-REL-QA-WB-1 remains open until the implementation is deployed to the mapped QA app, the hosted loading shell is resolved, and the authenticated matrix completes with its manifest and cropped laptop/phone screenshots inspected by the lead and recorded as durable sanitized evidence. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.
+REL-QA-WB-1 remains open until the closeout candidate reaches the mapped QA deployment through the normal release path, the exact deployed SHA passes the standard authenticated route contracts, and the workbook matrix completes with protected-field, stale-version, Apply/refresh, and line-preservation assertions plus manually inspected 1280×800 and 390×844 review captures. Record sanitized evidence from that run. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.
