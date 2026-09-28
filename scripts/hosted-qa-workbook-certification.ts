@@ -417,7 +417,7 @@ async function main() {
     const linkedExpenseProposal = review.locator('[data-combined-workbook-domain="expenses"] [data-combined-workbook-proposal]')
       .filter({ hasText: "Synthetic pump calibration service" });
     const linkedExpenseProposalText = await linkedExpenseProposal.innerText();
-    if (["Supplier Invoice", "Confirmed Paid", "Settlement State"].some((field) => !linkedExpenseProposalText.includes(field))) {
+    if (["supplierInvoice", "confirmedPaid", "settlementState"].some((field) => !linkedExpenseProposalText.includes(field))) {
       throw new Error("SUPPLIER_LINKED_SOURCE_OR_SETTLEMENT_NOT_CLASSIFIED");
     }
     const unchangedGroups = review.locator("details[data-combined-workbook-unchanged-count]");
