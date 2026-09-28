@@ -69,7 +69,7 @@ An explicit `run_operations_workbook_matrix` input was added to the protected Ho
 
 When run against a corrected QA deployment, its assertions cover:
 
-- Existing Projects and Cost Codes edits, protected Project budget, and separate domain confirmation/Apply.
+- Existing Project and Cost Code edits in one atomic project group, protected Project lifecycle/derived financial fields, and separate domain confirmation/Apply.
 - A direct DRAFT Expense round trip and a stale-version conflict after an ordinary UI save.
 - Supplier-linked Expense description, invoice reference, confirmed-paid amount, and settlement state remaining protected.
 - Expense lifecycle status, RFQ lifecycle status, PO lifecycle status, and project financial values remaining protected.

@@ -204,7 +204,12 @@ async function applyReviewedDomain(page: Page, domainId: string, label: string, 
   if (!(await apply.isEnabled())) throw new Error("APPLY_NOT_ENABLED_AFTER_CONFIRMATION");
   await apply.click();
   const notice = page.getByText(/^Applied \d+ reviewed change(?:s)? in /).last();
-  await notice.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const rejection = page.getByRole("alert").last();
+  const outcome = await Promise.race([
+    notice.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS }).then(() => "success" as const),
+    rejection.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS }).then(() => "rejected" as const),
+  ]);
+  if (outcome === "rejected") throw new Error("WORKBOOK_DOMAIN_APPLY_REJECTED");
   const text = await notice.innerText();
   if (!text.includes(`in ${label}`)) throw new Error("APPLY_NOTICE_DOMAIN_MISMATCH");
   return { domainId, label, selectedProposals: matched.length, notice: text };
@@ -385,11 +390,14 @@ async function main() {
     await downloadWorkbook(page, roundtripSourcePath);
     const sourceWorkbook = XLSX.readFile(roundtripSourcePath, { cellDates: true, cellFormula: true, cellStyles: true });
     const projectTable = workbookTable(sourceWorkbook, "Projects");
-    const protectedProjectBudget = valueAt(projectTable, rowIndexByValue(projectTable, "Project Code", "QA-UX-20260911"), "Approved Project Budget");
-    if (typeof protectedProjectBudget !== "number") throw new Error("PROTECTED_PROJECT_BUDGET_FIXTURE_MISSING");
+    const protectedProjectStatus = String(valueAt(projectTable, rowIndexByValue(projectTable, "Project Code", "QA-UX-20260911"), "Status") ?? "");
+    if (!protectedProjectStatus) throw new Error("PROTECTED_PROJECT_STATUS_FIXTURE_MISSING");
     const edits: WorkbookEdit[] = [
-      { sheetName: "Projects", keyHeader: "Project Code", keyValue: "QA-LOCAL-HARNESS", fieldHeader: "Description", value: `${runPrefix} project description` },
-      { sheetName: "Projects", keyHeader: "Project Code", keyValue: "QA-UX-20260911", fieldHeader: "Approved Project Budget", value: protectedProjectBudget + 1000 },
+      // Exercise one atomic Project + Cost Code group. Project Budget is an editable
+      // commercial workbook field by contract, so use lifecycle Status as the
+      // genuinely protected Project field.
+      { sheetName: "Projects", keyHeader: "Project Code", keyValue: "QA-E2E-7F4K-NTU", fieldHeader: "Description", value: `${runPrefix} project description` },
+      { sheetName: "Projects", keyHeader: "Project Code", keyValue: "QA-UX-20260911", fieldHeader: "Status", value: "ARCHIVED" },
       { sheetName: "Cost Codes", keyHeader: "Code", keyValue: "CIVIL-7F4K", fieldHeader: "Description", value: `${runPrefix} cost code description` },
       { sheetName: "Expenses", keyHeader: "__HQ Record ID", keyValue: draftExpenseId, fieldHeader: "Description", value: `${runPrefix} authoritative round-trip Expense` },
       { sheetName: "Expenses", keyHeader: "__HQ Record ID", keyValue: protectedDirectExpenseId, fieldHeader: "Status", value: "PAID" },
@@ -449,8 +457,14 @@ async function main() {
     manifest.responsive = responsive;
     manifest.review = { domains: ["projects", "expenses", "procurement"], protectedFields: protectedFieldCount, unchangedRowsCollapsed: true, applyDisabledUntilConfirmed: true, supplierPayablesIncludedForInvoiceRead: true };
 
+    // Responsive certification ends on the phone viewport. Return to the primary
+    // desktop operating surface before executing mutations so Apply does not depend
+    // on mobile scroll/layout state.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await review.scrollIntoViewIfNeeded();
+
     stage = "apply-projects-domain";
-    const appliedProjects = await applyReviewedDomain(page, "projects", "Projects / Cost Codes", ["QA-LOCAL-HARNESS", "QA-E2E-7F4K-NTU"]);
+    const appliedProjects = await applyReviewedDomain(page, "projects", "Projects / Cost Codes", ["QA-E2E-7F4K-NTU"]);
     stage = "apply-expenses-domain";
     const appliedExpenses = await applyReviewedDomain(page, "expenses", "Expenses / Supplier Payables", [`${runPrefix} authoritative round-trip Expense`]);
     stage = "apply-procurement-domain";
@@ -460,7 +474,7 @@ async function main() {
     stage = "verify-authoritative-refresh";
     const final = await exportRows(page, tmpDir);
     const finalProjectTable = final.projectTable;
-    const finalBudget = valueAt(finalProjectTable, rowIndexByValue(finalProjectTable, "Project Code", "QA-UX-20260911"), "Approved Project Budget");
+    const finalProjectStatus = String(valueAt(finalProjectTable, rowIndexByValue(finalProjectTable, "Project Code", "QA-UX-20260911"), "Status") ?? "");
     const directRow = final.expenseTable.rows.find((row, index) => index > 0 && String(row[columnIndex(final.expenseTable.headers, "__HQ Record ID")] ?? "") === draftExpenseId);
     const linkedDraftRowIndex = rowIndexByValue(final.expenseTable, "__HQ Record ID", linkedDraftExpenseId);
     const protectedExpenseRowIndex = rowIndexByValue(final.expenseTable, "__HQ Record ID", protectedDirectExpenseId);
@@ -479,12 +493,12 @@ async function main() {
     const poLineIdsAfter = lineIdsForParent(final.poLinesTable, "PO Number", "PO-26-6630");
     const directDescription = String(directRow?.[columnIndex(final.expenseTable.headers, "Description")] ?? "");
     const directStatus = String(directRow?.[columnIndex(final.expenseTable.headers, "Status")] ?? "");
-    if (valueAt(finalProjectTable, rowIndexByValue(finalProjectTable, "Project Code", "QA-LOCAL-HARNESS"), "Description") !== `${runPrefix} project description`
+    if (valueAt(finalProjectTable, rowIndexByValue(finalProjectTable, "Project Code", "QA-E2E-7F4K-NTU"), "Description") !== `${runPrefix} project description`
       || valueAt(final.codeTable, rowIndexByValue(final.codeTable, "Code", "CIVIL-7F4K"), "Description") !== `${runPrefix} cost code description`
       || directDescription !== `${runPrefix} authoritative round-trip Expense` || directStatus !== "DRAFT"
       || rfqTitle !== `${runPrefix} RFQ title` || protectedRfqStatus !== "DRAFT"
       || poDescription !== `${runPrefix} PO description` || protectedPoStatus !== "ISSUED"
-      || finalBudget !== protectedProjectBudget || protectedExpenseStatus !== "APPROVED"
+      || finalProjectStatus !== protectedProjectStatus || protectedExpenseStatus !== "APPROVED"
       || linkedDescription !== "Synthetic pump calibration service"
       || linkedInvoice !== linkedSupplierInvoice || linkedPaid !== linkedConfirmedPaid || linkedSettlement !== linkedSettlementState
       || JSON.stringify(rfqLineIdsAfter) !== JSON.stringify(rfqLineIdsBefore)
@@ -492,7 +506,7 @@ async function main() {
       throw new Error("AUTHORITATIVE_REFRESH_OR_PROTECTED_VALUE_CHECK_FAILED");
     }
     manifest.linePreservation = { rfqLineIdsUnchanged: true, purchaseOrderLineIdsUnchanged: true, rfqLineCount: rfqLineIdsAfter.length, purchaseOrderLineCount: poLineIdsAfter.length };
-    manifest.authority = { projectDescriptionUpdated: true, costCodeDescriptionUpdated: true, directExpenseDescriptionUpdated: true, rfqTitleUpdated: true, purchaseOrderDescriptionUpdated: true, projectBudgetProtected: true, lifecycleStatusesProtected: true, supplierLinkedExpenseProtected: true };
+    manifest.authority = { projectDescriptionUpdated: true, costCodeDescriptionUpdated: true, directExpenseDescriptionUpdated: true, rfqTitleUpdated: true, purchaseOrderDescriptionUpdated: true, projectLifecycleProtected: true, lifecycleStatusesProtected: true, supplierLinkedExpenseProtected: true };
     stage = "runtime-health";
     if (consoleErrors.length || pageErrors.length || failedRequests.length) throw new Error("RUNTIME_ERROR_CHECK_FAILED");
     manifest.status = "PASS";
