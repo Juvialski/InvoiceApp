@@ -46,6 +46,33 @@ export function sanitizeHostedQaFailureCode(error: unknown): string {
   return /^[A-Z][A-Z0-9_]{0,79}$/.test(message) ? message : "UNCLASSIFIED_ERROR";
 }
 
+const HOSTED_QA_WORKBOOK_ADVANCE_EXPENSE_STEPS = [
+  "select-expenses-sheet",
+  "wait-expenses-grid",
+  "find-direct-expense-row",
+  "find-description-column",
+  "verify-description-editable",
+  "open-description-editor",
+  "wait-description-editor",
+  "fill-description",
+  "verify-save-action",
+  "save-expense",
+  "wait-save-confirmation",
+  "return-to-projects",
+  "wait-projects-grid",
+  "return-to-expenses",
+  "wait-updated-expense-row",
+] as const;
+
+export type HostedQaWorkbookAdvanceExpenseStep = typeof HOSTED_QA_WORKBOOK_ADVANCE_EXPENSE_STEPS[number];
+
+/** Preserve only fixed operation labels in hosted workbook failure artifacts. */
+export function sanitizeHostedQaWorkbookAdvanceExpenseStep(value: unknown): HostedQaWorkbookAdvanceExpenseStep | undefined {
+  return typeof value === "string" && (HOSTED_QA_WORKBOOK_ADVANCE_EXPENSE_STEPS as readonly string[]).includes(value)
+    ? value as HostedQaWorkbookAdvanceExpenseStep
+    : undefined;
+}
+
 export interface HostedQaReadinessPage {
   waitForFunction: (...args: any[]) => Promise<unknown>;
 }

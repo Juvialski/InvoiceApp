@@ -11,8 +11,10 @@ import * as XLSX from "xlsx";
 import {
   assertHostedQaTarget,
   sanitizeHostedQaFailureCode,
+  sanitizeHostedQaWorkbookAdvanceExpenseStep,
   waitForHostedQaHealth,
   waitForHostedQaRouteReadiness,
+  type HostedQaWorkbookAdvanceExpenseStep,
 } from "./qa/hostedQaContracts.ts";
 import { repositoryMigrationLevel } from "../src/server/repositoryMigrationLevel.ts";
 import { parseOperationsWorkbook } from "../src/lib/operationsWorkbook.ts";
@@ -120,18 +122,50 @@ async function uploadWorkbook(page: Page, filePath: string) {
   return review;
 }
 
-async function updateLiveExpenseDescription(page: Page, currentDescription: string, nextDescription: string) {
-  await page.getByRole("tab", { name: "Expenses", exact: true }).click();
+async function updateLiveExpenseDescription(
+  page: Page,
+  currentDescription: string,
+  nextDescription: string,
+  markStep: (step: HostedQaWorkbookAdvanceExpenseStep) => void,
+) {
+  markStep("select-expenses-sheet");
+  await page.getByRole("tab", { name: "Expenses", exact: true }).click({ timeout: READY_TIMEOUT_MS });
   const grid = page.getByRole("grid", { name: "Expenses worksheet" });
+  markStep("wait-expenses-grid");
+  await grid.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const targetRow = grid.getByRole("row").filter({ hasText: currentDescription });
+  markStep("find-direct-expense-row");
   await targetRow.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  await targetRow.getByRole("gridcell").nth(4).click();
-  await targetRow.getByRole("textbox").fill(nextDescription);
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  markStep("find-description-column");
+  const headers = await grid.getByRole("columnheader").allTextContents();
+  const descriptionColumnIndex = headers.findIndex((header) => header.trim() === "Description");
+  if (descriptionColumnIndex < 0) throw new Error("EXPENSE_DESCRIPTION_COLUMN_NOT_FOUND");
+  const descriptionCell = targetRow.getByRole("gridcell").nth(descriptionColumnIndex);
+  markStep("verify-description-editable");
+  if (await descriptionCell.getAttribute("data-worksheet-editable") !== "true") {
+    throw new Error("DIRECT_EXPENSE_DESCRIPTION_NOT_EDITABLE");
+  }
+  markStep("open-description-editor");
+  await descriptionCell.click({ timeout: READY_TIMEOUT_MS });
+  const editor = targetRow.getByRole("textbox");
+  markStep("wait-description-editor");
+  await editor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  markStep("fill-description");
+  await editor.fill(nextDescription, { timeout: READY_TIMEOUT_MS });
+  const saveButton = page.getByRole("button", { name: "Save changes", exact: true });
+  markStep("verify-save-action");
+  if (!await saveButton.isVisible()) throw new Error("EXPENSE_WORKSHEET_SAVE_UNAVAILABLE");
+  markStep("save-expense");
+  await saveButton.click({ timeout: READY_TIMEOUT_MS });
+  markStep("wait-save-confirmation");
   await page.getByRole("status").filter({ hasText: "Expense changes saved." }).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  await page.getByRole("tab", { name: "Projects", exact: true }).click();
+  markStep("return-to-projects");
+  await page.getByRole("tab", { name: "Projects", exact: true }).click({ timeout: READY_TIMEOUT_MS });
+  markStep("wait-projects-grid");
   await page.getByRole("grid", { name: "Projects worksheet" }).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  await page.getByRole("tab", { name: "Expenses", exact: true }).click();
+  markStep("return-to-expenses");
+  await page.getByRole("tab", { name: "Expenses", exact: true }).click({ timeout: READY_TIMEOUT_MS });
+  markStep("wait-updated-expense-row");
   await page.getByRole("grid", { name: "Expenses worksheet" }).getByRole("row").filter({ hasText: nextDescription })
     .waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
 }
@@ -240,6 +274,7 @@ async function main() {
   };
 
   let stage = "setup";
+  let matrixFailureStep: HostedQaWorkbookAdvanceExpenseStep | undefined;
   let browser: Browser | null = null;
   let context: BrowserContext | null = null;
   let page: Page | null = null;
@@ -325,7 +360,9 @@ async function main() {
     await rewriteWorkbook(initialPath, stalePath, [{ sheetName: "Expenses", keyHeader: "__HQ Record ID", keyValue: draftExpenseId, fieldHeader: "Description", value: staleDescription }]);
 
     stage = "advance-expense-version";
-    await updateLiveExpenseDescription(page, startingExpenseDescription, directVersion);
+    matrixFailureStep = undefined;
+    await updateLiveExpenseDescription(page, startingExpenseDescription, directVersion, (step) => { matrixFailureStep = step; });
+    matrixFailureStep = undefined;
     stage = "review-stale-workbook";
     const staleReview = await uploadWorkbook(page, stalePath);
     const staleProposal = staleReview.locator('[data-combined-workbook-domain="expenses"] [data-combined-workbook-proposal]')
@@ -459,8 +496,10 @@ async function main() {
     manifest.failureStage = stage;
     manifest.failureCategory = error instanceof Error ? error.name : "Error";
     manifest.failureCode = sanitizeHostedQaFailureCode(error);
+    const failureStep = sanitizeHostedQaWorkbookAdvanceExpenseStep(matrixFailureStep);
+    if (failureStep) manifest.failureStep = failureStep;
     process.exitCode = 1;
-    console.error(`Hosted workbook QA status=FAIL stage=${stage} category=${String(manifest.failureCategory)} code=${String(manifest.failureCode)}`);
+    console.error(`Hosted workbook QA status=FAIL stage=${stage}${failureStep ? ` step=${failureStep}` : ""} category=${String(manifest.failureCategory)} code=${String(manifest.failureCode)}`);
   } finally {
     manifest.runtime = { consoleErrorCount: consoleErrors.length, pageErrorCount: pageErrors.length, failedRequestCount: failedRequests.length };
     await writeFile(path.join(OUTPUT_DIR, "workbook-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");

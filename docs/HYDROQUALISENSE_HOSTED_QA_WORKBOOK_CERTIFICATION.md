@@ -1,8 +1,8 @@
 # HydroQualiSense Hosted QA Operations Workbook Certification — REL-QA-WB-1
 
-- Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; LATEST PRE-FIX RUN PASSED 9/9 ROUTE CONTRACTS WITH ZERO RUNTIME ERRORS, BUT THE MATRIX FAILED BEFORE REVIEW/APPLY; ROOT CAUSE AND LOCAL FIX ARE RECORDED BELOW; POST-MERGE HOSTED VERIFICATION IS PENDING**
-- Base `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
-- QA app SHA at investigation: `32d59ec04afe09b653f6e210525f9094f26234a7`
+- Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; LATEST EXACT-SHA RUN PASSED AUTHENTICATED ROUTES 9/9, BUT THE MATRIX TIMED OUT DURING DIRECT EXPENSE VERSION ADVANCEMENT BEFORE STALE REVIEW/APPLY; STEP-LEVEL DIAGNOSTICS ARE BEING ADDED BEFORE THE NEXT RUN**
+- Initial `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
+- Latest merged `main` and QA app SHA: `d8903494bb2787f18c70a8b1a7b89828df822371`
 - Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`
 - Delivery pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272); exact-head protected CI status is tracked on GitHub.
 - Executable hardening commit: `1f7908292eb16985859df026ebd562ec51a0317f`
@@ -39,7 +39,16 @@ Hosted run [36369354473](https://github.com/Juvialski/InvoiceApp/actions/runs/36
 
 The root cause was the Node ESM build of SheetJS using path-based `readFile` calls without a Node filesystem binding. The exact QA export reproduced `Cannot access file [temporary workbook path]` at that call. Binding `node:fs` with `XLSX.set_fs(nodeFs)` before the first path read allowed the same workbook to be rewritten and parsed successfully. A focused regression check ensures the binding precedes path reads. Local validation passed **18/18 focused hosted-QA tests**, **67/67 affected tests across 9/395 files (2.3%, no fallback)**, and lint/typecheck. No QA row was changed; production was not accessed or modified.
 
-**Hosted verification of the fix is pending until the merged SHA reaches QA.** REL-QA-WB-1 remains incomplete until that exact deployed SHA passes the standard authenticated route suite and complete workbook matrix, and the 1280×800 and 390×844 review/Apply captures are inspected.
+**Hosted verification of the fix reached QA at SHA `d8903494bb2787f18c70a8b1a7b89828df822371`, but REL-QA-WB-1 remains incomplete.** Run 36376472314 passed the authenticated route suite and failed during the matrix's direct Expense version setup before stale review, Apply, or responsive captures. The timeout diagnostic change and next exact-SHA run are pending.
+
+## 2026-09-28 post-merge hosted attempt — direct Expense version setup timeout
+
+- QA Render service `qa-hydroqualisense` was live and `/api/health` reported environment `qa`, deployment ID `qa-hydroqualisense`, app SHA `d8903494bb2787f18c70a8b1a7b89828df822371`, and migration level `20260927095636`. The Render deploy record for that SHA was live.
+- The mapped Supabase project was `hydroqualisense-qa` / `vrpuznofrntyqsbugrib`, status `ACTIVE_HEALTHY`. Read-only comparison found **153/153** canonical migration version/name pairs, no missing or extra entries, and matching head `20260927095636_wb3c_header_only_procurement_saves`. No migration push or promotion was needed.
+- Hosted QA run [36376472314](https://github.com/Juvialski/InvoiceApp/actions/runs/36376472314) checked out exact source SHA `d8903494bb2787f18c70a8b1a7b89828df822371` with `run_operations_workbook_matrix=true`. Authenticated preflight, route readiness, all **9/9 route contracts**, and the Storage probe passed. There were **0 console errors, 0 page errors, and 0 failed requests** in the route suite.
+- The matrix exported and parsed the combined workbook. It found the five supported editable sheets, supporting sheets, and one RFQ line plus one PO line. It then failed at `advance-expense-version` with `TimeoutError` / `UNCLASSIFIED_ERROR`. Stale-version review, import/review, Apply, authoritative refresh, line-preservation assertions after Apply, and responsive review captures were not reached.
+- The matrix manifest recorded **0 console errors, 0 page errors, and 0 failed requests**. A separate read-only QA query confirmed the synthetic direct Expense remained `REL-QA-WB-1 direct version A`, so this failed run did not save a direct Expense edit or apply a workbook change. Production was not queried or mutated.
+- The current harness groups several UI waits under `advance-expense-version`, so the failed artifact does not identify the timed-out control. A focused diagnostics change adds fixed substeps, resolves the Description column from its header, checks editability and the Save action explicitly, and preserves only allowlisted step labels in evidence. The branch/PR and local validation are recorded in the current handoff. Hosted certification remains open until a subsequent exact-SHA run passes and the 1280×800 and 390×844 review/Apply captures are inspected.
 
 ## Authenticated hosted findings
 
@@ -103,4 +112,4 @@ The local browser permission issue does not change the hosted matrix result: the
 
 ## Completion gate
 
-REL-QA-WB-1 remains open. The root cause and local correction are recorded above; hosted verification remains pending until the merged SHA reaches QA. Then the exact deployed SHA must pass the standard authenticated route contracts and complete workbook matrix with protected-field, stale-version, Apply/refresh, and line-preservation assertions plus manually inspected 1280×800 and 390×844 review captures. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.
+REL-QA-WB-1 remains open. The SheetJS fix reached QA at SHA `d8903494bb2787f18c70a8b1a7b89828df822371`; run 36376472314 passed authenticated routes but timed out before workbook review. After the step-diagnostics correction reaches QA, the next exact deployed SHA must pass the standard authenticated route contracts and complete workbook matrix with protected-field, stale-version, Apply/refresh, and line-preservation assertions plus manually inspected 1280×800 and 390×844 review captures. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.
