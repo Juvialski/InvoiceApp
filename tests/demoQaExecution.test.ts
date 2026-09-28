@@ -185,6 +185,37 @@ test("documentation-only pull requests explicitly skip browser scenarios", async
   assert.deepEqual(selection.features, []);
 });
 
+test("unrelated GitHub workflow additions and deletions skip browser scenarios", async () => {
+  const module = await loadFeatureSelection();
+  assert.ok(module, "the demo feature selector module must exist");
+  const options = { eventName: "pull_request", fileListComplete: true } as const;
+
+  for (const changedFiles of [
+    [".github/workflows/release-operation.yml"],
+    [".github/workflows/one-time-prod-migration-20260927095636.yml"],
+  ]) {
+    const selection = module.selectDemoQaScope(changedFiles, options);
+    assert.equal(selection.mode, "skip");
+    assert.deepEqual(selection.routeIds, []);
+    assert.deepEqual(selection.features, []);
+  }
+});
+
+test("unrelated GitHub workflows do not mask mapped application browser scope", async () => {
+  const module = await loadFeatureSelection();
+  assert.ok(module, "the demo feature selector module must exist");
+  const selection = module.selectDemoQaScope([
+    ".github/workflows/release-operation.yml",
+    "src/components/expenses/ExpensesPage.tsx",
+  ], { eventName: "pull_request", fileListComplete: true });
+
+  assert.equal(selection.mode, "affected");
+  assert.ok(selection.routeIds.includes("expenses"));
+  assert.ok(selection.routeIds.includes("cash"));
+  assert.ok(selection.features.includes("shared-shell-smoke@dashboard"));
+  assert.ok(!selection.features.includes("project-financial-control@project-financial-control"));
+});
+
 test("markdown outside known documentation locations is not silently skipped", async () => {
   const module = await loadFeatureSelection();
   assert.ok(module, "the demo feature selector module must exist");

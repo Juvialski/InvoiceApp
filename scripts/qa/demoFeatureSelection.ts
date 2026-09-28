@@ -169,6 +169,12 @@ function isDocumentationOnlyPath(repoPath: string): boolean {
     || /^AGENTS\.md$/i.test(repoPath);
 }
 
+function isUnrelatedGitHubWorkflowPath(repoPath: string): boolean {
+  const normalizedPath = repoPath.toLowerCase();
+  return /^\.github\/workflows\/[^/]+\.(?:yml|yaml)$/.test(normalizedPath)
+    && normalizedPath !== ".github/workflows/demo-visual-qa.yml";
+}
+
 function isSharedOrInfrastructurePath(repoPath: string): boolean {
   const scenarioFamily = scenarioModuleFamilyForPath(repoPath);
   if (scenarioFamily || ROUTE_FILE_ROUTE_FAMILIES[repoPath] || ROOT_COMPONENT_ROUTE_FAMILIES[repoPath]) return false;
@@ -260,8 +266,18 @@ export function selectDemoQaScope(changedFiles: unknown, options: DemoQaScopeOpt
   }
 
   const uniquePaths = [...new Set(normalizedPaths)].sort();
-  const relevantPaths = uniquePaths.filter((repoPath) => !isDocumentationOnlyPath(repoPath));
-  if (relevantPaths.length === 0) return { mode: "skip", routeIds: [], features: [], reason: "documentation-only-changes" };
+  const relevantPaths = uniquePaths.filter((repoPath) =>
+    !isDocumentationOnlyPath(repoPath) && !isUnrelatedGitHubWorkflowPath(repoPath));
+  if (relevantPaths.length === 0) {
+    const hasDocumentationChanges = uniquePaths.some(isDocumentationOnlyPath);
+    const hasUnrelatedWorkflowChanges = uniquePaths.some(isUnrelatedGitHubWorkflowPath);
+    const reason = hasDocumentationChanges && hasUnrelatedWorkflowChanges
+      ? "documentation-and-unrelated-workflow-only-changes"
+      : hasDocumentationChanges
+        ? "documentation-only-changes"
+        : "unrelated-github-workflow-only-changes";
+    return { mode: "skip", routeIds: [], features: [], reason };
+  }
 
   const families = new Set<RouteFamily>();
   for (const repoPath of relevantPaths) {

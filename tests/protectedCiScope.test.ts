@@ -31,6 +31,15 @@ test("Application Validation fast-passes documentation-only changes", () => {
   assert.equal(classifyApplicationValidationScope(["docs/AGENT_EXECUTION_EFFICIENCY.md"], pullRequest).mode, "irrelevant");
 });
 
+test("Application Validation fast-passes unrelated workflow-only changes without masking application files", () => {
+  const workflowPath = ".github/workflows/one-time-prod-migration-20260927095636.yml";
+  assert.equal(classifyApplicationValidationScope([workflowPath], pullRequest).mode, "irrelevant");
+  assert.equal(classifyApplicationValidationScope([
+    workflowPath,
+    "src/components/expenses/ExpensesPage.tsx",
+  ], pullRequest).mode, "application");
+});
+
 test("Application Validation fails closed for incomplete, invalid, and non-PR scope", () => {
   assert.equal(classifyApplicationValidationScope(["docs/README.md"], { eventName: "pull_request", fileListComplete: false }).mode, "application");
   assert.equal(classifyApplicationValidationScope(["../outside.ts"], pullRequest).mode, "application");
@@ -44,6 +53,12 @@ test("Workflow Map fast-passes domain assertion modules but keeps metadata and e
   assert.equal(classifyWorkflowMapScope(["scripts/qa/demoScenarioActions.ts"], pullRequest).mode, "irrelevant");
   assert.equal(classifyWorkflowMapScope(["scripts/qa/demoScenarioMetadata.ts"], pullRequest).mode, "source-contract");
   assert.equal(classifyWorkflowMapScope(["scripts/qa/structuredEvidence.ts"], pullRequest).mode, "source-contract");
+});
+
+test("Workflow Map fast-passes unrelated workflow-only changes and retains mapped sources", () => {
+  const workflowPath = ".github/workflows/one-time-prod-migration-20260927095636.yml";
+  assert.equal(classifyWorkflowMapScope([workflowPath], pullRequest).mode, "irrelevant");
+  assert.equal(classifyWorkflowMapScope([workflowPath, "src/utils/routes.ts"], pullRequest).mode, "source-contract");
 });
 
 test("Workflow Map does not fast-pass unknown QA bridge files or source-contract inputs", () => {
