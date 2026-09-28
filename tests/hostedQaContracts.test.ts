@@ -7,6 +7,7 @@ import {
   hostedQaRequiredTextPresent,
   hostedQaRouteReadinessState,
   probeHostedQaStorageObject,
+  sanitizeHostedQaFailureCode,
   sanitizeHostedQaStorageError,
   waitForHostedQaHealth,
   waitForHostedQaRouteReadiness,
@@ -193,4 +194,11 @@ test("hosted QA production-host refusal remains intact", () => {
 test("hosted QA required-text contracts ignore presentation-only casing", () => {
   assert.equal(hostedQaRequiredTextPresent("UNIFIED ACCESS SURFACE", "Unified access surface"), true);
   assert.equal(hostedQaRequiredTextPresent("Documents register", "Unified access surface"), false);
+});
+
+test("hosted QA workbook failure diagnostics retain safe sentinel codes and redact free-form errors", () => {
+  assert.equal(sanitizeHostedQaFailureCode(new Error("SUPPLIER_LINKED_SETTLEMENT_FIXTURE_MISSING")), "SUPPLIER_LINKED_SETTLEMENT_FIXTURE_MISSING");
+  const unsafe = sanitizeHostedQaFailureCode(new Error("Timed out for user@example.com access_token=secret-token"));
+  assert.equal(unsafe, "UNCLASSIFIED_ERROR");
+  assert.doesNotMatch(unsafe, /user@example\.com|secret-token/);
 });
