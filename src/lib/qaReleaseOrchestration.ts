@@ -82,7 +82,8 @@ export function classifyQaReleasePaths(paths: readonly string[], manualHostedQa 
     hasMigration,
     hasRuntime,
     hasHostedQaHarness,
-    requiresHostedQa: manualHostedQa || hasMigration || hasRuntime || hasHostedQaHarness,
+    runOperationsWorkbookMatrix,
+    requiresHostedQa: manualHostedQa || hasMigration || hasRuntime || hasHostedQaHarness || runOperationsWorkbookMatrix,
   };
 }
 
