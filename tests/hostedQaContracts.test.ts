@@ -216,6 +216,12 @@ test("hosted QA workbook failure diagnostics retain safe sentinel codes and reda
   assert.equal(sanitizeHostedQaWorkbookAdvanceExpenseStep("Timed out for user@example.com access_token=secret-token"), undefined);
 });
 
+test("hosted workbook review certifies protected fields rather than counting proposal status badges", () => {
+  assert.match(workbookHarnessSource, /getByText\("Protected", \{ exact: true \}\)\.count\(\)/);
+  assert.doesNotMatch(workbookHarnessSource, /getByText\("UNSUPPORTED_PROTECTED_FIELD", \{ exact: true \}\)\.count\(\)/);
+  assert.match(workbookHarnessSource, /protectedFields: protectedFieldCount/);
+});
+
 test("hosted workbook row locator uses stable UUID identity and rejects selector injection", () => {
   const expenseId = "a1234567-89ab-4cde-8f01-234567890abc";
   assert.equal(hostedQaWorkbookRowSelector(expenseId), `[data-worksheet-row-key="${expenseId}"]`);
