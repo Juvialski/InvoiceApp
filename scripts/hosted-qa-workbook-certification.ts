@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
+import * as nodeFs from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -18,6 +19,9 @@ import { parseOperationsWorkbook } from "../src/lib/operationsWorkbook.ts";
 import {
   COMBINED_OPERATIONS_WORKBOOK_SCHEMA,
 } from "../src/lib/combinedOperationsWorkbook.ts";
+
+// SheetJS ESM exposes path-based reads but requires Node's fs binding explicitly.
+XLSX.set_fs(nodeFs);
 
 const BASE_URL = (process.env.QA_E2E_BASE_URL || "https://hydroqualisense-qa.onrender.com").replace(/\/+$/, "");
 const EXPECTED_DEPLOYMENT_ID = (process.env.QA_E2E_EXPECTED_DEPLOYMENT_ID || "qa-hydroqualisense").trim();

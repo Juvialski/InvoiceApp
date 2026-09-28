@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   assertHostedQaTarget,
@@ -16,6 +17,14 @@ import {
 const COMPANY_ID = "c1234567-0000-4000-a000-000000000001";
 const DOCUMENT_ID = "d1234567-0000-4000-a000-000000000001";
 const REVISION_ID = "e1234567-0000-4000-a000-000000000001";
+const workbookHarnessSource = readFileSync(new URL("../scripts/hosted-qa-workbook-certification.ts", import.meta.url), "utf8");
+
+test("hosted workbook matrix binds Node fs before SheetJS path-based reads", () => {
+  const bindingIndex = workbookHarnessSource.indexOf("XLSX.set_fs(nodeFs)");
+  const firstPathReadIndex = workbookHarnessSource.indexOf("XLSX.readFile(");
+  assert.ok(bindingIndex >= 0, "the XLSX ESM filesystem binding is required");
+  assert.ok(firstPathReadIndex > bindingIndex, "the binding must run before XLSX.readFile");
+});
 
 test("hosted QA route readiness stays unresolved while app/auth/company access is loading", () => {
   assert.equal(hostedQaRouteReadinessState("Loading Engineering Operations Platform..."), "loading");
