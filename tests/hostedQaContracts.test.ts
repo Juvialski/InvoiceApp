@@ -216,6 +216,11 @@ test("hosted QA workbook failure diagnostics retain safe sentinel codes and reda
   assert.equal(sanitizeHostedQaWorkbookAdvanceExpenseStep("Timed out for user@example.com access_token=secret-token"), undefined);
 });
 
+test("hosted workbook matrix matches the review's actual protected Expense field keys", () => {
+  assert.match(workbookHarnessSource, /\["supplierInvoice", "confirmedPaid", "settlementState"\]/);
+  assert.doesNotMatch(workbookHarnessSource, /\["Supplier Invoice", "Confirmed Paid", "Settlement State"\]/);
+});
+
 test("hosted workbook review certifies protected fields rather than counting proposal status badges", () => {
   assert.match(workbookHarnessSource, /getByText\("Protected", \{ exact: true \}\)\.count\(\)/);
   assert.doesNotMatch(workbookHarnessSource, /getByText\("UNSUPPORTED_PROTECTED_FIELD", \{ exact: true \}\)\.count\(\)/);
