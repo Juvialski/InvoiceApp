@@ -1,8 +1,9 @@
 # HydroQualiSense Hosted QA Operations Workbook Certification — REL-QA-WB-1
 
-- Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; LATEST EXACT-SHA RUN PASSED AUTHENTICATED ROUTES 9/9, BUT THE MATRIX TIMED OUT DURING DIRECT EXPENSE VERSION ADVANCEMENT BEFORE STALE REVIEW/APPLY; STEP-LEVEL DIAGNOSTICS ARE BEING ADDED BEFORE THE NEXT RUN**
+- Status: **HOSTED WORKBOOK CERTIFICATION NOT COMPLETE; LATEST EXACT-SHA RUN PASSED AUTHENTICATED ROUTES 9/9 BUT THE MATRIX STOPPED AT `wait-description-editor`; THE HARNESS ROW LOCATOR LOST ITS DESCRIPTION-TEXT MATCH WHEN THE CELL BECAME AN INPUT. A STABLE ROW-KEY FIX AND FOCUSED REGRESSION ARE ON THE CURRENT BRANCH; POST-FIX HOSTED VERIFICATION IS PENDING.**
 - Initial `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
-- Latest merged `main` and QA app SHA: `d8903494bb2787f18c70a8b1a7b89828df822371`
+- Latest merged `main` and QA app SHA: `169812902591276c9ce32a3670f1c9dbdf18071b`
+- Current root-cause fix branch: `codex/rel-qa-wb-1-stable-expense-row-locator` ([PR #276](https://github.com/Juvialski/InvoiceApp/pull/276), open)
 - Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`
 - Delivery pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272); exact-head protected CI status is tracked on GitHub.
 - Executable hardening commit: `1f7908292eb16985859df026ebd562ec51a0317f`
@@ -79,15 +80,23 @@ When run against a corrected QA deployment, its assertions cover:
 
 The matrices in runs 36364232002 and 36369354473 stopped at `prepare-stale-workbook` before stale review, upload, or Apply; run 36369354473 also passed the route suite with no runtime errors. The previous local CUA file-chooser limitation remains historical; the hosted Playwright runner is the approved upload path. The root cause is now identified and locally fixed; hosted verification is pending until the merged SHA reaches QA. Do not treat either pre-fix export as evidence for stale guards, protected-field classification, domain Apply, authoritative refresh, or responsive review.
 
+## 2026-09-28 latest exact-SHA attempt — Expense editor row locator
+
+- QA `/api/health` reported `environment=qa`, deployment ID `qa-hydroqualisense`, application SHA `169812902591276c9ce32a3670f1c9dbdf18071b`, and migration level `20260927095636`. The mapped Supabase project `hydroqualisense-qa` / `vrpuznofrntyqsbugrib` was `ACTIVE_HEALTHY`; a read-only canonical comparison matched **153/153** version/name pairs. No deployment or migration promotion was needed.
+- Hosted QA run [36379277555](https://github.com/Juvialski/InvoiceApp/actions/runs/36379277555) used that exact source SHA with `run_operations_workbook_matrix=true`. Authenticated preflight, Storage probe, and **9/9** route contracts passed with **0 console errors, 0 page errors, and 0 failed requests**.
+- Combined workbook export and parsing succeeded. The expected editable/supporting sheets were present, including one RFQ line and one PO line. The matrix failed at `advance-expense-version`, step `wait-description-editor`, with `TimeoutError` / `UNCLASSIFIED_ERROR`; matrix runtime counters were also zero. It stopped before text entry, Save, stale review, upload, workbook review, Apply, authoritative refresh, or responsive captures.
+- Root cause: the harness filtered the target row by the current Description text. `WorksheetEditor` replaces that display text with an input when editing begins, so the live Playwright row locator stopped matching before the harness queried for the textbox. The matrix did not reach a save or Apply action.
+- The current branch fixes the harness to locate the row by its UUID-backed `data-worksheet-row-key`, validates that selector input, and adds focused regression coverage for stable row identity during editing. Local Hosted QA/worksheet tests passed **45/45**. Post-fix hosted verification remains pending; no application runtime, database, migration, or production state changed.
+
 ## Evidence status and limitations
 
 | Area | Result |
 | --- | --- |
 | QA target / deployment mapping | Verified: `qa-hydroqualisense` -> `vrpuznofrntyqsbugrib` |
-| App and migration identity | Latest pre-fix run verified exact QA SHA `1f9f177a93a8a933876538c1c2653a1f787b609a`; migration parity **153/153** |
+| App and migration identity | Latest run 36379277555 verified QA SHA `169812902591276c9ce32a3670f1c9dbdf18071b`; migration parity **153/153** through `20260927095636` |
 | Auth preflight / ordinary session recovery | Passed persisted reload, fresh protected navigation, and unauthenticated protected-route check; no identity details persisted |
-| Hosted authenticated routes | Latest pre-fix run 36369354473 passed **9/9** route contracts; 0 console errors, 0 page errors, 0 failed requests; CSP violation absent |
-| Hosted combined XLSX export/import/review/Apply | Pre-fix export and schema parsing passed; matrix failed at `prepare-stale-workbook` before stale check, upload, review, or Apply. Root cause is fixed locally; post-merge hosted verification is pending |
+| Hosted authenticated routes | Latest run 36379277555 passed **9/9** route contracts; 0 console errors, 0 page errors, 0 failed requests |
+| Hosted combined XLSX export/import/review/Apply | Export and schema parsing passed; matrix stopped at `wait-description-editor` because its text-filtered row locator stopped matching when the editor replaced the cell text. The stable row-key correction is locally validated; post-fix hosted verification is pending |
 | Protected-field classification and authoritative post-Apply refresh | Not reached in the hosted matrix |
 | Supplier Payables permission boundary | Read-enabled export observed; no read-disabled profile available |
 | Company-context invalidation | Not exercised in the single-company QA deployment |
@@ -96,7 +105,7 @@ The matrices in runs 36364232002 and 36369354473 stopped at `prepare-stale-workb
 | Responsive combined import review | Not inspected; the matrix stopped before review screenshots at 1280×800 and 390×844 |
 | Production writes or migration promotion | None |
 
-The local browser permission issue does not change the hosted matrix result: the matrix uses Playwright on the protected CI runner, not the local Chrome file chooser. Route contracts now pass on `main`; the SheetJS filesystem-binding fix and regression test are locally verified against the exact QA export. The merged SHA must reach QA before the hosted matrix is rerun. No hosted workbook certification, provider certification, or production readiness is claimed by this record.
+The local browser permission issue does not change the hosted matrix result: the matrix uses Playwright on the protected CI runner, not the local Chrome file chooser. The hosted matrix has still not reached stale-version review, workbook review, Apply, authoritative refresh, or responsive review capture. No hosted workbook certification, provider certification, or production readiness is claimed by this record.
 
 ## Local implementation validation
 
@@ -109,7 +118,8 @@ The local browser permission issue does not change the hosted matrix result: the
 - Exact-head protected CI for the final PR head is a delivery check and is not claimed in this record until GitHub reports it.
 - REL-QA-WB-1B closeout candidate commit `f8ae23bad1ef0c795ff9937942ce899c815fd7bf`: focused Hosted QA contract tests **17/17 passed**; `npm.cmd run test:affected:agent` **89/89 passed across 14/395 files (3.5%, no fallback)**; `npm.cmd run lint` passed. No app build was run because the candidate changes are hosted-QA scripts and tests only. These local checks do not replace the pending hosted rerun.
 - REL-QA-WB-1C local root-cause fix: the exact QA workbook path-read failure reproduced before the `XLSX.set_fs(nodeFs)` binding and rewrote/reparsed successfully after it; focused Hosted QA tests **18/18 passed**, `npm.cmd run test:affected:agent` **67/67 across 9/395 files (2.3%, no fallback)**, and `npm.cmd run lint` passed.
+- REL-QA-WB-1E stable row locator correction: focused Hosted QA contract and WorksheetEditor tests **45/45 passed**; `npm.cmd run test:affected:agent` passed **121/121 across 14/395 files (3.5%, no fallback)**; `npm.cmd run lint` passed ESLint and TypeScript. No app build or database validation was applicable to this harness/test-only correction.
 
 ## Completion gate
 
-REL-QA-WB-1 remains open. The SheetJS fix reached QA at SHA `d8903494bb2787f18c70a8b1a7b89828df822371`; run 36376472314 passed authenticated routes but timed out before workbook review. After the step-diagnostics correction reaches QA, the next exact deployed SHA must pass the standard authenticated route contracts and complete workbook matrix with protected-field, stale-version, Apply/refresh, and line-preservation assertions plus manually inspected 1280×800 and 390×844 review captures. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.
+REL-QA-WB-1 remains open. The latest run 36379277555 passed authenticated routes but stopped at the harness's Description-editor locator before stale review or Apply. The stable row-key correction must reach the standard exact-SHA Hosted QA workflow; then the complete matrix must pass its protected-field, stale-version, Apply/refresh, and line-preservation assertions, and the **1280×800** and **390×844** review/Apply captures must be manually inspected. Alternate-permission and company-context cases remain explicit limitations unless safe QA identities and contexts become available. WB-3D+ remains deferred.

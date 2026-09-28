@@ -8,6 +8,7 @@ import {
   hostedQaRequiredTextPresent,
   hostedQaRouteReadinessState,
   sanitizeHostedQaWorkbookAdvanceExpenseStep,
+  hostedQaWorkbookRowSelector,
   probeHostedQaStorageObject,
   sanitizeHostedQaFailureCode,
   sanitizeHostedQaStorageError,
@@ -213,4 +214,10 @@ test("hosted QA workbook failure diagnostics retain safe sentinel codes and reda
   assert.doesNotMatch(unsafe, /user@example\.com|secret-token/);
   assert.equal(sanitizeHostedQaWorkbookAdvanceExpenseStep("find-direct-expense-row"), "find-direct-expense-row");
   assert.equal(sanitizeHostedQaWorkbookAdvanceExpenseStep("Timed out for user@example.com access_token=secret-token"), undefined);
+});
+
+test("hosted workbook row locator uses stable UUID identity and rejects selector injection", () => {
+  const expenseId = "a1234567-89ab-4cde-8f01-234567890abc";
+  assert.equal(hostedQaWorkbookRowSelector(expenseId), `[data-worksheet-row-key="${expenseId}"]`);
+  assert.throws(() => hostedQaWorkbookRowSelector('a1234567-89ab-4cde-8f01-234567890abc"] input'), /HOSTED_QA_WORKBOOK_ROW_ID_INVALID/);
 });
