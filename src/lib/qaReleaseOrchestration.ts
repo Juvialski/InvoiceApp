@@ -34,6 +34,7 @@ export interface QaReleaseChangeClassification {
   hasMigration: boolean;
   hasRuntime: boolean;
   hasHostedQaHarness: boolean;
+  runOperationsWorkbookMatrix: boolean;
   requiresHostedQa: boolean;
 }
 
