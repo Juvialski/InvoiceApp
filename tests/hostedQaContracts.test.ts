@@ -217,6 +217,18 @@ test("hosted QA workbook failure diagnostics retain safe sentinel codes and reda
   assert.equal(sanitizeHostedQaWorkbookAdvanceExpenseStep("Timed out for user@example.com access_token=secret-token"), undefined);
 });
 
+test("hosted workbook matrix uses one atomic Project/Cost Code group and a genuinely protected Project lifecycle field", () => {
+  assert.match(workbookHarnessSource, /keyValue: "QA-E2E-7F4K-NTU", fieldHeader: "Description"/);
+  assert.match(workbookHarnessSource, /keyValue: "QA-UX-20260911", fieldHeader: "Status", value: "ARCHIVED"/);
+  assert.doesNotMatch(workbookHarnessSource, /fieldHeader: "Approved Project Budget", value: protectedProjectBudget/);
+  assert.match(workbookHarnessSource, /applyReviewedDomain\(page, "projects", "Projects \/ Cost Codes", \["QA-E2E-7F4K-NTU"\]\)/);
+  const phoneCapture = workbookHarnessSource.indexOf('name: "phone-390x844"');
+  const desktopReset = workbookHarnessSource.indexOf("await page.setViewportSize({ width: 1280, height: 800 });", phoneCapture);
+  const projectApply = workbookHarnessSource.indexOf('stage = "apply-projects-domain"', desktopReset);
+  assert.ok(phoneCapture >= 0 && desktopReset > phoneCapture && projectApply > desktopReset);
+  assert.match(workbookHarnessSource, /WORKBOOK_DOMAIN_APPLY_REJECTED/);
+});
+
 test("hosted workbook matrix matches the review's actual protected Expense field keys", () => {
   assert.match(workbookHarnessSource, /\["supplierInvoice", "confirmedPaid", "settlementState"\]/);
   assert.doesNotMatch(workbookHarnessSource, /\["Supplier Invoice", "Confirmed Paid", "Settlement State"\]/);
