@@ -9,6 +9,7 @@ const values = {
   has_migration: classification.hasMigration ? "true" : "false",
   has_runtime: classification.hasRuntime ? "true" : "false",
   has_hosted_qa_harness: classification.hasHostedQaHarness ? "true" : "false",
+  run_operations_workbook_matrix: classification.runOperationsWorkbookMatrix ? "true" : "false",
   requires_hosted_qa: classification.requiresHostedQa ? "true" : "false",
 };
 
