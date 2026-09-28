@@ -1,0 +1,108 @@
+name: One-time Production Migration 20260927095636
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-time-production-migration-20260927095636
+  cancel-in-progress: false
+
+env:
+  PROD_PROJECT_REF: qijjshdwiylojvqojxyz
+  QA_PROJECT_REF: vrpuznofrntyqsbugrib
+  PROD_POOLER_HOST: aws-0-ap-northeast-2.pooler.supabase.com
+  EXPECTED_VERSION: "20260927095636"
+  EXPECTED_NAME: wb3c_header_only_procurement_saves
+
+jobs:
+  promote:
+    if: contains(github.event.head_commit.message, '[promote-prod-20260927095636]')
+    name: Promote exact canonical production migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: production
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_SUPABASE_DB_PASSWORD || secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: Checkout exact main SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Setup pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+
+      - name: Verify exact release and target boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error title=Production promotion refused::This job may run only on main."
+            exit 1
+          fi
+          if [[ "$PROD_PROJECT_REF" != "qijjshdwiylojvqojxyz" || "$QA_PROJECT_REF" != "vrpuznofrntyqsbugrib" || "$PROD_PROJECT_REF" == "$QA_PROJECT_REF" ]]; then
+            echo "::error title=Production target refused::Production/QA project identity mismatch."
+            exit 1
+          fi
+          expected_file="${EXPECTED_VERSION}_${EXPECTED_NAME}.sql"
+          test -f "supabase/migrations/$expected_file"
+          latest_file="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | tail -n 1)"
+          if [[ "$latest_file" != "$expected_file" ]]; then
+            echo "::error title=Production promotion refused::Repository migration head is not the explicitly authorized migration."
+            exit 1
+          fi
+          if [[ -z "${SUPABASE_DB_PASSWORD:-}" ]]; then
+            echo "::error title=Missing production DB secret::Configure PRODUCTION_SUPABASE_DB_PASSWORD or SUPABASE_DB_PASSWORD in the protected production environment."
+            exit 1
+          fi
+
+      - name: Dry-run exact production migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          encoded_password="$(node -e 'process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD || ""))')"
+          echo "::add-mask::$encoded_password"
+          db_url="postgresql://postgres.${PROD_PROJECT_REF}:${encoded_password}@${PROD_POOLER_HOST}:5432/postgres?sslmode=require"
+          dry_output="$(supabase db push --db-url "$db_url" --include-all --dry-run 2>&1)"
+          printf '%s\n' "$dry_output"
+          expected_file="${EXPECTED_VERSION}_${EXPECTED_NAME}.sql"
+          pending="$(printf '%s\n' "$dry_output" | grep -oE '[0-9]{14}_[A-Za-z0-9_]+\.sql' | sort -u || true)"
+          if [[ "$pending" != "$expected_file" ]]; then
+            echo "::error title=Production migration set refused::Expected exactly $expected_file; observed pending set: ${pending:-none}."
+            exit 1
+          fi
+
+      - name: Apply exact canonical production migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          encoded_password="$(node -e 'process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD || ""))')"
+          echo "::add-mask::$encoded_password"
+          db_url="postgresql://postgres.${PROD_PROJECT_REF}:${encoded_password}@${PROD_POOLER_HOST}:5432/postgres?sslmode=require"
+          supabase db push --db-url "$db_url" --include-all --yes
+
+      - name: Verify no migrations remain pending
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          encoded_password="$(node -e 'process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD || ""))')"
+          echo "::add-mask::$encoded_password"
+          db_url="postgresql://postgres.${PROD_PROJECT_REF}:${encoded_password}@${PROD_POOLER_HOST}:5432/postgres?sslmode=require"
+          after_output="$(supabase db push --db-url "$db_url" --include-all --dry-run 2>&1)"
+          printf '%s\n' "$after_output"
+          remaining="$(printf '%s\n' "$after_output" | grep -oE '[0-9]{14}_[A-Za-z0-9_]+\.sql' | sort -u || true)"
+          if [[ -n "$remaining" ]]; then
+            echo "::error title=Production parity verification failed::Migrations remain pending after promotion: $remaining"
+            exit 1
+          fi
+          echo "Production migration parity reached repository head ${EXPECTED_VERSION}."
