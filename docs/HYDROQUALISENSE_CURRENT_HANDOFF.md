@@ -3197,7 +3197,7 @@ WB-CERT certifies the combined XLSX, its three existing standalone workbook cont
 
 - Base `main` SHA and QA app SHA at certification start: `32d59ec04afe09b653f6e210525f9094f26234a7`.
 - Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`; executable hardening commit: `1f7908292eb16985859df026ebd562ec51a0317f`.
-- Pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272), open; exact-head protected CI status is tracked on GitHub.
+- Delivery pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272); exact-head protected CI status is tracked on GitHub.
 - QA mapping: Render `qa-hydroqualisense` -> Supabase `hydroqualisense-qa`, project ref `vrpuznofrntyqsbugrib`.
 - Migration parity: **153/153** canonical version/name matches; latest `20260927095636`. No migration promotion was needed or performed.
 - Status: **implementation and local validation complete; hosted combined workbook review/Apply matrix is unverified because the deployed QA application on the exact base SHA remained on its loading shell. No production write or promotion occurred.**
