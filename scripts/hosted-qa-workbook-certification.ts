@@ -263,7 +263,7 @@ async function main() {
     identity: { authenticatedSessionRestored: false, identityDetailsStored: false, alternatePermissionProfileTested: false },
     export: { sheets: [], supplierPayablesIncludedForInvoiceRead: false },
     staleVersion: { status: "NOT_RUN", applyEnabled: null },
-    review: { domains: [], protectedProposals: 0, unchangedRowsCollapsed: false },
+    review: { domains: [], protectedFields: 0, unchangedRowsCollapsed: false },
     apply: { domains: [], authoritativeRefresh: false },
     linePreservation: { rfqLineIdsUnchanged: false, purchaseOrderLineIdsUnchanged: false },
     responsive: [],
@@ -410,8 +410,10 @@ async function main() {
     for (const id of ["projects", "expenses", "procurement"]) {
       await review.locator(`[data-combined-workbook-domain="${id}"]`).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
     }
-    const protectedProposalCount = await review.getByText("UNSUPPORTED_PROTECTED_FIELD", { exact: true }).count();
-    if (protectedProposalCount < 5) throw new Error("PROTECTED_FIELDS_NOT_CLASSIFIED");
+    // One proposal can contain several protected changes, so certify the field-level
+    // review result instead of assuming one protected status badge per edited field.
+    const protectedFieldCount = await review.getByText("Protected", { exact: true }).count();
+    if (protectedFieldCount < 5) throw new Error("PROTECTED_FIELDS_NOT_CLASSIFIED");
     const linkedExpenseProposal = review.locator('[data-combined-workbook-domain="expenses"] [data-combined-workbook-proposal]')
       .filter({ hasText: "Synthetic pump calibration service" });
     const linkedExpenseProposalText = await linkedExpenseProposal.innerText();
@@ -445,7 +447,7 @@ async function main() {
       if (!noOverflow || !applyReachable) throw new Error("RESPONSIVE_REVIEW_ACTION_NOT_REACHABLE");
     }
     manifest.responsive = responsive;
-    manifest.review = { domains: ["projects", "expenses", "procurement"], protectedProposals: protectedProposalCount, unchangedRowsCollapsed: true, applyDisabledUntilConfirmed: true, supplierPayablesIncludedForInvoiceRead: true };
+    manifest.review = { domains: ["projects", "expenses", "procurement"], protectedFields: protectedFieldCount, unchangedRowsCollapsed: true, applyDisabledUntilConfirmed: true, supplierPayablesIncludedForInvoiceRead: true };
 
     stage = "apply-projects-domain";
     const appliedProjects = await applyReviewedDomain(page, "projects", "Projects / Cost Codes", ["QA-LOCAL-HARNESS", "QA-E2E-7F4K-NTU"]);
