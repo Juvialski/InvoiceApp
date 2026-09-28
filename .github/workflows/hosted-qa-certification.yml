@@ -65,7 +65,7 @@ jobs:
       - name: Checkout exact certified source SHA
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || inputs.expected_repository_sha || github.sha }}
+          ref: ${{ inputs.expected_repository_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
