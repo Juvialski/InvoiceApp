@@ -396,6 +396,7 @@ The combined `export -> edit -> import review -> domain Apply -> authoritative r
 
 - Base `main` and current QA app SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
 - Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`
+- Pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272), open; exact-head protected CI status is tracked on GitHub.
 - Hosted QA migration history: **153/153 exact canonical version/name matches**; latest `20260927095636`.
 - Status: **CSP and route-readiness hardening implemented; combined authenticated workbook review/Apply certification remains blocked until the implementation is deployed to QA, route loading resolves, and the opt-in matrix passes.**
 - Evidence: `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md`.

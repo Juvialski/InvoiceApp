@@ -4,6 +4,7 @@
 - Base `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
 - QA app SHA at investigation: `32d59ec04afe09b653f6e210525f9094f26234a7`
 - Implementation branch: `codex/rel-qa-wb-1-hosted-workbook-cert`
+- Pull request: [#272](https://github.com/Juvialski/InvoiceApp/pull/272), open; exact-head protected CI status is tracked on GitHub.
 - Executable hardening commit: `1f7908292eb16985859df026ebd562ec51a0317f`
 - QA deployment: Render `qa-hydroqualisense`, `https://hydroqualisense-qa.onrender.com`
 - Mapped QA database: Supabase `hydroqualisense-qa`, project ref `vrpuznofrntyqsbugrib`
