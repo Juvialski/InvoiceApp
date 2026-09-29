@@ -6,8 +6,9 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DEMO_STORAGE_KEY } from "../src/demo/demoTypes.ts";
+import { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";
 import { createMarketingDemoWorkspace, MARKETING_DEMO_ANCHOR_DATE } from "../src/demo/data/marketingWorkspace.ts";
-import { MARKETING_CAPTURE_DEFAULT_URL, MARKETING_CAPTURE_FIXED_TIME, MARKETING_CAPTURE_PROFILES, assertLocalMarketingCaptureUrl, buildMarketingCaptureRoutes, type MarketingCaptureProfile, type MarketingCaptureRoute } from "./marketingCaptureContract.ts";
+import { MARKETING_CAPTURE_DEFAULT_URL, MARKETING_CAPTURE_FIXED_TIME, MARKETING_CAPTURE_PROFILES, MARKETING_V2A_OUTPUT_DIRECTORY, MARKETING_V2A_PROFILES, MARKETING_V2A_STABLE_HOLD_MS, assertLocalMarketingCaptureUrl, buildMarketingCaptureRoutes, buildMarketingV2ACaptureShots, type MarketingCaptureProfile, type MarketingCaptureRoute, type MarketingV2ACaptureShot, type MarketingV2AProfile } from "./marketingCaptureContract.ts";
 import { isPortInUse, isServerReady, terminateChildServer } from "./qa/devServerLifecycle.ts";
 
 interface BrowserResponseLike {
@@ -41,6 +42,7 @@ interface BrowserRouteLike {
 }
 
 interface BrowserPageLike {
+  addStyleTag(options: { content: string }): Promise<void>;
   goto(url: string, options: { waitUntil: "networkidle"; timeout: number }): Promise<BrowserResponseLike | null>;
   locator(selector: string): LocatorLike;
   getByRole(role: string, options?: { name?: string | RegExp; exact?: boolean }): LocatorLike;
@@ -64,7 +66,7 @@ interface BrowserLike {
     deviceScaleFactor: number;
     locale: string;
     timezoneId: string;
-    recordVideo: { dir: string; size: { width: number; height: number } };
+    recordVideo?: { dir: string; size: { width: number; height: number } };
   }): Promise<BrowserContextLike>;
   close(): Promise<void>;
 }
@@ -74,16 +76,29 @@ interface ChromiumLike {
 }
 
 interface CaptureArtifact {
-  readonly profile: MarketingCaptureProfile["id"];
+  readonly profile: string;
   readonly file: string;
   readonly surface: string;
   readonly width: number;
   readonly height: number;
 }
 
+interface MarketingV2AArtifact {
+  readonly kind: "still" | "clip";
+  readonly profile: MarketingV2AProfile["id"];
+  readonly routeId: string;
+  readonly dataset: MarketingV2ACaptureShot["dataset"];
+  readonly file: string;
+  readonly surface: string;
+  readonly width: number;
+  readonly height: number;
+  readonly stableHoldMs: number;
+}
+
 const SOURCE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const browserRuntimeRequire = createRequire(path.join(SOURCE_DIR, "qa", "browser-runtime", "package.json"));
 const OUTPUT_DIR = path.resolve(process.cwd(), "artifacts", "marketing-capture", "mkt-v1a-final-deliverable");
+const V2A_OUTPUT_DIR = path.resolve(process.cwd(), "artifacts", "marketing-capture", MARKETING_V2A_OUTPUT_DIRECTORY);
 const INVOICE_ASSET_DIR = path.join(SOURCE_DIR, "marketing-fixtures", "invoices");
 const INVOICE_ASSETS = new Map([
   ["FPM-2609-184.svg", path.join(INVOICE_ASSET_DIR, "FPM-2609-184.svg")],
@@ -320,8 +335,104 @@ async function installInvoiceAssetRoutes(context: BrowserContextLike): Promise<v
   });
 }
 
-async function removeTemporaryVideoDirectory(target: string): Promise<void> {
-  const videoRoot = path.resolve(OUTPUT_DIR, "videos");
+const STABLE_CAPTURE_STYLES = `
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+    caret-color: transparent !important;
+    cursor: none !important;
+  }
+`;
+
+async function navigateV2AShot(page: BrowserPageLike, baseUrl: string, shot: MarketingV2ACaptureShot): Promise<void> {
+  const response = await page.goto(`${baseUrl}${shot.path}`, { waitUntil: "networkidle", timeout: NAVIGATION_TIMEOUT_MS });
+  if (response?.status() !== 200) throw new Error(`Marketing capture route ${shot.id} returned ${response?.status() ?? "no response"}.`);
+  await waitForReady(page);
+  await page.addStyleTag({ content: STABLE_CAPTURE_STYLES });
+  await page.waitForTimeout(250);
+  if (shot.preparation === "procurement-purchase-orders") {
+    await page.getByRole("button", { name: /^Purchase Orders/ }).click({ timeout: ELEMENT_TIMEOUT_MS });
+    await page.waitForTimeout(350);
+  }
+}
+
+async function captureV2AShot(browser: BrowserLike, profile: MarketingV2AProfile, shot: MarketingV2ACaptureShot, baseUrl: string): Promise<MarketingV2AArtifact[]> {
+  const isVideoProfile = Boolean(profile.videoSize);
+  const outputVideoDir = path.join(V2A_OUTPUT_DIR, "videos");
+  const temporaryVideoDir = isVideoProfile ? path.join(outputVideoDir, `.capture-tmp-${profile.id}-${shot.fileStem}-${randomUUID()}`) : undefined;
+  const stillPath = path.join(V2A_OUTPUT_DIR, "stills", profile.id, `${shot.fileStem}.png`);
+  const clipPath = isVideoProfile ? path.join(outputVideoDir, profile.id, `${shot.fileStem}.webm`) : undefined;
+  if (temporaryVideoDir) await fs.mkdir(temporaryVideoDir, { recursive: true });
+  await fs.mkdir(path.dirname(stillPath), { recursive: true });
+  if (clipPath) await fs.mkdir(path.dirname(clipPath), { recursive: true });
+
+  const context = await browser.newContext({
+    viewport: { ...profile.viewport },
+    deviceScaleFactor: profile.deviceScaleFactor,
+    locale: "en-PH",
+    timezoneId: "Asia/Manila",
+    ...(temporaryVideoDir && profile.videoSize ? { recordVideo: { dir: temporaryVideoDir, size: { ...profile.videoSize } } } : {}),
+  });
+  let page: BrowserPageLike | null = null;
+  let completed = false;
+  try {
+    await context.clock.setFixedTime(new Date(MARKETING_CAPTURE_FIXED_TIME));
+    if (shot.dataset.startsWith("MKT-V1A")) await installInvoiceAssetRoutes(context);
+    const workspace = shot.dataset.startsWith("MKT-V1A")
+      ? createMarketingDemoWorkspace(MARKETING_DEMO_ANCHOR_DATE)
+      : createDemoWorkspace(MARKETING_DEMO_ANCHOR_DATE);
+    await context.addInitScript((input) => {
+      window.sessionStorage.setItem(input.storageKey, input.payload);
+    }, { storageKey: DEMO_STORAGE_KEY, payload: JSON.stringify(workspace) });
+    page = await context.newPage();
+    await navigateV2AShot(page, baseUrl, shot);
+    if (profile.stableHoldMs > 0) await page.waitForTimeout(profile.stableHoldMs);
+    await page.screenshot({ path: stillPath, fullPage: false });
+    completed = true;
+  } finally {
+    const video = page?.video() || null;
+    try {
+      await context.close();
+      if (completed && video && clipPath) await video.saveAs(clipPath);
+    } finally {
+      if (temporaryVideoDir) await removeTemporaryVideoDirectory(temporaryVideoDir, V2A_OUTPUT_DIR);
+    }
+  }
+
+  const screenshotSize = {
+    width: profile.viewport.width * profile.deviceScaleFactor,
+    height: profile.viewport.height * profile.deviceScaleFactor,
+  };
+  const artifacts: MarketingV2AArtifact[] = [{
+    kind: "still",
+    profile: profile.id,
+    routeId: shot.id,
+    dataset: shot.dataset,
+    file: path.relative(V2A_OUTPUT_DIR, stillPath).replaceAll("\\", "/"),
+    surface: shot.label,
+    width: screenshotSize.width,
+    height: screenshotSize.height,
+    stableHoldMs: profile.stableHoldMs,
+  }];
+  if (clipPath && profile.videoSize) {
+    artifacts.push({
+      kind: "clip",
+      profile: profile.id,
+      routeId: shot.id,
+      dataset: shot.dataset,
+      file: path.relative(V2A_OUTPUT_DIR, clipPath).replaceAll("\\", "/"),
+      surface: shot.label,
+      width: profile.videoSize.width,
+      height: profile.videoSize.height,
+      stableHoldMs: profile.stableHoldMs,
+    });
+  }
+  return artifacts;
+}
+
+async function removeTemporaryVideoDirectory(target: string, outputDirectory = OUTPUT_DIR): Promise<void> {
+  const videoRoot = path.resolve(outputDirectory, "videos");
   const resolvedTarget = path.resolve(target);
   const relative = path.relative(videoRoot, resolvedTarget);
   if (!relative.startsWith(".capture-tmp-") || path.isAbsolute(relative) || relative.includes("..")) {
@@ -411,7 +522,7 @@ async function gitWorkingTreeClean(): Promise<boolean | null> {
   });
 }
 
-async function runMarketingCapture(): Promise<void> {
+async function runMarketingCaptureV1A(): Promise<void> {
   const { baseUrl, port } = toBaseUrl();
   const localPreview = await startLocalPreview(baseUrl, port);
   let browser: BrowserLike | null = null;
@@ -447,8 +558,70 @@ async function runMarketingCapture(): Promise<void> {
   }
 }
 
+async function runMarketingCaptureV2A(): Promise<void> {
+  const { baseUrl, port } = toBaseUrl();
+  const localPreview = await startLocalPreview(baseUrl, port);
+  let browser: BrowserLike | null = null;
+  try {
+    const chromium = (browserRuntimeRequire("playwright") as { chromium: ChromiumLike }).chromium;
+    browser = await chromium.launch({ headless: true });
+    const startedAt = new Date().toISOString();
+    const shots = buildMarketingV2ACaptureShots();
+    const shotIds = new Set(shots.map((shot) => shot.id));
+    const fileStems = new Set(shots.map((shot) => shot.fileStem));
+    if (shotIds.size !== shots.length) throw new Error("MKT-V2A route IDs must be unique.");
+    if (fileStems.size !== shots.length) throw new Error("MKT-V2A capture file names must be unique.");
+    const verticalShots = shots.filter((shot) => shot.verticalStill);
+    if (verticalShots.length === 0) throw new Error("MKT-V2A requires at least one vertical still route.");
+    const pcProfile = MARKETING_V2A_PROFILES.find((profile) => profile.id === "pc-1080p");
+    const verticalProfile = MARKETING_V2A_PROFILES.find((profile) => profile.id === "vertical-stills");
+    if (!pcProfile || !verticalProfile) throw new Error("MKT-V2A capture profiles are incomplete.");
+
+    const artifacts: MarketingV2AArtifact[] = [];
+    for (const shot of shots) artifacts.push(...await captureV2AShot(browser, pcProfile, shot, baseUrl));
+    for (const shot of verticalShots) artifacts.push(...await captureV2AShot(browser, verticalProfile, shot, baseUrl));
+
+    const manifest = {
+      campaignDataset: "MKT-V2A",
+      sourceSha: await gitHead(),
+      workingTreeClean: await gitWorkingTreeClean(),
+      capturedAt: startedAt,
+      environment: "local built application at the isolated /demo route",
+      authentication: "not required for the public demo route",
+      persistence: "sessionStorage in a new isolated browser context per shot; no QA or production database writes",
+      fixtureAnchorDate: MARKETING_DEMO_ANCHOR_DATE,
+      dataSources: [
+        { id: "MKT-V1A Silverfern fictional workspace", recordScope: "Only the explicitly named Silverfern campaign frames use this water-treatment dataset." },
+        { id: "Standard public synthetic demo", recordScope: "Broader app workflow frames use the regular public demo seed and are not presented as Silverfern records." },
+      ],
+      mediaPolicy: {
+        pcViewport: pcProfile.viewport,
+        pcDeviceScaleFactor: pcProfile.deviceScaleFactor,
+        pcClipSize: pcProfile.videoSize,
+        pcStableHoldMs: MARKETING_V2A_STABLE_HOLD_MS,
+        pcStillSize: { width: pcProfile.viewport.width * pcProfile.deviceScaleFactor, height: pcProfile.viewport.height * pcProfile.deviceScaleFactor },
+        verticalProfile: { viewport: verticalProfile.viewport, deviceScaleFactor: verticalProfile.deviceScaleFactor, output: "still images only" },
+        cursor: "hidden",
+        cssAnimationAndTransition: "disabled during capture",
+        audio: "silent source clips; no narration, music, or subtitles",
+        finalVideo: "not produced in this phase",
+      },
+      routes: shots.map(({ id, label, path: routePath, fileStem, dataset, claimBoundary, verticalStill }) => ({ id, label, path: routePath, fileStem, dataset, claimBoundary, verticalStill })),
+      frames: artifacts.filter((artifact) => artifact.kind === "still"),
+      clips: artifacts.filter((artifact) => artifact.kind === "clip"),
+    };
+    await fs.mkdir(V2A_OUTPUT_DIR, { recursive: true });
+    await fs.writeFile(path.join(V2A_OUTPUT_DIR, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    process.stdout.write(`MKT-V2A capture complete: ${manifest.frames.length} stills and ${manifest.clips.length} stable PC clips in ${V2A_OUTPUT_DIR}\n`);
+  } finally {
+    if (browser) await browser.close();
+    await terminateChildServer(localPreview, { port, baseUrl, startupPath: "/demo/app/dashboard", timeoutMs: 5_000 });
+  }
+}
+
 if (pathToFileURL(path.resolve(process.argv[1] || "")).href === import.meta.url) {
-  runMarketingCapture().catch((error: unknown) => {
+  const capture = process.argv.includes("--mkt-v1a") ? runMarketingCaptureV1A : runMarketingCaptureV2A;
+  capture().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Marketing capture failed.";
     process.stderr.write(`Marketing capture failed: ${message}\n`);
     process.exitCode = 1;
