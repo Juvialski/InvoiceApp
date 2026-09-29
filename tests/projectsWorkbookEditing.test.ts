@@ -10,6 +10,7 @@ import {
   saveProjectControlsWorkbookRows,
   type ProjectControlsWorkbookRecords,
 } from "../src/lib/projectsWorkbookEditing.ts";
+import { buildProjectCostControlGroupRpcPayload } from "../src/lib/projectCostCodes.ts";
 
 const project: Project = {
   id: "project-1",
@@ -104,6 +105,41 @@ test("Cost Codes worksheet applies safe fields while retaining parent, status, a
     status: "ACTIVE",
     updatedAt: costCode.updatedAt,
   }]);
+});
+
+test("Projects and Cost Codes worksheet edits preserve explicit blank descriptions through Apply", () => {
+  const projectWithDescription = { ...project, description: "Existing project description" };
+  const costCodeWithDescription = { ...costCode, description: "Existing cost-code description" };
+  const baseRecords: ProjectControlsWorkbookRecords = {
+    projects: [projectWithDescription],
+    costCodes: [costCodeWithDescription],
+  };
+
+  const clearedProject = applyProjectWorkbookDraftValue(projectWithDescription, "description", "");
+  const projectPlan = plan({ sheetId: "projects", stagedRows: [clearedProject], baseRecords, currentRecords: baseRecords });
+  assert.deepEqual(projectPlan.issues, []);
+  assert.equal(projectPlan.groups[0]?.project.description, "");
+
+  const projectPayload = buildProjectCostControlGroupRpcPayload(
+    projectPlan.groups[0]!.project,
+    projectPlan.groups[0]!.expectedProjectUpdatedAt,
+    "company-1",
+    projectPlan.groups[0]!.costCodes,
+  );
+  assert.equal(projectPayload.p_project.description, "");
+
+  const clearedCostCode = applyCostCodeWorkbookDraftValue(costCodeWithDescription, "description", "");
+  const costCodePlan = plan({ sheetId: "cost-codes", stagedRows: [clearedCostCode], baseRecords, currentRecords: baseRecords });
+  assert.deepEqual(costCodePlan.issues, []);
+  assert.equal(costCodePlan.groups[0]?.costCodes[0]?.description, "");
+
+  const costCodePayload = buildProjectCostControlGroupRpcPayload(
+    costCodePlan.groups[0]!.project,
+    costCodePlan.groups[0]!.expectedProjectUpdatedAt,
+    "company-1",
+    costCodePlan.groups[0]!.costCodes,
+  );
+  assert.equal(costCodePayload.p_cost_codes[0]?.description, "");
 });
 
 test("project identity, lifecycle, currency, cost-code parent, and lifecycle metadata cannot be staged", () => {

@@ -54,9 +54,8 @@ const COST_CODE_EDITABLE_FIELDS = [
 type ProjectEditableField = typeof PROJECT_EDITABLE_FIELDS[number];
 type CostCodeEditableField = typeof COST_CODE_EDITABLE_FIELDS[number];
 
-function optionalText(value: unknown): string | undefined {
-  const result = String(value ?? "").trim();
-  return result || undefined;
+function optionalText(value: unknown): string {
+  return String(value ?? "").trim();
 }
 
 function optionalNumber(value: unknown): number | undefined {

@@ -7,6 +7,7 @@ import {
   applyProjectsImport,
   buildProjectsImportReview,
   exportProjectsWorkbook,
+  type ProjectsApplyGroup,
   type ProjectsImportContext,
 } from "../src/lib/projectsWorkbook.ts";
 
@@ -251,6 +252,26 @@ test("Apply sends one authoritative group with expected versions and keeps read-
 
   const readOnlyReview = buildProjectsImportReview(bytes, context({ canWrite: false }));
   assert.equal(readOnlyReview.proposals.find((candidate) => candidate.projectId === PROJECT_ID)?.canApply, false);
+});
+
+test("Projects workbook Apply preserves explicit blank optional descriptions", async () => {
+  const startingContext = context();
+  const artifact = exportProjectsWorkbook(startingContext);
+  let bytes = setCell(artifact.bytes, "Projects", "Description", "");
+  bytes = setCell(bytes, "Cost Codes", "Description", "");
+  const review = buildProjectsImportReview(bytes, startingContext);
+  const proposal = review.proposals.find((candidate) => candidate.projectId === PROJECT_ID);
+  assert.equal(proposal?.status, "WORKBOOK_ONLY_CHANGE");
+  assert.equal(proposal?.canApply, true);
+
+  const applied: ProjectsApplyGroup[] = [];
+  await applyProjectsImport(review, startingContext, {
+    applyGroup: async (group) => { applied.push(group); },
+  }, [proposal!.id]);
+
+  assert.equal(applied.length, 1);
+  assert.equal(applied[0]?.project.description, "");
+  assert.equal(applied[0]?.costCodes.find((code) => code.id === COST_CODE_ID)?.description, "");
 });
 
 test("real XLSX round trip re-exports authoritative applied state without conflating contract value and budget", async () => {
