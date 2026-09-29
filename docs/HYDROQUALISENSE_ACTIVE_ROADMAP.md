@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / EXCEL SIMPLICITY PASS IMPLEMENTED / PROVIDER & RELEASE CERTIFICATION PARALLEL / PRIOR REL-QA-WB-1 CERTIFICATION COMPLETE AT SHA 44F92B9; POST-PR #289 EXACT-SHA REVALIDATION AT C39A3A8 INCOMPLETE PENDING HARNESS COVERAGE / WB-3D+ DEFERRED**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / EXCEL SIMPLICITY PASS IMPLEMENTED / PROVIDER & RELEASE CERTIFICATION PARALLEL / PRIOR REL-QA-WB-1 CERTIFICATION COMPLETE AT SHA 44F92B9; POST-PR #289 EXACT-SHA REVALIDATION INCOMPLETE PENDING PROTECTED RERUN WITH EXPANDED HARNESS / WB-3D+ DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-29**
 
@@ -59,12 +59,12 @@ See `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md` for the evidence 
 
 ## 2026-09-29 REL-QA-WB-1 — Post-PR #289 exact-SHA revalidation
 
-Status: **INCOMPLETE PENDING HOSTED-CERTIFICATION HARNESS COVERAGE.** The requested target SHA is `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b`; Protected QA Release / Hosted QA run [36511303084](https://github.com/Juvialski/InvoiceApp/actions/runs/36511303084) completed successfully for QA deployment `qa-hydroqualisense`.
+Status: **INCOMPLETE PENDING PROTECTED EXACT-SHA RERUN WITH THE EXPANDED HOSTED-CERTIFICATION HARNESS.** The requested target SHA is `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b`; Protected QA Release / Hosted QA run [36511303084](https://github.com/Juvialski/InvoiceApp/actions/runs/36511303084) completed successfully for QA deployment `qa-hydroqualisense`.
 
 - Before/after migration evidence matched **153/153** canonical migrations through `20260927095636`; `needsPromotion=false`, so no QA promotion occurred.
 - Hosted QA passed **9/9 routes** and the current full workbook matrix passed with zero console errors, page errors, or failed requests.
 - The matrix's existing assertions did not exercise a non-empty Project or Cost Code description becoming blank through workbook Apply. Its four inspected screenshots cover laptop/phone import review and Apply only; no responsive editor captures were produced.
-- A focused certification-harness follow-up adds those exact clear and editor-viewport checks. Keep the revalidation incomplete until the follow-up is merged and a protected exact-SHA QA run passes.
+- This focused certification-harness follow-up adds those exact clear and editor-viewport checks. After merge, keep the revalidation incomplete until a protected exact-SHA QA run passes with the expanded harness.
 - Production was not queried or mutated. The prior complete certification remains recorded at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`; the current c39a3a8 revalidation does not supersede it as a complete certification.
 
 See `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md` for evidence and the precise pending checks.
