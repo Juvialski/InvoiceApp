@@ -244,9 +244,11 @@ test("hosted workbook matrix uses one atomic Project/Cost Code group and a genui
 
 test("hosted workbook matrix proves explicit Project and Cost Code blanks survive parse, Apply, and authoritative refresh", () => {
   assert.match(workbookHarnessSource, /parsedProjectClear !== "" \|\| parsedCostCodeClear !== ""/);
-  assert.match(workbookHarnessSource, /clearedProjectDescription !== "" \|\| clearedCostCodeDescription !== ""/);
-  assert.match(workbookHarnessSource, /blankAfterAuthoritativeRefresh: clearedProjectDescription === ""/);
-  assert.match(workbookHarnessSource, /blankAfterAuthoritativeRefresh: clearedCostCodeDescription === ""/);
+  assert.match(workbookHarnessSource, /function isBlankWorkbookValue\(value: WorkbookValue\)/);
+  assert.match(workbookHarnessSource, /value == null \|\| value === ""/);
+  assert.match(workbookHarnessSource, /!isBlankWorkbookValue\(clearedProjectDescription\) \|\| !isBlankWorkbookValue\(clearedCostCodeDescription\)/);
+  assert.match(workbookHarnessSource, /blankAfterAuthoritativeRefresh: isBlankWorkbookValue\(clearedProjectDescription\)/);
+  assert.match(workbookHarnessSource, /blankAfterAuthoritativeRefresh: isBlankWorkbookValue\(clearedCostCodeDescription\)/);
   assert.match(workbookHarnessSource, /OPTIONAL_DESCRIPTION_CLEAR_FIXTURE_NOT_NONEMPTY/);
 });
 
