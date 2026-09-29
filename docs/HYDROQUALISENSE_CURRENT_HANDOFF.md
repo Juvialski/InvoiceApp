@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — Excel Simplicity Pass is implemented and REL-QA-WB-1 hosted certification is complete for the recorded single-company QA profile at exact application SHA 1028b5a9. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
+Status: **CURRENT — Excel Simplicity Pass and MKT-V1A local marketing capture foundation are implemented; REL-QA-WB-1 hosted certification remains complete for the recorded single-company QA profile at exact application SHA 1028b5a9. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
 Date: **2026-09-29**
 Repository: `Juvialski/InvoiceApp`
 
@@ -10,6 +10,20 @@ main SHA `0826d458a7b75693abead8e2ea12160649aa07ec` and implements RI-2 and
 RI-3 sequentially behind the existing context interfaces.
 
 ## Current repository state
+
+### 2026-09-29 MKT-V1A — Realistic Marketing Data & Capture Foundation
+
+MKT-V1A starts from exact synchronized `main` SHA `0b5dab113193d1c734ef1801a42ccc080759b1f7` on branch `codex/mkt-v1a-marketing-capture`. It prepares realistic fictional records and deterministic application captures for a future HydroQualiSense showcase; it does not produce the final video.
+
+- The dedicated `src/demo/data/marketingWorkspace.ts` generator feeds a fresh Playwright `/demo` browser session only. It leaves the ordinary demo seed and existing protected QA fixture names/records unchanged.
+- The capture story covers Dashboard, Projects, the five currently authorized Operations Workbook sheets, Expenses, a corrected-but-unverified supplier invoice review, and RFQ / Purchase Order views. The dataset includes one already-verified supplier invoice linked to exactly one Expense; two other invoices remain unverified and unallocated. Tax fields remain `UNKNOWN` and no tax rate or TIN is invented.
+- Source invoice artwork is fictional SVG under `scripts/marketing-fixtures/invoices/`, served through local Playwright route interception. It is outside `public/`, the production bundle, and all database paths.
+- `npx.cmd tsx scripts/marketing-capture.ts` runs after `npm.cmd run build`. It starts a strict loopback Vite preview, seeds fixed-date session storage in separate desktop and vertical contexts, performs a reversible project-name edit and a nonfinancial invoice-line correction, and emits captures to ignored `artifacts/marketing-capture/mkt-v1a-final-deliverable/`. The SVG correction and project edit die with the browser contexts; no invoice verification or authoritative financial mutation is performed during capture.
+- The production/video handoff is `docs/HYDROQUALISENSE_MARKETING_VIDEO_PLAN.md`. It contains the fictional dataset inventory, feature/claim matrix, approved capture routes, brand identity guardrails, Canva brief, and B-roll-only Higgsfield brief. The demo's own `Synthetic sample data` disclosure stays visible.
+- Focused marketing/demo/procurement/invoice tests passed **80/80**. The final affected selector passed **63/63 across 10/397 selected test files (2.5%, no fallback; database unaffected)**. ESLint, TypeScript, and the production build passed. The local Playwright run produced **29 screenshot frames and two raw WebM captures**, including 1440×900 desktop and 540×960 CSS / 1080×1920 vertical output.
+- Developer-intelligence diagnostics: the one bounded `agent:context` packet and live context preflight had no curated source candidates (`candidateCount=0`, `requestCount=0`, `fallback=true`). The one live Jev triage was for an interim broad candidate set of 397; it retained all required tests (9 chunks, model `jev-1.13.0`, 46,058 input / 5,907 output tokens, 3,808 ms, `fallback=false`). Removing the temporary package-script change restored the final 10-file no-fallback selector.
+- The temporary root package capture alias caused an intermediate `test:affected:agent` run to fall back to all 397 tests; local Node 24.19 could not load a `.tsx` import through `npm test` (`ERR_UNKNOWN_FILE_EXTENSION`). The package alias was removed, the documented direct `npx.cmd tsx` capture command is used, and the final affected run passed without fallback. No package or test-runner change remains.
+- No database, QA, hosted service, provider, or production state was queried or changed. REL-QA-WB-1 remains complete and untouched. Additional B-roll, Canva designs, Client Billing/Document montage data, and the final video are later production work.
 
 ### 2026-09-29 REL-QA-WB-1 post-PR #289 exact-SHA revalidation
 

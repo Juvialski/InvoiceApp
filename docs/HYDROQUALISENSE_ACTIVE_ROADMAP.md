@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / EXCEL SIMPLICITY PASS IMPLEMENTED / REL-QA-WB-1 HOSTED CERTIFICATION COMPLETE AT EXACT QA SHA 1028B5A / PROVIDER READINESS PARALLEL / WB-3D+ DEFERRED**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / EXCEL SIMPLICITY PASS IMPLEMENTED / REL-QA-WB-1 HOSTED CERTIFICATION COMPLETE AT EXACT QA SHA 1028B5A / MKT-V1A LOCAL MARKETING CAPTURE FOUNDATION IMPLEMENTED / PROVIDER READINESS PARALLEL / WB-3D+ DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-29**
 
@@ -32,6 +32,19 @@ Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 **Public-site brand separation plan:** `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md` — WEB-BRAND-1 implementation is recorded for repository scope; production company site and QA software showcase remain separate audiences
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
+
+## 2026-09-29 — MKT-V1A Realistic Marketing Data & Capture Foundation
+
+Status: **IMPLEMENTED FOR AN ISOLATED LOCAL DEMO CAPTURE; FOCUSED PR DELIVERY IN PROGRESS.**
+
+- Base `main` SHA: `0b5dab113193d1c734ef1801a42ccc080759b1f7`; implementation branch: `codex/mkt-v1a-marketing-capture`.
+- Added a separate `Silverfern Water Systems Corporation` session-demo dataset with five fictional Philippine water-treatment projects, eight fictional suppliers, project cost codes, direct expenses, four RFQs, six quotations, three purchase orders, and three professionally laid-out fictional supplier invoice sources.
+- Two supplier invoices stay `NEEDS_REVIEW` and unallocated. One source invoice is represented as previously verified and linked to exactly one matching Expense and project allocation. No tax basis/rate is inferred. Issued PO commitments remain separate; the draft PO is not committed.
+- The dataset generator is used only by `scripts/marketing-capture.ts`. Playwright injects it into isolated `/demo` session storage and locally intercepts invoice SVGs stored under `scripts/marketing-fixtures/invoices/`; they are not public build assets. Ordinary demo and protected QA fixtures remain unchanged.
+- `docs/HYDROQUALISENSE_MARKETING_VIDEO_PLAN.md` contains the approved claim matrix, story sequence, Canva and Higgsfield handoffs, capture routes, and data-safety boundary. The built capture command writes to `artifacts/marketing-capture/mkt-v1a-final-deliverable/` (ignored output): desktop and vertical PNG frames plus raw WebM screen captures.
+- Validation: marketing/demo/procurement/invoice focused tests passed **80/80**; `test:affected:agent` passed **63/63 across 10/397 selected files (2.5%, no fallback; database unaffected)**; ESLint and TypeScript passed; production build passed with the existing Inter-font, chunk-size, and CJS `import.meta` warnings; local Playwright capture produced **29 frames and two WebM files**.
+- TypeSafe start context had no candidates (`requestCount=0`, `fallback=true`); the one bounded context packet had no curated primary source. A live Jev test triage for the temporary broad 397-test fallback retained all **397/397** required tests in nine chunks (model `jev-1.13.0`, 46,058 input / 5,907 output tokens, 3,808 ms, `fallback=false`). The final deterministic selection was 10 tests and did not need another triage call.
+- This phase made no QA database writes, migration, hosted QA call, provider request, or production access. REL-QA-WB-1 remains complete and unchanged.
 
 ## 2026-09-29 — Excel Simplicity Pass
 
