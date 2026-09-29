@@ -84,7 +84,7 @@ test("Client Billing draft editing is extracted to one aggregate worksheet surfa
   assert.match(worksheetSource, /canAddRow/);
   assert.match(worksheetSource, /canRemoveRow/);
   assert.match(worksheetSource, /data-worksheet-scroll-container/);
-  assert.match(worksheetSource, /Submit|Issue Client Invoice|Void issued billing|Record Collection/);
+  assert.match(worksheetSource, /Submit, issue, cancel, void, collection, settlement, and billing history stay separate/);
   assert.match(worksheetSource, /clientBillingLinesForPersistence/);
   assert.match(worksheetSource, /activeElement\.blur\(\)/);
   assert.match(worksheetSource, /data-worksheet-state="error"/);

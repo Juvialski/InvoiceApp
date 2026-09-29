@@ -212,7 +212,23 @@ export const verifyClientBillingDraftWorksheet: QaScenarioAction = async (page) 
   const submit = await page.getByRole("button", { name: "Submit", exact: true }).count();
   const issue = await page.getByRole("button", { name: "Issue Client Invoice", exact: true }).count();
   const collection = await page.getByRole("button", { name: "Record Collection", exact: true }).count();
-  await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+  const editableCell = page.locator('[data-testid="client-billing-draft-worksheet"] [data-worksheet-cell][data-worksheet-editable="true"]:visible').first();
+  await editableCell.click();
+  const editControl = page.locator('[data-testid="client-billing-draft-worksheet"] [data-worksheet-state="editing"] input:visible, [data-testid="client-billing-draft-worksheet"] [data-worksheet-state="editing"] select:visible').first();
+  await editControl.waitFor({ state: "visible" });
+  const editStyle = await page.evaluate(() => {
+    const control = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+      '[data-testid="client-billing-draft-worksheet"] [data-worksheet-state="editing"] input, [data-testid="client-billing-draft-worksheet"] [data-worksheet-state="editing"] select',
+    )).find((candidate) => candidate.getClientRects().length > 0);
+    const cell = control?.closest<HTMLElement>("[data-worksheet-cell]");
+    const style = control ? getComputedStyle(control) : undefined;
+    return {
+      editing: cell?.dataset.worksheetState === "editing",
+      selected: cell?.getAttribute("aria-selected") === "true",
+      outline: cell ? getComputedStyle(cell).outlineStyle : "missing",
+      border: style?.borderTopWidth || "missing",
+    };
+  });
   return [
     { id: "client-billing-draft-worksheet-visible", passed: worksheet === 1, details: `Client Billing draft worksheet surfaces: ${worksheet}` },
     { id: "client-billing-draft-worksheet-editors-visible", passed: editors === 2, details: `Client Billing worksheet editors: ${editors}` },
@@ -221,6 +237,7 @@ export const verifyClientBillingDraftWorksheet: QaScenarioAction = async (page) 
     { id: "client-billing-draft-single-save-visible", passed: save === 1, details: `Client Billing Save draft controls: ${save}` },
     { id: "client-billing-draft-lifecycle-outside-worksheet", passed: submit === 0 && issue === 0, details: `worksheet lifecycle buttons: submit=${submit}, issue=${issue}` },
     { id: "client-billing-draft-collections-outside-worksheet", passed: collection === 0, details: `worksheet collection buttons: ${collection}` },
+    { id: "client-billing-draft-single-click-cell-editing", passed: editStyle.editing && editStyle.selected && editStyle.outline === "solid" && editStyle.border === "0px", details: "editing=" + editStyle.editing + "; selected=" + editStyle.selected + "; outline=" + editStyle.outline + "; input border=" + editStyle.border },
   ] satisfies readonly QaAssertion[];
 };
 export const verifyClientInvoiceDocumentDeliverySurface: QaScenarioAction = async (page) => {
@@ -262,13 +279,17 @@ export const verifyProjectMediaDark: QaScenarioAction = async (page) => [
 export const verifyProjectMediaControls: QaScenarioAction = async (page) => {
   const themeAssertions = await applyThemePreferenceForVisualQa(page, "dark");
   await page.getByRole("button", { name: "Edit project details", exact: true }).first().click();
+  await page.locator('[data-project-details-worksheet="true"] [data-worksheet-editor="true"]').waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   await page.locator('[data-entity-media-panel="true"]').first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   await page.getByRole("button", { name: "Replace", exact: true }).first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const worksheetEditors = await page.locator('[data-project-details-worksheet="true"] [data-worksheet-editor="true"]').count();
+  const editableProjectCells = await page.locator('[data-project-details-worksheet="true"] [data-worksheet-cell][data-worksheet-editable="true"]').count();
   const panelCount = await page.locator('[data-entity-media-panel="true"]').count();
   const replaceCount = await page.getByRole("button", { name: "Replace", exact: true }).count();
   const removeCount = await page.getByRole("button", { name: "Remove", exact: true }).count();
   return [
     ...themeAssertions,
+    { id: "project-details-worksheet-visible", passed: worksheetEditors === 1 && editableProjectCells > 0, details: "worksheet editors: " + worksheetEditors + "; editable cells: " + editableProjectCells },
     { id: "project-image-panel-visible", passed: panelCount === 1, details: `project image panels: ${panelCount}` },
     { id: "project-image-replace-control-visible", passed: replaceCount === 1, details: `Replace controls: ${replaceCount}` },
     { id: "project-image-remove-control-visible", passed: removeCount === 1, details: `Remove controls: ${removeCount}` },

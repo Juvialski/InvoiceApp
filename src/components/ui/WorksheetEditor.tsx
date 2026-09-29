@@ -56,6 +56,7 @@ export interface WorksheetEditorProps<T> {
   disabled?: boolean;
   initialActiveCell?: WorksheetCellPosition;
   initialEditingCell?: WorksheetCellPosition;
+  fillHeight?: boolean;
   emptyState?: React.ReactNode;
   className?: string;
   density?: "compact" | "comfortable";
@@ -146,6 +147,7 @@ export function WorksheetEditor<T>({
   disabled = false,
   initialActiveCell,
   initialEditingCell,
+  fillHeight = false,
   emptyState = "No worksheet rows yet.",
   className = "",
   density = "compact",
@@ -497,7 +499,7 @@ export function WorksheetEditor<T>({
       aria-invalid={cell.issue?.severity === "error" || undefined}
       aria-describedby={describedBy}
       disabled={actionDisabled}
-      className="hqs-input w-full min-w-0 rounded-md border-indigo-400 px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-200 md:min-w-[8rem]"
+      className="hqs-primary-text min-h-10 w-full min-w-0 rounded-none border-0 bg-transparent px-0 py-0 text-xs font-medium outline-none focus-visible:outline-none md:min-h-0"
     >
       <option value="">Select…</option>
       {cell.options.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
@@ -521,13 +523,14 @@ export function WorksheetEditor<T>({
       aria-describedby={describedBy}
       placeholder={cell.column.placeholder}
       disabled={actionDisabled}
-      className="hqs-input w-full min-w-0 rounded-md border-indigo-400 px-2 py-1.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-200 md:min-w-[8rem]"
+      className="hqs-primary-text min-h-10 w-full min-w-0 rounded-none border-0 bg-transparent px-0 py-0 text-xs font-medium outline-none focus-visible:outline-none md:min-h-0"
     />
   );
 
   const renderMobileDisplay = (cell: CellView) => (
     <div
-      className={`min-w-0 break-words whitespace-normal rounded-md px-2 py-1.5 text-left text-xs ${cell.editableCell ? "cursor-text hqs-row-hover" : "cursor-not-allowed hqs-secondary-text"}`}
+      data-worksheet-value="true"
+      className={`min-w-0 break-words whitespace-normal text-left text-xs leading-5 ${cell.editableCell ? "cursor-text" : "cursor-not-allowed hqs-secondary-text"}`}
     >
       {renderCellDisplay(cell)}
       {cell.readOnlyCell && <span className="sr-only">{cell.protectedCell ? "Protected field. " : "Read-only field. "}Cannot be edited.</span>}
@@ -535,26 +538,26 @@ export function WorksheetEditor<T>({
   );
 
   return (
-    <section data-worksheet-editor="true" data-worksheet-dirty={rootDirty} className={`hqs-surface-raised min-w-0 rounded-xl ${className}`} aria-label={ariaLabel}>
-      {showActionBar && <div data-worksheet-action-bar="true" className="hqs-surface-muted flex min-w-0 flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
+    <section data-worksheet-editor="true" data-worksheet-dirty={rootDirty} className={`flex min-w-0 flex-col ${className}`} aria-label={ariaLabel}>
+      {showActionBar && <div data-worksheet-action-bar="true" className="hqs-border flex min-w-0 flex-col gap-2 border-b px-2 py-1.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="sr-only">{ariaLabel}</span>
-          {isDirty && <span data-worksheet-unsaved="true" className="hqs-exception-warning rounded-full px-2 py-1 text-[10px] font-black">Unsaved changes</span>}
+          {isDirty && <span data-worksheet-unsaved="true" role="status" className="hqs-warning-text text-[11px] font-semibold">Unsaved changes</span>}
           {notice && <span role="status" className="hqs-secondary-text text-[11px] font-semibold">{notice}</span>}
           {toolbar}
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {actions}
-          {onCancel && <button type="button" onClick={() => { pendingActionRef.current = null; updateRows(rows.slice()); setLocalDirtyCells(new Set()); setLocalIssues({}); setEditingCell(null); setEditorValue(""); onCancel(); }} disabled={actionDisabled} className="hqs-control inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">{cancelLabel}</button>}
-          {onSave && <button type="button" onClick={() => requestAction("save", onSave)} disabled={actionDisabled} className="hqs-control hqs-action-button hqs-accent-text inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 text-xs font-black disabled:cursor-not-allowed disabled:opacity-50">{saveLabel}</button>}
-          {onApply && <button type="button" onClick={() => requestAction("apply", onApply)} disabled={actionDisabled} className="hqs-action-button inline-flex min-h-9 items-center rounded-lg bg-indigo-700 px-2.5 py-1.5 text-xs font-black text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50">{applyLabel}</button>}
-          {onAddRow && <button type="button" data-worksheet-add-row="true" onClick={handleAddRow} disabled={actionDisabled || !canAddRow} className="hqs-control inline-flex min-h-9 items-center rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">Add row</button>}
+          {onCancel && <button type="button" onClick={() => { pendingActionRef.current = null; updateRows(rows.slice()); setLocalDirtyCells(new Set()); setLocalIssues({}); setEditingCell(null); setEditorValue(""); onCancel(); }} disabled={actionDisabled} className="hqs-control inline-flex min-h-10 items-center rounded-md px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">{cancelLabel}</button>}
+          {onSave && <button type="button" onClick={() => requestAction("save", onSave)} disabled={actionDisabled} className="hqs-control hqs-accent-text inline-flex min-h-10 items-center rounded-md px-2.5 py-1 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">{saveLabel}</button>}
+          {onApply && <button type="button" onClick={() => requestAction("apply", onApply)} disabled={actionDisabled} className="inline-flex min-h-10 items-center rounded-md bg-indigo-700 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">{applyLabel}</button>}
+          {onAddRow && <button type="button" data-worksheet-add-row="true" onClick={handleAddRow} disabled={actionDisabled || !canAddRow} className="hqs-control inline-flex min-h-10 items-center rounded-md px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">Add row</button>}
         </div>
       </div>}
-      <div data-worksheet-scroll-container="true" className="min-w-0 max-h-none overflow-x-hidden overflow-y-visible overscroll-contain md:max-h-[min(70vh,52rem)] md:overflow-x-auto md:overflow-y-auto">
+      <div data-worksheet-scroll-container="true" className={fillHeight ? "min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain" : "min-w-0 max-h-none overflow-x-hidden overflow-y-visible overscroll-contain md:max-h-[min(70vh,52rem)] md:overflow-x-auto md:overflow-y-auto"}>
         <div data-worksheet-desktop-grid="true" className="hidden md:block">
         <table role="grid" aria-label={ariaLabel} aria-rowcount={draftRows.length + 1} className="min-w-full border-collapse text-left text-xs">
-          <thead className="hqs-surface-muted hqs-secondary-text sticky top-0 z-20 border-b text-[10px] uppercase tracking-wide">
+          <thead className="hqs-surface-muted hqs-secondary-text sticky top-0 z-20 border-b hqs-border text-[10px] uppercase tracking-wide">
             <tr role="row">
               {columns.map((column, columnIndex) => (
                 <th
@@ -563,13 +566,13 @@ export function WorksheetEditor<T>({
                   scope="col"
                   aria-colindex={columnIndex + 1}
                   data-worksheet-align={column.align || "left"}
-                  className={`whitespace-nowrap px-3 ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${columnIndex === frozenColumnIndex ? "hqs-surface-muted sticky left-0 z-30" : ""}`}
+                  className={`hqs-border border-r border-b last:border-r-0 whitespace-nowrap px-2 ${density === "compact" ? "py-1" : "py-1.5"} ${alignClass(column.align)} ${columnIndex === frozenColumnIndex ? "hqs-surface-muted sticky left-0 z-30" : ""}`}
                   style={{ width: column.width, minWidth: column.minWidth }}
                 >
                   {column.header}
                 </th>
               ))}
-              {onRemoveRow && <th role="columnheader" scope="col" className="whitespace-nowrap px-3 py-2 text-right">Actions</th>}
+              {onRemoveRow && <th role="columnheader" scope="col" className="hqs-border border-r border-b last:border-r-0 whitespace-nowrap px-2 py-1 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -577,7 +580,7 @@ export function WorksheetEditor<T>({
             {draftRows.map((row, rowIndex) => {
               const currentRowKey = rowKey(row, rowIndex);
               return (
-                <tr key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-row-key={currentRowKey} className="hqs-border border-b">
+                <tr key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-row-key={currentRowKey}>
                   {columns.map((column, columnIndex) => {
                     const cell = getCellView(row, rowIndex, column, columnIndex);
                     const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-desktop` : undefined;
@@ -607,16 +610,16 @@ export function WorksheetEditor<T>({
                         onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
                         onPaste={(event) => handlePaste(event, cell.position)}
                         onKeyDown={(event) => handleCellKeyDown(event, cell.position)}
-                        className={`relative whitespace-nowrap px-3 align-top ${density === "compact" ? "py-2" : "py-3"} ${alignClass(column.align)} ${stateClasses[cell.state]} ${cell.editableCell ? "cursor-text transition-colors hover:bg-[var(--color-background-muted)]" : cell.readOnlyCell ? "cursor-not-allowed" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] ${columnIndex === frozenColumnIndex ? "sticky left-0 z-10" : ""}`}
+                        className={`hqs-border relative border-r border-b last:border-r-0 whitespace-nowrap px-2 align-middle ${density === "compact" ? "py-1" : "py-1.5"} ${alignClass(column.align)} ${stateClasses[cell.state]} ${cell.editableCell ? "cursor-text transition-colors hover:bg-[var(--color-background-muted)]" : cell.readOnlyCell ? "cursor-not-allowed" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] ${columnIndex === frozenColumnIndex ? "sticky left-0 z-10" : ""}`}
                         style={{ width: column.width, minWidth: column.minWidth }}
                       >
-                        {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : <span className="block min-h-5">{renderCellDisplay(cell)}</span>}
+                        {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : <span data-worksheet-value="true" className="block min-h-5">{renderCellDisplay(cell)}</span>}
                         {cell.conflict && renderIssue(cell.conflict, viewDescribedBy || `${cell.key}-conflict-message-desktop`)}
                         {!cell.conflict && renderIssue(cell.issue, viewDescribedBy || `${cell.key}-message-desktop`)}
                       </td>
                     );
                   })}
-                  {onRemoveRow && <td role="gridcell" className="whitespace-nowrap px-3 py-2 text-right">{(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow) || !hideUnavailableRemoveRowAction ? <button type="button" data-worksheet-remove-row={currentRowKey} onClick={() => handleRemoveRow(row, rowIndex)} disabled={actionDisabled || !(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow)} className="hqs-exception-danger inline-flex min-h-8 items-center rounded-md px-2 py-1 text-[10px] font-black disabled:cursor-not-allowed disabled:opacity-40">Remove row {rowIndex + 1}</button> : null}</td>}
+                  {onRemoveRow && <td role="gridcell" className="hqs-border border-r border-b last:border-r-0 whitespace-nowrap px-2 py-1 text-right">{(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow) || !hideUnavailableRemoveRowAction ? <button type="button" data-worksheet-remove-row={currentRowKey} onClick={() => handleRemoveRow(row, rowIndex)} disabled={actionDisabled || !(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow)} className="hqs-exception-danger inline-flex min-h-8 items-center rounded-md px-2 py-1 text-[10px] font-black disabled:cursor-not-allowed disabled:opacity-40">Remove row {rowIndex + 1}</button> : null}</td>}
                 </tr>
               );
             })}
@@ -628,7 +631,7 @@ export function WorksheetEditor<T>({
           {draftRows.map((row, rowIndex) => {
             const currentRowKey = rowKey(row, rowIndex);
             return (
-              <div key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-mobile-row-key={currentRowKey} className="space-y-3 p-3">
+              <div key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-mobile-row-key={currentRowKey} className="min-w-0 px-3 py-1">
                 {columns.map((column, columnIndex) => {
                   const cell = getCellView(row, rowIndex, column, columnIndex);
                   const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-mobile` : undefined;
@@ -661,16 +664,16 @@ export function WorksheetEditor<T>({
                       onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
                       onPaste={(event) => handlePaste(event, cell.position)}
                       onKeyDown={(event) => handleCellKeyDown(event, cell.position)}
-                      className={`min-w-0 rounded-lg border px-2.5 py-2 ${stateClasses[cell.state]} ${cell.editableCell ? "cursor-text" : cell.readOnlyCell ? "cursor-not-allowed" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]`}
+                      className={`hqs-border relative min-w-0 border-b px-1 py-1.5 ${stateClasses[cell.state]} ${cell.editableCell ? "cursor-text" : cell.readOnlyCell ? "cursor-not-allowed" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]`}
                     >
-                      <div className="flex min-w-0 items-center justify-between gap-3">
-                        <span className="hqs-secondary-text min-w-0 text-[10px] font-black uppercase tracking-wide">{column.header}</span>
+                      <div className="flex min-h-10 min-w-0 items-center gap-3">
+                        <span className="hqs-secondary-text w-2/5 shrink-0 text-[11px] font-semibold">{column.header}</span>
+                        <div className="min-w-0 flex-1">
+                          {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : renderMobileDisplay(cell)}
+                        </div>
                       </div>
-                      <div className="mt-1 min-w-0">
-                        {cell.isEditing ? renderEditorControl(cell, viewDescribedBy) : renderMobileDisplay(cell)}
-                        {cell.conflict && renderIssue(cell.conflict, viewDescribedBy || `${cell.key}-conflict-message-mobile`)}
-                        {!cell.conflict && renderIssue(cell.issue, viewDescribedBy || `${cell.key}-message-mobile`)}
-                      </div>
+                      {cell.conflict && renderIssue(cell.conflict, viewDescribedBy || `${cell.key}-conflict-message-mobile`)}
+                      {!cell.conflict && renderIssue(cell.issue, viewDescribedBy || `${cell.key}-message-mobile`)}
                     </div>
                   );
                 })}

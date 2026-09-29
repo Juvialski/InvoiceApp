@@ -209,6 +209,7 @@ export function OperationsWorkbookTransfer({
   disabled = false,
 }: OperationsWorkbookTransferProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const transferDisclosureRef = useRef<HTMLDetailsElement>(null);
   const [reviewSnapshot, setReviewSnapshot] = useState<ContextBoundCombinedReview | null>(null);
   const [selectedByDomain, setSelectedByDomain] = useState<SelectedByDomain>(EMPTY_SELECTION);
   const [confirmedByDomain, setConfirmedByDomain] = useState<ConfirmedByDomain>(EMPTY_CONFIRMATION);
@@ -232,7 +233,14 @@ export function OperationsWorkbookTransfer({
     setConfirmedByDomain(EMPTY_CONFIRMATION);
     setNotice("");
     setError("");
+    if (transferDisclosureRef.current) transferDisclosureRef.current.open = false;
   }, [currentContextKey]);
+
+  useEffect(() => {
+    if (review || notice || error) {
+      if (transferDisclosureRef.current) transferDisclosureRef.current.open = true;
+    }
+  }, [error, notice, review]);
 
   const callbacks = useMemo<CombinedOperationsWorkbookApplyCallbacks>(() => ({
     ...(onApplyProjectWorkbookGroup ? { projects: { applyGroup: onApplyProjectWorkbookGroup } } : {}),
@@ -431,31 +439,36 @@ export function OperationsWorkbookTransfer({
   };
 
   return (
-    <section aria-label="Combined Operations Workbook" className="border-b border-slate-200 bg-slate-50/70 px-3 py-3 sm:px-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
-            <h2 className="text-sm font-bold text-slate-950">Combined workbook</h2>
+    <section aria-label="Combined Operations Workbook" className="hqs-border min-w-0 border-t bg-white">
+      <details ref={transferDisclosureRef} data-workbook-transfer-disclosure="true" className="min-w-0">
+        <summary className="hqs-secondary-text flex min-h-9 cursor-pointer list-none items-center px-2.5 py-1.5 text-[11px] font-semibold [&::-webkit-details-marker]:hidden">
+          Import / export
+        </summary>
+        <div className="hqs-border min-w-0 border-t bg-slate-50/40 px-2.5 py-2 sm:px-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+                <h2 className="text-xs font-semibold text-slate-900">Combined workbook</h2>
+              </div>
+              <p className="mt-0.5 text-[11px] text-slate-600">Imports open a review; Apply remains separate by domain.</p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button type="button" onClick={handleExport} disabled={busy || disabled} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />Download workbook
+              </button>
+              <button type="button" onClick={() => inputRef.current?.click()} disabled={busy || disabled} className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-emerald-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+                <Upload className="h-3.5 w-3.5" aria-hidden="true" />Import workbook
+              </button>
+              <input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void handleImport(event)} className="sr-only" aria-label="Import combined Operations Workbook" />
+            </div>
           </div>
-          <p className="mt-1 text-xs text-slate-600">Review imported changes, then Apply separately within each domain.</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button type="button" onClick={handleExport} disabled={busy || disabled} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">
-            <Download className="h-3.5 w-3.5" aria-hidden="true" />Download workbook
-          </button>
-          <button type="button" onClick={() => inputRef.current?.click()} disabled={busy || disabled} className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
-            <Upload className="h-3.5 w-3.5" aria-hidden="true" />Import workbook
-          </button>
-          <input ref={inputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void handleImport(event)} className="sr-only" aria-label="Import combined Operations Workbook" />
-        </div>
-      </div>
 
-      {demoMode && <p role="status" className="mt-2 text-[11px] font-semibold text-slate-500">Synthetic demo · Apply is disabled.</p>}
-      {notice && <p role="status" className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900">{notice}</p>}
-      {error && <p role="alert" className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900">{error}</p>}
+          {demoMode && <p role="status" className="mt-1 text-[11px] font-medium text-slate-500">Synthetic demo · Apply is disabled.</p>}
+          {notice && <p role="status" className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900">{notice}</p>}
+          {error && <p role="alert" className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900">{error}</p>}
 
-      {review && <div className="mt-3 space-y-2" aria-label={`Import review: ${review.fileName || "Combined workbook"}`}>
+          {review && <div className="mt-3 space-y-2" aria-label={`Import review: ${review.fileName || "Combined workbook"}`}>
         <div className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2">
           <div className="min-w-0">
             <h3 className="text-xs font-bold text-slate-900">Review: {review.fileName || "Combined workbook"}</h3>
@@ -518,7 +531,9 @@ export function OperationsWorkbookTransfer({
             </div>
           </details>;
         })}
-      </div>}
+          </div>}
+        </div>
+      </details>
     </section>
   );
 }

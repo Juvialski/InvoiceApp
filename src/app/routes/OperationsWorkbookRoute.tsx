@@ -661,10 +661,10 @@ export function OperationsWorkbookRoute({
   const sheetTabs = visibleSheets.map((sheet) => ({ id: sheet.id, label: sheet.shortName || sheet.name }));
   const worksheetCanSave = Boolean(workbookAdapter?.onSave);
   const statusText = demoMode
-    ? "Synthetic demo · edits stay in this browser"
+    ? "Demo · edits stay in this browser"
     : selectedSheet
-      ? `${selectedSheet.name} · ${worksheetCanSave ? "editable" : "read only"}`
-      : "Combined workbook access";
+      ? worksheetCanSave ? "" : "read only"
+      : "Workbook access";
 
   const reloadLatest = async () => {
     const refreshCurrentSheet = selectedSheet?.id === "expenses"
@@ -697,14 +697,12 @@ export function OperationsWorkbookRoute({
       <div
         data-operations-workbook="true"
         data-workbook-sheet={selectedSheet?.id}
-        className="flex min-h-[min(70vh,42rem)] min-w-0 flex-col overflow-hidden border border-slate-300 bg-white text-slate-900 shadow-sm"
+        className="flex h-[min(82dvh,56rem)] min-h-[28rem] min-w-0 flex-col overflow-hidden border border-slate-300 bg-white text-slate-900"
         style={{ colorScheme: "light" }}
       >
-        <header className="flex min-w-0 flex-col items-start gap-1 border-b border-slate-200 px-3 py-2 sm:min-h-12 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
+        <header className="hqs-border flex min-h-8 shrink-0 min-w-0 flex-wrap items-center justify-between gap-2 border-b px-2.5 py-1.5">
           <h1 className="min-w-0 text-sm font-semibold">Operations Workbook</h1>
-          <div role="status" className="max-w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600 sm:shrink-0 sm:text-xs">
-            {statusText}
-          </div>
+          {statusText && <span role="status" data-workbook-status="true" className="hqs-secondary-text max-w-full text-[10px] font-medium sm:text-[11px]">{statusText}</span>}
         </header>
 
         {selectedSheet && workbookAdapter ? <>
@@ -716,6 +714,7 @@ export function OperationsWorkbookRoute({
               columns={columns}
               rowKey={(row) => row.id}
               showActionBar={worksheetCanSave}
+              fillHeight
               toolbar={feedback ? <span role={feedback.kind === "error" || feedback.kind === "conflict" ? "alert" : "status"} className={`text-[11px] font-semibold ${feedback.kind === "success" ? "text-emerald-800" : "text-rose-800"}`}>{feedback.message}</span> : undefined}
               actions={feedback?.kind === "conflict" && worksheetCanSave && !demoMode
                 ? <button type="button" onClick={() => void reloadLatest()} disabled={isSaving} className="inline-flex min-h-9 items-center rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-bold text-rose-800 disabled:opacity-50">Reload latest</button>
@@ -738,7 +737,7 @@ export function OperationsWorkbookRoute({
             />
           </div>
 
-          <footer className="min-w-0 border-t border-slate-200 bg-white px-1">
+          <footer className="hqs-border min-w-0 shrink-0 border-t bg-white px-1">
             <WorksheetTabs
               ariaLabel="Operations Workbook sheets"
               tabs={sheetTabs}

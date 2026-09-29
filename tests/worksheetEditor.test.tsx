@@ -285,6 +285,31 @@ test("editable cells expose a non-color edit affordance and protected cells stay
   assert.match(protectedCell, /data-worksheet-editable="false"/);
 });
 
+test("renders a flat grid with an outlined active cell and an integrated editor control", () => {
+  const html = renderToStaticMarkup(
+    <WorksheetEditor
+      ariaLabel="Materials worksheet"
+      rows={rows}
+      columns={columns}
+      rowKey={(row) => row.id}
+      initialEditingCell={{ row: 0, column: 0 }}
+      fillHeight
+    />,
+  );
+  const cellMarker = html.indexOf('data-worksheet-cell="row-1:name"');
+  const cellStart = html.lastIndexOf("<td", cellMarker);
+  const cell = html.slice(cellStart, html.indexOf("</td>", cellStart));
+  const styles = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
+
+  assert.match(cell, /data-worksheet-state="editing"/);
+  assert.match(cell, /aria-selected="true"/);
+  assert.match(cell, /border-r border-b/);
+  assert.match(cell, /rounded-none border-0 bg-transparent/);
+  assert.match(styles, /\[data-worksheet-cell\]\[aria-selected="true"\]\s*\{\s*outline: 2px solid var\(--color-accent\)/);
+  assert.match(styles, /\.hqs-cell-protected\s*\{\s*background: var\(--color-background-surface\); color: var\(--color-text-secondary\); \}/);
+  assert.doesNotMatch(html, /hqs-surface-raised[^"]*rounded-xl/);
+});
+
 test("worksheet row identity remains available while an editable cell replaces its display text", () => {
   const html = renderToStaticMarkup(
     <WorksheetEditor

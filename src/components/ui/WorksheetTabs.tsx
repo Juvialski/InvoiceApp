@@ -56,9 +56,9 @@ export function WorksheetTabs({ ariaLabel, tabs, value, onChange, className = ""
               if (event.key === "Home") { event.preventDefault(); focusTab(tabs.findIndex((candidate) => !candidate.disabled)); }
               if (event.key === "End") { event.preventDefault(); focusTab([...tabs].map((candidate, candidateIndex) => ({ candidate, candidateIndex })).reverse().find(({ candidate }) => !candidate.disabled)?.candidateIndex ?? -1); }
             }}
-            className={`min-h-10 shrink-0 border-b-2 px-3 py-2 text-xs font-black transition-colors ${selected ? "border-[var(--color-accent)] hqs-accent-text" : "border-transparent hqs-secondary-text hover:opacity-80"} disabled:cursor-not-allowed disabled:opacity-45`}
+            className={`min-h-10 shrink-0 border-b-2 px-2.5 py-1.5 text-xs font-semibold transition-colors sm:min-h-8 ${selected ? "border-[var(--color-accent)] hqs-accent-text" : "border-transparent hqs-secondary-text hover:opacity-80"} disabled:cursor-not-allowed disabled:opacity-45`}
           >
-            {tab.label}{tab.count !== undefined && <span className="hqs-muted-fill hqs-secondary-text ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums">{tab.count}</span>}
+            {tab.label}{tab.count !== undefined && <span className="hqs-secondary-text ml-1 text-[10px] font-normal tabular-nums">{tab.count}</span>}
           </button>
         );
       })}
