@@ -2,7 +2,7 @@
 
 Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / UI SIMPLIFICATION ROUND 3 COMPLETE FOR RECORDED SCOPE / PROVIDER & RELEASE CERTIFICATION PARALLEL / REL-QA-WB-1 HOSTED CERTIFICATION COMPLETE FOR THE RECORDED SINGLE-COMPANY QA PROFILE AT SHA 44F92B9; PROFILE LIMITATIONS RECORDED / CI-EFF-3 PROTECTED CI AND RELEASE-ORCHESTRATION SCOPE HARDENING IMPLEMENTED FOR THIS PR / WB-3D+ DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-28**
+Last updated: **2026-09-29**
 
 Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -32,6 +32,19 @@ Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 **Public-site brand separation plan:** `docs/superpowers/specs/2026-09-23-public-site-brand-separation.md` — WEB-BRAND-1 implementation is recorded for repository scope; production company site and QA software showcase remain separate audiences
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
+
+## 2026-09-29 — Excel Simplicity Pass
+
+Status: **IMPLEMENTED FOR THE EXISTING OPERATIONS WORKBOOK AND WORKSHEET SURFACES.**
+
+- Base main SHA: **a64e2b56168aceea07269b5474a91d3bac50cec8**. App-bearing source commit: **1e353bb37ae4878d02454d798a6667519fa5f649** on branch **codex/excel-simplicity-pass-20260928**.
+- The local 136-second downloaded reel was reviewed from start to finish. Its practical contractor context, compact full-screen tables, fine gridlines, outlined active cell, direct in-cell typing, bounded dropdowns, and bottom sheet tabs are recorded in [the video reference note](HYDROQUALISENSE_EXCEL_SIMPLICITY_VIDEO_REFERENCE.md). The download and temporary frames are not tracked.
+- The Operations Workbook now gives its worksheet more viewport height, keeps the primary grid and tabs ahead of collapsed Import / export tools, and preserves review/apply, Save/Discard, dirty-switch protection, and permission-filtered sheets. WorksheetEditor uses compact grid cells, integrated input controls, quiet ordinary protected/dirty states, a visible active-cell outline, and a touch-friendly mobile row layout.
+- Existing Project Details, Cost Codes, Expenses, RFQ, Purchase Order, Client Billing, and Supplier Invoice worksheets use the shared presentation. Project Details fields precede optional image controls. Supplier Invoice source-on-left / extracted-data-on-right review remains intact on wide screens.
+- The reference's ribbon, formula engine, yellow-only editability fills, calculators, and dashboard behavior were deliberately not copied. No workbook domain was added, and no permission, lifecycle, source, or financial authority changed.
+- Validation: affected tests **630/630 across 88/395 selected files** (no fallback; database unaffected); lint/typecheck, production build, Workflow Map check, and consistency passed. Local Demo Visual QA passed **45/45 scenarios across six routes**, with zero console errors, page errors, failed requests, or page-level overflow; desktop, 1280×800 laptop, tablet, and phone captures were inspected. The exact-H1 local manifest is ignored at artifacts/demo-visual-qa-excel-simplicity-head1/manifest.json; this is synthetic local evidence, not hosted, authenticated-client, or production certification.
+- TypeSafe context preflight had no candidates (requestCount=0, fallback=true). Test triage kept all **88/88 required files** across three chunks using Jev 1.13.0 (15,352 input / 1,302 output tokens, 1,177 ms, fallback=false).
+- No migrations, RLS, RPC, database authority, provider, hosted QA, or production state changed. WB-3D+ remains deferred.
 
 ## 2026-09-28 REL-QA-WB-1 — Authenticated Operations Workbook Hosted QA
 
