@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1160" viewBox="0 0 900 1160" role="img" aria-labelledby="title desc">
+  <title id="title">Flowcrest supplier invoice FPM-2609-184</title>
+  <desc id="desc">Supplier invoice for booster pumps and pressure gauge assemblies.</desc>
+  <rect width="900" height="1160" fill="#f5f7fa"/>
+  <rect x="44" y="40" width="812" height="1080" rx="10" fill="#ffffff" stroke="#d7dee8"/>
+  <rect x="44" y="40" width="812" height="12" rx="6" fill="#1e3a5f"/>
+  <text x="88" y="112" font-family="Arial, sans-serif" font-size="31" font-weight="700" fill="#17324f">FLOWCREST</text>
+  <text x="88" y="143" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" fill="#65748b">PUMP &amp; MOTOR SUPPLY</text>
+  <text x="88" y="180" font-family="Arial, sans-serif" font-size="14" fill="#65748b">Angeles City, Pampanga, Philippines</text>
+  <text x="808" y="110" text-anchor="end" font-family="Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="2" fill="#65748b">SUPPLIER INVOICE</text>
+  <text x="808" y="153" text-anchor="end" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#17324f">FPM-2609-184</text>
+  <line x1="88" y1="214" x2="812" y2="214" stroke="#d7dee8"/>
+  <text x="88" y="258" font-family="Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.5" fill="#6b7788">BILL TO</text>
+  <text x="88" y="290" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#24364b">Silverfern Water Systems Corporation</text>
+  <text x="88" y="318" font-family="Arial, sans-serif" font-size="14" fill="#59697d">Pasig City, Metro Manila, Philippines</text>
+  <text x="540" y="258" font-family="Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.5" fill="#6b7788">INVOICE DATE</text>
+  <text x="540" y="285" font-family="Arial, sans-serif" font-size="16" fill="#24364b">18 September 2026</text>
+  <text x="540" y="324" font-family="Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.5" fill="#6b7788">PAYMENT TERMS</text>
+  <text x="540" y="351" font-family="Arial, sans-serif" font-size="16" fill="#24364b">Net 30 · Due 18 October 2026</text>
+  <rect x="88" y="382" width="724" height="72" rx="7" fill="#f2f5f9"/>
+  <text x="110" y="410" font-family="Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.2" fill="#6b7788">PROJECT</text>
+  <text x="110" y="436" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#24364b">San Fernando Commercial Center Water System Rehabilitation</text>
+  <text x="652" y="410" font-family="Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.2" fill="#6b7788">PURCHASE ORDER</text>
+  <text x="652" y="436" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#24364b">PO-WTR-26-006</text>
+  <text x="88" y="512" font-family="Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.5" fill="#6b7788">INVOICE DETAILS</text>
+  <rect x="88" y="532" width="724" height="45" rx="5" fill="#17324f"/>
+  <text x="110" y="560" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">DESCRIPTION</text>
+  <text x="548" y="560" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">QTY</text>
+  <text x="662" y="560" text-anchor="end" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">UNIT PRICE</text>
+  <text x="790" y="560" text-anchor="end" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">AMOUNT</text>
+  <text x="110" y="614" font-family="Arial, sans-serif" font-size="13" fill="#24364b">3 HP vertical multistage booster pump</text>
+  <text x="110" y="634" font-family="Arial, sans-serif" font-size="13" fill="#24364b">Stainless-steel wetted parts</text>
+  <text x="548" y="626" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#24364b">2 set</text>
+  <text x="662" y="626" text-anchor="end" font-family="Arial, sans-serif" font-size="14" fill="#24364b">₱174,000.00</text>
+  <text x="790" y="626" text-anchor="end" font-family="Arial, sans-serif" font-size="14" fill="#24364b">₱348,000.00</text>
+  <line x1="110" y1="658" x2="790" y2="658" stroke="#e4e9f0"/>
+  <text x="110" y="698" font-family="Arial, sans-serif" font-size="14" fill="#24364b">Pressure gauge and isolation valve assembly</text>
+  <text x="548" y="698" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#24364b">2 set</text>
+  <text x="662" y="698" text-anchor="end" font-family="Arial, sans-serif" font-size="14" fill="#24364b">₱50,000.00</text>
+  <text x="790" y="698" text-anchor="end" font-family="Arial, sans-serif" font-size="14" fill="#24364b">₱100,000.00</text>
+  <line x1="110" y1="723" x2="790" y2="723" stroke="#e4e9f0"/>
+  <text x="580" y="788" font-family="Arial, sans-serif" font-size="14" fill="#59697d">Invoice amount</text>
+  <text x="790" y="788" text-anchor="end" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#24364b">₱448,000.00</text>
+  <rect x="88" y="825" width="724" height="88" rx="7" fill="#edf4fb"/>
+  <text x="112" y="860" font-family="Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.2" fill="#58708a">AMOUNT DUE</text>
+  <text x="790" y="882" text-anchor="end" font-family="Arial, sans-serif" font-size="31" font-weight="700" fill="#17324f">₱448,000.00</text>
+  <text x="88" y="1002" font-family="Arial, sans-serif" font-size="13" fill="#65748b">Please reference FPM-2609-184 with your remittance.</text>
+  <line x1="88" y1="1040" x2="812" y2="1040" stroke="#d7dee8"/>
+  <text x="88" y="1075" font-family="Arial, sans-serif" font-size="11" fill="#8a96a5">Flowcrest Pump &amp; Motor Supply</text>
+</svg>
