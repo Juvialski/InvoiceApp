@@ -1,7 +1,7 @@
 # HydroQualiSense Hosted QA Operations Workbook Certification — REL-QA-WB-1
 
-- Status: **PRIOR CERTIFICATION COMPLETE AT `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`. POST-PR #289 REVALIDATION AT `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b` IS INCOMPLETE: THE PROTECTED RELEASE AND EXISTING MATRIX PASSED, BUT THE MATRIX DID NOT EXERCISE EXPLICIT BLANK-DESCRIPTION APPLY OR CAPTURE THE EDITOR AT THE REQUESTED VIEWPORTS.**
-- Current exact-SHA revalidation target: `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b`; Protected QA Release / Hosted QA run: [36511303084](https://github.com/Juvialski/InvoiceApp/actions/runs/36511303084)
+- Status: **PRIOR CERTIFICATION COMPLETE AT `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`. POST-PR #289 REVALIDATION AT `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b` REMAINS INCOMPLETE, AND THE POST-PR #290 EXACT-SHA ATTEMPT AT `2dd9c676b5e5bd7e1b03fe78e1def586de51508b` ALSO REMAINS INCOMPLETE: THE PROTECTED RELEASE AND AUTHENTICATED ROUTES PASSED, BUT THE MATRIX FAILED BEFORE WORKBOOK EXPORT/APPLY OR RESPONSIVE SCREENSHOT CAPTURE.**
+- Current exact-SHA revalidation target: `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`; Protected QA Release / Hosted QA run: [36516047108](https://github.com/Juvialski/InvoiceApp/actions/runs/36516047108), failed at responsive editor capture.
 - Initial `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
 - Last application-bearing `main` and QA app SHA certified: `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`
 - Corrective PRs: [#282](https://github.com/Juvialski/InvoiceApp/pull/282) (Procurement Apply version token) and [#283](https://github.com/Juvialski/InvoiceApp/pull/283) (protected matrix trigger paths), both merged.
@@ -110,22 +110,33 @@ The matrices in runs 36364232002 and 36369354473 stopped at `prepare-stale-workb
 - The four successful review/Apply screenshots were manually inspected at **1280×800** and **390×844**. Both report no page-level horizontal overflow and Projects Apply reachable; Apply is disabled before confirmation. Phone columns wrap tightly.
 - A separate read-only QA query confirmed run `wb-1790594821307` saved only synthetic draft/master-data fields: Project description `REL-QA-WB-1 wb-1790594821307 project description`, Cost Code description `REL-QA-WB-1 wb-1790594821307 cost code description`, direct DRAFT Expense description `REL-QA-WB-1 wb-1790594821307 authoritative round-trip Expense`, RFQ title `REL-QA-WB-1 wb-1790594821307 RFQ title`, and PO description `REL-QA-WB-1 wb-1790594821307 PO description`. Protected lifecycle states were unchanged. Production was not queried or mutated.
 
+## 2026-09-29 post-PR #290 exact-SHA attempt — responsive capture harness defect
+
+- PR #290 merged as exact `main` SHA `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`. Render service `hydroqualisense-qa` (`srv-dafno1id0e5s73d6e3b0`) deployed that commit as live Render deploy `dep-datiopff3r2c73dpupsg`; `/api/health` reported environment `qa`, deployment ID `qa-hydroqualisense`, the exact SHA, and migration level `20260927095636`.
+- Protected QA Release / Hosted QA run [36516047108](https://github.com/Juvialski/InvoiceApp/actions/runs/36516047108) passed release identity and migration checks. Before/after artifacts and an independent read-only Supabase migration listing both showed **153/153** exact canonical version/name matches through `20260927095636_wb3c_header_only_procurement_saves`; `needsPromotion=false`, so no QA migration promotion occurred. Production was not touched.
+- Authenticated Hosted QA passed **9/9 routes** and the Storage probe/cleanup. Route runtime counters were **0 console errors, 0 page errors, and 0 failed requests**.
+- The workbook manifest failed at `capture-workbook-editor-responsive` with `UNCLASSIFIED_ERROR`. It stopped before workbook export, so no workbook review, Apply, authoritative refresh, optional-field clearing assertion, or workbook screenshot ran. The failed matrix made no workbook edits. The artifact contains route screenshots only; the requested `1280×800` and `390×844` editor screenshots and the review/Apply screenshots are unavailable for this SHA.
+- Source inspection identified the harness defect: `WorksheetEditor` renders desktop and mobile grids together, and both can mark their corresponding active cell as selected. The desktop capture used a page-wide selected-cell locator, which can match both DOM nodes and trigger Playwright's strict-locator error before screenshot capture. The bounded correction scopes the selected-cell check to the active viewport grid on branch `codex/rel-qa-wb-1-selected-cell-locator`.
+- Focused Hosted QA contract tests passed **21/21**; `npm.cmd run test:affected:agent` passed **75/75 across 9/395 files (2.3%, no fallback)**; `npm.cmd run lint` passed ESLint and TypeScript. The correction is not certified until it is merged, deployed, and the complete protected exact-SHA release/matrix passes with both blank-clear assertions and manually inspected screenshots.
+
+The prior complete single-company QA certification remains historical evidence at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`; the `2dd9c676...` attempt does not supersede it. Alternate permission profiles, company-context changes, artificial partial-Apply retry, and the intermittent REL-AUTH-1 trigger remain untested because safe fixtures were unavailable. Provider certification and production readiness are not claimed.
+
 ## Evidence status and limitations
 
 | Area | Result |
 | --- | --- |
-| QA target / deployment mapping | Verified: `qa-hydroqualisense` -> `vrpuznofrntyqsbugrib` |
-| App and migration identity | Run 36415301174 verified QA SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`; migration parity **153/153** through `20260927095636` |
+| QA target / deployment mapping | Verified for run 36516047108: `qa-hydroqualisense` -> live Render deploy `dep-datiopff3r2c73dpupsg` -> `vrpuznofrntyqsbugrib` |
+| App and migration identity | Run 36516047108 verified QA SHA `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`; migration parity **153/153** through `20260927095636`, `needsPromotion=false` |
 | Auth preflight / ordinary session recovery | Passed persisted reload, fresh protected navigation, and unauthenticated protected-route check; no identity details persisted |
-| Hosted authenticated routes | Run 36415301174 passed **9/9** route contracts; 0 console errors, 0 page errors, 0 failed requests |
-| Hosted combined XLSX export/import/review/Apply | Run 36415301174 passed workbook export/parser, stale conflict, review, three-domain Apply, authoritative refresh, and final value assertions |
-| Protected-field classification and authoritative post-Apply refresh | Eight protected fields classified; lifecycle/source fields remained unchanged; authoritative refresh passed |
+| Hosted authenticated routes | Run 36516047108 passed **9/9** route contracts; 0 console errors, 0 page errors, 0 failed requests |
+| Hosted combined XLSX export/import/review/Apply | Latest run 36516047108 stopped before export/review/Apply; previous complete matrix evidence remains at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc` |
+| Protected-field classification and authoritative post-Apply refresh | Not reached in run 36516047108; previous complete matrix evidence remains at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc` |
 | Supplier Payables permission boundary | Read-enabled export observed; no read-disabled profile available |
 | Company-context invalidation | Not exercised in the single-company QA deployment |
 | Partial sequential failure/retry | No safe deterministic hosted trigger available; not induced |
 | REL-AUTH-1 intermittent verification trigger | Not reproduced; ordinary reload succeeded; temporary verification state, terminal expiry, and invalidation of an existing review were not exercised |
-| Responsive combined import review | Run 36415301174 produced and the lead inspected review/Apply captures at 1280×800 and 390×844; both report no page-level overflow and Projects Apply reachable |
-| Production writes or migration promotion | None |
+| Responsive editor and review/Apply screenshots | Not produced by run 36516047108; the requested editor and review/Apply screenshots were not available to inspect |
+| Production writes or QA migration promotion | None; run 36516047108 reported `needsPromotion=false` before and after |
 
 REL-QA-WB-1 is **complete for the recorded single-company QA profile** at exact SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`. Alternate permission profiles, company-context switching, partial sequential failure/retry, and the intermittent REL-AUTH-1 trigger remain explicit limitations because safe fixtures were unavailable. Provider certification and production readiness are not claimed by this workbook record.
 

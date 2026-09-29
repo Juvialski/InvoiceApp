@@ -69,6 +69,18 @@ Status: **INCOMPLETE PENDING PROTECTED EXACT-SHA RERUN WITH THE EXPANDED HOSTED-
 
 See `docs/HYDROQUALISENSE_HOSTED_QA_WORKBOOK_CERTIFICATION.md` for evidence and the precise pending checks.
 
+## 2026-09-29 REL-QA-WB-1 — Post-PR #290 exact-SHA revalidation
+
+Status: **INCOMPLETE — THE PROTECTED RELEASE AND ROUTES PASSED, BUT THE WORKBOOK MATRIX STOPPED BEFORE EXPORT/APPLY OR RESPONSIVE SCREENSHOTS.** PR #290 merged as `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`; protected run [36516047108](https://github.com/Juvialski/InvoiceApp/actions/runs/36516047108) targeted that exact SHA on QA deployment `qa-hydroqualisense` (live Render deploy `dep-datiopff3r2c73dpupsg`).
+
+- Before/after protected migration artifacts and an independent QA migration listing matched **153/153** canonical migrations through `20260927095636`; `needsPromotion=false`, so no promotion occurred. Production was not touched.
+- Authenticated Hosted QA passed **9/9 routes** and the Storage probe/cleanup, with zero console errors, page errors, and failed requests.
+- The matrix failed at `capture-workbook-editor-responsive` with `UNCLASSIFIED_ERROR`, before workbook export, review/Apply, blank-clear assertions, or screenshot capture. No workbook mutation occurred; the new editor and review/Apply screenshots were not produced.
+- Source inspection found the selected-cell locator queried the whole page while desktop and mobile worksheet grids coexist in the DOM. The fix scopes that locator to the active grid; branch `codex/rel-qa-wb-1-selected-cell-locator` passed focused tests **21/21**, affected tests **75/75 across 9/395 files**, and lint/typecheck.
+- Certification remains open until the fix is merged and deployed, then the complete protected exact-SHA workflow passes with both explicit blank-clear checks and manually inspected editor and review/Apply screenshots at `1280×800` and `390×844`.
+
+The prior complete single-company certification remains at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`; this attempt does not supersede it. Alternate permission/company profiles, artificial partial-Apply retry, and the intermittent REL-AUTH-1 trigger remain untested. No production access or write occurred.
+
 ## 2026-09-28 CI-EFF-3 — Protected CI / Release-Orchestration Scope Hardening
 
 Status: **IMPLEMENTED FOR THE RECORDED SCOPE; PR DELIVERY IN PROGRESS.** Base: `e699d9b90d6e63a1b3109d44c023719e0a3d5ffc`; branch: `codex/ci-eff-3-protected-scope-hardening`.
