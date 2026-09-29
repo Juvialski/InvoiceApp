@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — Excel Simplicity Pass is implemented. The prior REL-QA-WB-1 certification remains complete at SHA 44f92b9; post-PR #289 revalidation at c39a3a8 passed the protected release and existing matrix but remains incomplete pending explicit blank-description Apply and responsive editor evidence. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
+Status: **CURRENT — Excel Simplicity Pass is implemented. The prior REL-QA-WB-1 certification remains complete at SHA 44f92b9. Post-PR #290 exact-SHA revalidation at 2dd9c67 passed the protected release, migration parity, and authenticated routes but the matrix failed before export/Apply or responsive screenshot capture due to a selected-cell locator ambiguity. Certification remains incomplete pending the bounded harness fix, merge, deployment, and full exact-SHA rerun. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
 Date: **2026-09-29**
 Repository: `Juvialski/InvoiceApp`
 
@@ -18,6 +18,16 @@ The protected QA target is app SHA `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b`. P
 The revalidation is **not complete** against the new acceptance criteria. The matrix used non-empty Project and Cost Code description edits and did not test explicit blank values through Apply and the subsequent authoritative refresh. Its four inspected responsive screenshots cover import review/Apply, not the editor. A desktop editor view in the authenticated browser was inspected, but it is not archived and does not replace laptop/phone editor captures.
 
 This focused follow-up adds exact empty-string parse and post-Apply assertions for both optional descriptions, plus editor captures at `1280×800` and `390×844` with checks for the mobile fallback, selected cell, Save/Discard, sheet tabs, collapsed file tools, and page overflow. After merge, certification remains incomplete until the protected QA workflow passes against the exact deployed merge SHA. No production deployment/database was queried or written; no migration promotion occurred. Prior complete single-company certification remains at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`.
+
+### 2026-09-29 REL-QA-WB-1 post-PR #290 exact-SHA attempt
+
+PR #290 merged as exact `main` SHA `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`. Protected QA Release / Hosted QA run [36516047108](https://github.com/Juvialski/InvoiceApp/actions/runs/36516047108) deployed that SHA to Render service `hydroqualisense-qa` as live deploy `dep-datiopff3r2c73dpupsg`; health identity matched deployment `qa-hydroqualisense` and migration level `20260927095636`.
+
+Before/after protected artifacts and an independent read-only migration listing matched **153/153** canonical migrations, with `needsPromotion=false`; no QA migration promotion occurred. Authenticated Hosted QA passed **9/9 routes** and Storage probe/cleanup with zero console errors, page errors, or failed requests.
+
+The workbook matrix failed at `capture-workbook-editor-responsive` with `UNCLASSIFIED_ERROR` before workbook export, review/Apply, the Project/Cost Code blank-clear assertions, or responsive screenshots. No workbook edits occurred. Source inspection found the desktop selected-cell locator searched the whole page even though desktop and mobile grid variants coexist in the DOM. The locator is now scoped to the active grid on branch `codex/rel-qa-wb-1-selected-cell-locator`. Focused Hosted QA contract tests passed **21/21**, affected tests passed **75/75 across 9/395 files (2.3%, no fallback)**, and lint/typecheck passed. No production database or deployment was accessed or modified.
+
+**REL-QA-WB-1 remains incomplete at `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`.** The failed run produced route screenshots only; the new laptop/phone editor and review/Apply screenshots were not produced or inspected. Do not claim the blank-field or full workbook matrix checks. After the harness correction is merged and deployed, rerun the complete protected QA workflow on the exact deployed SHA. The previous complete certification at `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc` remains historical evidence. Existing alternate-permission/company, induced partial-Apply retry, and intermittent REL-AUTH-1 limitations remain explicit; WB-3D+ stays deferred.
 
 ### 2026-09-28 CI-EFF-3 — Protected CI / Release-Orchestration Scope Hardening
 

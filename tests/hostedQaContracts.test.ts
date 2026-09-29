@@ -254,6 +254,8 @@ test("hosted workbook matrix captures editor and mobile-fallback evidence at lap
   assert.match(workbookHarnessSource, /captureWorkbookEditorViewport/);
   assert.match(workbookHarnessSource, /workbook-editor-\$\{viewport\.name\}\.png/);
   assert.match(workbookHarnessSource, /data-worksheet-mobile-fallback="true"/);
+  assert.match(workbookHarnessSource, /const selectedCell = grid\.locator\('\[data-worksheet-state="selected"\]'\);/);
+  assert.doesNotMatch(workbookHarnessSource, /page\.locator\('\[data-worksheet-state="selected"\]'\)/);
   assert.match(workbookHarnessSource, /WORKSHEET_MOBILE_FALLBACK_UNAVAILABLE/);
   assert.match(workbookHarnessSource, /WORKSHEET_SAVE_DISCARD_NOT_REACHABLE/);
   assert.match(workbookHarnessSource, /WORKSHEET_TABS_NOT_REACHABLE/);

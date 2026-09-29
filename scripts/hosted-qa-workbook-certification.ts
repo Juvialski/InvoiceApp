@@ -253,9 +253,7 @@ async function captureWorkbookEditorViewport(
   const mobileFallbackVisible = await mobileFallback.isVisible();
   const mobileFieldCount = await mobileFallback.locator("[data-worksheet-mobile-field]").count();
   if (viewport.mobile && (!mobileFallbackVisible || mobileFieldCount < 1)) throw new Error("WORKSHEET_MOBILE_FALLBACK_UNAVAILABLE");
-  const selectedCell = viewport.mobile
-    ? mobileFallback.locator('[data-worksheet-state="selected"]')
-    : page.locator('[data-worksheet-state="selected"]');
+  const selectedCell = grid.locator('[data-worksheet-state="selected"]');
   const selectedCellVisible = await selectedCell.isVisible();
   if (!selectedCellVisible) throw new Error("WORKSHEET_SELECTED_CELL_MISSING");
   const dimensions = await page.evaluate(() => ({
