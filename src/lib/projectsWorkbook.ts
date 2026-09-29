@@ -416,7 +416,10 @@ function projectProposal(
     }
     const next = change(field, current || null, workbookValue, exported[field] ?? null, true);
     if (next) editableChanges.push(next);
-    assign(workbookValue || undefined);
+    // Keep an explicit blank distinct from an omitted/null value. The project
+    // Apply RPC uses null/omitted fields to retain current data and an empty
+    // string to clear optional text fields.
+    assign(workbookValue ?? "");
   };
   parseEditableText("projectCode", "Project Code", project.projectCode, (value) => { if (value !== undefined) proposed.projectCode = value; }, true);
   parseEditableText("projectName", "Project Name", project.projectName, (value) => { if (value !== undefined) proposed.projectName = value; }, true);
@@ -434,7 +437,7 @@ function projectProposal(
     const workbookValue = dateValue(row[header]) || null;
     const next = change(field, current || null, workbookValue, exported[field] ?? null, true);
     if (next) editableChanges.push(next);
-    (proposed as unknown as Record<string, unknown>)[field] = workbookValue || undefined;
+    (proposed as unknown as Record<string, unknown>)[field] = workbookValue ?? "";
   }
   for (const [field, header, current] of [["contractValue", "Contract Value", project.contractValue], ["projectBudget", "Approved Project Budget", project.projectBudget]] as const) {
     const workbookValue = numberValue(row[header]);
@@ -637,7 +640,7 @@ export function buildProjectsImportReview(
         if (!candidate.editable) continue;
         if (candidate.field === "code") proposed.code = String(candidate.workbookValue || "").trim().toUpperCase();
         if (candidate.field === "name") proposed.name = String(candidate.workbookValue || "").trim();
-        if (candidate.field === "description") proposed.description = nullableText(candidate.workbookValue) || undefined;
+        if (candidate.field === "description") proposed.description = nullableText(candidate.workbookValue) ?? "";
         if (candidate.field === "approvedBudgetAmount") proposed.approvedBudgetAmount = numberValue(candidate.workbookValue) ?? code.approvedBudgetAmount;
         if (candidate.field === "forecastAmount") proposed.forecastAmount = numberValue(candidate.workbookValue);
       }

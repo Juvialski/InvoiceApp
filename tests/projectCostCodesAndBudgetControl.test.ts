@@ -12,6 +12,7 @@ import {
   type CostPayrollRecord,
 } from "../src/utils/projectCosting.ts";
 import {
+  buildProjectCostControlGroupRpcPayload,
   createLocalProjectCostCode,
   formatCostCodeOptionLabel,
   getSelectableCostCodes,
@@ -76,6 +77,27 @@ function createMockCostCodes(projectId = "proj-1"): ProjectCostCode[] {
     },
   ];
 }
+
+test("project cost-control RPC payload preserves explicit blank optional text values", () => {
+  const project = createMockProject({
+    description: "Existing project description",
+    clientName: "Existing client",
+    startDate: "2026-01-01",
+  });
+  const [existingCostCode] = createMockCostCodes();
+  assert.ok(existingCostCode);
+  const payload = buildProjectCostControlGroupRpcPayload(
+    { ...project, description: "", clientName: "", startDate: "" },
+    project.updatedAt,
+    "company-1",
+    [{ ...existingCostCode, description: "" }],
+  );
+
+  assert.equal(payload.p_project.description, "");
+  assert.equal(payload.p_project.clientName, "");
+  assert.equal(payload.p_project.startDate, "");
+  assert.equal(payload.p_cost_codes[0]?.description, "");
+});
 
 test("1. create cost code: normalizes code to uppercase, validates required fields and sets defaults", () => {
   const local = createLocalProjectCostCode({

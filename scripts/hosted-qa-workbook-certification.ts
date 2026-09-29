@@ -105,7 +105,22 @@ async function rewriteWorkbook(inputPath: string, outputPath: string, edits: rea
   return { parsed, byteCount: bytes.byteLength, supplierPayablesIncluded: workbook.SheetNames.includes("Supplier Payables") };
 }
 
+async function ensureWorkbookTransferOpen(page: Page) {
+  const disclosure = page.locator('[data-workbook-transfer-disclosure="true"]');
+  await disclosure.waitFor({ state: "attached", timeout: READY_TIMEOUT_MS });
+  const isOpen = await disclosure.evaluate((element) => (element as HTMLDetailsElement).open);
+  if (!isOpen) {
+    await disclosure.locator(":scope > summary").click({ timeout: READY_TIMEOUT_MS });
+    await page.waitForFunction(
+      () => document.querySelector<HTMLDetailsElement>('[data-workbook-transfer-disclosure="true"]')?.open === true,
+      undefined,
+      { timeout: READY_TIMEOUT_MS },
+    );
+  }
+}
+
 async function downloadWorkbook(page: Page, targetPath: string) {
+  await ensureWorkbookTransferOpen(page);
   const downloadPromise = page.waitForEvent("download", { timeout: READY_TIMEOUT_MS });
   await page.getByRole("button", { name: "Download workbook", exact: true }).click();
   const download = await downloadPromise;
@@ -116,6 +131,7 @@ async function downloadWorkbook(page: Page, targetPath: string) {
 }
 
 async function uploadWorkbook(page: Page, filePath: string) {
+  await ensureWorkbookTransferOpen(page);
   await page.getByLabel("Import combined Operations Workbook", { exact: true }).setInputFiles(filePath);
   await page.getByText("Workbook reviewed. Changes remain pending until you apply them within a domain.", { exact: true })
     .waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });

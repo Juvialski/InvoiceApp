@@ -29,6 +29,18 @@ test("hosted workbook matrix binds Node fs before SheetJS path-based reads", () 
   assert.ok(firstPathReadIndex > bindingIndex, "the binding must run before XLSX.readFile");
 });
 
+test("hosted workbook matrix opens the secondary Import / export disclosure before file actions", () => {
+  assert.match(workbookHarnessSource, /async function ensureWorkbookTransferOpen\(page: Page\)/);
+  assert.match(
+    workbookHarnessSource,
+    /async function downloadWorkbook[\s\S]*?await ensureWorkbookTransferOpen\(page\);[\s\S]*?waitForEvent\("download"/,
+  );
+  assert.match(
+    workbookHarnessSource,
+    /async function uploadWorkbook[\s\S]*?await ensureWorkbookTransferOpen\(page\);[\s\S]*?setInputFiles\(filePath\)/,
+  );
+});
+
 test("hosted QA route readiness stays unresolved while app/auth/company access is loading", () => {
   assert.equal(hostedQaRouteReadinessState("Loading Engineering Operations Platform..."), "loading");
   assert.equal(hostedQaRouteReadinessState("Loading HydroQualiSense…"), "loading");

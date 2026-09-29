@@ -158,6 +158,55 @@ export interface ProjectCostCodeSaveResult {
   project?: Project;
 }
 
+export function buildProjectCostControlGroupRpcPayload(
+  project: Project,
+  expectedProjectUpdatedAt: string,
+  companyId: string,
+  costCodes: readonly ProjectCostCodeApplyInput[],
+) {
+  return {
+    p_project_id: project.id,
+    p_expected_project_updated_at: expectedProjectUpdatedAt,
+    p_project: {
+      id: project.id,
+      companyId,
+      projectCode: project.projectCode,
+      projectName: project.projectName,
+      description: project.description ?? null,
+      clientName: project.clientName ?? null,
+      clientReference: project.clientReference ?? null,
+      billingContactName: project.billingContactName ?? null,
+      billingEmail: project.billingEmail ?? null,
+      billingAddress: project.billingAddress ?? null,
+      location: project.location ?? null,
+      siteAddress: project.siteAddress ?? null,
+      projectManager: project.projectManager ?? null,
+      status: project.status,
+      startDate: project.startDate ?? null,
+      targetEndDate: project.targetEndDate ?? null,
+      actualEndDate: project.actualEndDate ?? null,
+      contractValue: project.contractValue ?? null,
+      projectBudget: project.projectBudget,
+      currency: project.currency,
+      taxTreatment: project.taxTreatment,
+      notes: project.notes ?? null,
+      archivedAt: project.archivedAt || null,
+      archivedFromStatus: project.archivedFromStatus || null,
+    },
+    p_cost_codes: costCodes.map((costCode) => ({
+      id: costCode.id,
+      projectId: costCode.projectId,
+      code: costCode.code,
+      name: costCode.name,
+      description: costCode.description ?? null,
+      approvedBudgetAmount: costCode.approvedBudgetAmount,
+      forecastAmount: costCode.forecastAmount ?? null,
+      status: costCode.status,
+      updatedAt: costCode.updatedAt,
+    })),
+  };
+}
+
 export async function applyProjectCostControlGroupToSupabase(
   project: Project,
   expectedProjectUpdatedAt: string,
@@ -175,47 +224,10 @@ export async function applyProjectCostControlGroupToSupabase(
     throw new Error("Existing cost-code freshness is unavailable; refresh before applying changes.");
   }
 
-  const { data, error } = await supabase.rpc("apply_project_cost_control_group", {
-    p_project_id: project.id,
-    p_expected_project_updated_at: expectedProjectUpdatedAt,
-    p_project: {
-      id: project.id,
-      companyId,
-      projectCode: project.projectCode,
-      projectName: project.projectName,
-      description: project.description || null,
-      clientName: project.clientName || null,
-      clientReference: project.clientReference || null,
-      billingContactName: project.billingContactName || null,
-      billingEmail: project.billingEmail || null,
-      billingAddress: project.billingAddress || null,
-      location: project.location || null,
-      siteAddress: project.siteAddress || null,
-      projectManager: project.projectManager || null,
-      status: project.status,
-      startDate: project.startDate || null,
-      targetEndDate: project.targetEndDate || null,
-      actualEndDate: project.actualEndDate || null,
-      contractValue: project.contractValue ?? null,
-      projectBudget: project.projectBudget,
-      currency: project.currency,
-      taxTreatment: project.taxTreatment,
-      notes: project.notes || null,
-      archivedAt: project.archivedAt || null,
-      archivedFromStatus: project.archivedFromStatus || null,
-    },
-    p_cost_codes: costCodes.map((costCode) => ({
-      id: costCode.id,
-      projectId: costCode.projectId,
-      code: costCode.code,
-      name: costCode.name,
-      description: costCode.description || null,
-      approvedBudgetAmount: costCode.approvedBudgetAmount,
-      forecastAmount: costCode.forecastAmount ?? null,
-      status: costCode.status,
-      updatedAt: costCode.updatedAt,
-    })),
-  });
+  const { data, error } = await supabase.rpc(
+    "apply_project_cost_control_group",
+    buildProjectCostControlGroupRpcPayload(project, expectedProjectUpdatedAt, companyId, costCodes),
+  );
   if (error) throw error;
   const result = data as { project: Row; costCodes: Row[] };
   return {
