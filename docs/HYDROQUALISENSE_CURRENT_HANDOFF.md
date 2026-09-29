@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — Excel Simplicity Pass is implemented. The prior REL-QA-WB-1 certification remains complete at SHA 44f92b9. Post-PR #290 exact-SHA revalidation at 2dd9c67 passed the protected release, migration parity, and authenticated routes but the matrix failed before export/Apply or responsive screenshot capture due to a selected-cell locator ambiguity. Certification remains incomplete pending the bounded harness fix, merge, deployment, and full exact-SHA rerun. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
+Status: **CURRENT — Excel Simplicity Pass is implemented and REL-QA-WB-1 hosted certification is complete for the recorded single-company QA profile at exact application SHA 1028b5a9. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
 Date: **2026-09-29**
 Repository: `Juvialski/InvoiceApp`
 
@@ -28,6 +28,18 @@ Before/after protected artifacts and an independent read-only migration listing 
 The workbook matrix failed at `capture-workbook-editor-responsive` with `UNCLASSIFIED_ERROR` before workbook export, review/Apply, the Project/Cost Code blank-clear assertions, or responsive screenshots. No workbook edits occurred. Source inspection found the desktop selected-cell locator searched the whole page even though desktop and mobile grid variants coexist in the DOM. The locator is now scoped to the active grid on branch `codex/rel-qa-wb-1-selected-cell-locator`. Focused Hosted QA contract tests passed **21/21**, affected tests passed **75/75 across 9/395 files (2.3%, no fallback)**, and lint/typecheck passed. No production database or deployment was accessed or modified.
 
 **REL-QA-WB-1 remains incomplete at `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`.** The failed run produced route screenshots only; the new laptop/phone editor and review/Apply screenshots were not produced or inspected. Do not claim the blank-field or full workbook matrix checks. After the harness correction is merged and deployed, rerun the complete protected QA workflow on the exact deployed SHA. The previous complete certification at `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc` remains historical evidence. Existing alternate-permission/company, induced partial-Apply retry, and intermittent REL-AUTH-1 limitations remain explicit; WB-3D+ stays deferred.
+
+### 2026-09-29 REL-QA-WB-1 final exact-SHA certification
+
+Protected QA Release / Hosted QA run [36519411648](https://github.com/Juvialski/InvoiceApp/actions/runs/36519411648) certified exact application SHA `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf` on deployment `qa-hydroqualisense`.
+
+Migration parity was **153/153** through `20260927095636` before and after the run with `needsPromotion=false`; no QA migration promotion occurred and production was not touched. Authenticated Hosted QA passed **9/9 routes** and Storage with zero console/page/request failures. The complete workbook matrix is **PASS**, including stale-conflict fail-closed behavior, protected fields, confirmation gating, all three Apply domains, authoritative refresh, RFQ/PO line preservation, explicit Project/Cost Code blank clearing, and responsive editor evidence.
+
+The matrix manifest run `wb-1790654510175` reports both Project and Cost Code descriptions non-empty before import, explicitly blank in the workbook, and blank after authoritative refresh. Laptop `1280×800` and phone `390×844` editor screenshots were inspected together with review/Apply captures; selected-cell visibility, Save/Discard, sheet tabs, collapsed Import / export, mobile fallback, and no page-level overflow were confirmed.
+
+PR #291 and PR #292 were harness-only corrections discovered during exact-SHA certification; neither changed product persistence, database schema, permissions, financial semantics, or lifecycle authority. The final successful run supersedes the incomplete interim certification attempts.
+
+Remaining recorded limitations: no alternate permission/company profile, artificial partial-Apply retry, or reproduced intermittent REL-AUTH-1 verification trigger. WB-3D+ remains deferred.
 
 ### 2026-09-28 CI-EFF-3 — Protected CI / Release-Orchestration Scope Hardening
 

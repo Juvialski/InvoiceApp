@@ -1,7 +1,7 @@
 # HydroQualiSense Hosted QA Operations Workbook Certification — REL-QA-WB-1
 
-- Status: **PRIOR CERTIFICATION COMPLETE AT `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`. POST-PR #289 REVALIDATION AT `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b` REMAINS INCOMPLETE, AND THE POST-PR #290 EXACT-SHA ATTEMPT AT `2dd9c676b5e5bd7e1b03fe78e1def586de51508b` ALSO REMAINS INCOMPLETE: THE PROTECTED RELEASE AND AUTHENTICATED ROUTES PASSED, BUT THE MATRIX FAILED BEFORE WORKBOOK EXPORT/APPLY OR RESPONSIVE SCREENSHOT CAPTURE.**
-- Current exact-SHA revalidation target: `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`; Protected QA Release / Hosted QA run: [36516047108](https://github.com/Juvialski/InvoiceApp/actions/runs/36516047108), failed at responsive editor capture.
+- Status: **HOSTED WORKBOOK CERTIFICATION COMPLETE FOR THE RECORDED SINGLE-COMPANY QA PROFILE AT EXACT QA APP SHA `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf`; PROTECTED QA RELEASE / HOSTED QA RUN 36519411648 PASSED THE EXPANDED OPERATIONS WORKBOOK MATRIX.**
+- Current certified application SHA: `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf`; Protected QA Release / Hosted QA run: [36519411648](https://github.com/Juvialski/InvoiceApp/actions/runs/36519411648)
 - Initial `main` SHA: `32d59ec04afe09b653f6e210525f9094f26234a7`
 - Last application-bearing `main` and QA app SHA certified: `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`
 - Corrective PRs: [#282](https://github.com/Juvialski/InvoiceApp/pull/282) (Procurement Apply version token) and [#283](https://github.com/Juvialski/InvoiceApp/pull/283) (protected matrix trigger paths), both merged.
@@ -121,24 +121,45 @@ The matrices in runs 36364232002 and 36369354473 stopped at `prepare-stale-workb
 
 The prior complete single-company QA certification remains historical evidence at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`; the `2dd9c676...` attempt does not supersede it. Alternate permission profiles, company-context changes, artificial partial-Apply retry, and the intermittent REL-AUTH-1 trigger remain untested because safe fixtures were unavailable. Provider certification and production readiness are not claimed.
 
+## 2026-09-29 final post-PR #292 exact-SHA certification
+
+PR #292 merged as exact application-bearing `main` SHA `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf`. Protected QA Release / Hosted QA run [36519411648](https://github.com/Juvialski/InvoiceApp/actions/runs/36519411648) verified that exact SHA live on deployment `qa-hydroqualisense` with migration level `20260927095636`.
+
+Before and after the release, QA migration parity was **153/153** exact canonical version/name matches through `20260927095636_wb3c_header_only_procurement_saves`; `needsPromotion=false`. No QA migration was applied. Production separation checks passed and production was not queried or mutated by this release.
+
+Authenticated Hosted QA passed **9/9 routes** and Storage with **0 console errors, 0 page errors, and 0 failed requests**. The Operations Workbook matrix manifest `wb-1790654510175` is **PASS**:
+
+- the combined 9-sheet workbook exported and parsed successfully;
+- stale Expense conflict remained fail-closed and unapplied;
+- eight protected fields were classified and consequential/lifecycle/source fields remained protected;
+- Projects / Cost Codes, Expenses / Supplier Payables, and Procurement Apply all passed with authoritative refresh;
+- RFQ and Purchase Order line identities were preserved;
+- Project Description and Cost Code Description both satisfied the explicit clear regression: non-empty precondition → explicit workbook blank → Apply → authoritative refresh/export → blank;
+- editor responsive checks passed at `1280×800` and `390×844`: selected cell visible, Save/Discard reachable, tabs visible, Import / export collapsed, phone mobile fallback active, and no page-level horizontal overflow;
+- review/Apply responsive checks passed at both viewports with Projects Apply reachable.
+
+The hosted editor and review/Apply screenshots at both viewports were manually inspected. Laptop presentation remains compact and spreadsheet-first. The phone fallback is narrow but usable, keeps the selected field and primary controls accessible, and has no page-level horizontal overflow.
+
+The prior failures on SHA `2dd9c676...` and `6f929d946...` were certification-harness defects, not product/database failures: first a selected-cell locator matched desktop and hidden mobile grids, then the authoritative export assertion required literal `""` even though cleared XLSX cells round-trip as nullish. Direct read-only QA checks confirmed both cleared descriptions persisted as SQL `NULL`; PR #292 aligned the harness with that XLSX representation while preserving row/header existence checks.
+
 ## Evidence status and limitations
 
 | Area | Result |
 | --- | --- |
-| QA target / deployment mapping | Verified for run 36516047108: `qa-hydroqualisense` -> live Render deploy `dep-datiopff3r2c73dpupsg` -> `vrpuznofrntyqsbugrib` |
-| App and migration identity | Run 36516047108 verified QA SHA `2dd9c676b5e5bd7e1b03fe78e1def586de51508b`; migration parity **153/153** through `20260927095636`, `needsPromotion=false` |
+| QA target / deployment mapping | Verified for run 36519411648: `qa-hydroqualisense` -> QA Supabase `vrpuznofrntyqsbugrib` |
+| App and migration identity | Run 36519411648 verified QA SHA `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf`; migration parity **153/153** through `20260927095636`, `needsPromotion=false` |
 | Auth preflight / ordinary session recovery | Passed persisted reload, fresh protected navigation, and unauthenticated protected-route check; no identity details persisted |
-| Hosted authenticated routes | Run 36516047108 passed **9/9** route contracts; 0 console errors, 0 page errors, 0 failed requests |
-| Hosted combined XLSX export/import/review/Apply | Latest run 36516047108 stopped before export/review/Apply; previous complete matrix evidence remains at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc` |
-| Protected-field classification and authoritative post-Apply refresh | Not reached in run 36516047108; previous complete matrix evidence remains at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc` |
+| Hosted authenticated routes | Run 36519411648 passed **9/9** route contracts; 0 console errors, 0 page errors, 0 failed requests |
+| Hosted combined XLSX export/import/review/Apply | Run 36519411648 passed export/parser, stale conflict, review, three-domain Apply, authoritative refresh, blank clearing, and final value assertions |
+| Protected-field classification and authoritative post-Apply refresh | Eight protected fields classified; lifecycle/source fields remained unchanged; authoritative refresh and RFQ/PO line preservation passed |
 | Supplier Payables permission boundary | Read-enabled export observed; no read-disabled profile available |
 | Company-context invalidation | Not exercised in the single-company QA deployment |
 | Partial sequential failure/retry | No safe deterministic hosted trigger available; not induced |
 | REL-AUTH-1 intermittent verification trigger | Not reproduced; ordinary reload succeeded; temporary verification state, terminal expiry, and invalidation of an existing review were not exercised |
-| Responsive editor and review/Apply screenshots | Not produced by run 36516047108; the requested editor and review/Apply screenshots were not available to inspect |
-| Production writes or QA migration promotion | None; run 36516047108 reported `needsPromotion=false` before and after |
+| Responsive editor and review/Apply screenshots | Run 36519411648 produced and the lead inspected editor plus review/Apply captures at 1280×800 and 390×844; no page-level overflow, selected cell and controls reachable |
+| Production writes or QA migration promotion | None; run 36519411648 reported `needsPromotion=false` before and after |
 
-REL-QA-WB-1 is **complete for the recorded single-company QA profile** at exact SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`. Alternate permission profiles, company-context switching, partial sequential failure/retry, and the intermittent REL-AUTH-1 trigger remain explicit limitations because safe fixtures were unavailable. Provider certification and production readiness are not claimed by this workbook record.
+REL-QA-WB-1 is **complete for the recorded single-company QA profile** at exact SHA `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf` by protected run 36519411648. Alternate permission profiles, company-context switching, partial sequential failure/retry, and the intermittent REL-AUTH-1 trigger remain explicit limitations because safe fixtures were unavailable. Provider certification and production readiness are not claimed by this workbook record.
 
 ## Local implementation validation
 
@@ -155,9 +176,9 @@ REL-QA-WB-1 is **complete for the recorded single-company QA profile** at exact 
 
 ## Completion gate
 
-REL-QA-WB-1 is closed for the recorded single-company QA profile by exact run 36415301174 on SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`. Alternate-permission and company-context cases, induced partial-Apply failure/retry, and the intermittent REL-AUTH-1 trigger were not exercised without safe QA fixtures. WB-3D+ remains deferred.
+REL-QA-WB-1 is closed for the recorded single-company QA profile by exact run 36519411648 on SHA `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf`. Alternate-permission and company-context cases, induced partial-Apply failure/retry, and the intermittent REL-AUTH-1 trigger were not exercised without safe QA fixtures. WB-3D+ remains deferred.
 
-A later documentation-only closeout merge may advance repository `main` without changing the application contract; the certified app-bearing SHA remains `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`.
+A later documentation-only closeout merge may advance repository `main` without changing the application contract; the certified app-bearing SHA remains `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf`.
 
 ## 2026-09-29 post-PR #289 exact-SHA revalidation — expanded coverage awaiting protected rerun
 
