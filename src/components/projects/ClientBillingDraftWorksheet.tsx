@@ -218,22 +218,18 @@ export function ClientBillingDraftWorksheet({
   };
 
   return (
-    <section ref={worksheetRootRef} data-testid="client-billing-draft-worksheet" data-worksheet-responsive-surface="client-billing" aria-labelledby="client-billing-draft-worksheet-title" className="min-w-0 space-y-4">
+    <section ref={worksheetRootRef} data-testid="client-billing-draft-worksheet" data-worksheet-responsive-surface="client-billing" aria-labelledby="client-billing-draft-worksheet-title" className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Client invoice draft</p>
-          <h2 id="client-billing-draft-worksheet-title" className="mt-1 text-xl font-black text-slate-950">{billing ? `Edit client invoice draft · ${billing.billingNumber}` : "Create client invoice draft"}</h2>
-          <p className="mt-1 text-xs leading-5 text-slate-500">Edit safe billing details and lines in one worksheet. The project remains the receivable context and the total is derived from line values.</p>
+          <h2 id="client-billing-draft-worksheet-title" className="mt-1 text-base font-semibold text-slate-950">{billing ? `Edit client invoice draft · ${billing.billingNumber}` : "Create client invoice draft"}</h2>
         </div>
       </div>
 
-      <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
-        <p className="font-black uppercase tracking-[0.12em]">Draft boundary</p>
-        <p className="mt-1">Save draft persists the complete header/details and line aggregate. Submit, issue, cancel, void, collection recording, Cash &amp; Banking settlement, and billing history remain outside this worksheet.</p>
-      </div>
+      <p className="text-[11px] leading-4 text-slate-500">Save draft here. Submit, issue, cancel, void, collection, settlement, and billing history stay separate.</p>
 
-      <section aria-labelledby="client-billing-details-heading" className="min-w-0 space-y-2">
-        <h3 id="client-billing-details-heading" className="text-sm font-black text-slate-800">Billing Details</h3>
+      <section aria-labelledby="client-billing-details-heading" className="min-w-0 space-y-1.5">
+        <h3 id="client-billing-details-heading" className="text-xs font-semibold text-slate-700">Billing Details</h3>
         <div data-worksheet-scroll-container="client-billing-details" className="min-w-0">
           <WorksheetEditor
             ariaLabel="Client Billing details worksheet"
@@ -242,13 +238,13 @@ export function ClientBillingDraftWorksheet({
             rowKey={(row) => row.worksheetId}
             onRowsChange={handleDetailsChange}
             disabled={isSaving}
-            density="comfortable"
+            density="compact"
           />
         </div>
       </section>
 
-      <section aria-labelledby="client-billing-lines-heading" className="min-w-0 space-y-2">
-        <h3 id="client-billing-lines-heading" className="text-sm font-black text-slate-800">Billing Lines</h3>
+      <section aria-labelledby="client-billing-lines-heading" className="min-w-0 space-y-1.5">
+        <h3 id="client-billing-lines-heading" className="text-xs font-semibold text-slate-700">Billing Lines</h3>
         <div data-worksheet-scroll-container="client-billing-lines" className="min-w-0">
           <WorksheetEditor
             ariaLabel="Client Billing lines worksheet"

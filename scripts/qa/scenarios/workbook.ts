@@ -27,8 +27,6 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
   const expensesTabCount = await page.getByRole("tab", { name: "Expenses", exact: true }).count();
   const rfqTabCount = await page.getByRole("tab", { name: "RFQs", exact: true }).count();
   const purchaseOrderTabCount = await page.getByRole("tab", { name: "Purchase orders", exact: true }).count();
-  const downloadButton = page.getByRole("button", { name: "Download workbook", exact: true });
-  const importButton = page.getByRole("button", { name: "Import workbook", exact: true });
   await tab.press("Home");
   const layout = await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>('[data-operations-workbook="true"]');
@@ -36,11 +34,33 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
     const mobileGrid = document.querySelector<HTMLElement>("[data-worksheet-mobile-fallback]");
     const tabs = document.querySelector<HTMLElement>('[role="tablist"][aria-label="Operations Workbook sheets"]');
     const selectedTab = tabs?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const selectedCell = document.querySelector<HTMLElement>("[data-worksheet-cell][aria-selected='true']");
+    const transfer = document.querySelector<HTMLDetailsElement>("[data-workbook-transfer-disclosure]");
+    const workbookHeader = root?.querySelector<HTMLElement>("header");
+    const workbookHeading = workbookHeader?.querySelector<HTMLElement>("h1");
+    const headingRect = workbookHeading?.getBoundingClientRect();
+    const headingStyle = workbookHeading ? getComputedStyle(workbookHeading) : undefined;
     return {
       documentWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
       viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
       rootWidth: root?.getBoundingClientRect().width || 0,
+      rootHeight: root?.getBoundingClientRect().height || 0,
       rootBackground: root ? getComputedStyle(root).backgroundColor : "missing",
+      rootShadow: root ? getComputedStyle(root).boxShadow : "missing",
+      headerHeight: workbookHeader?.getBoundingClientRect().height || 0,
+      headingWithinViewport: Boolean(headingRect && headingRect.width > 0 && headingRect.height > 0 && headingRect.top >= 0 && headingRect.bottom <= window.innerHeight),
+      headingText: workbookHeading?.textContent?.trim() || "",
+      headingColor: headingStyle?.color || "missing",
+      headingOpacity: headingStyle?.opacity || "missing",
+      headingVisibility: headingStyle?.visibility || "missing",
+      headingDisplay: headingStyle?.display || "missing",
+      headingTop: headingRect?.top ?? -1,
+      headingBottom: headingRect?.bottom ?? -1,
+      transferInitiallyClosed: transfer ? !transfer.open : false,
+      selectedCellOutlineStyle: selectedCell ? getComputedStyle(selectedCell).outlineStyle : "missing",
+      selectedCellOutlineWidth: selectedCell ? getComputedStyle(selectedCell).outlineWidth : "0px",
+      selectedCellGridlineWidth: selectedCell ? getComputedStyle(selectedCell).borderRightWidth : "0px",
       desktopGridVisible: Boolean(desktopGrid && getComputedStyle(desktopGrid).display !== "none" && getComputedStyle(desktopGrid).visibility !== "hidden" && desktopGrid.getClientRects().length),
       mobileGridVisible: Boolean(mobileGrid && getComputedStyle(mobileGrid).display !== "none" && getComputedStyle(mobileGrid).visibility !== "hidden" && mobileGrid.getClientRects().length),
       selectedTab: selectedTab?.textContent?.trim() || "",
@@ -48,16 +68,28 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
       worksheetRows: document.querySelectorAll('[data-worksheet-row-key], [data-worksheet-mobile-row-key]').length,
     };
   });
+  const transferSummary = page.locator("[data-workbook-transfer-disclosure] > summary");
+  await transferSummary.click();
+  const downloadButton = page.getByRole("button", { name: "Download workbook", exact: true });
+  const importButton = page.getByRole("button", { name: "Import workbook", exact: true });
+  const transferActionsRendered = await downloadButton.count() === 1 && await importButton.count() === 1;
   const roundTripAssertions = await verifyOperationsWorkbookCombinedRoundTrip(page);
+  await transferSummary.click();
+  await page.evaluate(() => window.scrollTo(0, 0));
   const mobileViewport = layout.viewportWidth < 768;
   return [
     { id: "workbook-heading-visible", passed: true, details: "Operations Workbook heading rendered." },
-    { id: "workbook-combined-roundtrip-actions", passed: await downloadButton.count() === 1 && await importButton.count() === 1, details: "Combined workbook download and import review controls rendered." },
+    { id: "workbook-heading-remains-visible-on-narrow-screens", passed: layout.headerHeight >= 28 && layout.headingWithinViewport && layout.headingVisibility !== "hidden" && layout.headingOpacity !== "0", details: "header height=" + layout.headerHeight + "; heading=" + layout.headingText + "; color=" + layout.headingColor + "; opacity=" + layout.headingOpacity + "; display=" + layout.headingDisplay + "; position=" + layout.headingTop + ".." + layout.headingBottom },
+    { id: "workbook-combined-roundtrip-actions", passed: transferActionsRendered, details: "Combined workbook download and import review controls rendered." },
     { id: "workbook-project-expense-and-procurement-tabs-visible", passed: tabCount === 5 && projectTabCount === 1 && costCodeTabCount === 1 && expensesTabCount === 1 && rfqTabCount === 1 && purchaseOrderTabCount === 1, details: `authorized sheet tabs: ${tabCount}; Projects: ${projectTabCount}; Cost Codes: ${costCodeTabCount}; Expenses: ${expensesTabCount}; RFQs: ${rfqTabCount}; Purchase Orders: ${purchaseOrderTabCount}` },
     { id: "workbook-tab-keyboard-focus", passed: layout.selectedTabFocused && layout.selectedTab === "Projects", details: `selected/focused tab: ${layout.selectedTab || "missing"}` },
     { id: "workbook-grid-responsive-mode", passed: mobileViewport ? layout.mobileGridVisible : layout.desktopGridVisible, details: mobileViewport ? `mobile fallback visible: ${layout.mobileGridVisible}` : `desktop grid visible: ${layout.desktopGridVisible}` },
     { id: "workbook-synthetic-project-rows-visible", passed: layout.worksheetRows > 0, details: `worksheet row instances: ${layout.worksheetRows}` },
     { id: "workbook-white-canvas", passed: layout.rootBackground === "rgb(255, 255, 255)", details: `canvas background: ${layout.rootBackground}` },
+    { id: "workbook-compact-viewport-filling-shell", passed: layout.rootHeight >= layout.viewportHeight * 0.78, details: `sheet shell ${layout.rootHeight}px / viewport ${layout.viewportHeight}px` },
+    { id: "workbook-flat-shell", passed: layout.rootShadow === "none", details: `shell shadow: ${layout.rootShadow}` },
+    { id: "workbook-file-tools-start-secondary", passed: layout.transferInitiallyClosed, details: `file tools initially collapsed: ${layout.transferInitiallyClosed}` },
+    { id: "workbook-selected-cell-outline-and-gridline", passed: layout.selectedCellOutlineStyle === "solid" && Number.parseFloat(layout.selectedCellOutlineWidth) >= 1.5 && layout.selectedCellGridlineWidth === "1px", details: `selected outline ${layout.selectedCellOutlineStyle} ${layout.selectedCellOutlineWidth}; gridline ${layout.selectedCellGridlineWidth}` },
     { id: "workbook-no-horizontal-page-overflow", passed: layout.documentWidth <= layout.viewportWidth + 2 && layout.rootWidth <= layout.viewportWidth + 2, details: `document ${layout.documentWidth}px / viewport ${layout.viewportWidth}px; shell ${layout.rootWidth}px` },
     ...roundTripAssertions,
   ] satisfies readonly QaAssertion[];
@@ -101,6 +133,19 @@ export const verifyOperationsWorkbookEditableAndProtectedCells: QaScenarioAction
   await editableCell.click();
   const editControl = page.locator('[data-worksheet-editable="true"]:visible input').first();
   await editControl.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const editPresentation = await page.evaluate(() => {
+    const input = Array.from(document.querySelectorAll<HTMLInputElement>('[data-worksheet-state="editing"][data-worksheet-editable="true"] input'))
+      .find((candidate) => candidate.getClientRects().length > 0);
+    const cell = input?.closest<HTMLElement>("[data-worksheet-cell]");
+    const style = input ? getComputedStyle(input) : undefined;
+    return {
+      editing: cell?.dataset.worksheetState === "editing",
+      selected: cell?.getAttribute("aria-selected") === "true",
+      outlineStyle: cell ? getComputedStyle(cell).outlineStyle : "missing",
+      inputBorderWidth: style?.borderTopWidth || "missing",
+      inputBorderRadius: style?.borderTopLeftRadius || "missing",
+    };
+  });
   await editControl.fill("Synthetic QA project name");
   await page.keyboard.press("Enter");
   const importDisabledWhileDirty = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
@@ -129,6 +174,7 @@ export const verifyOperationsWorkbookEditableAndProtectedCells: QaScenarioAction
   const editableControlCount = await page.locator('[data-worksheet-editable="true"]:visible input').count();
   return [
     { id: "workbook-demo-project-name-enters-edit-mode", passed: true, details: "Synthetic project name opened a single-click text editor." },
+    { id: "workbook-edit-control-integrates-with-selected-cell", passed: editPresentation.editing && editPresentation.selected && editPresentation.outlineStyle === "solid" && editPresentation.inputBorderWidth === "0px" && editPresentation.inputBorderRadius === "0px", details: `editing=${editPresentation.editing}; selected=${editPresentation.selected}; outline=${editPresentation.outlineStyle}; input border=${editPresentation.inputBorderWidth}; radius=${editPresentation.inputBorderRadius}` },
     { id: "workbook-unsaved-edit-blocks-sheet-switch", passed: dirtySwitchState.selectedSheet === "projects" && dirtySwitchState.warningVisible, details: `selected sheet after attempted switch: ${dirtySwitchState.selectedSheet || "none"}; warning visible=${dirtySwitchState.warningVisible}` },
     { id: "workbook-unsaved-edit-disables-import-refresh", passed: importDisabledWhileDirty, details: `combined workbook import disabled while sheet is dirty: ${importDisabledWhileDirty}` },
     { id: "workbook-lifecycle-status-remains-protected", passed: !statusState.editable && statusState.protected && statusState.readonly && statusState.editorCount === 0, details: `editable=${statusState.editable}; protected=${statusState.protected}; readonly=${statusState.readonly}; editors=${statusState.editorCount}` },
@@ -277,7 +323,7 @@ export const verifyOperationsWorkbookProcurementSheets: QaScenarioAction = async
     const draftId = "demo-rfq-sol-001";
     const issuedId = "demo-rfq-wh-001";
     const draftStatus = cells.find((cell) => cell.dataset.worksheetCell === `${draftId}:status`);
-    const statusValue = draftStatus?.querySelector<HTMLElement>("div.mt-1 > div, span.block.min-h-5")?.cloneNode(true) as HTMLElement | undefined;
+    const statusValue = draftStatus?.querySelector<HTMLElement>("[data-worksheet-value]")?.cloneNode(true) as HTMLElement | undefined;
     statusValue?.querySelectorAll(".sr-only").forEach((node) => node.remove());
     const protectedNumber = cells.find((candidate) => candidate.dataset.worksheetCell === `${draftId}:rfqNumber`);
     const title = cells.find((candidate) => candidate.dataset.worksheetCell === `${draftId}:title`);
@@ -326,9 +372,9 @@ export const verifyOperationsWorkbookProcurementSheets: QaScenarioAction = async
       .filter((cell) => cell.getClientRects().length > 0 && getComputedStyle(cell).display !== "none");
     const title = cells.find((cell) => cell.dataset.worksheetCell?.endsWith(":title") && cell.textContent?.includes("Synthetic WB-3C RFQ draft edit"));
     const rowId = title?.dataset.worksheetCell?.split(":")[0] || "";
-    const titleValue = title?.querySelector<HTMLElement>("div.mt-1 > div, span.block.min-h-5")?.cloneNode(true) as HTMLElement | undefined;
+    const titleValue = title?.querySelector<HTMLElement>("[data-worksheet-value]")?.cloneNode(true) as HTMLElement | undefined;
     const dueDateCell = cells.find((cell) => cell.dataset.worksheetCell === `${rowId}:dueDate`);
-    const dueDateValue = dueDateCell?.querySelector<HTMLElement>("div.mt-1 > div, span.block.min-h-5")?.cloneNode(true) as HTMLElement | undefined;
+    const dueDateValue = dueDateCell?.querySelector<HTMLElement>("[data-worksheet-value]")?.cloneNode(true) as HTMLElement | undefined;
     titleValue?.querySelectorAll(".sr-only").forEach((node) => node.remove());
     dueDateValue?.querySelectorAll(".sr-only").forEach((node) => node.remove());
     return {
@@ -345,7 +391,7 @@ export const verifyOperationsWorkbookProcurementSheets: QaScenarioAction = async
     const draftId = "demo-po-pipe-001";
     const approvedId = "demo-po-wh-001";
     const draftStatus = cells.find((cell) => cell.dataset.worksheetCell === `${draftId}:status`);
-    const statusValue = draftStatus?.querySelector<HTMLElement>("div.mt-1 > div, span.block.min-h-5")?.cloneNode(true) as HTMLElement | undefined;
+    const statusValue = draftStatus?.querySelector<HTMLElement>("[data-worksheet-value]")?.cloneNode(true) as HTMLElement | undefined;
     statusValue?.querySelectorAll(".sr-only").forEach((node) => node.remove());
     const number = cells.find((candidate) => candidate.dataset.worksheetCell === `${draftId}:poNumber`);
     const total = cells.find((candidate) => candidate.dataset.worksheetCell === `${draftId}:total`);
@@ -419,7 +465,7 @@ export const verifyOperationsWorkbookRfqSheetView: QaScenarioAction = async (pag
     const title = cells.find((cell) => cell.dataset.worksheetCell === "demo-rfq-sol-001:title");
     const number = cells.find((cell) => cell.dataset.worksheetCell === "demo-rfq-sol-001:rfqNumber");
     const status = cells.find((cell) => cell.dataset.worksheetCell === "demo-rfq-sol-001:status");
-    const statusValue = status?.querySelector<HTMLElement>("div.mt-1 > div, span.block.min-h-5")?.cloneNode(true) as HTMLElement | undefined;
+    const statusValue = status?.querySelector<HTMLElement>("[data-worksheet-value]")?.cloneNode(true) as HTMLElement | undefined;
     statusValue?.querySelectorAll(".sr-only").forEach((node) => node.remove());
     return {
       selectedSheet: root?.dataset.workbookSheet || "",
@@ -441,6 +487,12 @@ export const verifyOperationsWorkbookRfqSheetView: QaScenarioAction = async (pag
 };
 
 export async function verifyOperationsWorkbookCombinedRoundTrip(page: QaBrowserPage): Promise<readonly QaAssertion[]> {
+  const transferIsOpen = await page.evaluate(() =>
+    document.querySelector<HTMLDetailsElement>("[data-workbook-transfer-disclosure]")?.open === true,
+  );
+  if (!transferIsOpen) {
+    await page.locator("[data-workbook-transfer-disclosure] > summary").click();
+  }
   const [XLSX, combinedWorkbook, operationsWorkbook] = await Promise.all([
     import("xlsx"),
     import("../../../src/lib/combinedOperationsWorkbook.ts"),

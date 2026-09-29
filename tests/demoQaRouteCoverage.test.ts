@@ -31,6 +31,29 @@ test("Operations Workbook demo QA covers its responsive matrix and safety intera
   assert.ok(workbookScenarios.every((scenario) => typeof scenario.action === "function"));
 });
 
+test("existing worksheet draft workflows cover desktop, constrained laptop, tablet, and phone", () => {
+  const expectedWidths = new Set([1440, 1280, 768, 390]);
+  const expenses = DEMO_QA_SCENARIOS.filter((scenario) =>
+    scenario.feature === "expenses" && scenario.interactionState.includes("direct Expense draft worksheet"),
+  );
+  const clientBilling = DEMO_QA_SCENARIOS.filter((scenario) =>
+    scenario.feature === "client-receivables" && scenario.interactionState.includes("Client Billing draft worksheet editing"),
+  );
+  const procurement = DEMO_QA_SCENARIOS.filter((scenario) =>
+    scenario.feature === "procurement" && scenario.interactionState.includes("RFQ and Purchase Order draft worksheets verified"),
+  );
+  const projectDetails = DEMO_QA_SCENARIOS.filter((scenario) =>
+    scenario.feature === "entity-media"
+    && (scenario.id.includes("r4d-project-image-replace-remove-controls") || scenario.interactionState.includes("Project Details worksheet")),
+  );
+
+  assert.deepEqual(new Set(expenses.map((scenario) => scenario.viewport.width)), expectedWidths);
+  assert.deepEqual(new Set(clientBilling.map((scenario) => scenario.viewport.width)), expectedWidths);
+  assert.deepEqual(new Set(procurement.map((scenario) => scenario.viewport.width)), expectedWidths);
+  assert.deepEqual(new Set(projectDetails.map((scenario) => scenario.viewport.width)), expectedWidths);
+  assert.ok([...expenses, ...clientBilling, ...procurement, ...projectDetails].every((scenario) => typeof scenario.action === "function"));
+});
+
 test("WB-1 route source maps to its focused browser family and preserves shell smoke coverage", () => {
   const scope = selectDemoQaScope(["src/app/routes/OperationsWorkbookRoute.tsx"], {
     eventName: "pull_request",

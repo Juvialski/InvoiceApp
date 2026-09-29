@@ -122,7 +122,7 @@ export const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
     const grid = window.innerWidth < 768 ? "[data-worksheet-mobile-fallback='true']" : "[data-worksheet-desktop-grid='true']";
     const cell = document.querySelector<HTMLElement>(`[data-testid="supplier-invoice-header-worksheet"] ${grid} [data-worksheet-cell$=":invoiceNumber"]`);
     if (!cell) return "";
-    return window.innerWidth < 768 ? cell.lastElementChild?.textContent?.trim() || "" : cell.textContent.trim();
+    return cell.querySelector<HTMLElement>("[data-worksheet-value]")?.textContent?.trim() || "";
   });
 
   await editableCell.press("Enter");

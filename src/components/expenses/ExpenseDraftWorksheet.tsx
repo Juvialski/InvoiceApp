@@ -364,19 +364,8 @@ export function ExpenseDraftWorksheet({
   };
 
   return (
-    <section ref={worksheetRootRef} data-testid="expense-draft-worksheet" data-worksheet-responsive-surface="expense-draft" aria-labelledby="expense-draft-worksheet-title" className="min-w-0 space-y-4">
-      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Direct Expense draft</p>
-          <h2 id="expense-draft-worksheet-title" className="mt-1 text-xl font-black text-slate-950">{expense ? `Edit Expense Draft · ${expense.description || expense.id}` : "Create Expense Draft"}</h2>
-          <p className="mt-1 max-w-4xl text-xs leading-5 text-slate-500">Enter ordinary direct Expense fields in one contained worksheet. The existing parent save path keeps company scope, references, history, and the authoritative updated-at concurrency token.</p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
-        <p className="font-black uppercase tracking-[0.12em]">Draft worksheet boundary</p>
-        <p className="mt-1">Approval, payment, settlement, reconciliation, correction, archive, and void actions remain outside this worksheet. Supplier Invoice evidence remains protected and is never rewritten as ordinary direct Expense input.</p>
-      </div>
+    <section ref={worksheetRootRef} data-testid="expense-draft-worksheet" data-worksheet-responsive-surface="expense-draft" aria-label="Expense draft worksheet" className="min-w-0 space-y-2.5">
+      <p className="text-[11px] leading-4 text-slate-500">Edits save as a draft. Approval and payment remain separate; Supplier Invoice evidence stays protected.</p>
 
       <div data-worksheet-scroll-container="expense-draft" className="min-w-0">
         <WorksheetEditor
@@ -392,7 +381,7 @@ export function ExpenseDraftWorksheet({
           saveLabel="Save expense draft"
           cancelLabel="Cancel"
           className="min-w-0"
-          density="comfortable"
+          density="compact"
         />
       </div>
 

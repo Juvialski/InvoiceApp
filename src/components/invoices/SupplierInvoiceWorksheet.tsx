@@ -453,7 +453,7 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         dirtyCells={headerDirtyCells}
         showActionBar={false}
         disabled={readOnly}
-        density="comfortable"
+        density="compact"
       />
     </WorksheetSection>
 
@@ -467,7 +467,7 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         dirtyCells={vendorDirtyCells}
         showActionBar={false}
         disabled={readOnly}
-        density="comfortable"
+        density="compact"
       />
       <details data-testid="supplier-invoice-canonical-vendor-boundary" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600">
         <summary className="cursor-pointer font-bold text-slate-700">Vendor identity controls</summary>

@@ -99,13 +99,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hqs-attention-info { border-color: var(--color-border-emphasized); background: var(--color-accent-muted); color: var(--color-text-accent); }
 .hqs-attention-neutral { border-color: var(--color-border); background: var(--color-background-muted); color: var(--color-text-secondary); }
 .hqs-cell-clean { background: var(--color-background-surface); color: var(--color-text-primary); }
-.hqs-cell-selected { background: var(--color-accent-muted); box-shadow: inset 0 0 0 1px var(--color-border-emphasized); }
-.hqs-cell-editing { background: var(--color-accent-muted); box-shadow: inset 0 0 0 2px var(--color-accent); }
-.hqs-cell-dirty { background: var(--color-warning-muted); }
+.hqs-cell-selected { background: var(--color-accent-muted); }
+.hqs-cell-editing { background: var(--color-background-surface); }
+.hqs-cell-dirty { background: var(--color-background-surface); box-shadow: inset 0 -2px 0 var(--color-border-emphasized); }
 .hqs-cell-warning { background: var(--color-warning-muted); box-shadow: inset 0 0 0 1px var(--color-warning); }
 .hqs-cell-error { background: var(--color-error-muted); box-shadow: inset 0 0 0 1px var(--color-error); }
-.hqs-cell-protected { background: var(--color-background-muted); color: var(--color-text-secondary); }
+.hqs-cell-protected { background: var(--color-background-surface); color: var(--color-text-secondary); }
 .hqs-cell-conflict { background: var(--color-warning-muted); box-shadow: inset 0 0 0 2px var(--color-warning); }
+.hqs-cell-selected[aria-selected="true"],
+[data-worksheet-cell][aria-selected="true"] { outline: 2px solid var(--color-accent); outline-offset: -2px; z-index: 1; }
 .hqs-row-selected { background: var(--color-accent-muted); }
 .hqs-row-hover:hover { background: var(--color-background-muted); }
 

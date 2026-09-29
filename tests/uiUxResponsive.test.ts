@@ -223,10 +223,10 @@ test("Procurement draft worksheets keep dense editing contained inside responsiv
   const purchaseOrderEditor = source("src/components/procurement/PurchaseOrderEditorModal.tsx");
   assert.match(rfqEditor, /data-testid="rfq-draft-worksheet"/);
   assert.match(rfqEditor, /ariaLabel="RFQ draft lines worksheet"/);
-  assert.match(rfqEditor, /className="min-w-0 space-y-4"/);
+  assert.match(rfqEditor, /className="min-w-0 space-y-2\.5"/);
   assert.match(purchaseOrderEditor, /data-testid="purchase-order-draft-worksheet"/);
   assert.match(purchaseOrderEditor, /ariaLabel="Purchase order draft lines worksheet"/);
-  assert.match(purchaseOrderEditor, /className="min-w-0 space-y-4"/);
+  assert.match(purchaseOrderEditor, /className="min-w-0 space-y-2\.5"/);
 });
 
 test("Client Billing draft worksheet keeps spreadsheet density inside contained surfaces", () => {
@@ -235,7 +235,7 @@ test("Client Billing draft worksheet keeps spreadsheet density inside contained 
   assert.match(clientBilling, /data-worksheet-scroll-container="client-billing-details"/);
   assert.match(clientBilling, /data-worksheet-scroll-container="client-billing-lines"/);
   assert.match(clientBilling, /ariaLabel="Client Billing lines worksheet"/);
-  assert.match(clientBilling, /className="min-w-0 space-y-4"/);
+  assert.match(clientBilling, /className="min-w-0 space-y-3"/);
 });
 
 test("Expense direct draft worksheet keeps wide spreadsheet editing inside contained responsive surfaces", () => {
@@ -244,7 +244,7 @@ test("Expense direct draft worksheet keeps wide spreadsheet editing inside conta
   assert.match(expense, /data-testid="expense-draft-worksheet"/);
   assert.match(expense, /data-worksheet-scroll-container="expense-draft"/);
   assert.match(expense, /ariaLabel="Expense draft worksheet"/);
-  assert.match(expense, /className="min-w-0 space-y-4"/);
+  assert.match(expense, /className="min-w-0 space-y-2\.5"/);
   assert.match(expensesPage, /max-w-\[95vw\]/);
   assert.match(expensesPage, /overflow-y-auto/);
 });
@@ -286,6 +286,10 @@ test("representative worksheet consumers expose stable responsive surfaces and k
 
   assert.match(projectDetails, /data-worksheet-responsive-surface="project-details"/);
   assert.match(projectDetails, /onSave=\{handleSave\}/);
+  assert.ok(
+    projectDetails.indexOf("{canManageMedia && <EntityMediaControl") > projectDetails.indexOf("<WorksheetEditor"),
+    "Project Details primary fields should precede the secondary project image controls",
+  );
   assert.match(costCodes, /data-worksheet-responsive-surface="cost-codes"/);
   assert.match(costCodes, /onSave=\{canManageProject \? handleSave : undefined\}/);
   assert.match(clientBilling, /data-worksheet-responsive-surface="client-billing"/);

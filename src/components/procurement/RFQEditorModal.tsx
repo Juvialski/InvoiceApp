@@ -454,11 +454,8 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
               </div>
             )}
 
-            <section data-testid="rfq-draft-worksheet" data-worksheet-responsive-surface="rfq-draft" aria-label="RFQ draft worksheet" className="min-w-0 space-y-4">
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
-                <p className="font-black uppercase tracking-[0.12em]">RFQ draft worksheet</p>
-                <p className="mt-1">Edit safe RFQ header values and repeated line fields here. Comparison, quotation selection, issue, cancellation, and other lifecycle actions remain outside this worksheet.</p>
-              </div>
+            <section data-testid="rfq-draft-worksheet" data-worksheet-responsive-surface="rfq-draft" aria-label="RFQ draft worksheet" className="min-w-0 space-y-2.5">
+              <p className="text-[11px] leading-4 text-slate-500">Edit the RFQ draft here. Quote selection, issue, and cancellation remain separate actions.</p>
 
               <WorksheetEditor
                 ariaLabel="RFQ draft header worksheet"
@@ -468,7 +465,7 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
                 onRowsChange={(rows) => { if (rows[0]) setHeader(rows[0]); }}
                 disabled={!isDraft || isSubmitting}
                 isSaving={isSubmitting}
-                density="comfortable"
+                density="compact"
               />
 
               <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
@@ -492,8 +489,8 @@ export const RFQEditorModal: React.FC<RFQEditorModalProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">RFQ Line Items</span>
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold text-slate-700">{lines.length}</span>
+                <span className="text-xs font-semibold text-slate-700">RFQ Line Items</span>
+                <span className="text-[11px] text-slate-500">{lines.length}</span>
               </div>
               <WorksheetEditor
                 ariaLabel="RFQ draft lines worksheet"

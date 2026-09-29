@@ -124,7 +124,7 @@ test("direct draft worksheet exposes ordinary fields and visibly protected autho
   assert.match(html, /data-worksheet-cell="expense-direct-1:status"[^>]*data-worksheet-protected="true"/);
   assert.match(html, /data-worksheet-cell="expense-direct-1:supplierInvoice"[^>]*data-worksheet-protected="true"/);
   assert.match(html, /data-worksheet-cell="expense-direct-1:amount"[^>]*data-worksheet-editable="true"/);
-  assert.match(html, /Approval, payment, settlement, reconciliation, correction, archive, and void actions remain outside this worksheet/);
+  assert.match(html, /Edits save as a draft\. Approval and payment remain separate; Supplier Invoice evidence stays protected\./);
 });
 
 test("supplier-derived Expenses never expose direct worksheet save or editable monetary/provenance cells", () => {
@@ -142,7 +142,7 @@ test("supplier-derived Expenses never expose direct worksheet save or editable m
   assert.doesNotMatch(html, /Save expense draft/);
   assert.match(html, /data-worksheet-cell="expense-supplier-1:amount"[^>]*data-worksheet-editable="false"/);
   assert.match(html, /data-worksheet-cell="expense-supplier-1:supplierInvoice"[^>]*data-worksheet-protected="true"/);
-  assert.match(html, /Supplier Invoice evidence remains protected/);
+  assert.match(html, /Supplier Invoice evidence stays protected/);
 });
 
 test("worksheet normalization preserves protected identity, lifecycle, provenance, and stale updatedAt while normalizing editable values", () => {

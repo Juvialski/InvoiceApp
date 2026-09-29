@@ -187,17 +187,15 @@ export function ProjectDetailsWorksheet({
   return (
     <div ref={dialogRef} data-project-details-worksheet="true" data-worksheet-responsive-surface="project-details" className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="project-details-worksheet-title">
       <section data-working-canvas="true" className="hqs-surface-raised hqs-border flex max-h-[calc(100dvh-1rem)] w-full max-w-[95vw] min-w-0 flex-col overflow-hidden rounded-2xl border shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
-        <div className="hqs-border flex items-start justify-between gap-3 border-b p-4 sm:p-5">
+        <div className="hqs-border flex items-start justify-between gap-3 border-b px-3 py-2.5">
           <div className="min-w-0">
             <p className="hqs-accent-text text-[10px] font-black uppercase tracking-[0.16em]">Project master data</p>
-            <h2 id="project-details-worksheet-title" className="hqs-primary-text mt-1 text-lg font-black">{project.id && project.projectCode.trim() ? `Edit Project Details · ${project.projectCode}` : "Create New Project"}</h2>
-            <p className="hqs-secondary-text mt-1 text-xs">Edit project details in the worksheet; Save remains parent-validated.</p>
+            <h2 id="project-details-worksheet-title" className="hqs-primary-text mt-1 text-base font-semibold">{project.id && project.projectCode.trim() ? `Edit Project Details · ${project.projectCode}` : "Create New Project"}</h2>
           </div>
           <button ref={closeButtonRef} type="button" onClick={onClose} className="hqs-control hqs-focus-ring shrink-0 rounded-lg p-2" aria-label="Close project details worksheet"><X className="h-4 w-4" /></button>
         </div>
         {(errorMessage || saveError) && <p role="alert" className="hqs-attention-danger mx-4 mt-4 rounded-lg px-3 py-2 text-xs font-semibold sm:mx-5">{saveError || errorMessage}</p>}
-        <div data-dialog-scroll-container="project-details" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
-          {canManageMedia && <EntityMediaControl entityType="PROJECT" entityId={project.id} label="Project" canManage className="mb-4" />}
+        <div data-dialog-scroll-container="project-details" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
           <WorksheetEditor
             ariaLabel="Project Details worksheet"
             rows={rows}
@@ -209,8 +207,9 @@ export function ProjectDetailsWorksheet({
             cancelLabel="Cancel"
             emptyState="Project details are unavailable."
             className="min-w-0"
-            density="comfortable"
+            density="compact"
           />
+          {canManageMedia && <EntityMediaControl entityType="PROJECT" entityId={project.id} label="Project" canManage className="mt-4" />}
         </div>
       </section>
     </div>

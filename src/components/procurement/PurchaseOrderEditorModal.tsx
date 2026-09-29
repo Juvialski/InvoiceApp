@@ -716,14 +716,11 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
             </div>
           )}
 
-          <section data-testid="purchase-order-draft-worksheet" data-worksheet-responsive-surface="purchase-order-draft" aria-label="Purchase order draft worksheet" className="min-w-0 space-y-4">
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5 text-[10px] leading-4 text-indigo-950">
-              <p className="font-black uppercase tracking-[0.12em]">Purchase Order draft worksheet</p>
-              <p className="mt-1">Edit safe draft header and line fields here. Calculated amounts, received quantities, approval, issue, receiving, close, cancellation, matching, and settlement remain protected or purpose-built workflows.</p>
-            </div>
+          <section data-testid="purchase-order-draft-worksheet" data-worksheet-responsive-surface="purchase-order-draft" aria-label="Purchase order draft worksheet" className="min-w-0 space-y-2.5">
+            <p className="text-[11px] leading-4 text-slate-500">Draft edits only. Approval, issue, receiving, close, cancellation, matching, and settlement stay separate.</p>
 
-            <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
-              <span className="font-semibold text-slate-700">Supplier selection is a controlled reference; adding a vendor remains a separate master-data action.</span>
+            <div className="flex flex-col gap-2 border-b border-slate-200 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+              <span className="font-semibold text-slate-700">Choose an existing supplier, or use New vendor.</span>
               {!isReadOnly && onAddVendor && !showAddVendor && <button type="button" onClick={() => setShowAddVendor(true)} className="shrink-0 text-[11px] font-black text-indigo-700 hover:text-indigo-900">+ New vendor</button>}
             </div>
 
@@ -743,12 +740,12 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
               onRowsChange={handleHeaderRowsChange}
               disabled={isReadOnly || isSubmitting}
               isSaving={isSubmitting}
-              density="comfortable"
+              density="compact"
             />
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">PO Line Items</span>
-              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold text-slate-700">{lines.length}</span>
+              <span className="text-xs font-semibold text-slate-700">PO Line Items</span>
+              <span className="text-[11px] text-slate-500">{lines.length}</span>
             </div>
 
             <WorksheetEditor
@@ -767,7 +764,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
               density="compact"
             />
 
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold leading-4 text-amber-900">Amount and Received columns are calculated/protected. Editing this worksheet never approves, issues, receives, closes, cancels, matches, or settles a purchase order.</p>
+            <p className="text-[10px] font-semibold leading-4 text-amber-900">Amounts and received quantities are calculated.</p>
             {!isEditing && <p data-testid="purchase-order-save-before-approval" className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-semibold leading-4 text-indigo-900">Save this draft before approval becomes available. Approval is a separate lifecycle transition for a persisted draft.</p>}
             {isDraft && isEditing && canApprove && hasUnsavedDraftChanges && <p id="po-unsaved-approval-guard" data-testid="purchase-order-unsaved-approval-guard" className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-semibold leading-4 text-indigo-900">Save draft changes before approval. Approval uses the last persisted draft.</p>}
           </section>
