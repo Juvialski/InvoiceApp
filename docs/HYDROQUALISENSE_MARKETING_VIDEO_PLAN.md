@@ -19,7 +19,7 @@ Run `npm.cmd run build`, then `npx.cmd tsx scripts/marketing-capture.ts`. This n
 - `stills/vertical-stills/` contains seven selected 1080×1920 stills. MKT-V2A does not produce a vertical screen-recording session.
 - `manifest.json` records the source SHA, dirty/clean source state, exact routes, dataset source, claim boundary, viewport, capture profile, stills, and clips.
 
-The completed local run produced **39 stills (32 PC, 7 vertical) and 32 PC clips**. The manifest records base SHA `b5b110380f26f118a63354bbfb4345b5166cfbe7` with `workingTreeClean: false`, because the captures were created from the in-progress implementation branch before commit. The capture output is ignored and remains a local artifact; regenerate on the final desired SHA when a clean-source asset set is needed.
+The final committed-source local run produced **39 stills (32 PC, 7 vertical) and 32 PC clips**. The manifest records source SHA `e944eaa951c06ff0f52f72e4af30c4449983c192` with `workingTreeClean: true`; all 71 media references exist. The capture output is ignored and remains a local artifact.
 
 The PC clips hide the pointer and suppress CSS animation and transitions during capture. They remain silent and have no subtitles, title cards, or voiceover so a later editor can place Tagalog/Taglish narration naturally. The PNGs are stable source frames for crop, framing, and title placement. The opening and closing images are unaltered application screens: the workspace Dashboard opens the material, and the Projects portfolio closes it. Titles and closing copy belong in the later editing stage, outside the operational records.
 
