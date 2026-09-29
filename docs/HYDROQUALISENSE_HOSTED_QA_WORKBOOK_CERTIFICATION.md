@@ -148,7 +148,7 @@ REL-QA-WB-1 is closed for the recorded single-company QA profile by exact run 36
 
 A later documentation-only closeout merge may advance repository `main` without changing the application contract; the certified app-bearing SHA remains `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`.
 
-## 2026-09-29 post-PR #289 exact-SHA revalidation — coverage follow-up required
+## 2026-09-29 post-PR #289 exact-SHA revalidation — expanded coverage awaiting protected rerun
 
 PR #289 merged as exact `main` SHA `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b`. Protected QA Release run [36511303084](https://github.com/Juvialski/InvoiceApp/actions/runs/36511303084) completed successfully. Its before/after release artifacts report **153/153** canonical migration version/name matches through `20260927095636`, no mismatches, and `needsPromotion=false`; no migration promotion occurred. QA `/api/health` and the Hosted QA manifest identify environment `qa`, deployment `qa-hydroqualisense`, that exact SHA, and migration level `20260927095636`.
 
@@ -156,7 +156,7 @@ Authenticated Hosted QA passed **9/9 routes**, the Storage probe, and reported z
 
 The lead inspected all four matrix screenshots from the run: review and Apply captures at laptop `1280×800` and phone `390×844`. They show the review-before-Apply gate, Projects Apply reachable, and no page-level horizontal overflow. These are import-review captures, not editor screenshots. An authenticated desktop editor view was also visually inspected; its grid and selected-cell outline were clear, Save/Discard were above the grid, the five sheet tabs were below it, and Import/Export was collapsed below the worksheet. That live view is not part of the run artifact and does not replace the missing `1280×800` and `390×844` editor captures.
 
-**The requested exact-SHA certification is therefore not closed at `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b`.** This is a hosted-certification harness coverage gap, not a failure observed in the deployed application. A focused follow-up adds explicit Project and Cost Code `Description` non-empty → empty-string workbook edits, exact empty-string checks after parsing and authoritative post-Apply export, and editor screenshots/assertions for laptop and phone controls and the mobile fallback. Re-run the protected release/Hosted QA path after that follow-up is merged, and close certification only from its exact deployed-SHA evidence.
+**The requested exact-SHA certification is therefore not closed at `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b`.** This is a hosted-certification harness coverage gap, not a failure observed in the deployed application. This focused follow-up adds explicit Project and Cost Code `Description` non-empty → empty-string workbook edits, exact empty-string checks after parsing and authoritative post-Apply export, and editor screenshots/assertions for laptop and phone controls and the mobile fallback. After merge, re-run the protected release/Hosted QA path and close certification only from that exact deployed merge-SHA evidence.
 
 Follow-up local validation: focused Hosted QA contract tests **21/21 passed**; `npm.cmd run test:affected:agent` passed **75/75 tests across 9/395 selected files (2.3%, no fallback; database unaffected)**; `npm.cmd run lint` passed ESLint and TypeScript. No app build or database validation applies to this script/test/documentation-only follow-up. Hosted revalidation remains pending after merge.
 
