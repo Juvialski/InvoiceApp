@@ -190,6 +190,100 @@ async function updateLiveExpenseDescription(
     .waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
 }
 
+async function updateLiveWorksheetDescription(
+  page: Page,
+  options: { tabName: string; gridName: string; rowIdentifier: string; nextDescription: string },
+) {
+  await page.getByRole("tab", { name: options.tabName, exact: true }).click({ timeout: READY_TIMEOUT_MS });
+  const grid = page.getByRole("grid", { name: options.gridName, exact: true });
+  await grid.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const rowByDisplayKey = grid.getByRole("row").filter({ hasText: options.rowIdentifier }).first();
+  await rowByDisplayKey.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const rowKey = await rowByDisplayKey.getAttribute("data-worksheet-row-key");
+  if (!rowKey) throw new Error("OPTIONAL_DESCRIPTION_ROW_ID_MISSING");
+  const row = grid.locator(hostedQaWorkbookRowSelector(rowKey));
+  const headers = await grid.getByRole("columnheader").allTextContents();
+  const descriptionColumnIndex = headers.findIndex((header) => header.trim() === "Description");
+  if (descriptionColumnIndex < 0) throw new Error("OPTIONAL_DESCRIPTION_COLUMN_NOT_FOUND");
+  const cell = row.getByRole("gridcell").nth(descriptionColumnIndex);
+  if (await cell.getAttribute("data-worksheet-editable") !== "true") throw new Error("OPTIONAL_DESCRIPTION_NOT_EDITABLE");
+  await cell.click({ timeout: READY_TIMEOUT_MS });
+  const editor = row.getByRole("textbox");
+  await editor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await editor.fill(options.nextDescription, { timeout: READY_TIMEOUT_MS });
+  const save = page.getByRole("button", { name: "Save changes", exact: true });
+  if (!await save.isVisible()) throw new Error("OPTIONAL_DESCRIPTION_SAVE_UNAVAILABLE");
+  await save.click({ timeout: READY_TIMEOUT_MS });
+  await page.getByRole("status").filter({ hasText: /changes saved\./i }).last()
+    .waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await row.getByText(options.nextDescription, { exact: true }).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+}
+
+async function captureWorkbookEditorViewport(
+  page: Page,
+  viewport: { width: number; height: number; name: string; mobile: boolean },
+) {
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const editor = page.locator('[data-operations-workbook="true"]');
+  const grid = viewport.mobile
+    ? page.locator('[data-worksheet-mobile-fallback="true"]')
+    : page.getByRole("grid", { name: "Projects worksheet", exact: true });
+  const save = page.getByRole("button", { name: "Save changes", exact: true });
+  const discard = page.getByRole("button", { name: "Discard edits", exact: true });
+  const tabs = page.getByRole("tablist", { name: "Operations Workbook sheets", exact: true });
+  const transfer = page.locator('[data-workbook-transfer-disclosure="true"]');
+  await editor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await grid.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await tabs.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const saveDiscardVisible = await save.isVisible() && await discard.isVisible();
+  const saveBox = await save.boundingBox();
+  const discardBox = await discard.boundingBox();
+  const controlsReachable = [saveBox, discardBox].every((box) => Boolean(box
+    && box.x >= 0 && box.y >= 0
+    && box.x + box.width <= viewport.width
+    && box.y + box.height <= viewport.height));
+  if (!saveDiscardVisible || !controlsReachable) throw new Error("WORKSHEET_SAVE_DISCARD_NOT_REACHABLE");
+  const tabLabels = await page.getByRole("tab").allTextContents();
+  const requiredTabs = ["Projects", "Cost codes", "Expenses", "RFQs", "Purchase orders"];
+  if (requiredTabs.some((label) => !tabLabels.some((actual) => actual.trim() === label))) throw new Error("WORKSHEET_TABS_NOT_REACHABLE");
+  const transferCollapsed = !(await transfer.evaluate((element) => (element as HTMLDetailsElement).open));
+  if (!transferCollapsed) throw new Error("WORKBOOK_FILE_TOOLS_NOT_SECONDARY");
+  const mobileFallback = page.locator('[data-worksheet-mobile-fallback="true"]');
+  const mobileFallbackVisible = await mobileFallback.isVisible();
+  const mobileFieldCount = await mobileFallback.locator("[data-worksheet-mobile-field]").count();
+  if (viewport.mobile && (!mobileFallbackVisible || mobileFieldCount < 1)) throw new Error("WORKSHEET_MOBILE_FALLBACK_UNAVAILABLE");
+  const selectedCell = viewport.mobile
+    ? mobileFallback.locator('[data-worksheet-state="selected"]')
+    : page.locator('[data-worksheet-state="selected"]');
+  const selectedCellVisible = await selectedCell.isVisible();
+  if (!selectedCellVisible) throw new Error("WORKSHEET_SELECTED_CELL_MISSING");
+  const dimensions = await page.evaluate(() => ({
+    viewportWidth: innerWidth,
+    viewportHeight: innerHeight,
+    documentWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+  }));
+  const screenshotPath = path.join(OUTPUT_DIR, "screenshots", `workbook-editor-${viewport.name}.png`);
+  await page.screenshot({ path: screenshotPath, animations: "disabled", fullPage: false, timeout: READY_TIMEOUT_MS });
+  const noPageOverflow = dimensions.documentWidth <= dimensions.viewportWidth + 2;
+  if (!noPageOverflow) throw new Error("WORKSHEET_EDITOR_PAGE_OVERFLOW");
+  return {
+    viewport: viewport.name,
+    viewportWidth: dimensions.viewportWidth,
+    documentWidth: dimensions.documentWidth,
+    noPageOverflow,
+    gridVisible: await grid.isVisible(),
+    selectedCellVisible,
+    saveDiscardVisible,
+    controlsReachable,
+    tabsVisible: await tabs.isVisible(),
+    fileToolsCollapsed: transferCollapsed,
+    mobileFallbackVisible,
+    mobileFieldCount,
+    screenshot: `screenshots/${path.basename(screenshotPath)}`,
+  };
+}
+
 async function applyReviewedDomain(page: Page, domainId: string, label: string, requiredFragments: readonly string[]) {
   const domain = page.locator(`[data-combined-workbook-domain="${domainId}"]`);
   const proposals = domain.locator("[data-combined-workbook-proposal]");
@@ -287,7 +381,9 @@ async function main() {
     staleVersion: { status: "NOT_RUN", applyEnabled: null },
     review: { domains: [], protectedFields: 0, unchangedRowsCollapsed: false },
     apply: { domains: [], authoritativeRefresh: false },
+    optionalFieldClearing: { status: "NOT_RUN" },
     linePreservation: { rfqLineIdsUnchanged: false, purchaseOrderLineIdsUnchanged: false },
+    editorResponsive: [],
     responsive: [],
     runtime: { consoleErrorCount: 0, pageErrorCount: 0, failedRequestCount: 0 },
     limitations: [
@@ -340,14 +436,62 @@ async function main() {
     await page.getByText("QA ENVIRONMENT · SYNTHETIC DATA ONLY", { exact: true }).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
     manifest.identity = { authenticatedSessionRestored: true, identityDetailsStored: false, alternatePermissionProfileTested: false };
 
+    stage = "capture-workbook-editor-responsive";
+    const editorResponsive: Array<Record<string, unknown>> = [];
+    for (const viewport of [
+      { width: 1280, height: 800, name: "laptop-1280x800", mobile: false },
+      { width: 390, height: 844, name: "phone-390x844", mobile: true },
+    ]) {
+      editorResponsive.push(await captureWorkbookEditorViewport(page, viewport));
+    }
+    manifest.editorResponsive = editorResponsive;
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+
     stage = "inspect-fixtures";
     const initialPath = path.join(tmpDir, "initial.xlsx");
     await downloadWorkbook(page, initialPath);
     const initialBytes = new Uint8Array(await readFile(initialPath));
     const initialParsed = parseOperationsWorkbook(initialBytes, { schema: COMBINED_OPERATIONS_WORKBOOK_SCHEMA, fileName: path.basename(initialPath) });
-    const initialWorkbook = XLSX.read(initialBytes, { type: "array", cellDates: true, cellFormula: true, cellStyles: true });
+    let initialWorkbook = XLSX.read(initialBytes, { type: "array", cellDates: true, cellFormula: true, cellStyles: true });
     const requiredSheets = ["Projects", "Cost Codes", "Expenses", "Supplier Payables", "RFQs", "RFQ Lines", "Purchase Orders", "PO Lines", "_HydroQualiSense"];
     if (requiredSheets.some((sheet) => !initialWorkbook.SheetNames.includes(sheet))) throw new Error("SUPPORTED_WORKBOOK_SHEET_SET_MISMATCH");
+    const initialProjectTable = workbookTable(initialWorkbook, "Projects");
+    const initialCostCodeTable = workbookTable(initialWorkbook, "Cost Codes");
+    const projectDescriptionBefore = String(valueAt(initialProjectTable, rowIndexByValue(initialProjectTable, "Project Code", "QA-E2E-7F4K-NTU"), "Description") ?? "");
+    const costCodeDescriptionBefore = String(valueAt(initialCostCodeTable, rowIndexByValue(initialCostCodeTable, "Code", "CIVIL-7F4K"), "Description") ?? "");
+    let normalizedOptionalDescriptionFixture = false;
+    if (!projectDescriptionBefore.trim()) {
+      await updateLiveWorksheetDescription(page, {
+        tabName: "Projects", gridName: "Projects worksheet", rowIdentifier: "QA-E2E-7F4K-NTU",
+        nextDescription: `${runPrefix} project clear baseline`,
+      });
+      normalizedOptionalDescriptionFixture = true;
+    }
+    if (!costCodeDescriptionBefore.trim()) {
+      await updateLiveWorksheetDescription(page, {
+        tabName: "Cost codes", gridName: "Cost Codes worksheet", rowIdentifier: "CIVIL-7F4K",
+        nextDescription: `${runPrefix} cost code clear baseline`,
+      });
+      normalizedOptionalDescriptionFixture = true;
+    }
+    if (normalizedOptionalDescriptionFixture) {
+      await downloadWorkbook(page, initialPath);
+      initialWorkbook = XLSX.readFile(initialPath, { cellDates: true, cellFormula: true, cellStyles: true });
+    }
+    const projectTableForClear = workbookTable(initialWorkbook, "Projects");
+    const costCodeTableForClear = workbookTable(initialWorkbook, "Cost Codes");
+    const projectDescriptionPrecondition = valueAt(projectTableForClear, rowIndexByValue(projectTableForClear, "Project Code", "QA-E2E-7F4K-NTU"), "Description");
+    const costCodeDescriptionPrecondition = valueAt(costCodeTableForClear, rowIndexByValue(costCodeTableForClear, "Code", "CIVIL-7F4K"), "Description");
+    if (typeof projectDescriptionPrecondition !== "string" || !projectDescriptionPrecondition.trim()
+      || typeof costCodeDescriptionPrecondition !== "string" || !costCodeDescriptionPrecondition.trim()) {
+      throw new Error("OPTIONAL_DESCRIPTION_CLEAR_FIXTURE_NOT_NONEMPTY");
+    }
+    manifest.optionalFieldClearing = {
+      status: "IN_PROGRESS",
+      projectDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: false, blankAfterAuthoritativeRefresh: false },
+      costCodeDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: false, blankAfterAuthoritativeRefresh: false },
+    };
     const expenseTable = workbookTable(initialWorkbook, "Expenses");
     const descIndex = columnIndex(expenseTable.headers, "Description");
     const statusIndex = columnIndex(expenseTable.headers, "Status");
@@ -412,9 +556,9 @@ async function main() {
       // Exercise one atomic Project + Cost Code group. Project Budget is an editable
       // commercial workbook field by contract, so use lifecycle Status as the
       // genuinely protected Project field.
-      { sheetName: "Projects", keyHeader: "Project Code", keyValue: "QA-E2E-7F4K-NTU", fieldHeader: "Description", value: `${runPrefix} project description` },
+      { sheetName: "Projects", keyHeader: "Project Code", keyValue: "QA-E2E-7F4K-NTU", fieldHeader: "Description", value: "" },
       { sheetName: "Projects", keyHeader: "Project Code", keyValue: "QA-UX-20260911", fieldHeader: "Status", value: "ARCHIVED" },
-      { sheetName: "Cost Codes", keyHeader: "Code", keyValue: "CIVIL-7F4K", fieldHeader: "Description", value: `${runPrefix} cost code description` },
+      { sheetName: "Cost Codes", keyHeader: "Code", keyValue: "CIVIL-7F4K", fieldHeader: "Description", value: "" },
       { sheetName: "Expenses", keyHeader: "__HQ Record ID", keyValue: draftExpenseId, fieldHeader: "Description", value: `${runPrefix} authoritative round-trip Expense` },
       { sheetName: "Expenses", keyHeader: "__HQ Record ID", keyValue: protectedDirectExpenseId, fieldHeader: "Status", value: "PAID" },
       { sheetName: "Expenses", keyHeader: "__HQ Record ID", keyValue: linkedDraftExpenseId, fieldHeader: "Description", value: `${runPrefix} linked source must remain protected` },
@@ -429,6 +573,14 @@ async function main() {
     const roundtripPath = path.join(tmpDir, "roundtrip-proposal.xlsx");
     const rewritten = await rewriteWorkbook(roundtripSourcePath, roundtripPath, edits);
     if (!rewritten.supplierPayablesIncluded) throw new Error("SUPPLIER_PAYABLES_SCOPE_CHANGED");
+    const parsedProjectClear = rewritten.parsed.sheets.Projects.rows.find((row) => row["Project Code"] === "QA-E2E-7F4K-NTU")?.Description;
+    const parsedCostCodeClear = rewritten.parsed.sheets["Cost Codes"].rows.find((row) => row.Code === "CIVIL-7F4K")?.Description;
+    if (parsedProjectClear !== "" || parsedCostCodeClear !== "") throw new Error("OPTIONAL_DESCRIPTION_BLANK_NOT_PRESERVED_IN_WORKBOOK");
+    manifest.optionalFieldClearing = {
+      status: "WORKBOOK_PARSE_PASS",
+      projectDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: true, blankAfterAuthoritativeRefresh: false },
+      costCodeDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: true, blankAfterAuthoritativeRefresh: false },
+    };
 
     stage = "review-roundtrip-workbook";
     const review = await uploadWorkbook(page, roundtripPath);
@@ -509,8 +661,9 @@ async function main() {
     const poLineIdsAfter = lineIdsForParent(final.poLinesTable, "PO Number", "PO-26-6630");
     const directDescription = String(directRow?.[columnIndex(final.expenseTable.headers, "Description")] ?? "");
     const directStatus = String(directRow?.[columnIndex(final.expenseTable.headers, "Status")] ?? "");
-    if (valueAt(finalProjectTable, rowIndexByValue(finalProjectTable, "Project Code", "QA-E2E-7F4K-NTU"), "Description") !== `${runPrefix} project description`
-      || valueAt(final.codeTable, rowIndexByValue(final.codeTable, "Code", "CIVIL-7F4K"), "Description") !== `${runPrefix} cost code description`
+    const clearedProjectDescription = valueAt(finalProjectTable, rowIndexByValue(finalProjectTable, "Project Code", "QA-E2E-7F4K-NTU"), "Description");
+    const clearedCostCodeDescription = valueAt(final.codeTable, rowIndexByValue(final.codeTable, "Code", "CIVIL-7F4K"), "Description");
+    if (clearedProjectDescription !== "" || clearedCostCodeDescription !== ""
       || directDescription !== `${runPrefix} authoritative round-trip Expense` || directStatus !== "DRAFT"
       || rfqTitle !== `${runPrefix} RFQ title` || protectedRfqStatus !== "DRAFT"
       || poDescription !== `${runPrefix} PO description` || protectedPoStatus !== "ISSUED"
@@ -521,6 +674,11 @@ async function main() {
       || JSON.stringify(poLineIdsAfter) !== JSON.stringify(poLineIdsBefore)) {
       throw new Error("AUTHORITATIVE_REFRESH_OR_PROTECTED_VALUE_CHECK_FAILED");
     }
+    manifest.optionalFieldClearing = {
+      status: "PASS",
+      projectDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: true, blankAfterAuthoritativeRefresh: clearedProjectDescription === "" },
+      costCodeDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: true, blankAfterAuthoritativeRefresh: clearedCostCodeDescription === "" },
+    };
     manifest.linePreservation = { rfqLineIdsUnchanged: true, purchaseOrderLineIdsUnchanged: true, rfqLineCount: rfqLineIdsAfter.length, purchaseOrderLineCount: poLineIdsAfter.length };
     manifest.authority = { projectDescriptionUpdated: true, costCodeDescriptionUpdated: true, directExpenseDescriptionUpdated: true, rfqTitleUpdated: true, purchaseOrderDescriptionUpdated: true, projectLifecycleProtected: true, lifecycleStatusesProtected: true, supplierLinkedExpenseProtected: true };
     stage = "runtime-health";
@@ -542,7 +700,7 @@ async function main() {
     if (browser) await browser.close().catch(() => undefined);
     await rm(tmpDir, { recursive: true, force: true }).catch(() => undefined);
   }
-  if (manifest.status === "PASS") console.log("Hosted workbook QA status=PASS domains=3 sheets=5 stale=PASS protected=PASS lines=PASS responsive=PASS");
+  if (manifest.status === "PASS") console.log("Hosted workbook QA status=PASS domains=3 sheets=5 stale=PASS protected=PASS lines=PASS optional-clearing=PASS editor-responsive=PASS responsive=PASS");
 }
 
 void main().catch(() => {

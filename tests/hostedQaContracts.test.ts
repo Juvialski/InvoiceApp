@@ -230,7 +230,8 @@ test("hosted QA workbook failure diagnostics retain safe sentinel codes and reda
 });
 
 test("hosted workbook matrix uses one atomic Project/Cost Code group and a genuinely protected Project lifecycle field", () => {
-  assert.match(workbookHarnessSource, /keyValue: "QA-E2E-7F4K-NTU", fieldHeader: "Description"/);
+  assert.match(workbookHarnessSource, /keyValue: "QA-E2E-7F4K-NTU", fieldHeader: "Description", value: ""/);
+  assert.match(workbookHarnessSource, /keyValue: "CIVIL-7F4K", fieldHeader: "Description", value: ""/);
   assert.match(workbookHarnessSource, /keyValue: "QA-UX-20260911", fieldHeader: "Status", value: "ARCHIVED"/);
   assert.doesNotMatch(workbookHarnessSource, /fieldHeader: "Approved Project Budget", value: protectedProjectBudget/);
   assert.match(workbookHarnessSource, /applyReviewedDomain\(page, "projects", "Projects \/ Cost Codes", \["QA-E2E-7F4K-NTU"\]\)/);
@@ -239,6 +240,24 @@ test("hosted workbook matrix uses one atomic Project/Cost Code group and a genui
   const projectApply = workbookHarnessSource.indexOf('stage = "apply-projects-domain"', desktopReset);
   assert.ok(phoneCapture >= 0 && desktopReset > phoneCapture && projectApply > desktopReset);
   assert.match(workbookHarnessSource, /WORKBOOK_DOMAIN_APPLY_REJECTED/);
+});
+
+test("hosted workbook matrix proves explicit Project and Cost Code blanks survive parse, Apply, and authoritative refresh", () => {
+  assert.match(workbookHarnessSource, /parsedProjectClear !== "" \|\| parsedCostCodeClear !== ""/);
+  assert.match(workbookHarnessSource, /clearedProjectDescription !== "" \|\| clearedCostCodeDescription !== ""/);
+  assert.match(workbookHarnessSource, /blankAfterAuthoritativeRefresh: clearedProjectDescription === ""/);
+  assert.match(workbookHarnessSource, /blankAfterAuthoritativeRefresh: clearedCostCodeDescription === ""/);
+  assert.match(workbookHarnessSource, /OPTIONAL_DESCRIPTION_CLEAR_FIXTURE_NOT_NONEMPTY/);
+});
+
+test("hosted workbook matrix captures editor and mobile-fallback evidence at laptop and phone sizes", () => {
+  assert.match(workbookHarnessSource, /captureWorkbookEditorViewport/);
+  assert.match(workbookHarnessSource, /workbook-editor-\$\{viewport\.name\}\.png/);
+  assert.match(workbookHarnessSource, /data-worksheet-mobile-fallback="true"/);
+  assert.match(workbookHarnessSource, /WORKSHEET_MOBILE_FALLBACK_UNAVAILABLE/);
+  assert.match(workbookHarnessSource, /WORKSHEET_SAVE_DISCARD_NOT_REACHABLE/);
+  assert.match(workbookHarnessSource, /WORKSHEET_TABS_NOT_REACHABLE/);
+  assert.match(workbookHarnessSource, /WORKSHEET_EDITOR_PAGE_OVERFLOW/);
 });
 
 test("hosted workbook matrix matches the review's actual protected Expense field keys", () => {

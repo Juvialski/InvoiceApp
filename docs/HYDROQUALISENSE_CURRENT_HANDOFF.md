@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — Excel Simplicity Pass is implemented for the existing Operations Workbook and worksheet surfaces. REL-QA-WB-1 hosted workbook certification remains complete for the recorded single-company QA profile at SHA 44f92b9; profile limitations remain recorded. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
+Status: **CURRENT — Excel Simplicity Pass is implemented. The prior REL-QA-WB-1 certification remains complete at SHA 44f92b9; post-PR #289 revalidation at c39a3a8 passed the protected release and existing matrix but remains incomplete pending explicit blank-description Apply and responsive editor evidence. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
 Date: **2026-09-29**
 Repository: `Juvialski/InvoiceApp`
 
@@ -10,6 +10,14 @@ main SHA `0826d458a7b75693abead8e2ea12160649aa07ec` and implements RI-2 and
 RI-3 sequentially behind the existing context interfaces.
 
 ## Current repository state
+
+### 2026-09-29 REL-QA-WB-1 post-PR #289 exact-SHA revalidation
+
+The protected QA target is app SHA `c39a3a8d69bb82c4cc8c3ba9e0d279169d3a805b`. Protected QA Release / Hosted QA run [36511303084](https://github.com/Juvialski/InvoiceApp/actions/runs/36511303084) completed successfully for Render deployment `qa-hydroqualisense`. Before/after migration parity is **153/153** through `20260927095636`, with `needsPromotion=false`. Hosted routes passed **9/9**; the current full workbook matrix passed its existing checks.
+
+The revalidation is **not complete** against the new acceptance criteria. The matrix used non-empty Project and Cost Code description edits and did not test explicit blank values through Apply and the subsequent authoritative refresh. Its four inspected responsive screenshots cover import review/Apply, not the editor. A desktop editor view in the authenticated browser was inspected, but it is not archived and does not replace laptop/phone editor captures.
+
+This branch adds exact empty-string parse and post-Apply assertions for both optional descriptions, plus editor captures at `1280×800` and `390×844` with checks for the mobile fallback, selected cell, Save/Discard, sheet tabs, collapsed file tools, and page overflow. Do not report c39a3a8 as fully certified until the follow-up is merged and the protected QA workflow passes at the exact deployed SHA. No production deployment/database was queried or written; no migration promotion occurred. Prior complete single-company certification remains at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`.
 
 ### 2026-09-28 CI-EFF-3 — Protected CI / Release-Orchestration Scope Hardening
 
