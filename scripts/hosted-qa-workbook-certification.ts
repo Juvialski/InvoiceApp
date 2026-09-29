@@ -79,6 +79,10 @@ function valueAt(table: WorkbookTable, rowIndex: number, header: string): Workbo
   return (table.rows[rowIndex]?.[columnIndex(table.headers, header)] ?? null) as WorkbookValue;
 }
 
+function isBlankWorkbookValue(value: WorkbookValue) {
+  return value == null || value === "";
+}
+
 function setWorkbookCell(workbook: XLSX.WorkBook, edit: WorkbookEdit) {
   const table = workbookTable(workbook, edit.sheetName);
   const rowIndex = rowIndexByValue(table, edit.keyHeader, edit.keyValue);
@@ -661,7 +665,7 @@ async function main() {
     const directStatus = String(directRow?.[columnIndex(final.expenseTable.headers, "Status")] ?? "");
     const clearedProjectDescription = valueAt(finalProjectTable, rowIndexByValue(finalProjectTable, "Project Code", "QA-E2E-7F4K-NTU"), "Description");
     const clearedCostCodeDescription = valueAt(final.codeTable, rowIndexByValue(final.codeTable, "Code", "CIVIL-7F4K"), "Description");
-    if (clearedProjectDescription !== "" || clearedCostCodeDescription !== ""
+    if (!isBlankWorkbookValue(clearedProjectDescription) || !isBlankWorkbookValue(clearedCostCodeDescription)
       || directDescription !== `${runPrefix} authoritative round-trip Expense` || directStatus !== "DRAFT"
       || rfqTitle !== `${runPrefix} RFQ title` || protectedRfqStatus !== "DRAFT"
       || poDescription !== `${runPrefix} PO description` || protectedPoStatus !== "ISSUED"
@@ -674,8 +678,8 @@ async function main() {
     }
     manifest.optionalFieldClearing = {
       status: "PASS",
-      projectDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: true, blankAfterAuthoritativeRefresh: clearedProjectDescription === "" },
-      costCodeDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: true, blankAfterAuthoritativeRefresh: clearedCostCodeDescription === "" },
+      projectDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: true, blankAfterAuthoritativeRefresh: isBlankWorkbookValue(clearedProjectDescription) },
+      costCodeDescription: { nonEmptyBeforeWorkbookImport: true, explicitBlankInWorkbook: true, blankAfterAuthoritativeRefresh: isBlankWorkbookValue(clearedCostCodeDescription) },
     };
     manifest.linePreservation = { rfqLineIdsUnchanged: true, purchaseOrderLineIdsUnchanged: true, rfqLineCount: rfqLineIdsAfter.length, purchaseOrderLineCount: poLineIdsAfter.length };
     manifest.authority = { projectDescriptionUpdated: true, costCodeDescriptionUpdated: true, directExpenseDescriptionUpdated: true, rfqTitleUpdated: true, purchaseOrderDescriptionUpdated: true, projectLifecycleProtected: true, lifecycleStatusesProtected: true, supplierLinkedExpenseProtected: true };
