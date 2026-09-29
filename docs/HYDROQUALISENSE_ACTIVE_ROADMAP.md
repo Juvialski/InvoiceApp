@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / EXCEL SIMPLICITY PASS IMPLEMENTED / PROVIDER & RELEASE CERTIFICATION PARALLEL / PRIOR REL-QA-WB-1 CERTIFICATION COMPLETE AT SHA 44F92B9; POST-PR #289 EXACT-SHA REVALIDATION INCOMPLETE PENDING PROTECTED RERUN WITH EXPANDED HARNESS / WB-3D+ DEFERRED**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / EXCEL SIMPLICITY PASS IMPLEMENTED / REL-QA-WB-1 HOSTED CERTIFICATION COMPLETE AT EXACT QA SHA 1028B5A / PROVIDER READINESS PARALLEL / WB-3D+ DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-29**
 
@@ -80,6 +80,21 @@ Status: **INCOMPLETE — THE PROTECTED RELEASE AND ROUTES PASSED, BUT THE WORKBO
 - Certification remains open until the fix is merged and deployed, then the complete protected exact-SHA workflow passes with both explicit blank-clear checks and manually inspected editor and review/Apply screenshots at `1280×800` and `390×844`.
 
 The prior complete single-company certification remains at SHA `44f92b94e9e2d551b915a3cb153ecd61cecd8bbc`; this attempt does not supersede it. Alternate permission/company profiles, artificial partial-Apply retry, and the intermittent REL-AUTH-1 trigger remain untested. No production access or write occurred.
+
+## 2026-09-29 REL-QA-WB-1 — Final post-simplicity exact-SHA certification
+
+Status: **COMPLETE FOR THE RECORDED SINGLE-COMPANY QA PROFILE.** Exact certified application SHA: `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf`. Protected QA Release / Hosted QA run [36519411648](https://github.com/Juvialski/InvoiceApp/actions/runs/36519411648) completed successfully against deployment `qa-hydroqualisense`.
+
+- Exact QA deployment identity matched SHA `1028b5a9b278643f1d426f3e30b1e91a20f9ffbf` and migration level `20260927095636`.
+- Before/after migration parity matched **153/153** canonical migrations with `needsPromotion=false`; no QA migration was applied and production was not touched.
+- Authenticated Hosted QA passed **9/9 routes**, Storage, and runtime contracts with **0 console errors, 0 page errors, and 0 failed requests**.
+- The complete Operations Workbook matrix passed stale-conflict rejection, protected-field classification, explicit confirmation gating, Projects/Cost Codes, Expenses/Supplier Payables, Procurement Apply, authoritative refresh, and RFQ/PO line-identity preservation.
+- The expanded optional-field regression passed for both Project Description and Cost Code Description: non-empty fixture → explicit workbook blank → Apply → authoritative refresh/export → still blank.
+- Hosted editor evidence at **1280×800** and **390×844** was manually inspected. The selected cell is visible, Save/Discard and worksheet tabs remain reachable, Import / export stays secondary/collapsed, the phone mobile fallback is usable, and the manifest reports no page-level overflow. The hosted review/Apply captures at both sizes were also inspected.
+- Earlier post-PR #290/#291 failures were bounded certification-harness defects; PR #292 corrected the final nullish-XLSX blank assertion after direct QA evidence confirmed both cleared descriptions persisted as SQL `NULL`.
+- Existing limitations remain explicit: alternate permission/company profiles, artificial partial-Apply retry, and the intermittent REL-AUTH-1 trigger were not exercised. These do not invalidate the recorded single-company profile certification.
+
+No new customer-facing phase is activated by this closeout. WB-3D+ remains deferred.
 
 ## 2026-09-28 CI-EFF-3 — Protected CI / Release-Orchestration Scope Hardening
 
