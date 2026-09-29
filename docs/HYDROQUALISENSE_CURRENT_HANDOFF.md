@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — Excel Simplicity Pass and MKT-V1A local marketing capture foundation are implemented; REL-QA-WB-1 hosted certification remains complete for the recorded single-company QA profile at exact application SHA 1028b5a9. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
+Status: **CURRENT — Excel Simplicity Pass, MKT-V1A data foundation, and MKT-V2A full-app local marketing capture are implemented; REL-QA-WB-1 hosted certification remains complete for the recorded single-company QA profile at exact application SHA 1028b5a9. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
 Date: **2026-09-29**
 Repository: `Juvialski/InvoiceApp`
 
@@ -10,6 +10,20 @@ main SHA `0826d458a7b75693abead8e2ea12160649aa07ec` and implements RI-2 and
 RI-3 sequentially behind the existing context interfaces.
 
 ## Current repository state
+
+### 2026-09-29 MKT-V2A — Full-App Marketing Capture Expansion
+
+MKT-V2A starts from synchronized `main` SHA `b5b110380f26f118a63354bbfb4345b5166cfbe7` on branch `codex/mkt-v2a-full-app-capture`. It expands the local source capture library for a later HydroQualiSense marketing video; it does not create the finished video.
+
+- The default `npx.cmd tsx scripts/marketing-capture.ts` path now captures app-wide PC material: one silent 1920×1080 WebM clip per selected route, seven seconds of stable hold per screen, and 3840×2160 PNGs. Seven selected 9:16 stills are captured separately; there is no vertical screen-recording session.
+- Routes cover dashboard and projects, project budget/billing/documents/engineering, RFQs and Purchase Orders, supplier invoices and review, Expenses, Cash & Banking, Payroll, Warehouse, Equipment, Documents, Email/SMS, Reports, Vendors, Assistant, and one Operations Workbook view. Opening and closing frames are captured from real Dashboard and Projects UI.
+- The completed local run produced **39 stills (32 PC and 7 vertical) and 32 silent 1920×1080 PC clips**, with a seven-second stable hold per route. Its manifest records base SHA `b5b110380f26f118a63354bbfb4345b5166cfbe7` and `workingTreeClean=false`, since it was captured from the in-progress branch before commit.
+- The capture hides the pointer and disables CSS animation/transition effects. Source clips are silent and carry no titles or subtitles, leaving clean holds for later Tagalog/Taglish voiceover and editing.
+- Silverfern frames use only the dedicated MKT-V1A fictional water-treatment dataset. The broader existing-app workflow clips use the standard synthetic public-demo seed in separate browser contexts; those sample records are not described as Silverfern activity. Per-route source and claim boundaries are in the manifest.
+- Local output is in ignored `artifacts/marketing-capture/mkt-v2a-full-app/`; rerun the default capture command on the desired source SHA to reproduce it. The `--mkt-v1a` option retains the earlier narrow capture for reference.
+- Source changes are limited to `scripts/marketing-capture.ts`, `scripts/marketingCaptureContract.ts`, and the marketing plan/roadmap/handoff. There are no application, fixture-data, database, provider, QA, or production behavior changes.
+- Production build, ESLint, and TypeScript checks passed. No test suite was run; this capture phase made no database or provider requests.
+- The single bounded `agent:context` packet had no Workflow Map source match and provided the fallback impact working set. The live Jev context checkpoint had `candidateCount=0`, `requestCount=0`, `fallback=true`, reason `no-candidates`; no Jev model request was made.
 
 ### 2026-09-29 MKT-V1A — Realistic Marketing Data & Capture Foundation
 

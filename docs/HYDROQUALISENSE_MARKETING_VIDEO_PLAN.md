@@ -1,12 +1,45 @@
 # HydroQualiSense Marketing Video Plan
 
-Status: **MKT-V1A data and capture foundation prepared; final marketing video is a later Canva/Higgsfield/Higgsedit production step.**
+Status: **MKT-V2A full-app source capture is implemented; final marketing video remains a later Canva/Higgsfield/Higgsedit production step.**
 
 ## Campaign objective
 
 Prepare a truthful product showcase for engineering and water-treatment contractors. The creative direction follows the reviewed contractor/workbook reel: start with real work materials, move into a familiar compact worksheet, then show source-first supplier invoice review and connected purchasing context.
 
 The application footage must come from the real HydroQualiSense application. Canva may add titles, labels, transitions, and social layouts around those captures. Generated B-roll must not depict or replace HydroQualiSense UI.
+
+## MKT-V2A full-app marketing source capture
+
+MKT-V2A expands the material library beyond workbook-led and mobile-heavy footage. It produces independent, silent PC clips and high-resolution stills for the app's existing project, finance, procurement, workforce, warehouse, engineering, document, and communications workflows. It does **not** assemble a storyboard, add narration, generate B-roll, or export a finished video.
+
+Run `npm.cmd run build`, then `npx.cmd tsx scripts/marketing-capture.ts`. This now runs MKT-V2A. Add `--mkt-v1a` only to reproduce the earlier capture set. Output is written to the ignored local folder `artifacts/marketing-capture/mkt-v2a-full-app/`:
+
+- `stills/pc-1080p/` contains one 3840×2160 PNG per captured PC route.
+- `videos/pc-1080p/` contains one silent 1920×1080 WebM clip per PC route. Each route is captured in its own browser context, with a seven-second steady hold after the view is ready.
+- `stills/vertical-stills/` contains seven selected 1080×1920 stills. MKT-V2A does not produce a vertical screen-recording session.
+- `manifest.json` records the source SHA, dirty/clean source state, exact routes, dataset source, claim boundary, viewport, capture profile, stills, and clips.
+
+The completed local run produced **39 stills (32 PC, 7 vertical) and 32 PC clips**. The manifest records base SHA `b5b110380f26f118a63354bbfb4345b5166cfbe7` with `workingTreeClean: false`, because the captures were created from the in-progress implementation branch before commit. The capture output is ignored and remains a local artifact; regenerate on the final desired SHA when a clean-source asset set is needed.
+
+The PC clips hide the pointer and suppress CSS animation and transitions during capture. They remain silent and have no subtitles, title cards, or voiceover so a later editor can place Tagalog/Taglish narration naturally. The PNGs are stable source frames for crop, framing, and title placement. The opening and closing images are unaltered application screens: the workspace Dashboard opens the material, and the Projects portfolio closes it. Titles and closing copy belong in the later editing stage, outside the operational records.
+
+Capture records are intentionally separated by source dataset. The marked **MKT-V1A Silverfern fictional workspace** frames show the fictional water-treatment portfolio, procurement, expenses, and invoice review data. Broader workflow coverage uses the regular **Standard public synthetic demo** seed. These are separate clips; the broader demo records must not be described as Silverfern transactions. Both keep the visible synthetic-demo disclosure. No live provider send, invoice verification, financial lifecycle action, QA database, production service, or migration is used.
+
+The expanded source surfaces are:
+
+| Area | Captured views | Claim boundary |
+| --- | --- | --- |
+| Overview and projects | Dashboard, project portfolio, project overview, budget and cost controls | No customer performance, adoption, or savings claim; contract value and project budget stay separate |
+| Client billing | Project billing workspace | Synthetic records only; no tax or collections-compliance claim |
+| Procurement and supplier payables | RFQs, Purchase Orders, supplier invoices, review queue, source-first invoice review, Expenses | RFQ/PO values and invoice evidence keep their existing lifecycle meaning; no supplier endorsement, extraction-quality, or savings claim |
+| Workforce, cash, and stock | Payroll, Cash & Banking, Warehouse, Equipment, project Materials & Equipment | Synthetic sample data; no payment, bank/device connection, payroll-compliance, or real-time-stock claim |
+| Engineering and records | Project documents, RFIs, Submittals, daily Site Logs, Documents | Synthetic coordination data; no safety, engineering approval, completeness, or compliance certification claim |
+| Communications and reporting | Email composition, delivery history, SMS status, Reports | Screens only; no provider-backed delivery certification, measured company outcomes, or performance percentages |
+| Existing workbook | One Operations Workbook view | Five supported sheets; not full Excel parity or a formula engine |
+
+The Assistant capture is a UI sample from the local public demo. Its scripted responses are not evidence of live model quality or autonomous actions; do not narrate a prepared action as executed. The extraction and invoice review screens likewise do not certify extraction accuracy, tax treatment, or a live provider connection.
+
+Capture files are ignored working artifacts and are not committed to the repository. Run the command again on the desired source SHA to create a matching asset set.
 
 ## MKT-V1A dataset
 
@@ -68,9 +101,9 @@ Avoid claims of fully autonomous accounting, guaranteed error elimination, autom
 
 The supplier invoice capture demonstrates the existing source-first review surface. It does not certify AI extraction quality, tax compliance, or a live provider connection. The correction frame changes only a nonfinancial description inside the temporary browser session; it does not verify the pending invoice.
 
-## Capture sequence and assets
+## MKT-V1A capture sequence and assets
 
-Run `npm.cmd run build`, then `npx.cmd tsx scripts/marketing-capture.ts`. The capture command starts a Vite preview bound only to `127.0.0.1`, uses the isolated `/demo` route without credentials, fixes the demo clock to 29 September 2026 in Asia/Manila, and seeds separate desktop and vertical Playwright contexts. It fails if the preview port is already occupied rather than reusing an unknown server.
+To reproduce MKT-V1A, run `npm.cmd run build`, then `npx.cmd tsx scripts/marketing-capture.ts --mkt-v1a`. The capture command starts a Vite preview bound only to `127.0.0.1`, uses the isolated `/demo` route without credentials, fixes the demo clock to 29 September 2026 in Asia/Manila, and seeds separate desktop and vertical Playwright contexts. It fails if the preview port is already occupied rather than reusing an unknown server.
 
 | Sequence | Surface / route | Frame files | Viewport |
 | --- | --- | --- | --- |
@@ -85,7 +118,7 @@ The workbook sequence performs a single-cell project-name edit, saves it, and re
 
 The generated files and `manifest.json` are in the ignored local output folder `artifacts/marketing-capture/mkt-v1a-final-deliverable/`. The manifest records source SHA, working-tree state, fixture date, viewport profiles, and screenshot file names. The videos are `videos/desktop-session.webm` and `videos/vertical-session.webm`. Browser chrome, credentials, UUIDs, and QA fixture labels are not recorded.
 
-Good later montage candidates are the Projects portfolio, Client Billing, Documents, Expenses, and Procurement. This capture run covers Projects, Expenses, and Procurement with the MKT-V1A records. Client Billing and Documents remain later candidates; do not reuse unrelated default demo records as if they belonged to Silverfern.
+MKT-V1A's older capture set covers Projects, Expenses, Procurement, and source-first invoice review with Silverfern's records. MKT-V2A adds separate full-app clips for Client Billing, Documents, and the other existing application workflows using the standard public synthetic demo dataset; its manifest labels those records separately.
 
 ## Canva handoff
 
