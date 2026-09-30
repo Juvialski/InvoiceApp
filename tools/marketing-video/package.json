@@ -1,0 +1,38 @@
+{
+  "name": "@hydroqualisense/marketing-video",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "assets:prepare": "node scripts/prepare-assets.mjs",
+    "assets:validate": "tsx scripts/validate-assets.ts",
+    "test": "tsx --test scripts/scene-contract.test.ts",
+    "typecheck": "tsc --noEmit",
+    "compositions": "npm run assets:prepare && remotion compositions src/index.tsx",
+    "studio": "npm run assets:prepare && remotion studio src/index.tsx",
+    "render:transition-review": "npm run assets:prepare && remotion render src/index.tsx HydroQualiSenseCommercial9x16 ../../artifacts/marketing-video/mkt-v3a/transition-review-frames --frames=141,273,567,789,1251,1428,1560 --sequence --image-format=png",
+    "contact-sheet": "powershell -ExecutionPolicy Bypass -File scripts/create-contact-sheet.ps1",
+    "render:preview": "npm run assets:prepare && npm run assets:validate && remotion render src/index.tsx HydroQualiSenseCommercial9x16 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-preview.mp4 --codec=h264 --crf=18 --overwrite=true --concurrency=4",
+    "render:landscape": "npm run assets:prepare && npm run assets:validate && remotion render src/index.tsx HydroQualiSenseCommercial16x9 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-landscape-check.mp4 --codec=h264 --crf=18 --overwrite=true --concurrency=4",
+    "render:still": "npm run assets:prepare && remotion still src/index.tsx HydroQualiSenseCommercial9x16 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-opening-frame.png --frame=20",
+    "render:landscape-still": "npm run assets:prepare && remotion still src/index.tsx HydroQualiSenseCommercial16x9 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-landscape-layout-check.png --frame=900"
+  },
+  "dependencies": {
+    "@remotion/media": "4.0.530",
+    "@remotion/transitions": "4.0.530",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "remotion": "4.0.530"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.530",
+    "@types/node": "24.5.2",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "tsx": "4.23.12",
+    "typescript": "5.8.3"
+  }
+}

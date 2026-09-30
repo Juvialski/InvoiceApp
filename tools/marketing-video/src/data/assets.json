@@ -1,0 +1,172 @@
+[
+  {
+    "id": "opening-dashboard",
+    "routeId": "00-opening-dashboard",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "No company performance, adoption, or savings claim."
+  },
+  {
+    "id": "projects-portfolio",
+    "routeId": "01-projects-portfolio",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "Project records are fictional; contract value and project budget remain distinct."
+  },
+  {
+    "id": "project-controls",
+    "routeId": "02-water-treatment-project",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "A fictional project view; no measured cost or performance outcome is claimed."
+  },
+  {
+    "id": "operations-workbook",
+    "routeId": "15-operations-workbook",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "Five current supported sheets; not full Excel parity or a formula engine."
+  },
+  {
+    "id": "supplier-invoice-review",
+    "routeId": "09-supplier-invoice-source-review",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "Fictional preloaded review data; no extraction-quality, tax, or provider-runtime claim."
+  },
+  {
+    "id": "procurement-rfqs",
+    "routeId": "13-procurement-rfqs",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "Quotation comparisons are synthetic; no supplier endorsement or savings claim."
+  },
+  {
+    "id": "purchase-orders",
+    "routeId": "14-procurement-purchase-orders",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "Issued purchase orders are commitments; draft orders are not committed cost."
+  },
+  {
+    "id": "expenses",
+    "routeId": "12-expenses",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "Pending source invoices remain separate from authoritative Expense cost."
+  },
+  {
+    "id": "client-billing",
+    "routeId": "05-client-billing",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "Standard public synthetic demo",
+    "claimBoundary": "Billing records are synthetic; no tax or collections-compliance claim."
+  },
+  {
+    "id": "cash-banking",
+    "routeId": "16-cash-banking",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "Standard public synthetic demo",
+    "claimBoundary": "Synthetic balances and transactions; no bank connection or settlement certification claim."
+  },
+  {
+    "id": "payroll",
+    "routeId": "17-payroll",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "Standard public synthetic demo",
+    "claimBoundary": "Synthetic employee and payroll records; no payroll-compliance or payment claim."
+  },
+  {
+    "id": "warehouse",
+    "routeId": "18-warehouse",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "Standard public synthetic demo",
+    "claimBoundary": "Sample stock and recorded movements; no live warehouse-device connection claim."
+  },
+  {
+    "id": "project-documents",
+    "routeId": "06-project-documents",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "Standard public synthetic demo",
+    "claimBoundary": "Shows the demo project document workflow; not complete artifact aggregation."
+  },
+  {
+    "id": "rfis",
+    "routeId": "07-rfis",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "Standard public synthetic demo",
+    "claimBoundary": "Synthetic engineering coordination records only."
+  },
+  {
+    "id": "site-logs",
+    "routeId": "19-site-logs",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "Standard public synthetic demo",
+    "claimBoundary": "Synthetic field notes; no safety or project-completion certification claim."
+  },
+  {
+    "id": "mobile-site-logs",
+    "routeId": "19-site-logs",
+    "profile": "vertical-stills",
+    "layout": "mobile",
+    "width": 1080,
+    "height": 1920,
+    "dataset": "Standard public synthetic demo",
+    "claimBoundary": "Synthetic field notes; no safety or project-completion certification claim."
+  },
+  {
+    "id": "closing-projects",
+    "routeId": "99-closing-projects",
+    "profile": "pc-1080p",
+    "layout": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "dataset": "MKT-V1A Silverfern fictional workspace",
+    "claimBoundary": "Closing frame is real application UI; campaign text stays outside the operational screen."
+  }
+]
