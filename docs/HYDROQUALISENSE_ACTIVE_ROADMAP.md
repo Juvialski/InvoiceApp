@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / EXCEL SIMPLICITY PASS IMPLEMENTED / REL-QA-WB-1 HOSTED CERTIFICATION COMPLETE AT EXACT QA SHA 1028B5A / MKT-V2A FULL-APP LOCAL MARKETING CAPTURE IMPLEMENTED / PROVIDER READINESS PARALLEL / WB-3D+ DEFERRED**
+Status: **ACTIVE — HARDENING-FIRST / NET-NEW PRODUCT FEATURES ARCHIVED / EXCEL SIMPLICITY PASS IMPLEMENTED / REL-QA-WB-1 HOSTED CERTIFICATION COMPLETE AT EXACT QA SHA 1028B5A / MKT-V3A REMOTION STUDIO + PORTRAIT DRAFT IMPLEMENTED / PROVIDER READINESS PARALLEL / WB-3D+ DEFERRED**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-29**
+Last updated: **2026-09-30**
 
 Documentation map: `docs/README.md`  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -46,6 +46,22 @@ Status: **IMPLEMENTED AS LOCAL REPRODUCIBLE SOURCE CAPTURE; FINAL VIDEO NOT PROD
 - Production build, ESLint, and TypeScript checks passed. No test suite or hosted/QA certification was run.
 - No live provider sends, invoice verification, finance lifecycle actions, QA database writes, migrations, production access, or final video production occur in this phase.
 - The `agent:context` packet fell back to RI/impact context with no Workflow Map source match. Jev context preflight had **0 candidates / 0 model requests** (`no-candidates`, fallback true); implementation proceeded from current routes and capture source.
+
+## 2026-09-30 — MKT-V3A Remotion Studio + first full-app commercial draft
+
+Status: **IMPLEMENTED AND RENDERED LOCALLY; FOCUSED PR DELIVERY IN PROGRESS.**
+
+- Synchronized base `main` SHA: `1d08ff2c816245b768c40420d8bd03f8a055cd08`. Branch: `codex/mkt-v3a-remotion-commercial`.
+- Added the isolated Remotion workspace at `tools/marketing-video/`, pinned to Remotion `4.0.530`; the application dependency manifest and lockfile remain unchanged. The workspace registers `HydroQualiSenseCommercial9x16` at 1080×1920 and `HydroQualiSenseCommercial16x9` at 1920×1080, both 30 FPS.
+- Rendered the portrait MKT-V3A draft at **1080×1920, 30 FPS, 58.7 seconds, H.264/CRF 18**. The MP4 is 14.8 MB and remains under ignored `artifacts/marketing-video/mkt-v3a/`.
+- The commercial has ten scenes: Dashboard opening; Projects portfolio; project controls; Operations Workbook; supplier invoice review; RFQs and Purchase Orders; finance/operations montage; engineering records montage; matched desktop/mobile Site Logs; Projects closing and product end card. Workbook screen time is 4.5 seconds (7.7% of runtime). The composition uses 16 selected MKT-V2A PC WebM clips and one selected vertical MKT-V2A still fallback. The full local set has 32 PC clips and 39 stills.
+- During source review, MKT-V2A's route labeled `13-procurement-rfqs` was found to display the default Purchase Orders tab. The local capture contract and setup now select the RFQ tab explicitly; the regenerated frame shows Requests for Quotation & Comparison, and a focused contract test covers both RFQ/PO selectors. This changes capture tooling only.
+- Audio remains silent in the draft. Separate voiceover, background-music, and UI-sound slots are in `tools/marketing-video/src/data/audio.ts`; the provisional Taglish script is in `tools/marketing-video/src/data/script.ts`. No paid TTS, music, or Higgsfield generation was used.
+- Read-only research covered four Remotion/demo-video repositories and official Remotion transition/video guidance. The local 136.51-second contractor reel was found by duration and sampled read-only; only its direct pacing and Taglish tone informed the cut. No source code or proprietary visual assets were copied.
+- Validation: MKT-V2A selector test **1/1**; workspace contract tests **2/2**; workspace TypeScript check passed; asset contract passed for **10 scenes, 58.7 seconds, 17 scene assets**; both composition registrations resolved; landscape layout still inspected; local production build passed with existing Inter-font, large-chunk, and CJS `import.meta` warnings; `test:affected:agent` passed **58/58 across 9/397 selected files (2.3%, no fallback; database unaffected)**.
+- The lead inspected a 12-frame contact sheet sampled from the final MP4 plus seven transition-midpoint frames. The PC WebM clips contain initial loading frames, so preparation trims 105 Remotion frames (3.5 seconds) before the stable screen hold. `ffprobe` confirms H.264, 1080×1920, 30 FPS, 58.7 seconds, and 1,761 frames. Sampled frames extract and render. The bundled FFmpeg does not include the `null`/`framemd5` path for a full-stream decode, and the CUA browser policy blocks local `file:` URLs; direct browser playback was not separately observed.
+- The bounded `agent:context` selector covered `scripts/marketing-capture.ts`, `scripts/marketingCaptureContract.ts`, and `docs/HYDROQUALISENSE_MARKETING_VIDEO_PLAN.md`; no Workflow Map nodes matched, so no deterministic packet or Jev model request was produced. Codex subagents used: **0**.
+- No app runtime, database, RLS, migration, QA, provider, or production behavior changed. Docker/Supabase validation is not applicable. Canva Premium finishing remains: reviewed Taglish narration, licensed music, final mix, and social cutdowns.
 
 ## 2026-09-29 — MKT-V1A Realistic Marketing Data & Capture Foundation
 

@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — Excel Simplicity Pass, MKT-V1A data foundation, and MKT-V2A full-app local marketing capture are implemented; REL-QA-WB-1 hosted certification remains complete for the recorded single-company QA profile at exact application SHA 1028b5a9. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
-Date: **2026-09-29**
+Status: **CURRENT — MKT-V3A Remotion video workspace and first local portrait draft are implemented on the focused branch; Canva Premium finishing remains. Excel Simplicity Pass, MKT-V1A data foundation, MKT-V2A capture library, and REL-QA-WB-1 certification remain complete for their recorded scopes. Provider readiness remains parallel; WB-3D+, Worker Registration/Attendance, Finance expansion, and other net-new product domains remain deferred.**
+Date: **2026-09-30**
 Repository: `Juvialski/InvoiceApp`
 
 RI-0 Repository Intelligence planning was prepared from the earlier current
@@ -10,6 +10,20 @@ main SHA `0826d458a7b75693abead8e2ea12160649aa07ec` and implements RI-2 and
 RI-3 sequentially behind the existing context interfaces.
 
 ## Current repository state
+
+### 2026-09-30 MKT-V3A — Remotion Marketing Video Studio + first commercial draft
+
+MKT-V3A starts from synchronized `main` SHA `1d08ff2c816245b768c40420d8bd03f8a055cd08` on branch `codex/mkt-v3a-remotion-commercial`. It adds an isolated Remotion workspace and the first polished, source-grounded full-app commercial draft; it changes no operational application behavior.
+
+- Workspace: `tools/marketing-video/`, with Remotion `4.0.530`, a nested lockfile, scene data, motion tokens, video/transition components, isolated asset preparation and validation, 9:16 and 16:9 composition registrations, and distinct voiceover/music/UI-sound slots.
+- The MKT-V2A source folder was present and regenerated after correcting its RFQ tab selector. Its manifest records source app SHA `1d08ff2c816245b768c40420d8bd03f8a055cd08` and `workingTreeClean=false` because the MKT-V3A capture-tool fix was pending at capture time. The local set has 39 stills and 32 desktop WebM clips; the composition copies 16 selected desktop clips and one vertical Site Logs still into an ignored workspace folder. Each desktop clip is trimmed by 105 Remotion frames (3.5 seconds) to skip its loading portion and begin on the stable real screen.
+- Scenes: Dashboard; Projects portfolio; project controls; Operations Workbook; supplier invoice review; RFQs → Purchase Orders; finance/operations montage; engineering records; desktop/mobile Site Logs; Projects/end card. The composed runtime is 58.7 seconds; the Workbook appears for 4.5 seconds (7.7%).
+- Preview: `artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-preview.mp4`, H.264/CRF 18, 1080×1920, 30 FPS, 1,761 frames, 58.7 seconds, approximately 14.8 MB. Contact sheet: `artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-contact-sheet.png`. Landscape composition layout-check still: `artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-landscape-layout-check.png`. These are ignored local artifacts; no video, capture, or synthetic application data is committed.
+- Voiceover and music are not included. Taglish narration direction is in `tools/marketing-video/src/data/script.ts`; separate empty tracks are ready for Canva Premium finishing. No paid voice, music, or Higgsfield generation was used.
+- Validation passed: workspace contract tests **2/2**, TypeScript check, asset contract (**10 scenes / 58.7 seconds / 17 assets**), Remotion composition resolution (both aspect ratios), portrait H.264 render, and root MKT-V2A selector test **1/1**. `npm.cmd run test:affected:agent` passed **58/58 across 9/397 selected files (2.3%, no fallback; database unaffected)**. Root production build passed with existing Inter-font, chunk-size, and CJS `import.meta` warnings.
+- I inspected 12 representative frames sampled from the final MP4 and seven transition-midpoint frames. The final cut keeps the synthetic-demo disclosure visible, presents the RFQ and PO tabs correctly, holds the supplier-invoice split view, includes the short mobile segment, and ends on the HydroQualiSense product end card. `ffprobe` confirms the MP4 stream metadata, and selected frames were extracted from it. Direct browser playback was not separately tested because the CUA browser policy blocks local `file:` URLs; the bundled FFmpeg build also lacks its `null`/`framemd5` full-stream decode path.
+- Research used the four user-named repositories and current Remotion docs in read-only mode; no code was copied. The single bounded `agent:context` selector used the capture script, capture contract, and marketing plan, but returned no Workflow Map nodes; no Jev model request occurred. Codex subagents used: **0**.
+- No Docker/Supabase work was applicable. Remaining Canva Premium work: reviewed Taglish narration, licensed music, final mix, color/timing polish, and social cutdowns. No new product phase is started.
 
 ### 2026-09-29 MKT-V2A — Full-App Marketing Capture Expansion
 

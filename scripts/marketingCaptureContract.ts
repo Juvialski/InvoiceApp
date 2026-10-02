@@ -31,7 +31,7 @@ export interface MarketingV2ACaptureShot {
   readonly dataset: MarketingV2ADataset;
   readonly claimBoundary: string;
   readonly verticalStill: boolean;
-  readonly preparation?: "procurement-purchase-orders";
+  readonly preparation?: "procurement-rfqs" | "procurement-purchase-orders";
 }
 
 export interface MarketingV2AProfile {
@@ -103,7 +103,7 @@ export function buildMarketingV2ACaptureShots(): readonly MarketingV2ACaptureSho
     publicDemo({ id: "11-review-queue", label: "Review queue", path: demoPathForTab("review"), fileStem: "11-review-queue", claimBoundary: "Review remains a deliberate human workflow; no automatic approval claim.", verticalStill: false }),
     publicDemo({ id: "11-extract-invoice", label: "Invoice extraction workspace", path: demoPathForTab("extractor"), fileStem: "11-extract-invoice", claimBoundary: "The screen does not certify extraction accuracy, model performance, or a live provider connection.", verticalStill: false }),
     silverfern({ id: "12-expenses", label: "Expenses and linked supplier source", path: demoPathForTab("expenses"), fileStem: "12-expenses", claimBoundary: "Pending source invoices remain separate from authoritative Expense cost.", verticalStill: false }),
-    silverfern({ id: "13-procurement-rfqs", label: "Procurement / requests for quotation", path: demoPathForTab("procurement"), fileStem: "13-procurement-rfqs", claimBoundary: "Quotation comparisons are synthetic; no supplier endorsement or savings claim.", verticalStill: true }),
+    silverfern({ id: "13-procurement-rfqs", label: "Procurement / requests for quotation", path: demoPathForTab("procurement"), fileStem: "13-procurement-rfqs", claimBoundary: "Quotation comparisons are synthetic; no supplier endorsement or savings claim.", verticalStill: true, preparation: "procurement-rfqs" }),
     silverfern({ id: "14-procurement-purchase-orders", label: "Procurement / purchase orders", path: demoPathForTab("procurement"), fileStem: "14-procurement-purchase-orders", claimBoundary: "Issued purchase orders are commitments; draft orders are not committed cost.", verticalStill: false, preparation: "procurement-purchase-orders" }),
     silverfern({ id: "15-operations-workbook", label: "Operations Workbook", path: demoPathForTab("workbook"), fileStem: "15-operations-workbook", claimBoundary: "Five current supported sheets; not full Excel parity or a formula engine.", verticalStill: false }),
     publicDemo({ id: "16-cash-banking", label: "Cash and banking", path: demoPathForTab("cash"), fileStem: "16-cash-banking", claimBoundary: "Synthetic balances and transactions; no bank connection or settlement certification claim.", verticalStill: false }),

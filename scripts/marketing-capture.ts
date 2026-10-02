@@ -351,7 +351,10 @@ async function navigateV2AShot(page: BrowserPageLike, baseUrl: string, shot: Mar
   await waitForReady(page);
   await page.addStyleTag({ content: STABLE_CAPTURE_STYLES });
   await page.waitForTimeout(250);
-  if (shot.preparation === "procurement-purchase-orders") {
+  if (shot.preparation === "procurement-rfqs") {
+    await page.getByRole("button", { name: /^Requests for Quotation \(RFQs\)/ }).click({ timeout: ELEMENT_TIMEOUT_MS });
+    await page.waitForTimeout(350);
+  } else if (shot.preparation === "procurement-purchase-orders") {
     await page.getByRole("button", { name: /^Purchase Orders/ }).click({ timeout: ELEMENT_TIMEOUT_MS });
     await page.waitForTimeout(350);
   }
