@@ -25,5 +25,11 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "bower_components",
+    "jspm_packages",
+    "tools/marketing-video"
+  ]
 }

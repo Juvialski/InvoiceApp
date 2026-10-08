@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+.remotion/
+public/captures/
+*.mp4
+*.webm
+*.wav
+*.mp3

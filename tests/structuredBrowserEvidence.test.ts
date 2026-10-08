@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { DEMO_QA_SCENARIOS } from "../scripts/qa/demoScenarios.ts";
 import {
   QA_EVIDENCE_SCHEMA_VERSION,
@@ -70,7 +71,13 @@ test("demo scenario catalog is unique and covers the required product surfaces",
     "shared-shell-smoke--dashboard--app-shell-content-visible--desktop-1440",
     "shared-shell-smoke--dashboard--mobile-navigation-can-open-and-restore-focus--mobile-390",
   ];
-  const legacyIds = ids.filter((id) => !sharedSmokeIds.includes(id));
+  // Later workbook scenarios are inserted by domain. Preserve the original
+  // catalog's membership and relative order rather than its obsolete indices.
+  const originalIds: string[] = JSON.parse(readFileSync(new URL("./fixtures/demoQaOriginalScenarioIds.json", import.meta.url), "utf8"));
+  const originalSet = new Set(originalIds);
+  const retainedOriginalIds = ids.filter((id) => originalSet.has(id));
+  assert.deepEqual(retainedOriginalIds, originalIds, "all original scenarios remain in relative order");
+  const legacyIds = retainedOriginalIds.filter((id) => !sharedSmokeIds.includes(id));
   const preRefactorIds = legacyIds.slice(0, 372);
   assert.ok(ids.length >= 374, "scenario catalog must retain the original coverage floor");
   assert.ok(legacyIds.length >= 372, "pre-refactor scenario coverage must not shrink");
@@ -79,9 +86,9 @@ test("demo scenario catalog is unique and covers the required product surfaces",
     "806d96d5c6c0326d0f4794deed20d6a0aabd131095dbc4e2a7df63f7603a26e3",
     "all pre-refactor scenario IDs and relative evidence ordering must remain intact",
   );
-  assert.deepEqual(ids.slice(372, 374), sharedSmokeIds, "shared smoke evidence must retain its deterministic position");
+  assert.deepEqual(retainedOriginalIds.slice(372, 374), sharedSmokeIds, "shared smoke evidence must retain its relative position");
   assert.equal(
-    createHash("sha256").update(ids.slice(0, 374).join("\n")).digest("hex"),
+    createHash("sha256").update(retainedOriginalIds.join("\n")).digest("hex"),
     "08abc6d6d302f412aac36cfd38117b55eeef4675f65ba10ef228365d9320685b",
     "the original modularized catalog ordering must remain deterministic",
   );

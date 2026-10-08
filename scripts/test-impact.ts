@@ -1034,16 +1034,13 @@ export function executeSelectedTests(
     return result.status ?? (result.error ? 1 : 0);
   }
 
-  const hasTsx = testFiles.some(f => f.endsWith('.tsx'));
   const nodeArgs = [
     '--test',
     '--test-concurrency=1',
-    '--experimental-strip-types'
+    '--test-reporter=tap',
+    '--experimental-strip-types',
+    '--import', 'tsx'
   ];
-
-  if (hasTsx) {
-    nodeArgs.push('--import', 'tsx');
-  }
 
   nodeArgs.push(...testFiles);
 

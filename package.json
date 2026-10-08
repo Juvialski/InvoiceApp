@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint:eslint": "eslint .",
     "lint": "npm run lint:eslint && npm run typecheck",
-    "test": "node --test --test-concurrency=1 --experimental-strip-types tests/*.test.ts",
+    "test": "node --test --test-concurrency=1 --test-reporter=tap --experimental-strip-types --import tsx tests/*.test.ts",
     "test:full": "npm run test",
     "test:affected": "tsx scripts/test-impact.ts --run",
     "test:affected:agent": "tsx scripts/test-affected-agent.ts",

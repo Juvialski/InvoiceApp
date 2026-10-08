@@ -1,12 +1,107 @@
 # HydroQualiSense Marketing Video Plan
 
-Status: **MKT-V2A full-app source capture is implemented; final marketing video remains a later Canva/Higgsfield/Higgsedit production step.**
+Status: **MKT-V3A recovery: portrait and landscape visual masters; narration/audio finishing remains external.**
+
+## 2026-10-08 — MKT-V3A recovery and two visual masters
+
+This recovery continues PR [#296](https://github.com/Juvialski/InvoiceApp/pull/296), branch `codex/mkt-v3a-remotion-commercial`, from main `1d08ff2c816245b768c40420d8bd03f8a055cd08` and starting PR head `576ad6ab6b8ae1c26fd1d88f15bd745d568f9410`. No application behavior, database, provider credential, or product priority changed.
+
+The full-app commercial has ten scenes and **67.2 seconds / 2,016 frames**. It covers Dashboard, Projects and controls, Operations Workbook, source-first supplier invoice review, RFQs/POs, Expenses, Client Billing, Cash & Banking, Payroll, Warehouse, Documents/RFIs/Site Logs, and desktop/mobile Site Logs. Workbook coverage is 4.5 seconds (**6.7%**). Finance and engineering shots now hold for three seconds each. No cost-saving, compliance, extraction-quality, autonomous-action, customer-adoption, or live-provider claim is made. The RFIs capture shows its actual demo empty state; it does not invent engineering records.
+
+Both masters use 17 ready-state stills from the existing real MKT-V2A capture manifest. The capture SHA remains `1d08ff2c816245b768c40420d8bd03f8a055cd08`, with `sourceWorkingTreeClean=false` for the recorded capture-tool correction. Silverfern fictional data and the standard public demo remain separately identified in the original application imagery and capture manifest. No customer data or generated application UI was used.
+
+Desktop frames are steady, camera pushes are removed, and transitions are consistent crossfades. Portrait retains the complete desktop screen plus a stationary detail crop from the same image; mobile uses a real vertical capture alongside the desktop interface. Landscape uses the available width for a larger full desktop view and a compact heading. Opening and closing keep application imagery visible.
+
+Local output root: `C:\Users\Al\Documents\InvoiceApp\artifacts\marketing-video\mkt-v3a\` (ignored). Primary files:
+
+- `hydroqualisense-mkt-v3a-portrait-final.mp4` — H.264/CRF 18, 1080×1920, 30 FPS.
+- `hydroqualisense-mkt-v3a-landscape-final.mp4` — H.264/CRF 18, 1920×1080, 30 FPS.
+- `portrait-contact-sheet.png` and `landscape-contact-sheet.png`.
+- `portrait-transition-contact-sheet.png` and `landscape-transition-contact-sheet.png`.
+- `portrait-opening-frame.png`, `portrait-closing-frame.png`, `landscape-opening-frame.png`, `landscape-closing-frame.png`.
+- `portrait-inspection-frames/` and `landscape-inspection-frames/` — opening/final frames, every feature shot, crossfade midpoints and montage cuts; 34 samples per master.
+- `portrait-media-validation.json`, `landscape-media-validation.json`, `inspection-plan.json`, `narration-timing.json`, and `narration-and-canva-handoff.md`.
+
+**Audio remains external.** Both visual masters are silent. The final natural Taglish script is in `tools/marketing-video/src/data/script.ts`; the generated handoff provides scene windows and recording targets. Windows has only English David/Zira voices installed. The Canva connector has no speech-generation endpoint; [Canva's public speech documentation](https://www.canva.com/features/text-to-speech/) lists Filipino as a manual finishing option. Higgsfield's connected speech API requires a user-selected voice, and no free audio entitlement was available. No trial, purchase, paid generation, narration playback, or unlicensed music was used. Narration, optional licensed music, audio mixing, and final audio review remain for Canva Premium or a reviewed recording imported through the existing Remotion audio slots. Recording windows are targets, not measured generated speech durations.
+
+CI recovery: the marketing workspace's root TypeScript exclusion triggered the full 397-file suite. Node 22's strip-only runner could not load TSX imported transitively by `.ts` tests. The application compiler still excludes only the standalone workspace in addition to TypeScript's default dependency exclusions; the workspace has its own strict config and dependencies. Full and selective application runners now register the existing TSX loader and use explicit TAP output so compact failure diagnostics remain usable on Windows/Node 24 as well as CI/Node 22. No required test selection was removed. Two additional Windows QA-harness failures exposed Vite watcher stalls and an IPv6-versus-IPv4 port-probe mismatch. The QA child now uses the existing DISABLE_HMR option, a direct Node/TSX launch with its test-worker marker cleared, and hidden Windows helper processes; port probes match the app's IPv4 bind. The three existing lifecycle tests pass unchanged.
+
+Stale source assertions were reconciled to current shared focus classes, company-access recovery delegation, source-currency/FX controls, invoice table width and source panes, company-profile ownership, and workspace-specific Assistant naming. The catalog check still preserves all 374 original IDs and their relative order, using the original modularized catalog fixture and unchanged hashes; inserted workbook scenarios may shift absolute indices. A subprocess regression proves a `.ts` test can import a TSX component. No failing test was disabled or deleted, and no financial/authentication/workforce runtime behavior changed.
+
+Local evidence: focused regressions **60/60** (including capture selection and all three server-lifecycle cases); Remotion scene contracts **2/2**; strict workspace TypeScript and asset validation pass. Both registered compositions are 2,016 frames; FFprobe and full-stream decode pass for both masters, and the lead inspected 34 scene/cut/transition/opening/closing samples per format. Root lint/typecheck and production build pass (existing font/chunk/CJS import.meta warnings). The integrated affected run passed **2,256 tests, zero failures, 11 skipped across 398/398 files**; the root TypeScript change correctly retained the full-suite fallback (database unaffected). This is local synthetic visual evidence; continuous desktop playback and audio certification are not claimed.
+
+Jev diagnostics: context **48 → 41**, model jev-1.13.0, **16,686 input / 2,655 output tokens**, **1,579 ms**, deterministic fallback after sanitizer rejection; no source authority was delegated. Test triage retained **398/398** required files in nine chunks, same model, **47,836 input / 5,921 output tokens**, **3,375 ms**, fallback=false. The single bounded agent:context attempt used an unsupported developer-tooling domain and produced no packet; manual task-bounded source inspection continued without another packet or subagents.
+
+Validation results are recorded in the final PR handoff; protected CI is checked on the pushed head, and Codex does not merge this PR. No Docker, Supabase, migration, hosted QA, or production action is required for this scope. No user Chrome profile, active desktop window, media player, or Hubstaff session was accessed. Rendering uses Remotion's workspace-local headless-shell executable and temporary isolated profile, with no visible browser.
+
+Reproduce from the repository root:
+
+`npm.cmd --prefix tools/marketing-video run render:portrait`
+
+`npm.cmd --prefix tools/marketing-video run render:landscape`
+
+`npm.cmd --prefix tools/marketing-video run contact-sheet`
+
+The contact-sheet command generates the narration/inspection plan, verifies codec/dimensions/FPS/frame count with FFprobe, decodes each full stream through an explicit lightweight libx264-to-null path, and extracts both scene and transition review sheets. Sampled image inspection is lead-owned; no visible player is opened. Earlier draft records below are historical and superseded by this recovery.
 
 ## Campaign objective
 
 Prepare a truthful product showcase for engineering and water-treatment contractors. The creative direction follows the reviewed contractor/workbook reel: start with real work materials, move into a familiar compact worksheet, then show source-first supplier invoice review and connected purchasing context.
 
 The application footage must come from the real HydroQualiSense application. Canva may add titles, labels, transitions, and social layouts around those captures. Generated B-roll must not depict or replace HydroQualiSense UI.
+
+## MKT-V3A Remotion production workspace and first commercial draft
+
+MKT-V3A makes **Remotion the primary code-driven composition and motion system**. Canva Premium is the later finishing tool for a recorded Taglish voice track, music, timing polish, and platform exports. The Remotion draft is already rendered and designed to stand on its own before that finishing step.
+
+The isolated workspace is `tools/marketing-video/`. It pins Remotion `4.0.530` and its media/transition packages in a workspace-local `package.json` and `package-lock.json`; no Remotion or React dependency was added to the application package. Its scene timeline, assets, motion tokens, easing, desktop/mobile frames, title/caption, callout, cursor, audio slots, asset preparation, validation, render, and contact-sheet tools are separated into small files.
+
+The local contractor reel described by the earlier Excel-Simplicity note was still available in Downloads. It is a 136.51-second vertical MP4. I sampled it read-only from opening through closing: it starts with paperwork and a working contractor, moves quickly into real spreadsheet entry, uses brief natural Taglish lines, presents a short product offer near the end, then closes on a project cost/profit calculator sheet. MKT-V3A borrows the direct pacing and practical tone. It does not copy the reel's layout, logos, pricing, or workbook artwork. The sampled reference contact sheet is an ignored local review artifact at `artifacts/marketing-video/mkt-v3a/reference-reel-contact-sheet.png`.
+
+Open-source research was read-only. Useful patterns came from the [Remotion Marketing Video Skill](https://github.com/xsourabhsharma/remotion-marketing-video-skill) (deterministic scene planning and asset checks), [SaaS Product Demo Video](https://github.com/noamdorr/saas-product-demo-video) (story beats and reusable motion primitives), [Marketing Studio](https://github.com/ucsandman/marketing-studio) (separate production engine from product-specific captures and tokens), and [product-demo-video](https://github.com/realruian/product-demo-video) (real application captures inside a steady, repeatable frame). Official [Remotion transition guidance](https://www.remotion.dev/docs/transitioning) was used for overlap-aware scene timing, and the current [`@remotion/media` video component guidance](https://www.remotion.dev/docs/html5-video) informed clip playback. No source code was copied.
+
+The first commercial is `MKT-V3A — HydroQualiSense Full-App Commercial`:
+
+| Scene | Source | Held duration |
+| --- | --- | ---: |
+| Opening | Dashboard | 5.0 s |
+| Workspace overview | Projects portfolio | 5.0 s |
+| Project controls | Water-treatment project | 6.5 s |
+| Familiar editing | Operations Workbook | 4.5 s |
+| Supplier invoice review | Source document beside extracted details | 8.0 s |
+| Procurement | RFQs, then Purchase Orders | 7.0 s |
+| Finance and operations | Expenses, Client Billing, Cash & Banking, Payroll, Warehouse | 9.0 s |
+| Engineering records | Project documents, RFIs, Site Logs | 6.5 s |
+| Mobile support | Desktop Site Logs into its vertical capture | 5.0 s |
+| Closing | Projects portfolio into product end card | 7.0 s |
+
+The ten scene holds total 63.5 seconds before overlap; the composed runtime is **58.7 seconds** after eight 18-frame transitions. Motion uses restrained easing, two slow detail pushes, stable frame sizes, three transition styles (fade, slide, wipe), and direct montage cuts. The workbook occupies 4.5 seconds, or about 7.7% of the finished runtime. The Taglish voiceover direction is in `tools/marketing-video/src/data/script.ts`; the draft itself is intentionally silent. Separate voiceover, music, and UI-sound slots are in `tools/marketing-video/src/data/audio.ts`. No paid TTS, music, or Higgsfield generation was used.
+
+Every screen comes from the captured application. The recaptured MKT-V2A set contains 32 PC WebM clips and 39 stills; this composition copies only **16 selected PC WebM clips and one selected vertical Site Logs still** into ignored `tools/marketing-video/public/captures/`. Preparation prefers a matching WebM and falls back to that capture's still when the clip is missing. The copied manifest keeps route, dataset, dimensions, source SHA, and claim boundary. The screen's own synthetic-demo banner remains visible, and a small frame label also says `Synthetic sample data`. The standard demo and Silverfern fictional workspace remain separate.
+
+The recorded PC WebM files begin with the route's load sequence before the seven-second steady hold. The local asset manifest trims 105 Remotion timeline frames (3.5 seconds at 30 FPS) to skip the initial loading layout. MKT-V2A's vertical set is still-only by design.
+
+The MKT-V2A procurement label previously opened Purchase Orders for both shots. MKT-V3A fixes the local capture selector so the RFQ shot opens the RFQ tab; a focused contract test covers both selectors. This changes capture tooling only and does not change application behavior.
+
+The 9:16 master is registered as `HydroQualiSenseCommercial9x16` at **1080×1920, 30 FPS**. A responsive `HydroQualiSenseCommercial16x9` composition is also registered at **1920×1080, 30 FPS**; it has a rendered layout-check still but no full landscape export in this phase.
+
+The local preview render is `artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-preview.mp4` (H.264, CRF 18, 58.7 seconds, approximately 14.8 MB). The still/contact sheet are `artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-opening-frame.png` and `artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-contact-sheet.png`. These outputs and copied capture assets are ignored and are not committed. The source capture manifest records app SHA `1d08ff2c816245b768c40420d8bd03f8a055cd08` and `workingTreeClean: false` because the capture-tab correction is part of the current MKT-V3A branch.
+
+From the repository root, run:
+
+```powershell
+npm.cmd --prefix tools/marketing-video ci
+npm.cmd --prefix tools/marketing-video test
+npm.cmd --prefix tools/marketing-video run typecheck
+npm.cmd --prefix tools/marketing-video run assets:validate
+npm.cmd --prefix tools/marketing-video run compositions
+npm.cmd --prefix tools/marketing-video run render:preview
+npm.cmd --prefix tools/marketing-video run contact-sheet
+```
+
+If the MKT-V2A capture folder is missing, rebuild the app and run `npx.cmd tsx scripts/marketing-capture.ts` from the repository root. `assets:prepare` will use WebM where available and use the corresponding still otherwise. Use `npm.cmd --prefix tools/marketing-video run render:landscape` for a 16:9 export; later platform cutdowns can use the same scene data with shorter scene selections.
+
+Canva Premium finishing remains: record or commission natural Taglish narration, select properly licensed background music, align the mix to the existing scene timing, and export approved social cutdowns. Keep all application imagery tied to the real HydroQualiSense captures. The UI remains a real application capture in every format.
 
 ## MKT-V2A full-app marketing source capture
 
@@ -149,4 +244,4 @@ Do not generate HydroQualiSense UI, readable product screens, client/vendor logo
 
 ## Next production step
 
-Use Canva Premium to build the storyboard and branded compositions from the real capture assets. Generate only the approved environmental B-roll concepts in Higgsfield, then assemble the final motion piece in Higgsedit and export the requested social formats. MKT-V1A does not include the finished video, Canva designs, or generated footage.
+Complete Canva Premium finishing for the MKT-V3A draft: add reviewed Taglish narration and licensed music, make final timing/color adjustments, and export requested social formats. Do not redraw or replace the HydroQualiSense application captures. Add environmental B-roll only if it fills a clear gap; paid Higgsfield generation is not part of MKT-V3A.
