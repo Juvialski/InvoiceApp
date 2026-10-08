@@ -18,7 +18,8 @@ export async function isPortInUse(port: number): Promise<boolean> {
     server.once("listening", () => {
       server.once("close", () => resolve(false)).close();
     });
-    server.listen(port);
+    // Match the app server's IPv4 bind on Windows as well as POSIX.
+    server.listen(port, "0.0.0.0");
   });
 }
 
@@ -59,15 +60,19 @@ export async function startDevServer(options: DevServerOptions = {}): Promise<Ch
   }
 
   const isWin = process.platform === "win32";
-  const cmd = isWin ? "npx.cmd" : "npx";
-  const child = spawn(cmd, ["tsx", "server.ts"], {
+  // QA does not need HMR or an app-wide watcher (including ignored renders).
+  const childEnv: NodeJS.ProcessEnv = { ...process.env, PORT: String(port), DISABLE_HMR: "true" };
+  // A QA server is a standalone process, not a nested node:test worker.
+  delete childEnv.NODE_TEST_CONTEXT;
+  const child = spawn(process.execPath, ["--import", "tsx", "server.ts"], {
     stdio: "ignore",
+    windowsHide: true,
     // On POSIX, own a dedicated process group so cleanup can terminate the
-    // npx/tsx server plus any Node/esbuild descendants without touching an
+    // server plus any Node/esbuild descendants without touching an
     // unrelated process that happens to use the same port later.
     detached: !isWin,
-    shell: isWin,
-    env: { ...process.env, PORT: String(port) },
+    shell: false,
+    env: childEnv,
   });
 
   const startTime = Date.now();
@@ -97,7 +102,7 @@ export async function terminateChildServer(
 
   if (isWin) {
     await new Promise<void>((resolve) => {
-      const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+      const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore", windowsHide: true });
       killer.on("close", () => resolve());
       killer.on("error", () => resolve());
     });

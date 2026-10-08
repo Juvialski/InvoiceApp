@@ -60,7 +60,8 @@ async function main() {
       : undefined;
 
     const clipPath = clipRecord ? safeSourcePath(clipRecord.file) : undefined;
-    const useClip = clipPath ? await exists(clipPath) : false;
+    // Ready-state stills avoid playback loops returning to route loading frames.
+    const useClip = !frameRecord && clipPath ? await exists(clipPath) : false;
     const sourceRecord = useClip ? clipRecord : frameRecord;
     if (!sourceRecord) {
       throw new Error(`No matching MKT-V2A source frame or clip was found for ${definition.id} (${definition.routeId}).`);

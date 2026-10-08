@@ -41,7 +41,7 @@ test("Wave 6B Agent 1 keeps assigned directories safe at mobile and tablet width
   assert.match(siteLogs, /min-w-0 break-words leading-5/);
 
   assert.match(invoices, /ops-scrollbar overflow-auto/);
-  assert.match(invoices, /min-w-\[1080px\] w-full/);
+  assert.match(invoices, /min-w-\[980px\] w-full/);
 });
 
 test("Wave 6B Agent 1 preserves retry and long-content recovery affordances", () => {
@@ -73,7 +73,8 @@ test("Wave 6B Agent 1 gives compact controls accessible names", () => {
   assert.match(verification, /aria-label=\{`Allocation \$\{index \+ 1\} project`\}/);
   assert.match(verification, /aria-label=\{`Allocation \$\{index \+ 1\} value`\}/);
   assert.match(verification, /aria-label=\{`Allocation \$\{index \+ 1\} type`\}/);
-  assert.match(verification, /data-testid="supplier-invoice-source-first"/);
+  assert.match(verification, /data-testid="supplier-invoice-source-pane"/);
+  assert.match(verification, /data-testid="supplier-invoice-extracted-pane"/);
   assert.match(verification, /data-testid="supplier-invoice-source-surface"/);
   assert.doesNotMatch(verification, /mobilePane/);
 });

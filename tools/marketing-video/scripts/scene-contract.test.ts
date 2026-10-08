@@ -21,5 +21,5 @@ test("MKT-V3A scenes form a bounded, asset-backed commercial", () => {
 test("the workbook is a brief part of the wider product story", () => {
   const workbook = SCENES.find((scene) => scene.id === "operations-workbook");
   assert.ok(workbook);
-  assert.ok(workbook.durationInFrames / COMMERCIAL_DURATION_IN_FRAMES <= 0.15);
+  assert.ok(workbook.durationInFrames / COMMERCIAL_DURATION_IN_FRAMES <= 0.10);
 });

@@ -19,9 +19,9 @@ export const FeatureTitle: React.FC<FeatureTitleProps> = ({ scene, layout, opaci
     <div
       style={{
         position: "absolute",
-        top: isPortrait ? Math.round(height * 0.132) : Math.round(height * 0.245),
-        left: isPortrait ? Math.round(width * 0.075) : Math.round(width * 0.69),
-        width: isPortrait ? Math.round(width * 0.85) : Math.round(width * 0.25),
+        top: isPortrait ? Math.round(height * 0.132) : Math.round(height * 0.067),
+        left: isPortrait ? Math.round(width * 0.075) : Math.round(width * 0.045),
+        width: isPortrait ? Math.round(width * 0.85) : Math.round(width * 0.91),
         opacity,
         transform: `translateY(${translateY}px)`,
       }}
@@ -34,7 +34,7 @@ export const FeatureTitle: React.FC<FeatureTitleProps> = ({ scene, layout, opaci
           fontWeight: 700,
           letterSpacing: "0.17em",
           lineHeight: 1.3,
-          marginBottom: isPortrait ? 16 : 14,
+          marginBottom: isPortrait ? 16 : 6,
           textTransform: "uppercase",
         }}
       >
@@ -44,7 +44,7 @@ export const FeatureTitle: React.FC<FeatureTitleProps> = ({ scene, layout, opaci
         style={{
           color: VIDEO_THEME.color.text,
           fontFamily: VIDEO_THEME.fontFamily,
-          fontSize: isPortrait ? 53 : 54,
+          fontSize: isPortrait ? 53 : 34,
           fontWeight: 700,
           letterSpacing: "-0.045em",
           lineHeight: 1.04,
@@ -53,7 +53,7 @@ export const FeatureTitle: React.FC<FeatureTitleProps> = ({ scene, layout, opaci
       >
         {scene.title}
       </div>
-      {scene.subtitle && (
+      {scene.subtitle && isPortrait && (
         <div
           style={{
             color: VIDEO_THEME.color.textMuted,

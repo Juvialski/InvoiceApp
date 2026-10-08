@@ -39,6 +39,9 @@ test("company access remains resolved separately from Google identity authentica
   const access = source("src/context/CompanyAccessContext.tsx");
   assert.match(access, /loadCompanyAccess\(supabase\)/);
   assert.match(access, /loadDeploymentCompanyId\(supabase\)/);
-  assert.match(access, /resolveDeploymentCompanyAccess\(loaded, deploymentCompanyId\)/);
+  assert.match(access, /refreshCompanyAccessState/);
+  const recovery = source("src/lib/companyAccessRecovery.ts");
+  assert.match(recovery, /options.resolveAccess \|\| resolveDeploymentCompanyAccess/);
+  assert.match(recovery, /\(loaded, deploymentCompanyId\)/);
   assert.doesNotMatch(access, /companyId.*=.*google|google.*companyId/i);
 });

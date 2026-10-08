@@ -47,10 +47,12 @@ test("workforce platform UI keeps dialogs, filters, access states, and Assistant
   assert.match(access, /activeMemberCount/);
   assert.match(access, /aria-live=\{notice\.kind === "error" \? "assertive" : "polite"\}/);
   assert.match(access, /Loading access records/);
-  assert.match(settings, /one client company/);
+  assert.match(settings, /<DeploymentAccessManagement/);
+  assert.match(settings, /<CompanyProfileSettings/);
+  assert.match(companyProfile, /one client company/);
 
   assert.match(assistantPanel, /aria-controls="assistant-panel"/);
-  assert.match(assistantPanel, /role="log" aria-label=\{`\$\{BRAND\.assistantName\} conversation`\}/);
+  assert.match(assistantPanel, /role="log" aria-label=\{`\$\{currentWorkspacePresentation\(\)\.assistantName\} conversation`\}/);
   assert.match(assistantPanel, /disabled=\{isLoading \|\| !canUseAssistant\}/);
   assert.match(assistantAction, /Nothing changes until you explicitly confirm/);
   assert.match(assistantAction, /role="group" aria-label=\{`\$\{confirmationLabel\(preparedAction\.riskTier\)\} requiring confirmation`\}/);

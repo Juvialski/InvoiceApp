@@ -12,9 +12,9 @@ interface DesktopFrameProps {
 }
 
 export function getDesktopFrameWidth(width: number, height: number, layout: "portrait" | "landscape"): number {
-  const maxWidth = layout === "portrait" ? width * 0.94 : width * 0.64;
-  const maxFrameHeight = layout === "portrait" ? height * 0.34 : height * 0.68;
-  const maxScreenWidthByHeight = Math.max(1, maxFrameHeight - 34) * (16 / 9);
+  const maxWidth = layout === "portrait" ? width * 0.98 : width * 0.76;
+  const maxFrameHeight = layout === "portrait" ? height * 0.36 : height * 0.80;
+  const maxScreenWidthByHeight = Math.max(1, maxFrameHeight - 50) * (16 / 9);
   return Math.floor(Math.min(maxWidth, maxScreenWidthByHeight));
 }
 

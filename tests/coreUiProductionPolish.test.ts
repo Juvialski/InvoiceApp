@@ -32,12 +32,12 @@ test("core operations result surfaces remain keyboard- and screen-reader-scannab
   assert.match(projectRegister, /aria-label="Projects list cards"/);
   assert.match(projectRegister, /aria-label="Projects table"/);
   assert.match(projectRegister, /Open project workspace for/);
-  assert.match(projectRegister, /focus-visible:ring-2/);
+  assert.match(projectRegister, /hqs-focus-ring/);
 
   assert.match(invoices, /<caption className="sr-only">/);
   assert.match(invoices, /scope="col"/);
   assert.match(invoices, /focus-visible:ring-2/);
-  assert.match(invoices, /aria-pressed={selected}/);
+  assert.match(invoices, /aria-label="Review status"/);
 
   assert.match(expenses, /aria-label="Expense register"/);
   assert.match(expenses, /aria-label="Expense register cards"/);
@@ -56,7 +56,8 @@ test("invoice review and expense entry make the next action explicit", () => {
 
 test("reports and dashboard keep source-currency boundaries visible", () => {
   assert.match(dashboard, /not converted or summed into PHP/);
-  assert.match(reports, /Voided invoices are excluded from active totals; currencies remain separate/);
-  assert.match(reports, /No automatic conversion is applied/);
-  assert.match(cash, /no implicit FX conversion is applied/i);
+  assert.match(reports, /invoices.filter\(\(invoice\) => !isVoidedInvoice\(invoice\)\)/);
+  assert.match(reports, /totalsByCurrency\(activeInvoices\)/);
+  assert.match(reports, /Foreign verified records without an authoritative FX snapshot/);
+  assert.match(cash, /Selected-currency totals; no implicit FX/i);
 });

@@ -13,12 +13,16 @@
     "typecheck": "tsc --noEmit",
     "compositions": "npm run assets:prepare && remotion compositions src/index.tsx",
     "studio": "npm run assets:prepare && remotion studio src/index.tsx",
-    "render:transition-review": "npm run assets:prepare && remotion render src/index.tsx HydroQualiSenseCommercial9x16 ../../artifacts/marketing-video/mkt-v3a/transition-review-frames --frames=141,273,567,789,1251,1428,1560 --sequence --image-format=png",
-    "contact-sheet": "powershell -ExecutionPolicy Bypass -File scripts/create-contact-sheet.ps1",
-    "render:preview": "npm run assets:prepare && npm run assets:validate && remotion render src/index.tsx HydroQualiSenseCommercial9x16 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-preview.mp4 --codec=h264 --crf=18 --overwrite=true --concurrency=4",
-    "render:landscape": "npm run assets:prepare && npm run assets:validate && remotion render src/index.tsx HydroQualiSenseCommercial16x9 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-landscape-check.mp4 --codec=h264 --crf=18 --overwrite=true --concurrency=4",
+    "render:transition-review": "npm run contact-sheet",
+    "contact-sheet": "npm run handoff && npm run inspect:portrait && npm run inspect:landscape",
+    "render:preview": "npm run render:portrait",
+    "render:landscape": "npm run assets:prepare && npm run assets:validate && remotion render src/index.tsx HydroQualiSenseCommercial16x9 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-landscape-final.mp4 --codec=h264 --crf=18 --overwrite=true --concurrency=2 --log=error",
     "render:still": "npm run assets:prepare && remotion still src/index.tsx HydroQualiSenseCommercial9x16 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-opening-frame.png --frame=20",
-    "render:landscape-still": "npm run assets:prepare && remotion still src/index.tsx HydroQualiSenseCommercial16x9 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-landscape-layout-check.png --frame=900"
+    "render:landscape-still": "npm run assets:prepare && remotion still src/index.tsx HydroQualiSenseCommercial16x9 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-landscape-layout-check.png --frame=900",
+    "render:portrait": "npm run assets:prepare && npm run assets:validate && remotion render src/index.tsx HydroQualiSenseCommercial9x16 ../../artifacts/marketing-video/mkt-v3a/hydroqualisense-mkt-v3a-portrait-final.mp4 --codec=h264 --crf=18 --overwrite=true --concurrency=2 --log=error",
+    "handoff": "tsx scripts/production-handoff.ts",
+    "inspect:portrait": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/inspect-masters.ps1 -Layout portrait",
+    "inspect:landscape": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/inspect-masters.ps1 -Layout landscape"
   },
   "dependencies": {
     "@remotion/media": "4.0.530",

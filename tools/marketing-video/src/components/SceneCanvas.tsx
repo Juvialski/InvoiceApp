@@ -65,7 +65,7 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
       <BrandHeader layout={layout} />
       {!hideFeatureTitle && <FeatureTitle scene={scene} layout={layout} opacity={opacity} translateY={translateY} />}
       {children}
-      {!hideFeatureCaption && <Caption scene={scene} layout={layout} opacity={opacity} translateY={translateY * 0.6} />}
+      {!hideFeatureCaption && layout === "portrait" && <Caption scene={scene} layout={layout} opacity={opacity} translateY={translateY * 0.6} />}
       <BottomRail layout={layout} />
     </AbsoluteFill>
   );
@@ -74,7 +74,7 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
 const BrandHeader: React.FC<{ layout: VideoLayout }> = ({ layout }) => {
   const { width, height } = useVideoConfig();
   const inset = layout === "portrait" ? Math.round(width * 0.075) : Math.round(width * 0.045);
-  const top = layout === "portrait" ? Math.round(height * 0.042) : Math.round(height * 0.065);
+  const top = layout === "portrait" ? Math.round(height * 0.042) : Math.round(height * 0.02);
   return (
     <div
       style={{
@@ -110,7 +110,7 @@ const BottomRail: React.FC<{ layout: VideoLayout }> = ({ layout }) => {
         position: "absolute",
         left: inset,
         right: inset,
-        bottom: layout === "portrait" ? 50 : 30,
+        bottom: layout === "portrait" ? 50 : 12,
         display: "flex",
         alignItems: "center",
         justifyContent: "flex-end",

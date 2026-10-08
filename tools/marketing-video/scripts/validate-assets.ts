@@ -23,7 +23,7 @@ async function main() {
 
   const workbook = SCENES.find((scene) => scene.id === "operations-workbook");
   assert.ok(workbook);
-  assert.ok(workbook.durationInFrames / COMMERCIAL_DURATION_IN_FRAMES <= 0.15, "workbook stays under 15% of runtime");
+  assert.ok(workbook.durationInFrames / COMMERCIAL_DURATION_IN_FRAMES <= 0.10, "workbook stays under 10% of runtime");
 
   const referencedAssetIds = new Set(SCENES.flatMap((scene) => scene.beats.map((beat) => beat.assetId)));
   for (const scene of SCENES) {

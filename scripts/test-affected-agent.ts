@@ -76,8 +76,8 @@ export function executeAffectedTestsCompact(
     return executeCommand(npmCommand, ['test'], cwd);
   }
 
-  const args = ['--test', '--test-concurrency=1', '--experimental-strip-types'];
-  if (selection.selectedTests.some((file) => file.endsWith('.tsx'))) args.push('--import', 'tsx');
+  // .ts tests can import .tsx application components transitively.
+  const args = ['--test', '--test-concurrency=1', '--test-reporter=tap', '--experimental-strip-types', '--import', 'tsx'];
   args.push(...selection.selectedTests);
   return executeCommand('node', args, cwd);
 }
