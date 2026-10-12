@@ -21,6 +21,10 @@ Environment: local `http://127.0.0.1:3000`, Node 24.19.0, repository-pinned Play
 
 Initial stale label/tax-disclosure assertions were corrected to exercise the new presentation, preserving their permission, protected-field and editing checks. No historical full-suite run was completed. One mistyped browser feature selector was stopped when it attempted full-catalog fallback; the final browser runs used the explicitly scoped 32 scenarios. Local output is transient; only the reviewed sanitized manifest and curated captures are retained here.
 
+## Protected CI follow-up
+
+The first exact-head protected Chromium run on `8108176abaff744b677548e6f62e409dee1251c1` ran all 398 scenarios and passed 395. Three harness expectations still referenced the old upload label / old Warehouse primary action. The Add bill contrast and filter checks now select the new label, and Warehouse expects Assign stock as primary with Add item/Opening stock secondary. Their contrast, filter-removal, responsive and action-variant assertions are unchanged. The focused five-scenario rerun, lint/typecheck and follow-up affected tests (343/343 across 47 selected files, no fallback) passed; this follow-up changes only browser checks and this evidence note, not the application source or captured runtime tree. The PR's updated exact-head protected results remain authoritative.
+
 ## Actual beginner journeys
 
 The runner is `scripts/qa/ux-reset-beginner.mjs`; run against a local server with `node scripts/qa/ux-reset-beginner.mjs`. Optional `UX_RESET_VIEWPORTS` narrows diagnosis; default validates all three required viewports. It refuses a non-local server.

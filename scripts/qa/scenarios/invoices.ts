@@ -247,10 +247,10 @@ export const verifyStaleSupplierInvoiceRecovery: QaScenarioAction = async (page)
 };
 export const verifyR4ePrimaryButtonContrast: QaScenarioAction = async (page) => {
   const themeAssertions = await applyThemePreferenceForVisualQa(page, "dark");
-  const button = page.getByRole("button", { name: "Upload supplier invoice", exact: true }).first();
+  const button = page.getByRole("button", { name: "Add bill", exact: true }).first();
   await button.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const colors = await page.evaluate(() => {
-    const element = Array.from(document.querySelectorAll<HTMLElement>('[data-ui="page-header-actions"] button')).find((candidate) => candidate.textContent?.trim() === "Upload supplier invoice");
+    const element = Array.from(document.querySelectorAll<HTMLElement>('[data-ui="page-header-actions"] button')).find((candidate) => candidate.textContent?.trim() === "Add bill");
     return {
       background: element ? getComputedStyle(element).backgroundColor : "missing",
       foreground: element ? getComputedStyle(element).color : "missing",
@@ -268,7 +268,7 @@ export const verifyInvoiceRegisterCompactFilters: QaScenarioAction = async (page
   const toolbarCount = await page.locator('[data-ui="compact-action-bar"]').count();
   const searchCount = await page.getByRole("searchbox", { name: "Search invoices", exact: true }).count()
     + await page.getByRole("textbox", { name: "Search invoices", exact: true }).count();
-  const uploadCount = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('[data-ui="page-header-actions"] button')).filter((button) => button.textContent?.trim() === "Upload supplier invoice").length);
+  const uploadCount = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('[data-ui="page-header-actions"] button')).filter((button) => button.textContent?.trim() === "Add bill").length);
   const filterButton = page.getByRole("button", { name: /^Filters/ }).first();
   const filterButtonCount = await filterButton.count();
   let activeChipCount = 0;
