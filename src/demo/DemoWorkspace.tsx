@@ -521,20 +521,20 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     const allocation = data.invoiceAllocations.filter((item) => item.invoiceId === invoice.id);
     const projection = supplierExpenseProjectProjection({ ...invoice, allocations: allocation });
     const projectId = projection.projectId;
-    const linkedExpense = existingExpense || createLocalExpense({
+    const linkedExpense = existingExpense || { ...createLocalExpense({
       projectId,
       projectCostCodeId: allocation.length === 1 ? allocation[0]?.projectCostCodeId : undefined,
       expenseDate: invoice.invoiceDate || data.anchorDate,
       category: invoice.category || "Miscellaneous",
-      description: invoice.invoiceNumber ? `Supplier invoice ${invoice.invoiceNumber}` : "Supplier invoice expense",
+      description: invoice.description || (invoice.invoiceNumber ? `Supplier invoice ${invoice.invoiceNumber}` : "Supplier invoice expense"),
       payee: invoice.vendor?.name || "Supplier",
       supplierInvoiceId: invoice.id,
-      vendorId: invoice.vendor?.vendorId,
+      vendorId: invoice.entityResolution?.matchedEntityId || invoice.vendor?.vendorId,
       amount: Math.max(0, invoice.grandTotal || 0),
       currency: invoice.currency || "PHP",
       referenceNumber: invoice.invoiceNumber || undefined,
       status: "DRAFT",
-    });
+    }), id: `demo-expense-verified-${invoice.id}` };
     if (!existingExpense) dispatch({ type: "SAVE_EXPENSE", value: linkedExpense });
     const updated = { ...invoice, linkedExpenseId: linkedExpense.id, reviewStatus: "VERIFIED" as const, status: invoice.status === "PENDING" || invoice.status === "DRAFT" ? "APPROVED" : invoice.status, verifiedAt: `${data.anchorDate}T13:30:00+08:00` };
     dispatch({ type: "SAVE_INVOICE", value: updated });

@@ -60,6 +60,8 @@ export interface WorksheetEditorProps<T> {
   emptyState?: React.ReactNode;
   className?: string;
   density?: "compact" | "comfortable";
+  /** Keep repeated fact sections quiet until keyboard/pointer focus enters them. */
+  quietUnfocusedSelection?: boolean;
 }
 
 function issueValue(value: WorksheetCellIssue | string | undefined, defaultSeverity: WorksheetCellIssue["severity"] = "warning"): WorksheetCellIssue | undefined {
@@ -151,6 +153,7 @@ export function WorksheetEditor<T>({
   emptyState = "No worksheet rows yet.",
   className = "",
   density = "compact",
+  quietUnfocusedSelection = false,
 }: WorksheetEditorProps<T>) {
   const actionDisabled = disabled || isSaving;
   const initialEditingPosition = !actionDisabled && initialEditingCell && rows[initialEditingCell.row] && columns[initialEditingCell.column] && isWorksheetColumnEditable(columns[initialEditingCell.column], rows[initialEditingCell.row], initialEditingCell.row)
@@ -158,6 +161,7 @@ export function WorksheetEditor<T>({
     : null;
   const [draftRows, setDraftRows] = useState<readonly T[]>(() => rows.slice());
   const [activeCell, setActiveCell] = useState<WorksheetCellPosition>(() => clampPosition(initialActiveCell, rows.length, columns.length));
+  const [hasFocus, setHasFocus] = useState(false);
   const [editingCell, setEditingCell] = useState<WorksheetCellPosition | null>(initialEditingPosition);
   const [editorValue, setEditorValue] = useState(() => {
     const position = initialEditingPosition;
@@ -472,7 +476,7 @@ export function WorksheetEditor<T>({
             ? "protected"
             : isEditing
               ? "editing"
-              : suppliedState || (collectionHas(dirtyCells, key) || localDirtyCells.has(key) ? "dirty" : activeCell.row === rowIndex && activeCell.column === columnIndex ? "selected" : "clean");
+              : suppliedState || (collectionHas(dirtyCells, key) || localDirtyCells.has(key) ? "dirty" : (!quietUnfocusedSelection || hasFocus) && activeCell.row === rowIndex && activeCell.column === columnIndex ? "selected" : "clean");
     const describedBy = issue || conflict ? `${key.replace(/[^a-zA-Z0-9_-]/g, "-")}-message` : undefined;
     const context: WorksheetCellContext<T> = { row, rowIndex, rowKey: currentRowKey, column, columnIndex, source: "edit" };
     const displayValue = getWorksheetColumnValue(row, column);
@@ -538,7 +542,7 @@ export function WorksheetEditor<T>({
   );
 
   return (
-    <section data-worksheet-editor="true" data-worksheet-dirty={rootDirty} className={`flex min-w-0 flex-col ${className}`} aria-label={ariaLabel}>
+    <section data-worksheet-editor="true" data-worksheet-dirty={rootDirty} className={`flex min-w-0 flex-col ${className}`} aria-label={ariaLabel} onFocusCapture={() => setHasFocus(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHasFocus(false); }}>
       {showActionBar && <div data-worksheet-action-bar="true" className="hqs-border flex min-w-0 flex-col gap-2 border-b px-2 py-1.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="sr-only">{ariaLabel}</span>
@@ -591,7 +595,7 @@ export function WorksheetEditor<T>({
                         role="gridcell"
                         aria-colindex={columnIndex + 1}
                         aria-readonly={cell.readOnlyCell || actionDisabled || undefined}
-                        aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
+                        aria-selected={(!quietUnfocusedSelection || hasFocus) && activeCell.row === rowIndex && activeCell.column === columnIndex}
                         aria-describedby={viewDescribedBy}
                         data-worksheet-align={column.align || "left"}
                         tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
@@ -642,7 +646,7 @@ export function WorksheetEditor<T>({
                       role="gridcell"
                       aria-label={`${column.header}, row ${rowIndex + 1}`}
                       aria-readonly={cell.readOnlyCell || actionDisabled || undefined}
-                      aria-selected={activeCell.row === rowIndex && activeCell.column === columnIndex}
+                      aria-selected={(!quietUnfocusedSelection || hasFocus) && activeCell.row === rowIndex && activeCell.column === columnIndex}
                       aria-describedby={viewDescribedBy}
                       tabIndex={activeCell.row === rowIndex && activeCell.column === columnIndex && !cell.isEditing ? 0 : -1}
                       data-worksheet-mobile-field={cell.key}

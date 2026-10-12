@@ -169,9 +169,9 @@ test("the UI presents readiness reasons, exposes Expense posting facts, and rout
   assert.match(expensesPage, /Fix invoice/);
   assert.match(expensesPage, /Supplier documents requiring review or completion/);
   assert.match(reviewSource, /Expense description/);
-  assert.match(reviewSource, /Create &amp; Link Vendor/);
-  assert.match(reviewSource, /Link this Vendor/);
-  assert.match(reviewSource, /Confirm description/);
+  assert.match(reviewSource, /Add and use supplier/);
+  assert.match(reviewSource, /Use this supplier/);
+  assert.match(reviewSource, /Add description/);
   assert.match(reviewSource, /supplier-invoice-unresolved-issues/);
   assert.doesNotMatch(reviewSource, /Blocking review items/);
   assert.match(reviewSource, /Review notes/);

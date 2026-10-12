@@ -27,16 +27,16 @@ test("exposes Email / SMS and Documents as primary modules while keeping setting
   ]);
   assert.equal(getNavigationModel().settingsRoute?.id, "settings");
   assert.deepEqual(getInvoiceContextualLabels(), {
-    extract: "Upload supplier invoice",
-    review: "Supplier review queue",
-    invoices: "Supplier documents",
-    vendors: "Vendors",
+    extract: "Add bill",
+    review: "Bills needing review",
+    invoices: "All bills",
+    vendors: "Suppliers",
   });
 });
 
 test("groups visible modules by business workflow without duplicating routes", () => {
   const model = getNavigationModel();
-  assert.deepEqual(model.groups.map((group) => group.id), ["operations", "finance", "people", "communications"]);
+  assert.deepEqual(model.groups.map((group) => group.id), ["everyday", "more-tools"]);
   const groupedModules = model.groups.flatMap((group) => group.modules.map((module) => module.id));
   assert.deepEqual(new Set(groupedModules), new Set(model.modules.map((module) => module.id)));
   assert.equal(new Set(groupedModules).size, groupedModules.length);
@@ -47,7 +47,7 @@ test("navigation grouping never bypasses permission filtering", () => {
   const model = getNavigationModel({ permissions: [PERMISSION_KEYS.payrollRead] });
   assert.deepEqual(model.modules.map((module) => module.id), ["payroll"]);
   assert.deepEqual(model.groups.flatMap((group) => group.modules.map((module) => module.id)), ["payroll"]);
-  assert.deepEqual(model.groups.map((group) => group.id), ["people"]);
+  assert.deepEqual(model.groups.map((group) => group.id), ["more-tools"]);
 });
 
 test("Operations Workbook navigation requires access to an enabled sheet and reuses domain permissions", () => {
@@ -64,15 +64,15 @@ test("filters modules and invoice subtabs by permissions", () => {
   const model = getNavigationModel({ permissions: [PERMISSION_KEYS.invoicesExtract] });
   assert.deepEqual(model.modules.map((module) => module.id), ["documents", "invoices"]);
   const invoiceModule = model.modules.find((module) => module.id === "invoices");
-  assert.deepEqual(invoiceModule?.routes.map((route) => [route.id, route.label]), [["extract", "Upload supplier invoice"]]);
+  assert.deepEqual(invoiceModule?.routes.map((route) => [route.id, route.label]), [["extract", "Add bill"]]);
   assert.deepEqual(model.modules.find((module) => module.id === "documents")?.routes.map((route) => route.id), ["documents"]);
   assert.equal(model.settingsRoute, undefined);
 
   const financeModel = getNavigationModel({ permissions: [PERMISSION_KEYS.invoicesRead] });
   const financeInvoices = financeModel.modules.find((module) => module.id === "invoices");
   assert.deepEqual(financeInvoices?.routes.map((route) => [route.id, route.label]), [
-    ["invoices", "Supplier documents"],
-    ["review", "Supplier review queue"],
+    ["invoices", "All bills"],
+    ["review", "Bills needing review"],
   ]);
 
   const emailModel = getNavigationModel({ permissions: [PERMISSION_KEYS.documentSend] });

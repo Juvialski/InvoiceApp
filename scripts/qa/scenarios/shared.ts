@@ -335,7 +335,7 @@ export const sharedScenarioActions: Readonly<Record<string, QaScenarioAction>> =
   "verifyPageHeaderActionVariants:cash": verifyPageHeaderActionVariants([{ label: "Executive Dashboard", variant: "ghost" }, { label: "Add account", variant: "primary" }]),
   "verifyPageHeaderActionVariants:expenses": verifyPageHeaderActionVariants([{ label: "Upload supplier invoice", variant: "secondary" }, { label: "Add expense", variant: "primary" }]),
   "verifyPageHeaderActionVariants:equipment": verifyPageHeaderActionVariants([{ label: "Add Equipment", variant: "primary" }]),
-  "verifyPageHeaderActionVariants:warehouse": verifyPageHeaderActionVariants([{ label: "Add item", variant: "primary" }, { label: "Opening stock", variant: "secondary" }]),
+  "verifyPageHeaderActionVariants:warehouse": verifyPageHeaderActionVariants([{ label: "Assign stock to a project", variant: "primary" }, { label: "Add item", variant: "secondary" }, { label: "Opening stock", variant: "secondary" }]),
   "verifyPageHeaderActionVariants:procurement": verifyPageHeaderActionVariants([{ label: "New Purchase Order", variant: "primary" }]),
   "r4eThemeAction:light": r4eThemeAction("light"),
   "r4eThemeAction:dark": r4eThemeAction("dark"),

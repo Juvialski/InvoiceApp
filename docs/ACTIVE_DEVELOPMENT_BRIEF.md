@@ -15,6 +15,10 @@
 - **CI baseline:** on the 2026-10-08 `main` commit, the four required validation workflows succeeded. The 2026-10-11 scheduled full regression also succeeded. These results certify that historical commit only, not future PR heads.
 - Normal engineering implementation uses **one Codex lead, zero subagents by default, bounded scope, focused/affected tests, and a PR for ChatGPT safe-merge review**. Jev advisory calls and context packets are optional; CI/database/release safeguards remain mandatory when relevant.
 
+## UX-RESET-1 implementation review
+
+The user-authorized beginner-friendly simplification is implemented on `codex/ux-reset-1`: task-first daily navigation and Home, clearer supplier bill review/payment continuation, compact stock entry and responsive/shared controls. Route identities, permissions and financial source/history authority remain unchanged. This is an open-PR implementation boundary, not a merged or deployed release. See [inventory](UX-RESET-1-INVENTORY.md), [qualified evidence](UX-RESET-1-EVIDENCE.md) and the planning-only [UX-RESET-2 workbook specification](UX-RESET-2-WORKBOOK-SPEC.md). No broader workbook adapters are enabled.
+
 ## Next actionable priorities
 
 1. **WF-RESET-2:** complete bounded workflow cleanup and restored-QA recovery. WF-RESET-1 (#297) and QA-RECOVERY (#298) are merged foundations. Jev/context remain optional; active roadmap/handoff are concise with complete historical archives.

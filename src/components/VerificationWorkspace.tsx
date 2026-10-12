@@ -197,6 +197,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   const [loadedVendors, setLoadedVendors] = useState<Vendor[]>(vendors || []);
   const [warningConfirmation, setWarningConfirmation] = useState(false);
   const [retryConfirmation, setRetryConfirmation] = useState(false);
+  const [worksheetDirty, setWorksheetDirty] = useState(false);
   const projectAllocationDisclosureRef = useRef<HTMLDetailsElement | null>(null);
 
   useEffect(() => {
@@ -217,7 +218,8 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
     projects,
   }), [invoice, invoiceProjectAllocations, projects]);
   const display = useMemo(() => getInvoiceDisplay(invoice, { reportingCurrency: "PHP", financialFxSnapshots }), [financialFxSnapshots, invoice]);
-  const issueCount = invoice.validation?.issues?.filter((issue) => issue.severity === "warning" || issue.severity === "error").length || 0;
+  const issueCount = (invoice.validation?.issues?.filter((issue) => issue.severity === "warning" || issue.severity === "error").length || 0)
+    + (invoice.duplicateStatus === "POSSIBLE_DUPLICATE" || invoice.duplicateOfId ? 1 : 0);
   const quality = invoice.extractionQuality;
   const extractionIncomplete = Boolean(quality?.requiresRetry || quality?.status === "NEEDS_REVIEW" || (!quality && ((!invoice.currency && invoice.grandTotal > 0) || (invoice.items.length === 0 && (invoice.subtotal > 0 || invoice.grandTotal > 0)))));
   const humanEdits = useMemo(() => {
@@ -229,8 +231,8 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   const remainingCount = useMemo(() => queue.filter((item) => item.reviewStatus === "NEEDS_REVIEW").length, [queue]);
   const positionLabel = inReviewSession ? `${Math.min(queueIndex + 1, queue.length)} / ${queue.length}` : "Standalone";
   const verifyActionLabel = repairMode
-    ? (inReviewSession ? "Save & Create Expense & Next" : "Save & Create Expense")
-    : (inReviewSession ? "Verify & Create Expense & Next" : "Verify & Create Expense");
+    ? (inReviewSession ? "Save correction & next" : "Save correction")
+    : (inReviewSession ? "Confirm bill & next" : "Confirm bill");
 
   const handleInvoiceUpdate = (updated: InvoiceData) => {
     const resolutionChanged = JSON.stringify(updated.entityResolution ?? null) !== JSON.stringify(invoice.entityResolution ?? null);
@@ -257,7 +259,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   };
 
   const verifyAndNext = async () => {
-    if (!needsReview || !canVerify || !supplierReadiness.complete) return;
+    if (!needsReview || !canVerify || !supplierReadiness.complete || worksheetDirty || saveState === "saving") return;
     if (issueCount > 0 && !warningConfirmation) {
       setWarningConfirmation(true);
       return;
@@ -265,6 +267,8 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
     const completed = await onVerifyAndNext();
     if (completed) setWarningConfirmation(false);
   };
+
+  useEffect(() => { setWarningConfirmation(false); }, [invoice, worksheetDirty]);
 
   const requestRetry = () => {
     if (!needsReview || isRetrying) return;
@@ -275,6 +279,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   useEffect(() => {
     setWarningConfirmation(false);
     setRetryConfirmation(false);
+    setWorksheetDirty(false);
   }, [invoice.id, invoice.reviewStatus, invoice.lifecycleStatus]);
 
   useEffect(() => {
@@ -329,9 +334,12 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
       </div>
     </header>
 
-    <div className="min-w-0 space-y-3 pb-36 sm:pb-24">
-      <div data-testid="supplier-invoice-side-by-side-review" className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <section data-testid="supplier-invoice-source-pane" aria-label="Supplier invoice source pane" className="min-w-0 xl:sticky xl:top-3 xl:self-start xl:max-h-[calc(100vh-1.5rem)] xl:overflow-y-auto">
+    <div className="min-w-0 space-y-3 pb-36 sm:pb-24" data-bill-journey="true">
+      <ol aria-label="Bill progress" className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500"><li>1. Add bill</li><li aria-current={needsReview ? "step" : undefined} className={needsReview ? "font-bold text-slate-900" : undefined}>2. Review details</li><li aria-current={isVerified ? "step" : undefined} className={isVerified ? "font-bold text-slate-900" : undefined}>3. {isVerified ? "Bill confirmed" : "Confirm bill"}</li><li>4. Record payment</li></ol>
+      {worksheetDirty && needsReview && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">Save worksheet edits before confirming this bill.</p>}
+      {!inReviewSession && needsReview && canVerify && supplierReadiness.complete && warningConfirmation && <section role="alert" aria-label="Confirm bill warnings" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><p>{issueCount} review warning{issueCount === 1 ? "" : "s"} remain, including any possible duplicate. Check the review notes before confirming.</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setWarningConfirmation(false)} className="min-h-11 rounded-lg border border-amber-200 bg-white px-3 font-semibold">Keep reviewing</button><button type="button" onClick={() => void verifyAndNext()} disabled={worksheetDirty || saveState === "saving"} className="min-h-11 rounded-lg bg-amber-700 px-3 font-semibold text-white">Confirm bill anyway</button></div></section>}
+      <div data-testid="supplier-invoice-side-by-side-review" className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <section data-testid="supplier-invoice-source-pane" aria-label="Supplier invoice source pane" className="min-w-0 lg:sticky lg:top-3 lg:self-start lg:max-h-[calc(100vh-1.5rem)] lg:overflow-y-auto">
           <section data-testid="supplier-invoice-source-surface" aria-label="Original supplier invoice source" className="min-w-0">
             <SourceComparison invoice={invoice} onRevertField={needsReview ? onRevertField : undefined} />
           </section>
@@ -344,7 +352,8 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
       <SupplierInvoiceReview
         invoice={invoice}
         readOnly={isVerified || invoice.lifecycleStatus === "VOID"}
-        onVerify={needsReview && canVerify && supplierReadiness.complete ? () => void verifyAndNext() : undefined}
+        onVerify={needsReview && canVerify && supplierReadiness.complete && !worksheetDirty && saveState !== "saving" ? () => void verifyAndNext() : undefined}
+        onDraftDirtyChange={setWorksheetDirty}
         verifyLabel={verifyActionLabel}
         onRetryExtraction={needsReview && !extractionIncomplete ? requestRetry : undefined}
         isRetryingExtraction={isRetrying}
@@ -395,6 +404,6 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
       </div>
     </div>
 
-    {inReviewSession && <div className="sticky bottom-2 z-20 rounded-2xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur p-2.5"><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => void onPrevious()} disabled={queueIndex <= 0} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40"><ChevronLeft className="w-4 h-4" />Previous <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+P</span></button><span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 px-1"><Clock3 className="w-3.5 h-3.5" />{positionLabel}</span><button type="button" onClick={() => void onNext()} disabled={queueIndex >= queue.length - 1} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Next <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+N</span><ChevronRight className="w-4 h-4" /></button>{needsReview && canVerify ? <><button type="button" onClick={() => void onSave()} disabled={saveState === "saving"} className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-800 disabled:opacity-50"><Save className="w-3.5 h-3.5" />Save</button><div className="hidden md:flex items-center gap-1 text-[9px] text-slate-400"><Keyboard className="w-3.5 h-3.5" />Ctrl/Cmd+Enter</div>{supplierReadiness.complete ? <button type="button" onClick={() => void verifyAndNext()} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:bg-emerald-800"><ShieldCheck className="w-4 h-4" />{verifyActionLabel} <ArrowRight className="w-3.5 h-3.5" /></button> : <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-[10px] font-black text-amber-900">{supplierReadiness.blockingReasons[0] || "Resolve supplier posting facts before verification."}</span>}</> : <div className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black text-slate-700">{needsReview ? "Expense management permission required to verify" : <><ShieldCheck className="w-3.5 h-3.5" />Read-only verified · Fix invoice above</>}</div>}</div>{needsReview && canVerify && supplierReadiness.complete && warningConfirmation && <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] text-amber-900"><span><strong>{issueCount} validation warning{issueCount === 1 ? "" : "s"} remain.</strong> Verify this invoice anyway?</span><div className="flex items-center gap-2"><button type="button" onClick={() => setWarningConfirmation(false)} className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 font-bold text-amber-800">Cancel</button><button type="button" onClick={() => void verifyAndNext()} className="rounded-lg bg-amber-700 px-2.5 py-1.5 font-bold text-white">Verify &amp; Continue</button></div></div>}</div>}
+    {inReviewSession && <div className="sticky bottom-2 z-20 rounded-2xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur p-2.5"><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => void onPrevious()} disabled={queueIndex <= 0} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40"><ChevronLeft className="w-4 h-4" />Previous <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+P</span></button><span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 px-1"><Clock3 className="w-3.5 h-3.5" />{positionLabel}</span><button type="button" onClick={() => void onNext()} disabled={queueIndex >= queue.length - 1} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Next <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+N</span><ChevronRight className="w-4 h-4" /></button>{needsReview && canVerify ? <><button type="button" onClick={() => void onSave()} disabled={saveState === "saving"} className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-800 disabled:opacity-50"><Save className="w-3.5 h-3.5" />Save</button><div className="hidden md:flex items-center gap-1 text-[9px] text-slate-400"><Keyboard className="w-3.5 h-3.5" />Ctrl/Cmd+Enter</div>{supplierReadiness.complete ? <button type="button" onClick={() => void verifyAndNext()} disabled={worksheetDirty || saveState === "saving"} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"><ShieldCheck className="w-4 h-4" />{verifyActionLabel} <ArrowRight className="w-3.5 h-3.5" /></button> : <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-[10px] font-black text-amber-900">{supplierReadiness.blockingReasons[0] || "Resolve supplier posting facts before verification."}</span>}</> : <div className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-black text-slate-700">{needsReview ? "Expense management permission required to verify" : <><ShieldCheck className="w-3.5 h-3.5" />Read-only verified · Fix invoice above</>}</div>}</div>{needsReview && canVerify && supplierReadiness.complete && warningConfirmation && <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] text-amber-900"><span><strong>{issueCount} review warning{issueCount === 1 ? "" : "s"} remain.</strong> Confirm this bill anyway?</span><div className="flex items-center gap-2"><button type="button" onClick={() => setWarningConfirmation(false)} className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 font-bold text-amber-800">Cancel</button><button type="button" onClick={() => void verifyAndNext()} disabled={worksheetDirty || saveState === "saving"} className="rounded-lg bg-amber-700 px-2.5 py-1.5 font-bold text-white">Confirm bill anyway</button></div></div>}</div>}
   </div>;
 };

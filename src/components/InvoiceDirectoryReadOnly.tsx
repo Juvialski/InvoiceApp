@@ -14,7 +14,7 @@ export function InvoiceDirectoryReadOnly({ invoices, onSelectInvoice, onAddNew, 
   }, [invoices, query]);
 
   return <div className="space-y-5">
-    <PageHeader eyebrow="Supplier control" title="Invoices" description="Read invoice records and verification status. Destructive and editing actions are hidden when your role does not permit them." actions={(onAddNew || onExportInvoicesExcel) ? <PageActionBar>{onExportInvoicesExcel && <ActionButton variant="secondary" icon={<Download aria-hidden="true" className="h-3.5 w-3.5" />} label="Export invoices to Excel" onClick={onExportInvoicesExcel} />}{onAddNew && <ActionButton variant="primary" icon={<Plus aria-hidden="true" className="h-3.5 w-3.5" />} label="New extraction" onClick={onAddNew} />}</PageActionBar> : undefined} />
+    <PageHeader title="Bills & Payments" description="Open a bill to view its details and payment history." actions={(onAddNew || onExportInvoicesExcel) ? <PageActionBar>{onExportInvoicesExcel && <ActionButton variant="secondary" icon={<Download aria-hidden="true" className="h-3.5 w-3.5" />} label="Export invoices to Excel" onClick={onExportInvoicesExcel} />}{onAddNew && <ActionButton variant="primary" icon={<Plus aria-hidden="true" className="h-3.5 w-3.5" />} label="Add bill" onClick={onAddNew} />}</PageActionBar> : undefined} />
     <label className="flex max-w-2xl items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5"><Search className="h-4 w-4 text-slate-400" /><span className="sr-only">Search invoices</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search invoice, vendor, TIN, project…" className="w-full text-xs outline-none" /></label>
     {filtered.length ? <>
       <div data-invoice-mobile-register="true" aria-label="Read-only invoice records" className="grid gap-2 md:grid-cols-2 xl:hidden">
@@ -42,7 +42,7 @@ export function InvoiceDirectoryReadOnly({ invoices, onSelectInvoice, onAddNew, 
               <StatusBadge tone={paymentTone}>{paymentState.replaceAll("_", " ")}</StatusBadge>
             </div>
             <div className="mt-3 flex justify-end">
-              <ActionButton variant="secondary" size="sm" icon={<Eye aria-hidden="true" className="h-3.5 w-3.5" />} label="Open invoice" aria-label={`Open invoice: ${display.primaryLabel}`} onClick={() => onSelectInvoice(invoice)} />
+              <ActionButton variant="secondary" size="sm" icon={<Eye aria-hidden="true" className="h-3.5 w-3.5" />} label="Open bill" aria-label={`Open invoice: ${display.primaryLabel}`} onClick={() => onSelectInvoice(invoice)} />
             </div>
           </article>;
         })}

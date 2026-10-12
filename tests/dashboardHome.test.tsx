@@ -76,7 +76,7 @@ test("incomplete project-cost sources withhold affected insights without replaci
 
   assert.ok(markup.includes('data-dashboard-view="home"'), "incomplete sources should not replace Home");
   assert.ok(/project cost insights/i.test(markup), "the incomplete aggregate should be explained compactly");
-  assert.ok(/Projects|Supplier Invoices/.test(markup), "permission-allowed source navigation should remain available");
+  assert.ok(/All projects|Add bill|Open workbook/.test(markup), "permission-allowed source navigation should remain available");
   assert.doesNotMatch(markup, /Executive Dashboard/);
 });
 

@@ -126,7 +126,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
     <div className="space-y-5" data-tour="invoice-upload">
       <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div><h2 className="text-base font-black">Extract invoice documents</h2><p className="text-xs text-slate-500 mt-1">Upload one invoice or a full batch. Each document is extracted independently.</p></div>
+          <div><h2 className="text-base font-black">Add bill</h2><p className="text-xs text-slate-500 mt-1">Upload a bill, then check its details before confirming.</p></div>
           <div className="flex flex-wrap items-center gap-2">
             <details className="relative">
               <summary className="list-none cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500"><SlidersHorizontal className="w-3.5 h-3.5" />Advanced</summary>
@@ -143,6 +143,11 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
 
         {inputMode === "file" ? (
           <div
+            role="button"
+            tabIndex={isLoading ? -1 : 0}
+            aria-label="Choose bill files"
+            aria-disabled={isLoading}
+            onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !isLoading) { event.preventDefault(); fileInputRef.current?.click(); } }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={(e) => { e.preventDefault(); setDragOver(false); if (!isLoading) void processFiles(Array.from(e.dataTransfer.files || [])); }}

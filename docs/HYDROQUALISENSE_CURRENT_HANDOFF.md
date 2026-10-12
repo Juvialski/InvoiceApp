@@ -55,6 +55,15 @@ Workflow/docs changes preserve separately identified application-bearing
 evidence; exact-head PR CI remains required. Browser PASS alone does not
 establish manual visual quality, provider readiness or production readiness.
 
+## UX-RESET-1 — current implementation handoff
+
+- Starting main: `3bf5db9460b972408b8037bfdc1dddb3822cd83e`; branch `codex/ux-reset-1`.
+- Application-bearing commit: `fffda74308ef92f9de19ba574dd8314de848d759`. Later evidence-only commits retain this executable source; final PR HEAD and protected checks must be read from the PR.
+- One lead, no subagents, no Jev calls, no context packet. Existing local marketing commits were preserved in the original checkout; this phase used a clean isolated worktree.
+- Default daily navigation, task-first Home, supplier issue resolution/confirmation/payment continuation and compact stock entry are implemented. Existing routes/deep links, deployment visibility, permission filtering, source/Expense/settlement authority and worksheet Apply protections are retained.
+- [Feature inventory](UX-RESET-1-INVENTORY.md), [visual/test evidence](UX-RESET-1-EVIDENCE.md) and [UX-RESET-2 specification](UX-RESET-2-WORKBOOK-SPEC.md) are the bounded deliverables. Broader workbook adapters remain planning-only.
+- Local browser evidence uses isolated headless synthetic sessions; actual settlement submission, authenticated hosted certification and production deployment are not claimed. No database changes or promotion occurred. Codex must not merge its own PR.
+
 ## Next action and incomplete scope
 
 The hardening-first freeze remains active. Use the

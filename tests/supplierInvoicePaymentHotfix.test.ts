@@ -66,10 +66,10 @@ test("supplier payment transaction is canonical debit evidence, not an invoice p
   assert.match(transaction.sourceFingerprint, /^cash-/);
 });
 
-test("normal supplier payment stays inside Change Status and uses canonical Expense settlement persistence", () => {
+test("normal supplier payment stays inside Record payment and uses canonical Expense settlement persistence", () => {
   const surface = readFileSync("src/components/SupplierInvoiceExpenseSurface.tsx", "utf8");
   const dialog = readFileSync("src/components/SupplierInvoicePaymentDialog.tsx", "utf8");
-  assert.match(surface, /Change Status/);
+  assert.match(surface, /Record payment/);
   assert.match(surface, /deriveSupplierInvoicePaymentState/);
   assert.match(surface, /Open\/Correct linked Expense/);
   assert.doesNotMatch(surface, /recordPaymentPath=/);

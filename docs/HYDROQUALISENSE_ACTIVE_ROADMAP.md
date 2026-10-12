@@ -12,6 +12,8 @@ Jev/context optional; QA-RECOVERY (#298) skips remote QA for unrelated changes
 while retaining guarded runtime/migration and explicit release checks.
 WF-RESET-2 consolidates active documentation and resumes restored QA certification.
 
+The explicitly authorized **UX-RESET-1** simplification is implemented for PR review: six daily destinations plus permission-filtered More Tools, four Home tasks, a clearer source-review-confirm-payment journey and stock entry. See [inventory](UX-RESET-1-INVENTORY.md) and [evidence](UX-RESET-1-EVIDENCE.md). The [UX-RESET-2 workbook specification](UX-RESET-2-WORKBOOK-SPEC.md) is planning-only; no broader adapters are enabled or certified by this phase.
+
 Next bounded actions:
 
 1. Resolve concrete protected exact-SHA QA failures; certify existing

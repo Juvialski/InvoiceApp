@@ -39,14 +39,14 @@ test("cash candidate builders preserve lifecycle context required by the shared 
   assert.match(demo, /description: "Payroll payment", lifecycleStatus: run\.status/);
 });
 
-test("supplier invoice now starts routine payment from Change Status while retaining guarded correction and Cash tooling", () => {
+test("supplier invoice now starts routine payment from Record payment while retaining guarded correction and Cash tooling", () => {
   const surface = source("src/components/SupplierInvoiceExpenseSurface.tsx");
   const dialog = source("src/components/SupplierInvoicePaymentDialog.tsx");
   const card = source("src/components/FinancialSettlementCard.tsx");
   const expensePage = source("src/components/expenses/ExpensesPage.tsx");
   const cashWorkspace = source("src/components/CashSettlementAllocationWorkspace.tsx");
   const cashPage = source("src/components/CashBankingPage.tsx");
-  assert.match(surface, /Change Status/);
+  assert.match(surface, /Record payment/);
   assert.match(surface, /Open\/Correct linked Expense/);
   assert.doesNotMatch(surface, /recordPaymentPath=/);
   assert.match(dialog, /Confirm Payment/);
