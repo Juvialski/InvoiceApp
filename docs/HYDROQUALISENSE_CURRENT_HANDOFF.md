@@ -9,6 +9,11 @@ main snapshot. RI-1 is merged on `main`; this implementation run starts from
 main SHA `0826d458a7b75693abead8e2ea12160649aa07ec` and implements RI-2 and
 RI-3 sequentially behind the existing context interfaces.
 
+
+## 2026-10-12 — WF-RESET-1 current agent-policy handoff
+
+This is a **documentation-only operating-policy cleanup**, not a new product or deployment certification. For new work, read `AGENTS.md`, the short `docs/ACTIVE_DEVELOPMENT_BRIEF.md`, and task-relevant source/contracts instead of this entire chronological handoff. Codex remains the default implementation lead (zero subagents by default; max two bounded independent ones). Jev and context-packet generation are optional; deterministic affected tests, exact-head CI and financial/RLS/DB/release guards remain. Older mandatory advisory workflow descriptions below are historical. The 2026-10-08 QA release Supabase pooler connection failure remains a separate unresolved release issue.
+
 ## 2026-10-08 — MKT-V3A recovery and two visual masters
 
 This recovery continues PR [#296](https://github.com/Juvialski/InvoiceApp/pull/296), branch `codex/mkt-v3a-remotion-commercial`, from main `1d08ff2c816245b768c40420d8bd03f8a055cd08` and starting PR head `576ad6ab6b8ae1c26fd1d88f15bd745d568f9410`. No application behavior, database, provider credential, or product priority changed.
