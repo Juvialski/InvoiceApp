@@ -8,6 +8,20 @@ export const QA_DATABASE_PUSH_CONFIRMATION = "QA_DATABASE_PUSH";
 const MIGRATION_VERSION = /^\d{14}$/;
 const DOCS_ONLY_PATH = /^(?:docs\/|README(?:\.[^/]+)?$|[^/]+\.md$|[^/]+\.txt$)/i;
 const TEST_ONLY_PATH = /^(?:tests\/|supabase\/tests\/|scripts\/test[^/]*\.ts$)/i;
+// Only isolated marketing tooling is safe to omit from remote QA releases.
+// Root package/config and any application/public assets remain release-relevant.
+const MARKETING_ONLY_SCRIPT_PATHS = new Set([
+  "scripts/marketing-capture.ts",
+  "scripts/marketingCaptureContract.ts",
+  "scripts/marketingCaptureContract.test.ts",
+]);
+function isMarketingOnlyPath(path: string): boolean {
+  return MARKETING_ONLY_SCRIPT_PATHS.has(path)
+    || path.startsWith("tools/marketing-video/")
+    || path.startsWith("scripts/marketing-fixtures/")
+    || path.startsWith("artifacts/marketing-capture/")
+    || path.startsWith("artifacts/marketing-video/");
+}
 const RELEASE_ORCHESTRATION_PATHS = new Set([
   ".github/workflows/hosted-qa-certification.yml",
   ".github/workflows/qa-release.yml",
@@ -23,7 +37,6 @@ const RELEASE_ORCHESTRATION_PATHS = new Set([
 const HOSTED_QA_HARNESS_PATH = /^(?:scripts\/hosted-qa[^/]*\.ts|scripts\/qa\/hostedQaContracts\.ts)$/i;
 const OPERATIONS_WORKBOOK_MATRIX_PATHS = new Set([
   ".github/workflows/hosted-qa-certification.yml",
-  ".github/workflows/qa-release.yml",
   "scripts/hosted-qa-workbook-certification.ts",
   "src/app/routes/OperationsWorkbookRoute.tsx",
   "src/app/routes/OperationsWorkbookTransfer.tsx",
@@ -34,10 +47,9 @@ const OPERATIONS_WORKBOOK_MATRIX_PATHS = new Set([
   "src/lib/operationsWorkbook.ts",
   "src/lib/procurementWorkbook.ts",
   "src/lib/projectsWorkbook.ts",
-  "src/lib/qaReleaseOrchestration.ts",
 ]);
 
-export type QaReleaseChangeClass = "docs-only" | "tests-only" | "orchestration-only" | "runtime-only" | "migration-bearing";
+export type QaReleaseChangeClass = "docs-only" | "tests-only" | "marketing-only" | "orchestration-only" | "runtime-only" | "migration-bearing";
 
 export interface QaReleaseChangeClassification {
   changeClass: QaReleaseChangeClass;
@@ -46,6 +58,7 @@ export interface QaReleaseChangeClassification {
   hasHostedQaHarness: boolean;
   runOperationsWorkbookMatrix: boolean;
   requiresHostedQa: boolean;
+  requiresQaRelease: boolean;
 }
 
 function normalizedPath(path: string): string {
@@ -57,7 +70,7 @@ function isMigrationPath(path: string): boolean {
 }
 
 function isRuntimePath(path: string): boolean {
-  if (!path || DOCS_ONLY_PATH.test(path) || TEST_ONLY_PATH.test(path)) return false;
+  if (!path || DOCS_ONLY_PATH.test(path) || TEST_ONLY_PATH.test(path) || isMarketingOnlyPath(path)) return false;
   if (isMigrationPath(path)) return false;
   if (RELEASE_ORCHESTRATION_PATHS.has(path) || /^\.github\//i.test(path)) return false;
   if (HOSTED_QA_HARNESS_PATH.test(path)) return false;
@@ -77,6 +90,8 @@ export function classifyQaReleasePaths(paths: readonly string[], manualHostedQa 
   const runOperationsWorkbookMatrix = normalized.some((path) => OPERATIONS_WORKBOOK_MATRIX_PATHS.has(path));
   const allDocs = normalized.length > 0 && normalized.every((path) => DOCS_ONLY_PATH.test(path));
   const allTests = normalized.length > 0 && normalized.every((path) => TEST_ONLY_PATH.test(path));
+  const marketingOnly = normalized.some(isMarketingOnlyPath)
+    && normalized.every((path) => isMarketingOnlyPath(path) || DOCS_ONLY_PATH.test(path) || TEST_ONLY_PATH.test(path));
   const changeClass: QaReleaseChangeClass = hasMigration
     ? "migration-bearing"
     : hasRuntime
@@ -85,7 +100,9 @@ export function classifyQaReleasePaths(paths: readonly string[], manualHostedQa 
         ? "docs-only"
         : allTests
           ? "tests-only"
-          : "orchestration-only";
+          : marketingOnly
+            ? "marketing-only"
+            : "orchestration-only";
 
   return {
     changeClass,
@@ -94,6 +111,9 @@ export function classifyQaReleasePaths(paths: readonly string[], manualHostedQa 
     hasHostedQaHarness,
     runOperationsWorkbookMatrix,
     requiresHostedQa: manualHostedQa || hasMigration || hasRuntime || hasHostedQaHarness || runOperationsWorkbookMatrix,
+    // A missing file list (e.g. manual dispatch) fails closed to the guarded QA gate.
+    // Known docs/tests/isolated-marketing/orchestration changes do not touch remote QA.
+    requiresQaRelease: normalized.length === 0 || manualHostedQa || hasMigration || hasRuntime || hasHostedQaHarness || runOperationsWorkbookMatrix,
   };
 }
 

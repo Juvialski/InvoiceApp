@@ -19,7 +19,7 @@ const migrationList = `
    20260909073452   |                  | 2026-09-09 07:34:52
 `;
 
-test("QA release change decisions distinguish docs, runtime, migration, and orchestration commits", () => {
+test("QA release classification keeps remote QA for real runtime, workbook and migration changes", () => {
   assert.deepEqual(classifyQaReleasePaths(["docs/release.md", "README.md"]), {
     changeClass: "docs-only",
     hasMigration: false,
@@ -27,13 +27,15 @@ test("QA release change decisions distinguish docs, runtime, migration, and orch
     hasHostedQaHarness: false,
     runOperationsWorkbookMatrix: false,
     requiresHostedQa: false,
+    requiresQaRelease: false,
   });
-  assert.equal(classifyQaReleasePaths(["src/server/releaseMetadata.ts"]).requiresHostedQa, true);
+
+  assert.equal(classifyQaReleasePaths(["src/server/releaseMetadata.ts"]).requiresQaRelease, true);
   assert.equal(classifyQaReleasePaths(["supabase/migrations/20270101000000_release.sql"]).changeClass, "migration-bearing");
-  const workbookRelease = classifyQaReleasePaths([".github/workflows/qa-release.yml", "scripts/qa/verify-migration-parity.ts"]);
-  assert.equal(workbookRelease.requiresHostedQa, true);
-  assert.equal(workbookRelease.runOperationsWorkbookMatrix, true);
+  assert.equal(classifyQaReleasePaths(["supabase/migrations/20270101000000_release.sql"]).requiresQaRelease, true);
   assert.equal(classifyQaReleasePaths(["scripts/hosted-qa-workbook-certification.ts"]).runOperationsWorkbookMatrix, true);
+  assert.equal(classifyQaReleasePaths(["scripts/hosted-qa-workbook-certification.ts"]).requiresQaRelease, true);
+
   const workbookApplicationPaths = [
     "src/app/routes/OperationsWorkbookRoute.tsx",
     "src/app/routes/OperationsWorkbookTransfer.tsx",
@@ -44,15 +46,55 @@ test("QA release change decisions distinguish docs, runtime, migration, and orch
     "src/lib/operationsWorkbook.ts",
     "src/lib/procurementWorkbook.ts",
     "src/lib/projectsWorkbook.ts",
-    "src/lib/qaReleaseOrchestration.ts",
   ];
   for (const path of workbookApplicationPaths) {
     const classification = classifyQaReleasePaths([path]);
     assert.equal(classification.runOperationsWorkbookMatrix, true, `${path} triggers the hosted Operations Workbook matrix`);
     assert.equal(classification.requiresHostedQa, true, `${path} requires hosted QA`);
+    assert.equal(classification.requiresQaRelease, true, `${path} triggers guarded remote QA`);
   }
-  assert.equal(classifyQaReleasePaths(["scripts/qa/run-supabase.ts", "src/lib/qaDatabaseTarget.ts"]).requiresHostedQa, false);
+
+  const releaseTooling = classifyQaReleasePaths([
+    ".github/workflows/qa-release.yml",
+    "scripts/qa/verify-migration-parity.ts",
+    "src/lib/qaReleaseOrchestration.ts",
+  ]);
+  assert.equal(releaseTooling.changeClass, "orchestration-only");
+  assert.equal(releaseTooling.runOperationsWorkbookMatrix, false);
+  assert.equal(releaseTooling.requiresQaRelease, false);
+  assert.equal(classifyQaReleasePaths(["scripts/qa/run-supabase.ts", "src/lib/qaDatabaseTarget.ts"]).requiresQaRelease, false);
+
+  // Never assume an unknown path or a missing changed-file list is safe to skip.
+  assert.equal(classifyQaReleasePaths(["unexpected/custom-setup.json"]).requiresQaRelease, true);
+  assert.equal(classifyQaReleasePaths([]).requiresQaRelease, true);
   assert.equal(classifyQaReleasePaths([], true).requiresHostedQa, true);
+  assert.equal(classifyQaReleasePaths([], true).requiresQaRelease, true);
+});
+
+test("isolated marketing assets never trigger QA parity, but shared config and application changes do", () => {
+  const marketingOnly = [
+    "tools/marketing-video/package.json",
+    "tools/marketing-video/src/video.tsx",
+    "scripts/marketing-capture.ts",
+    "scripts/marketingCaptureContract.ts",
+    "scripts/marketingCaptureContract.test.ts",
+    "scripts/marketing-fixtures/fixture.json",
+    "artifacts/marketing-video/plan.md",
+    "docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md",
+    "tests/qaReleaseWorkflow.test.ts",
+  ];
+  const classification = classifyQaReleasePaths(marketingOnly);
+  assert.equal(classification.changeClass, "marketing-only");
+  assert.equal(classification.hasRuntime, false);
+  assert.equal(classification.requiresHostedQa, false);
+  assert.equal(classification.requiresQaRelease, false);
+
+  assert.equal(classifyQaReleasePaths(["tools/marketing-video/src/video.tsx", "tsconfig.json"]).requiresQaRelease, true);
+  assert.equal(classifyQaReleasePaths(["tools/marketing-video/src/video.tsx", "package.json"]).requiresQaRelease, true);
+  assert.equal(classifyQaReleasePaths(["tools/marketing-video/src/video.tsx", "src/app/App.tsx"]).requiresQaRelease, true);
+  assert.equal(classifyQaReleasePaths(["public/marketing-landing.png"]).requiresQaRelease, true);
+  assert.equal(classifyQaReleasePaths(["docs/README.md", "tests/qaReleaseWorkflow.test.ts"]).requiresQaRelease, false);
+  assert.equal(classifyQaReleasePaths([".github/workflows/qa-release.yml"], true).requiresQaRelease, true);
 });
 
 test("migration parity distinguishes an exact match, a safe remote prefix, and divergent history", () => {
