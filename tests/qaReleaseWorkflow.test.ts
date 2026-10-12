@@ -30,6 +30,18 @@ test("protected QA release workflow is push-driven, QA-environment protected, an
   assert.match(releaseWorkflow, /migration-history|migration parity|parity/i);
 });
 
+test("unrelated pushes report classification but never contact the QA database", () => {
+  // Keep a lightweight classification check while bypassing the environment-bound
+  // remote database parity job for known non-release changes.
+  assert.match(releaseWorkflow, /requires_qa_release:\\s*\\$\\{\\{\\s*steps\\.classify\\.outputs\\.requires_qa_release\\s*\\}\\}/);
+  assert.match(releaseWorkflow, /if:\\s*needs\\.classify\\.result == 'success' && needs\\.classify\\.outputs\\.requires_qa_release == 'true'/);
+  assert.match(releaseWorkflow, /needs\\.qa_release\\.result == 'success'/);
+  // Required PR checks stay unchanged. An unqualified push path filter could
+  // prevent a required status from reporting, so classification stays in-job.
+  assert.doesNotMatch(releaseWorkflow, /pull_request:\\s*\\n/);
+  assert.doesNotMatch(releaseWorkflow, /push:\\s*\\n\\s+branches:\s*\\[main\\]\\s*\\n\\s+paths:/);
+});
+
 test("protected QA database credentials stay environment-scoped and fail closed without the Management API token", () => {
   assert.match(releaseWorkflow, /environment:\s+qa[\s\S]*SUPABASE_DB_PASSWORD:\s*\$\{\{\s*secrets\.SUPABASE_DB_PASSWORD\s*\}\}/);
   assert.doesNotMatch(releaseWorkflow, /SUPABASE_ACCESS_TOKEN/);
