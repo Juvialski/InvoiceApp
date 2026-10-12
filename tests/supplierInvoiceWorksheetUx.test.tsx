@@ -124,7 +124,7 @@ test("supplier invoice worksheet exposes header, vendor evidence, line items, an
   }
 
   assert.match(html, /data-worksheet-editor="true"/g);
-  assert.equal((html.match(/data-worksheet-editor="true"/g) || []).length, 4);
+  assert.equal((html.match(/data-worksheet-editor="true"/g) || []).length, 13);
   assert.match(html, /data-worksheet-add-row="true"/);
   assert.match(html, /data-worksheet-remove-row="line-1"/);
 });
@@ -144,7 +144,7 @@ test("supplier invoice worksheet preserves row identity and protects calculated 
   assert.match(html, /data-worksheet-cell="worksheet-invoice:subtotal"[^>]*data-worksheet-protected="true"/);
   assert.match(html, /data-worksheet-cell="worksheet-invoice:grandTotal"[^>]*data-worksheet-editable="true"/);
   assert.match(reviewSource, /SupplierInvoiceWorksheet/);
-  assert.match(reviewSource, /Canonical Vendor/);
+  assert.match(reviewSource, /Use this supplier/);
   assert.match(reviewSource, /SupplierInvoiceExpenseSurface/);
 });
 
@@ -203,8 +203,8 @@ test("unresolved supplier blockers use short actions and keep resolvers closed u
 
   assert.match(html, /data-testid="supplier-invoice-unresolved-issues"/);
   assert.match(html, /2 issues need attention/);
-  assert.match(html, />Resolve vendor</);
-  assert.match(html, />Confirm description</);
+  assert.match(html, />Choose supplier</);
+  assert.match(html, />Add description</);
   assert.doesNotMatch(html, /Blocking review items/);
   assert.match(html, /id="supplier-invoice-issue-vendor"[^>]*aria-expanded="false"/);
   assert.match(html, /id="supplier-invoice-issue-description"[^>]*aria-expanded="false"/);
@@ -262,7 +262,7 @@ test("read-only supplier invoice worksheets expose protected cells while control
 
   assert.match(html, /data-worksheet-cell="worksheet-invoice:invoiceNumber"[^>]*data-worksheet-editable="false"/);
   assert.match(html, /Protected/);
-  assert.match(reviewSource, /Verify & Create Expense/);
+  assert.match(reviewSource, /Confirm bill/);
   assert.match(reviewSource, /data-testid="supplier-vendor-resolution"/);
   assert.match(workspaceSource, /PurchaseOrderMatchSection/);
   assert.match(workspaceSource, /PurchasedMaterialIntakePanel/);

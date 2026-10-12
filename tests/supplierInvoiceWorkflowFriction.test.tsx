@@ -46,7 +46,7 @@ test("supplier invoice queue keeps the verify action in the sticky queue footer"
 
   const stickyFooterStart = markup.indexOf('class="sticky bottom-2');
   assert.ok(stickyFooterStart > 0, "expected the queue action footer");
-  assert.doesNotMatch(markup.slice(0, stickyFooterStart), /Verify &amp; Create Expense/);
-  assert.match(markup.slice(stickyFooterStart), /Verify &amp; Create Expense &amp; Next/);
-  assert.equal((markup.slice(stickyFooterStart).match(/Verify &amp; Create Expense &amp; Next/g) || []).length, 1);
+  assert.doesNotMatch(markup.slice(0, stickyFooterStart), />Confirm bill &amp; next</);
+  assert.match(markup.slice(stickyFooterStart), /Confirm bill &amp; next/);
+  assert.equal((markup.slice(stickyFooterStart).match(/Confirm bill &amp; next/g) || []).length, 1);
 });

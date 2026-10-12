@@ -319,7 +319,9 @@ export const Header: React.FC<HeaderProps> = ({
   const effectivePermissions = syncStatus === "guest" && !accountEmail ? undefined : permissions;
   const navigationFilter = useMemo(() => ({ permissions: effectivePermissions, visibleRouteIds }), [effectivePermissions, visibleRouteIds]);
   const navigation = useMemo(() => getNavigationModel(navigationFilter), [navigationFilter]);
+  const [moreToolsOpen, setMoreToolsOpen] = useState(false);
   const activeModule = activeModuleDefinition ? navigation.modules.find((module) => module.id === activeModuleDefinition.id) : undefined;
+  const moreToolsActive = navigation.groups.find((group) => group.id === "more-tools")?.modules.some((module) => module.id === activeModule?.id) || activeRouteId === "settings";
   const syncLabel = workspaceSyncLabel(syncStatus);
   const SyncIcon = syncStatus === "syncing"
     ? RefreshCw
@@ -339,7 +341,8 @@ export const Header: React.FC<HeaderProps> = ({
     setMobileOpen(false);
     setAccountOpen(false);
     if (activeModule?.id === "invoices") setInvoicesExpanded(true);
-  }, [activeTab, activeModule?.id, isHelpRoute]);
+    if (moreToolsActive) setMoreToolsOpen(true);
+  }, [activeTab, activeModule?.id, isHelpRoute, moreToolsActive]);
 
   useEffect(() => {
     if (!mobileOpen && !accountOpen) return undefined;
@@ -455,8 +458,8 @@ export const Header: React.FC<HeaderProps> = ({
           <nav className="space-y-1" aria-label="Primary navigation">
             {navigation.groups.map((group, groupIndex) => (
               <div key={group.id} className={groupIndex ? "mt-5" : undefined}>
-                {!collapsed || mobileOpen ? <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{group.label}</p> : null}
-                <div className="space-y-1">
+                {group.id === "more-tools" && <button type="button" aria-label="More Tools" aria-expanded={moreToolsOpen} aria-controls="workspace-more-tools" onClick={() => setMoreToolsOpen((open) => !open)} className={`hqs-focus-ring flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${moreToolsActive ? "bg-white/12 text-white" : "text-slate-300 hover:bg-white/10"}`} title="More Tools"><MoreHorizontal aria-hidden="true" className="h-4 w-4 shrink-0" />{(!collapsed || mobileOpen) && <span>More Tools</span>}</button>}
+                <div id={group.id === "more-tools" ? "workspace-more-tools" : undefined} hidden={group.id === "more-tools" && !moreToolsOpen} className="space-y-1">
                   {group.modules.map((module) => (
                     <div key={module.id}>
                       <NavigationModuleButton
@@ -486,11 +489,12 @@ export const Header: React.FC<HeaderProps> = ({
                       )}
                     </div>
                   ))}
+                  {group.id === "more-tools" && navigation.settingsRoute && <NavigationRouteButton route={navigation.settingsRoute} active={activeRouteId === "settings"} sidebar collapsed={collapsed && !mobileOpen} invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} />}
                 </div>
               </div>
             ))}
           </nav>
-          {navigation.settingsRoute && (
+          {navigation.settingsRoute && !navigation.groups.some((group) => group.id === "more-tools") && (
             <div className="mt-6 border-t border-white/10 pt-4">
               {!collapsed || mobileOpen ? <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Workspace</p> : null}
               <NavigationRouteButton

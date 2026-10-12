@@ -133,7 +133,7 @@ test("Supplier Invoice UI treats the Vendor as the external identity and omits b
 test("R3 primary navigation exposes the authoritative supplier invoice module alongside Expenses", () => {
   const nav = readFileSync(new URL("../src/navigation/navigationModel.ts", import.meta.url), "utf8");
   assert.match(nav, /id: "expenses"/);
-  assert.match(nav, /id: "invoices", label: "Supplier Invoices"/);
+  assert.match(nav, /id: "invoices", label: "Bills & Payments"/);
 });
 
 test("Transactional email requires explicit Brevo endpoint, snapshot identity, and audited status", () => {

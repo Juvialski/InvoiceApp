@@ -32,7 +32,7 @@ export type PrimaryModuleId =
   | "reports"
   | "engineering-documents";
 
-export type NavigationGroupId = "operations" | "finance" | "people" | "communications";
+export type NavigationGroupId = "everyday" | "more-tools";
 
 export interface NavigationFilter {
   /** Omit for an unauthenticated/browser-only workspace with no permission filtering. */
@@ -76,10 +76,10 @@ export interface NavigationModel {
 }
 
 const INVOICE_CONTEXTUAL_LABELS: Readonly<Partial<Record<RouteId, string>>> = Object.freeze({
-  extract: "Upload supplier invoice",
-  review: "Supplier review queue",
-  invoices: "Supplier documents",
-  vendors: "Vendors",
+  extract: "Add bill",
+  review: "Bills needing review",
+  invoices: "All bills",
+  vendors: "Suppliers",
 });
 
 /**
@@ -88,26 +88,24 @@ const INVOICE_CONTEXTUAL_LABELS: Readonly<Partial<Record<RouteId, string>>> = Ob
  * header presents a smaller information architecture.
  */
 export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.freeze([
-  { id: "dashboard", label: "Dashboard", routeIds: ["dashboard"], defaultRouteId: "dashboard" },
-  { id: "operations-workbook", label: "Operations Workbook", routeIds: ["workbook"], defaultRouteId: "workbook" },
+  { id: "dashboard", label: "Home", routeIds: ["dashboard"], defaultRouteId: "dashboard" },
+  { id: "operations-workbook", label: "Workbook", routeIds: ["workbook"], defaultRouteId: "workbook" },
   { id: "cash", label: "Cash & Banking", routeIds: ["cash"], defaultRouteId: "cash" },
   { id: "email-sms", label: "Email / SMS", routeIds: ["inbox"], defaultRouteId: "inbox" },
   { id: "documents", label: "Documents", routeIds: ["documents"], defaultRouteId: "documents" },
   { id: "projects", label: "Projects", routeIds: ["projects"], defaultRouteId: "projects" },
   { id: "procurement", label: "Procurement", routeIds: ["procurement"], defaultRouteId: "procurement" },
-  { id: "warehouse", label: "Warehouse Inventory", routeIds: ["warehouse"], defaultRouteId: "warehouse" },
+  { id: "warehouse", label: "Warehouse", routeIds: ["warehouse"], defaultRouteId: "warehouse" },
   { id: "equipment", label: "Equipment Registry", routeIds: ["equipment"], defaultRouteId: "equipment" },
-  { id: "invoices", label: "Supplier Invoices", routeIds: ["invoices", "extract", "review", "vendors"], defaultRouteId: "invoices" },
+  { id: "invoices", label: "Bills & Payments", routeIds: ["invoices", "extract", "review", "vendors"], defaultRouteId: "invoices" },
   { id: "expenses", label: "Expenses", routeIds: ["expenses"], defaultRouteId: "expenses" },
   { id: "payroll", label: "Payroll", routeIds: ["payroll"], defaultRouteId: "payroll" },
   { id: "reports", label: "Reports", routeIds: ["reports"], defaultRouteId: "reports" },
 ]);
 
 export const NAVIGATION_GROUPS: readonly NavigationGroupDefinition[] = Object.freeze([
-  { id: "operations", label: "Operations", moduleIds: ["dashboard", "operations-workbook", "projects", "procurement", "warehouse", "equipment"] },
-  { id: "finance", label: "Finance", moduleIds: ["cash", "invoices", "expenses", "reports"] },
-  { id: "people", label: "People", moduleIds: ["payroll"] },
-  { id: "communications", label: "Communications", moduleIds: ["email-sms", "documents"] },
+  { id: "everyday", label: "Everyday work", moduleIds: ["dashboard", "invoices", "projects", "operations-workbook", "warehouse", "documents"] },
+  { id: "more-tools", label: "More Tools", moduleIds: ["expenses", "cash", "procurement", "equipment", "payroll", "reports", "email-sms"] },
 ]);
 
 function contextualLabel(route: RouteDefinition) {
@@ -198,12 +196,14 @@ export function getNavigationModel(filter: NavigationFilter = {}): NavigationMod
     }))
     .filter((group) => group.modules.length > 0);
   const settings = getRouteDefinition("settings");
+  const settingsRoute = settings && moduleIsVisible("settings", filter) && routeIsVisible(settings, filter) ? asNavigationRoute(settings) : undefined;
+  if (settingsRoute && !groups.some((group) => group.id === "more-tools")) {
+    groups.push({ ...NAVIGATION_GROUPS[1], modules: [] });
+  }
   return {
     modules,
     groups,
-    settingsRoute: settings && moduleIsVisible("settings", filter) && routeIsVisible(settings, filter)
-      ? asNavigationRoute(settings)
-      : undefined,
+    settingsRoute,
   };
 }
 

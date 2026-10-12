@@ -66,7 +66,7 @@ test("invoice register keeps batch export beside its own upload action", () => {
     onExportInvoicesExcel: () => undefined,
   } as never));
 
-  assert.match(markup, /Upload supplier invoice/);
+  assert.match(markup, /Add bill/);
   assert.match(markup, /Export invoices to Excel/);
 });
 

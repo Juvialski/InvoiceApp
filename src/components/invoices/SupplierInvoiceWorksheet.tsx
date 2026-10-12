@@ -15,6 +15,7 @@ export interface SupplierInvoiceWorksheetProps {
   invoice: InvoiceData;
   readOnly?: boolean;
   onUpdateInvoice?: (invoice: InvoiceData) => void;
+  onDraftDirtyChange?: (dirty: boolean) => void;
 }
 
 type ProvenanceLabel = "Source evidence" | "Manually corrected" | "Calculated" | "Unresolved";
@@ -291,7 +292,7 @@ function WorksheetSection({ testId, title, children }: { testId: string; title: 
   </section>;
 }
 
-export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateInvoice }: SupplierInvoiceWorksheetProps) {
+export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateInvoice, onDraftDirtyChange }: SupplierInvoiceWorksheetProps) {
   const [draftInvoice, setDraftInvoice] = useState(() => normalizedInvoice(invoice));
   const draftInvoiceRef = useRef(draftInvoice);
   const worksheetRootRef = useRef<HTMLElement | null>(null);
@@ -394,6 +395,8 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
   const vendorDirtyCells = useMemo(() => dirtyCellsForRows([draftInvoice], [invoice], vendorColumns, (row) => row.id), [draftInvoice, invoice, vendorColumns]);
   const lineDirtyCells = useMemo(() => dirtyCellsForRows(draftItems, originalItems, lineColumns, (row) => row.id), [draftItems, lineColumns, originalItems]);
   const totalDirtyCells = useMemo(() => dirtyCellsForRows([draftInvoice], [invoice], totalColumns, (row) => row.id), [draftInvoice, invoice, totalColumns]);
+  const draftDirty = headerDirtyCells.size + vendorDirtyCells.size + lineDirtyCells.size + totalDirtyCells.size > 0;
+  useEffect(() => { onDraftDirtyChange?.(draftDirty); }, [draftDirty, onDraftDirtyChange]);
 
   const handleHeaderRowsChange = (rows: readonly InvoiceData[]) => { if (rows[0]) updateDraftInvoice(rows[0]); };
   const handleVendorRowsChange = (rows: readonly InvoiceData[]) => { if (rows[0]) updateDraftInvoice(rows[0]); };
@@ -428,47 +431,42 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
     updateDraftInvoice({ ...draftInvoiceRef.current, items: [...(draftInvoiceRef.current.items || []), newLineItem(invoice.id)] });
   };
 
-  return <section ref={worksheetRootRef} data-testid="supplier-invoice-extracted-worksheet" data-worksheet-responsive-surface="supplier-invoice" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-3">
+  return <section ref={worksheetRootRef} data-testid="supplier-invoice-extracted-worksheet" data-bill-draft-dirty={draftDirty} data-worksheet-responsive-surface="supplier-invoice" aria-label="Supplier invoice extracted worksheet" className="min-w-0 space-y-3">
     <div data-testid="supplier-invoice-worksheet-action-bar" className="flex min-w-0 flex-col gap-2 border-b border-slate-200 pb-2 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         <h2 className="text-sm font-black text-slate-950">Extracted data</h2>
         <p className="sr-only">Only permitted fields are editable. The original source is preserved.</p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-        {!readOnly && <button type="button" data-worksheet-add-row="true" onClick={handleAddLine} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Add line</button>}
+        {!readOnly && <button type="button" data-worksheet-add-row="true" onClick={handleAddLine} className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Add line</button>}
         {!readOnly && onUpdateInvoice && <>
-          <button type="button" aria-label="Discard all worksheet edits" onClick={handleCancel} className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Discard edits</button>
-          <button type="button" onClick={handleSave} className="inline-flex min-h-9 items-center rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-black text-indigo-700 hover:bg-indigo-50">Save worksheet edits</button>
+          <button type="button" aria-label="Discard all worksheet edits" onClick={handleCancel} className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Discard edits</button>
+          <button type="button" onClick={handleSave} className="inline-flex min-h-11 items-center rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-black text-indigo-700 hover:bg-indigo-50">Save worksheet edits</button>
         </>}
       </div>
     </div>
     {saveError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-800">{saveError}</p>}
     <WorksheetSection testId="supplier-invoice-header-worksheet" title="Invoice Header">
-      <WorksheetEditor
-        ariaLabel="Supplier invoice header worksheet"
+      {[headerColumns.slice(0, 2), headerColumns.slice(2, 4), headerColumns.slice(6, 8)].map((columns, index) => <WorksheetEditor quietUnfocusedSelection
+        key={index}
+        ariaLabel={index === 0 ? "Supplier invoice header worksheet" : `Supplier invoice header worksheet ${index + 1}`}
         rows={[draftInvoice]}
-        columns={headerColumns}
+        columns={columns.map((column) => ({ ...column, frozen: false, minWidth: "0", width: `${100 / columns.length}%` }))}
         rowKey={(row) => row.id}
         onRowsChange={handleHeaderRowsChange}
         dirtyCells={headerDirtyCells}
         showActionBar={false}
         disabled={readOnly}
-        density="compact"
-      />
+        density="comfortable"
+      />)}
+      <details className="rounded-lg border border-slate-200 p-3"><summary className="min-h-10 cursor-pointer text-sm font-semibold text-slate-700">References and notes</summary>{[headerColumns.slice(4, 6), headerColumns.slice(8)].map((columns, index) => <WorksheetEditor quietUnfocusedSelection key={index} ariaLabel={`Supplier invoice references ${index + 1}`} rows={[draftInvoice]} columns={columns.map((column) => ({ ...column, frozen: false, minWidth: "0", width: `${100 / columns.length}%` }))} rowKey={(row) => row.id} onRowsChange={handleHeaderRowsChange} dirtyCells={headerDirtyCells} showActionBar={false} disabled={readOnly} density="comfortable" />)}</details>
     </WorksheetSection>
 
     <WorksheetSection testId="supplier-invoice-vendor-worksheet" title="Vendor Evidence">
-      <WorksheetEditor
-        ariaLabel="Supplier invoice vendor evidence worksheet"
-        rows={[draftInvoice]}
-        columns={vendorColumns}
-        rowKey={(row) => row.id}
-        onRowsChange={handleVendorRowsChange}
-        dirtyCells={vendorDirtyCells}
-        showActionBar={false}
-        disabled={readOnly}
-        density="compact"
-      />
+      <WorksheetEditor quietUnfocusedSelection ariaLabel="Supplier invoice vendor evidence worksheet" rows={[draftInvoice]} columns={[vendorColumns[0], vendorColumns[3]].map((column) => ({ ...column, frozen: false, minWidth: "0", width: "50%" }))} rowKey={(row) => row.id} onRowsChange={handleVendorRowsChange} dirtyCells={vendorDirtyCells} showActionBar={false} disabled={readOnly} density="comfortable" />
+      <details className="rounded-lg border border-slate-200 p-3"><summary className="min-h-10 cursor-pointer text-sm font-semibold text-slate-700">Supplier contact details</summary>
+        {[vendorColumns.slice(1, 3), vendorColumns.slice(4, 5), vendorColumns.slice(5)].map((columns, index) => <WorksheetEditor quietUnfocusedSelection key={index} ariaLabel={`Supplier contact details ${index + 1}`} rows={[draftInvoice]} columns={columns.map((column) => ({ ...column, frozen: false, minWidth: "0", width: `${100 / columns.length}%` }))} rowKey={(row) => row.id} onRowsChange={handleVendorRowsChange} dirtyCells={vendorDirtyCells} showActionBar={false} disabled={readOnly} density="comfortable" />)}
+      </details>
       <details data-testid="supplier-invoice-canonical-vendor-boundary" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600">
         <summary className="cursor-pointer font-bold text-slate-700">Vendor identity controls</summary>
         <p className="mt-2">Canonical Vendor ID and master-data ownership are protected from ordinary worksheet editing. Confirm a deliberate link or create action in the controlled Vendor workflow below.</p>
@@ -476,10 +474,10 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
     </WorksheetSection>
 
     <WorksheetSection testId="supplier-invoice-line-items-worksheet" title="Line Items">
-      <WorksheetEditor
+      <WorksheetEditor quietUnfocusedSelection
         ariaLabel="Supplier invoice line items worksheet"
         rows={draftItems}
-        columns={lineColumns}
+        columns={lineColumns.filter((column) => ["description", "quantity", "unitPrice", "total"].includes(column.key)).map((column) => ({ ...column, minWidth: column.key === "description" ? "9rem" : "5rem", frozen: false }))}
         rowKey={(row) => row.id}
         onRowsChange={handleLineRowsChange}
         dirtyCells={lineDirtyCells}
@@ -488,22 +486,14 @@ export function SupplierInvoiceWorksheet({ invoice, readOnly = false, onUpdateIn
         showActionBar={false}
         disabled={readOnly}
         emptyState="No line items extracted. Add a row only when the source supports it."
-        density="compact"
+        density="comfortable"
       />
     </WorksheetSection>
 
+    <details data-testid="supplier-invoice-line-evidence" className="rounded-lg border border-slate-200 p-3"><summary className="min-h-10 cursor-pointer text-sm font-semibold text-slate-700">Line tax and other details</summary><WorksheetEditor quietUnfocusedSelection ariaLabel="Supplier invoice line evidence worksheet" rows={draftItems} columns={lineColumns} rowKey={(row) => row.id} onRowsChange={handleLineRowsChange} dirtyCells={lineDirtyCells} showActionBar={false} disabled={readOnly} density="comfortable" /></details>
     <WorksheetSection testId="supplier-invoice-totals-worksheet" title="Totals / Monetary Facts">
-      <WorksheetEditor
-        ariaLabel="Supplier invoice totals and monetary facts worksheet"
-        rows={[draftInvoice]}
-        columns={totalColumns}
-        rowKey={(row) => row.id}
-        onRowsChange={handleTotalRowsChange}
-        dirtyCells={totalDirtyCells}
-        showActionBar={false}
-        disabled={readOnly}
-        density="compact"
-      />
+      <WorksheetEditor quietUnfocusedSelection ariaLabel="Supplier invoice totals and monetary facts worksheet" rows={[draftInvoice]} columns={[totalColumns.find((column) => column.key === "grandTotal")!].map((column) => ({ ...column, minWidth: "0", width: "100%" }))} rowKey={(row) => row.id} onRowsChange={handleTotalRowsChange} dirtyCells={totalDirtyCells} showActionBar={false} disabled={readOnly} density="comfortable" />
+      <details className="rounded-lg border border-slate-200 p-3"><summary className="min-h-10 cursor-pointer text-sm font-semibold text-slate-700">Tax, source amounts and monetary evidence</summary><WorksheetEditor quietUnfocusedSelection ariaLabel="Supplier invoice monetary evidence worksheet" rows={[draftInvoice]} columns={totalColumns.filter((column) => column.key !== "grandTotal")} rowKey={(row) => row.id} onRowsChange={handleTotalRowsChange} dirtyCells={totalDirtyCells} showActionBar={false} disabled={readOnly} density="comfortable" /></details>
     </WorksheetSection>
 
     <details data-testid="supplier-invoice-worksheet-help" className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[10px] leading-4 text-slate-600">

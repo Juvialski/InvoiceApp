@@ -1,14 +1,14 @@
 import type { QaAssertion, QaScenarioAction } from "../structuredEvidence.ts";
 import { READY_TIMEOUT_MS, applyThemePreferenceForVisualQa, assertHeading, contrastRatio, waitForHeading, waitForVisible } from "./shared.ts";
 
-export const verifyExtractorScreen = assertHeading("Extract invoice documents", "invoice-extractor-visible");
+export const verifyExtractorScreen = assertHeading("Add bill", "invoice-extractor-visible");
 export const verifySupplierInvoiceNavigation: QaScenarioAction = async (page) => {
-  const moduleButton = await page.getByRole("button", { name: /Supplier Invoices/ }).count();
-  const childRouteBefore = await page.getByRole("button", { name: /Supplier documents/ }).count();
-  if (moduleButton === 1 && childRouteBefore === 0) await page.getByRole("button", { name: /Supplier Invoices/ }).click();
-  await waitForHeading(page, "Supplier source documents");
-  const register = await page.getByRole("heading", { name: "Supplier source documents", exact: true }).count();
-  const childRoute = await page.getByRole("button", { name: /Supplier documents/ }).count();
+  const moduleButton = await page.getByRole("button", { name: /Bills & Payments/ }).count();
+  const childRouteBefore = await page.getByRole("button", { name: /All bills/ }).count();
+  if (moduleButton === 1 && childRouteBefore === 0) await page.getByRole("button", { name: /Bills & Payments/ }).click();
+  await waitForHeading(page, "Bills & Payments");
+  const register = await page.getByRole("heading", { name: "Bills & Payments", exact: true }).count();
+  const childRoute = await page.getByRole("button", { name: /All bills/ }).count();
   return [
     { id: "supplier-invoice-module-visible", passed: moduleButton === 1, details: `Supplier Invoices module controls: ${moduleButton}` },
     { id: "supplier-invoice-register-visible", passed: register === 1, details: `Supplier invoice register headings: ${register}` },
@@ -16,13 +16,10 @@ export const verifySupplierInvoiceNavigation: QaScenarioAction = async (page) =>
   ] satisfies readonly QaAssertion[];
 };
 export const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
-  const expenseDisclosure = page.locator('[data-testid="supplier-invoice-expense-disclosure"]').first();
-  await expenseDisclosure.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  const expenseBridgeBeforeOpen = await page.locator('[data-testid="supplier-invoice-expense-bridge"]:visible').count();
-  await page.locator('[data-testid="supplier-invoice-expense-disclosure"] summary').first().click();
   await waitForVisible(page, '[data-testid="supplier-invoice-expense-bridge"]');
+  const expenseBridgeBeforeOpen = await page.locator('[data-testid="supplier-invoice-expense-bridge"]:visible').count();
 
-  const changeStatus = await page.getByRole("button", { name: "Change Status", exact: true }).count();
+  const changeStatus = await page.getByRole("button", { name: "Record payment", exact: true }).count();
   const expenseLink = await page.getByRole("link", { name: /Open\/Correct linked Expense/ }).count();
 
   const secondaryActions = page.locator('[data-testid="supplier-invoice-secondary-actions"]').first();
@@ -34,7 +31,7 @@ export const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
   const invoiceActions = await page.getByRole("button", { name: "Invoice actions", exact: true }).count();
 
   if (changeStatus === 1) {
-    await page.getByRole("button", { name: "Change Status", exact: true }).click();
+    await page.getByRole("button", { name: "Record payment", exact: true }).click();
     await waitForVisible(page, '[data-testid="supplier-payment-dialog"]');
   }
   const paymentDialog = await page.locator('[data-testid="supplier-payment-dialog"]').count();
@@ -43,8 +40,8 @@ export const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
   const confirmPayment = await page.getByRole("button", { name: /Confirm Payment/ }).count();
   const addAccount = await page.getByRole("button", { name: /Add Cash\/Bank Account/ }).count();
   return [
-    { id: "supplier-expense-details-collapsed-by-default", passed: expenseBridgeBeforeOpen === 0, details: `visible Expense bridges before disclosure: ${expenseBridgeBeforeOpen}` },
-    { id: "supplier-payment-change-status-visible", passed: changeStatus === 1, details: `Change Status controls: ${changeStatus}` },
+    { id: "supplier-payment-visible-after-confirmation", passed: expenseBridgeBeforeOpen === 1, details: `visible Expense bridges before disclosure: ${expenseBridgeBeforeOpen}` },
+    { id: "supplier-payment-change-status-visible", passed: changeStatus === 1, details: `Record payment controls: ${changeStatus}` },
     { id: "supplier-payment-dialog-visible", passed: paymentDialog === 1, details: `supplier payment dialogs: ${paymentDialog}` },
     { id: "supplier-payment-status-options-visible", passed: paidOption === 1 && partialOption === 1, details: `Paid/Partially Paid controls: ${paidOption}/${partialOption}` },
     { id: "supplier-payment-confirm-visible", passed: confirmPayment === 1, details: `Confirm Payment controls: ${confirmPayment}` },
@@ -143,13 +140,15 @@ export const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
   const dateEditor = page.locator(`${dateCellSelector} input[type="date"]`);
   await dateEditor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   await page.keyboard.press("Escape");
-  const selectCellSelector = `[data-testid="supplier-invoice-line-items-worksheet"] ${gridSelector} [data-worksheet-cell$=":taxTreatment"]`;
+  await page.locator('[data-testid="supplier-invoice-line-evidence"] > summary').click();
+  const selectCellSelector = `[data-testid="supplier-invoice-line-evidence"] ${gridSelector} [data-worksheet-cell$=":taxTreatment"]`;
   await page.locator(selectCellSelector).click();
   const selectEditor = page.locator(`${selectCellSelector} select`);
   await selectEditor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const selectFocused = await page.evaluate(() => document.activeElement instanceof HTMLSelectElement);
   await page.keyboard.press("Escape");
 
+  await page.locator('[data-testid="supplier-invoice-line-evidence"] > summary').click();
   const saveAction = await page.getByRole("button", { name: "Save worksheet edits", exact: true }).count();
   const collapsedWorkflows = await page.evaluate(() => {
     const allocation = document.querySelector<HTMLDetailsElement>('[data-testid="supplier-invoice-project-allocation-disclosure"]');
@@ -175,7 +174,7 @@ export const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
     let outsideWorksheet = true;
     let stickyCount = 0;
     for (const button of buttons) {
-      if (!/Verify & Create Expense/.test(button.textContent || "")) continue;
+      if (!/Confirm bill/.test(button.textContent || "")) continue;
       count += 1;
       if (button.closest('[data-testid="supplier-invoice-extracted-worksheet"]')) outsideWorksheet = false;
       if (button.closest(".sticky.bottom-2")) stickyCount += 1;
@@ -199,7 +198,7 @@ export const verifySupplierInvoiceReview: QaScenarioAction = async (page) => {
     { id: "supplier-invoice-header-worksheet-visible", passed: headerWorksheet === 1, details: `header worksheets: ${headerWorksheet}` },
     { id: "supplier-invoice-line-worksheet-visible", passed: lineWorksheet === 1, details: `line-item worksheets: ${lineWorksheet}` },
     { id: "supplier-invoice-totals-worksheet-visible", passed: totalsWorksheet === 1, details: `totals worksheets: ${totalsWorksheet}` },
-    { id: "supplier-invoice-four-worksheet-editors-visible", passed: worksheetEditors === 4, details: `worksheet editors: ${worksheetEditors}` },
+    { id: "supplier-invoice-grouped-fact-worksheet-editors", passed: worksheetEditors === 13, details: `worksheet editors: ${worksheetEditors}` },
     { id: "supplier-invoice-editable-cell-one-click", passed: geometry.editableCursor === "text" && pointerFocus, details: `cursor ${geometry.editableCursor}; input focused after one click: ${pointerFocus}` },
     { id: "supplier-invoice-copy-while-editing", passed: copiedCell.prevented && copiedCell.text === originalInvoiceNumber, details: `copy used the cell value while the editor was focused: ${copiedCell.text === originalInvoiceNumber}` },
     { id: "supplier-invoice-escape-cancels-edit", passed: escapedEditorClosed && originalInvoiceNumber === escapeRestoredValue, details: `editor closed ${escapedEditorClosed}; original "${originalInvoiceNumber}"; after Escape "${escapeRestoredValue}"` },
@@ -237,9 +236,9 @@ export const verifyStaleSupplierInvoiceRecovery: QaScenarioAction = async (page)
   const action = await page.getByRole("button", { name: "Return to Supplier Invoices", exact: true }).count();
   if (action === 1) {
     await page.getByRole("button", { name: "Return to Supplier Invoices", exact: true }).click();
-    await waitForHeading(page, "Supplier source documents");
+    await waitForHeading(page, "Bills & Payments");
   }
-  const recovered = await page.getByRole("heading", { name: "Supplier source documents", exact: true }).count();
+  const recovered = await page.getByRole("heading", { name: "Bills & Payments", exact: true }).count();
   return [
     { id: "stale-supplier-invoice-recovery-visible", passed: title === 1, details: `recovery headings: ${title}` },
     { id: "stale-supplier-invoice-recovery-action-visible", passed: action === 1, details: `recovery actions: ${action}` },

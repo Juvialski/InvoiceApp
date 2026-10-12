@@ -1,6 +1,6 @@
 import type { DashboardAttentionItem, DashboardViewData } from "../components/engineering/EngineeringCostOperationsDashboard.tsx";
 import type { Project } from "../types.ts";
-import type { PermissionKey } from "./accessControl.ts";
+import { hasAllPermissions, PERMISSION_KEYS, type PermissionKey } from "./accessControl.ts";
 import type { DataCompleteness, ProjectCostSource } from "./dataCompleteness.ts";
 import type { AppTab } from "./routes.ts";
 import { getNavigationModel } from "../navigation/navigationModel.ts";
@@ -28,6 +28,24 @@ const DASHBOARD_LAUNCH_ITEMS: readonly DashboardLaunchItem[] = Object.freeze([
 
 function visibleDashboardTabs(permissions: Iterable<PermissionKey> | null | undefined): Set<AppTab> {
   return new Set(getNavigationModel({ permissions }).modules.flatMap((module) => module.routes.map((route) => route.appTab)));
+}
+
+/** Task shortcuts use the same permissions as their destination's mutations. */
+export function dashboardQuickTasksForPermissions(permissions: Iterable<PermissionKey> | null | undefined): DashboardLaunchItem[] {
+  const effective = permissions ? [...permissions] : [];
+  const visible = visibleDashboardTabs(effective);
+  const tasks: DashboardLaunchItem[] = [];
+  if (visible.has("extractor") && hasAllPermissions(effective, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify])) {
+    tasks.push({ id: "add-bill", tab: "extractor", label: "Add bill", description: "Upload a supplier bill for review.", emphasis: "primary" });
+  }
+  if (visible.has("invoices") && visible.has("cash") && hasAllPermissions(effective, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashTransactionsManage, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite])) {
+    tasks.push({ id: "record-payment", tab: "invoices", label: "Record payment", description: "Choose a confirmed bill, then record its payment.", emphasis: "primary" });
+  }
+  if (visible.has("workbook")) tasks.push({ id: "open-workbook", tab: "workbook", label: "Open workbook", description: "Edit the fields your role can change.", emphasis: "primary" });
+  if (visible.has("warehouse") && hasAllPermissions(effective, [PERMISSION_KEYS.inventoryRead, PERMISSION_KEYS.inventoryManage, PERMISSION_KEYS.projectsRead])) {
+    tasks.push({ id: "assign-stock", tab: "warehouse", label: "Assign stock to a project", description: "Choose stock and issue it to a project.", emphasis: "primary" });
+  }
+  return tasks;
 }
 
 export function dashboardLaunchItemsForPermissions(

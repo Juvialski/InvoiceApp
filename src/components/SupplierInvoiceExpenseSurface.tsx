@@ -142,7 +142,7 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
   const paymentStatus = deriveSupplierInvoicePaymentState(invoice, currentExpense, visibleSummary);
   const settlementAuthorityConflict = authorityConflict || visibleSummary.authorityConflict === true;
   const hasOutstanding = visibleSummary.outstanding > 0.005;
-  const canChangeStatus = !settlementAuthorityConflict && invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && currentExpense.status !== "VOID" && hasOutstanding;
+  const canChangeStatus = canRecordPayment && !settlementAuthorityConflict && invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && currentExpense.status !== "VOID" && hasOutstanding;
 
   const handleReversed = (item: FinancialSettlementHistoryItem) => {
     if (currentExpense.id.startsWith("demo-")) {
@@ -169,7 +169,7 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
         {settlementAuthorityConflict && <p role="alert" className="mt-1 text-[10px] font-semibold text-rose-800">Payment is locked until the active linked Expense authority conflict is resolved.</p>}
       </div>
       {canChangeStatus && <button type="button" onClick={() => setPaymentOpen(true)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white shadow-sm hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2" data-testid="change-supplier-payment-status">
-        <WalletCards className="h-4 w-4" />Change Status
+        <WalletCards className="h-4 w-4" />Record payment
       </button>}
     </div>
 
