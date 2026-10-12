@@ -1,241 +1,49 @@
-# HydroQualiSense Agent Execution Efficiency
+# Agent Execution Efficiency — HydroQualiSense
 
-This is the compact execution policy for the recurring workflow:
+Current workflow reference (2026-10-12). **`AGENTS.md` is authoritative.** This file is a short operational companion, not another source of dated overrides. Domain contracts and deployment safety remain unchanged.
 
-`ChatGPT prompt -> Codex implementation + PR -> ChatGPT review/fix/merge -> next ChatGPT prompt`
+## Normal implementation path
 
-Correctness, security, financial truth, RLS, migration safety, runtime evidence, and production boundaries remain higher priority than speed. The purpose of this guide is to remove duplicated work, not safeguards that apply to the changed risk domain.
+`ChatGPT scope -> Codex implementation + PR -> ChatGPT exact-head review/fix/safe merge -> next scope`
 
-## 1. Codex implementation fast-start
+1. `git fetch origin main`, fast-forward clean local `main` and record the SHA once; protect divergent local work.
+2. Read `AGENTS.md`, `docs/ACTIVE_DEVELOPMENT_BRIEF.md`, and only relevant contracts/source.
+3. Inspect current code and focused tests. Generate **zero or one** bounded `agent:context` packet only if a complicated cross-module search benefits. Do not reread unrelated docs or old PRs.
+4. Lead Codex implements a coherent, bounded task. Default **zero subagents**, absolute maximum **two** concurrent independent ones; none for late reviews.
+5. Run new/changed tests while editing. Once the executable diff stabilizes, run focused domain checks then `npm.cmd run test:affected:agent` normally **once**.
+6. Run lint/typecheck, build, Workflow Map, browser QA, local Supabase and provider/hosted checks **only for applicable risk**, and avoid locally duplicating equivalent protected CI. DB/security/financial/migration work keeps mandatory runtime evidence.
+7. Review exact diff and the applicable evidence, update only materially changed product truth, run `git diff --check`, then commit/push/open PR. Codex does **not** self-merge.
+8. ChatGPT examines the exact PR head and diff, fixes concrete problems, verifies relevant checks at the current head, and merges automatically when safe.
 
-For a normal fresh implementation task, Codex should spend almost no time proving that its old checkout is stale or current.
+## Optional development aids, not gates
 
-1. `git fetch origin main`
-2. switch to `main`
-3. `git pull --ff-only origin main`
-4. record `git rev-parse HEAD` once
-5. create the task branch from that updated main
-6. read `AGENTS.md` and only task-relevant roadmap/handoff/phase/runbook material
-7. generate at most one bounded `agent:context` packet when useful
-8. inspect the relevant implementation and start coding
+- `npm.cmd run agent:context`: deterministic bounded discovery for broad or unfamiliar cross-module changes.
+- `workflow-map:context`, Repository Intelligence: dependency/ownership/permission tracing when useful. Keep `workflow-map:check` and source-consistency checks for relevant graph/contract changes.
+- `npm.cmd run typesafe -- ...` (TypeSafe/Jev): **optional experiments only** for a difficult candidate-ranking or noisy-CI triage question. Never install/retry an optional advisory tool to start coding. No mandatory start, test-triage, completion, benchmark, doctor, or diagnostic logging checkpoints.
+- `npm.cmd run ci:failure-context`: use when CI logs are too large to inspect normally.
 
-If local work must be preserved, use a clean worktree/branch from current `origin/main`; never destroy local-only work just to synchronize.
+None of these replaces direct source inspection, deterministic affected-test selection, runtime DB proof, lead final review, exact-head CI, or authorization policy.
 
-When the synchronized existing checkout is clean, branch in place and reuse its
-existing `node_modules`. A fresh worktree is exceptional: use one only to
-preserve divergent local work or isolate genuinely concurrent work, and install
-dependencies only when that required worktree lacks them.
+## Risk-based validation matrix
 
-Do not spend implementation startup time on:
+| Change | Local proof | Protected/independent proof |
+| --- | --- | --- |
+| Documentation/agent policy only | Full policy diff + source-of-truth consistency | Required check names report; skip heavyweight tests when irrelevant |
+| UI/page/component | Focused tests; affected selection; lint/build as relevant | Applicable app and domain-browser checks on exact head |
+| Shared browser harness/Workflow Map | Targeted harness/graph contracts | Applicable browser/graph check |
+| Migration, RLS/RPC, finance or inventory integrity | Targeted tests plus applicable clean replay, pgTAP, upgrade, runtime authorization/concurrency checks | Exact-head DB/security checks |
+| CI/release orchestration | Scope-selector and workflow-contract regressions | Relevant exact-head workflow evidence |
+| Hosted QA, provider, production release | Explicit release procedure and environment-specific proof | Controlled environment certification; production authorization remains separate |
 
-- old PRs or old CI;
-- historical branch/merge state;
-- reconfirming the previous prompt SHA;
-- a repo-wide audit;
-- a baseline full regression suite.
+## Prevent loops
 
-The freshly fetched/pulled `origin/main` is authoritative.
+- Do not run `test:full` simply because a phase started. The weekly scheduled suite remains an independent regression net.
+- Do not rerun affected tests or the browser matrix after doc-only/handoff edits.
+- On failing tests, diagnose the smallest cause, rerun the failing subset, then applicable final evidence after the executable fix.
+- Do not repeat `review -> documentation -> tests -> review`, or commission a new subagent for final review.
+- Do not run browser automation through the user's active Chrome profiles. Use an isolated headless browser profile where browser QA is truly needed.
+- At the terminal delivery point, stop expanding scope and open the PR; do not use spare time for unrelated research.
 
-## 2. Context and agent limits
+## Short delivery record
 
-Use one bounded lead context packet for substantial scoped work, normally 0-1 workflow hops, roughly 8k-12k characters, and only the primary source files/symbols needed.
-
-Codex is the lead implementation/integration owner. Default to **zero subagents**; hard maximum **2 concurrent Codex subagents** for genuinely independent bounded work. The lead keeps implementing while subagents run and owns architecture, shared integration, financial/security/DB interpretation, final diff, validation, push, and PR.
-
-Do not use spare agent capacity for duplicate audits or speculative scope expansion.
-
-### No late review subagents
-
-Default remains **zero subagents** and the hard maximum remains **2**. A subagent is justified only for a genuinely independent bounded task that materially shortens the critical path while the lead continues useful implementation.
-
-Do not create a subagent solely for final review, final diff inspection, handoff/documentation review, duplicate-entry classification after implementation, rechecking already-tested behavior, PR preparation, waiting for validation, or a generic second opinion. The lead owns final review. Once implementation is substantially complete, do not add a new review agent; reaching final validation with zero active subagents should normally end with zero subagents.
-
-The lead never waits on a subagent review before continuing implementation or PR delivery. Stop stalled or low-value subagents rather than extending the critical path. This is model-independent policy.
-
-### TypeSafe/Jev standard advisory workflow
-
-The repository uses the official `@typesafe-ai/sdk` 0.6.0 behind the
-developer-only `npm.cmd run typesafe -- ...` CLI. Jev is advisory only; the
-deterministic RI/Workflow Map candidate set, current source,
-`test:affected:agent`, risk-domain evidence, exact-head CI, and lead review
-remain authoritative.
-
-For a substantial bounded phase with `TYPESAFE_API_KEY` available:
-
-1. after clean synchronization and the one deterministic context packet, run one
-   live `context` call before edits;
-2. after deterministic affected-test selection, run one live `test-triage`
-   only when the candidate test set is broad enough to benefit from ordering;
-3. use at most one live `completion` evidence check while it can still change
-   the evidence plan; skip it when required evidence is already complete, and
-   never let it gate PR delivery or trigger another review/validation cycle;
-4. run `ci-triage` only when a real noisy CI failure exists.
-
-Do not repeatedly rerun equivalent Jev requests. Do not use routine
-`benchmark` calls during product work. Use `doctor` only for actual
-setup/connectivity diagnosis.
-
-Fresh worktree rule: if `@typesafe-ai/sdk` is declared and locked but is
-missing from local `node_modules`, run `npm ci --include=dev` and verify
-`npm ls @typesafe-ai/sdk`; do not mutate dependency declarations merely to
-repair a worktree install. If the live request still fails, fall back
-deterministically and continue.
-
-Record candidate counts, selected counts, model, input/output tokens, latency,
-and fallback status when available. The corrected benchmark remains useful
-historical evidence: 40 -> 18 candidates, 52.75% character reduction, 100%
-must-keep retention, 90% expected-relevant retention, 1,668 ms latency, 6,270
-input and 764 output tokens, fallback=false. UX-W5A also proved the real
-worktree path after dependency installation: model `jev-1.13.0`, 3 -> 3
-candidates, 728 input / 55 output tokens, 776 ms, fallback=false.
-
-### Phase sizing with Jev
-
-Prefer wider **coherent** bounded phases instead of unnecessary micro-slices
-when several files/components share one workflow and authority model. A useful
-planning heuristic is roughly 1.5-3x the former micro-slice size, often 2-4
-tightly related components in one domain. This gives Jev enough optional
-context/tests to prioritize while preserving reviewability.
-
-Do not widen across unrelated domains, new database/security/financial
-authorities, independent migrations, or multiple lifecycle systems merely for
-Jev efficiency. If integration risk dominates context-scanning cost, split the
-work. The goal is to preserve more model budget for higher-capability reasoning,
-not to make PRs indiscriminately large. Normal CI, `agent:context` defaults,
-and application/runtime bundles remain TypeSafe-free.
-
-## 3. Implementation validation ladder
-
-Validation is **final-diff-first**. While editing, run only the new/edited test or smallest focused domain check needed to prove the current change. Do not rerun the full applicable ladder after every small edit.
-
-On the integrated final executable/test diff, run the smallest applicable ladder once:
-
-1. new/edited tests;
-2. focused domain tests;
-3. `npm.cmd run test:affected:agent` — normally **once** on the meaningful integrated final executable diff;
-4. lint/build/browser/Workflow Map only when the changed domain requires them;
-5. exact final diff review;
-6. reconcile roadmap/handoff and final hygiene;
-7. push and open PR; Codex must not merge its own PR.
-
-Do not run `test:full` unless impact selection falls back to it, a broad shared contract genuinely requires it, failures justify it, release/deep-regression work requires it, or the user explicitly requests it.
-
-### One expensive pass per meaningful final diff
-
-- Narrow tests may run while editing.
-- Do not rerun `test:affected:agent` when no relevant executable/test change occurred.
-- Documentation or handoff edits after a successful executable validation do **not** justify another affected application run.
-- If affected tests fail, diagnose and rerun the narrow failing subset first. After fixing executable code/tests, one final affected run is allowed.
-- Do not repeatedly rerun the whole affected set while refining docs.
-- Lint, build, browser QA, Workflow Map, and comparable expensive checks follow the same principle: rerun only after a relevant change or a failure needing confirmation.
-- If protected GitHub CI will perform the equivalent expensive check on the exact pushed head, local Codex should normally run only the minimum useful pre-push evidence unless risk-specific policy requires otherwise.
-- Database, browser, provider, hosted-QA, and production checks are never ritual follow-ups to unrelated changes.
-
-### No final-review loop
-
-Prepare roadmap/handoff synchronization before the final expensive validation where practical. Once the final executable diff has been reviewed, required validation has passed, roadmap/handoff are reconciled, and final hygiene such as `git diff --check` is clean, proceed to commit/push/PR.
-
-Do not cycle through `review -> docs -> affected tests -> review -> docs -> affected tests` unless an actual new executable change or validation failure occurred. If only documentation changes after executable validation, inspect the documentation directly and proceed.
-
-### Terminal delivery cutoff
-
-Once the meaningful executable/test diff is frozen, required risk-appropriate validation has passed, and no concrete blocker remains:
-
-- stop starting new subagents, Jev completion passes, context packets, repository-wide searches, screenshot matrices, broad test runs, or generic second reviews;
-- push/open the PR immediately rather than using remaining time for speculative assurance work;
-- while protected CI runs, do not duplicate its expensive work locally unless a concrete failure needs diagnosis;
-- treat a completed browser/visual matrix as reusable until relevant UI/browser code changes; docs/evidence metadata/PR text do not invalidate it;
-- for browser assertion-only fixes, prefer the exact failing scenarios plus one exact-head protected browser run instead of replaying the full local matrix;
-- do not regenerate the bounded context packet or broadly reread docs after implementation begins unless a concrete contradiction, merge conflict, or source-of-truth question requires it.
-
-This policy preserves model budget for implementation and higher-capability reasoning while keeping exact-head CI and risk-appropriate safeguards authoritative.
-
-## 4. Database validation
-
-Use Docker/local Supabase only when changes affect migrations, RLS/grants, RPC/SECURITY DEFINER behavior, triggers/constraints, financial or inventory DB guards, company-bound integrity, upgrade behavior, or DB concurrency/locking.
-
-Applicable validation includes clean local replay, pgTAP, migration tests, upgrade-path tests, and relevant runtime/RLS/RPC/concurrency tests.
-
-Do not start Docker/Supabase for documentation-only, UI-only, or unrelated non-DB work.
-
-## 5. Failure handling
-
-Use:
-
-`inspect -> diagnose -> justified change -> narrow rerun -> continue applicable validation`
-
-Read the smallest useful failure region first. Use `ci:failure-context` for oversized logs. Never rerun an unchanged failure merely to see it fail again.
-
-## 6. ChatGPT PR review — diff-first proportional validation
-
-ChatGPT starts with the exact current PR head, changed-file list, and complete relevant diff, then classifies risk before doing expensive validation.
-
-### Documentation / agent-policy only
-
-If every change is non-executable documentation/policy text and there are no workflow, package, test, migration, schema, source, generated-runtime, deployment, or configuration changes:
-
-- review the exact diff once;
-- check source-of-truth consistency;
-- do not run or manually inspect app tests, build, browser QA, Docker/Supabase, migrations, hosted QA, Render, providers, or production;
-- do not wait for or repeatedly poll CI just because protected statuses exist;
-- enable auto-merge when available, then continue immediately to the next requested task;
-- if auto-merge is unavailable, inspect status only when needed to perform the merge.
-
-Documentation synchronization should normally ride in the implementation PR that requires it rather than creating a second PR and CI cycle.
-
-### Application / UI
-
-Review the exact diff and verify only the exact-head application/browser/contract checks applicable to what changed. Do not investigate database/release/provider/production state without a concrete reason.
-
-### Database / security / financial / inventory integrity
-
-Use the strict exact-head validation appropriate to those domains, including applicable runtime database evidence. Do not optimize away integrity or authorization checks.
-
-### CI / release orchestration
-
-Review the workflow/config change itself and prove the changed validation/release contract with relevant exact-head evidence. Do not rerun unrelated product QA merely because CI plumbing changed.
-
-## 7. Protected-check fast-pass design
-
-Branch protection keeps stable required check names. Each required workflow classifies the changed files first and performs expensive work only when its own domain is relevant.
-
-Expected behavior:
-
-- `Application Validation & Build` — full for product/source tests, ordinary application scripts, public assets, package, and TypeScript inputs. Known browser-QA-only action/catalog/selector/test changes keep `npm ci`, lint/typecheck, and focused Demo QA tooling tests; they skip the app test sweep and product bundle build because exact-head `chromium-demo-qa` builds the application used by those assertions. Unknown relevant paths stay full.
-- `Database Migrations & Upgrade Suite` — heavy for migration/database-invariant/package inputs;
-- `chromium-demo-qa` — a known domain page or `scripts/qa/scenarios/<domain>.ts` change selects that domain's catalog routes plus the two-scenario shared shell/navigation smoke floor. Shared shell, navigation, theme/global CSS, central catalog/action registry, browser infrastructure, incomplete/unknown paths, main regression, and explicit non-PR runs retain the full catalog.
-- `Graph and Source Contract Consistency` — heavy for graph/source-contract inputs, scenario metadata, and the structured evidence bridge. Domain browser assertion/action modules fast-pass after classification because the Workflow Map consumes scenario metadata, not those action implementations. Unknown `scripts/qa/**` files remain in the heavy path.
-
-For irrelevant PRs, each required job must still report and should fast-pass after lightweight classification without `npm ci`, build, graph generation, workflow-map tests, Supabase startup, migration replay, or Chromium installation. An irrelevant fast-pass does not require manual ChatGPT inspection.
-
-Do not replace required checks with `pull_request.paths` filters alone: a required workflow that never reports can leave branch protection waiting indefinitely. Keep the required job reporting and skip its expensive steps internally.
-
-CI-EFF-2 keeps the protected names `Application Validation & Build`, `Database Migrations & Upgrade Suite`, `chromium-demo-qa`, and `Graph and Source Contract Consistency`. Only the Workflow Map main-push path list is narrowed to its proven metadata/evidence bridge inputs; pull-request checks remain unconditional.
-
-## 8. Prompt template
-
-Every normal ChatGPT -> Codex implementation prompt should begin with wording equivalent to:
-
-> **FIRST ACTION:** fetch and fast-forward local `main` from `origin/main`, record the resulting SHA once, create the task branch, and proceed immediately. Do not spend startup time checking whether the old checkout was current, old PRs/CI/history, or the previous prompt SHA. Read `AGENTS.md` and only task-relevant material, use at most one bounded context packet when useful, then start implementation.
-
-After implementation: focused/new tests -> affected tests -> only relevant extra validation -> exact diff -> PR. Codex does not self-merge.
-
-## 9. Efficiency evidence
-
-Useful evidence is compact: changed-file count, applicable risk domain, tests actually selected, affected-test result, whether DB/browser/Workflow Map validation was required, and any real blocker. Do not collect metrics that cost more time than they save.
-## 10. Architecture as context budget
-
-Repository structure affects agent context size, edit reliability, conflict frequency, and affected-test breadth. Prefer boundaries that let a routine task follow a small path such as:
-
-`route/page -> focused domain controller -> domain service/persistence -> focused tests`
-
-When decomposing modules:
-
-- extract by real product responsibility, not line count alone;
-- keep interfaces narrow and typed;
-- avoid replacement mega-hooks/helper modules and avoid tiny-file indirection that increases hopping;
-- keep central composition files stable so domain-local work does not repeatedly touch them;
-- prefer structures that fit inside one bounded `agent:context` packet without losing required security/financial/history invariants;
-- judge success by reduced irrelevant context and narrower diffs/tests, not by file-count growth.
-
-Do not spend runtime estimating precise token savings. Cheap evidence is enough: fewer unrelated files opened, fewer central-file edits, narrower affected tests, and a final diff concentrated in the intended domain.
+Record: base/head SHA; meaningful behavior changed; risk domain; focused/affected validation outcomes; relevant browser/DB/CI evidence; what was skipped and why; blockers; next bounded action. Update the current-state brief, active roadmap, handoff, or domain specs **only when their factual product/policy status changes**. Keep long retrospective evidence in existing history rather than growing the active documents for every small edit.
