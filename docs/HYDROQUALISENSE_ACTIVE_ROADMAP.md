@@ -33,6 +33,11 @@ Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical plans.
 
+
+## 2026-10-12 — WF-RESET-1 agent workflow simplification
+
+**Policy status:** agent workflow instructions were consolidated in `AGENTS.md` and `docs/AGENT_EXECUTION_EFFICIENCY.md`; `docs/ACTIVE_DEVELOPMENT_BRIEF.md` is the compact entrypoint for active state. Historical mandatory Jev checkpoints, old context-packet rituals, previous agent limits, and superseded "next" labels in older sections below are **not** active policy. Jev and RI context are opt-in. Exact-head risk-based CI, database/financial/security validation and guarded migrations remain unchanged. This documentation-only phase does not change product capability or resolve the pending QA Supabase connection failure.
+
 ## 2026-09-29 — MKT-V2A Full-App Marketing Capture Expansion
 
 Status: **IMPLEMENTED AS LOCAL REPRODUCIBLE SOURCE CAPTURE; FINAL VIDEO NOT PRODUCED.**
