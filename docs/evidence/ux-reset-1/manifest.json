@@ -1,0 +1,1203 @@
+{
+  "source": {
+    "sha": "fffda74308ef92f9de19ba574dd8314de848d759",
+    "dirtyRuntime": false,
+    "runtimeDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "environment": "local isolated headless synthetic demo",
+  "synthetic": true,
+  "productionWrites": false,
+  "captures": [
+    {
+      "state": "dashboard",
+      "route": "/demo/app/dashboard",
+      "viewport": {
+        "name": "desktop",
+        "width": 1920,
+        "height": 1080
+      },
+      "screenshot": "desktop-dashboard.png",
+      "geometry": {
+        "width": 1920,
+        "documentWidth": 1920
+      },
+      "sha256": "cca0375246ed438b76330c0fd022666ae9a821aa1da73f6300ba761617c2c428"
+    },
+    {
+      "state": "dashboard",
+      "route": "/demo/app/dashboard",
+      "viewport": {
+        "name": "laptop",
+        "width": 1366,
+        "height": 768
+      },
+      "screenshot": "laptop-dashboard.png",
+      "geometry": {
+        "width": 1366,
+        "documentWidth": 1366
+      },
+      "sha256": "702de9cb1bd36ea37007e82575e56dce0f8d435d67376b6a660e578c3a0fe904"
+    },
+    {
+      "state": "invoices",
+      "route": "/demo/app/invoices",
+      "viewport": {
+        "name": "laptop",
+        "width": 1366,
+        "height": 768
+      },
+      "screenshot": "laptop-invoices.png",
+      "geometry": {
+        "width": 1366,
+        "documentWidth": 1366
+      },
+      "sha256": "153fadfbf4e0c9183a3314c16651cbec2e31fdbb4c27e31e85083388db573afa"
+    },
+    {
+      "state": "issues-resolved",
+      "route": "/demo/app/review?invoiceId=demo-invoice-07",
+      "viewport": {
+        "name": "laptop",
+        "width": 1366,
+        "height": 768
+      },
+      "screenshot": "laptop-issues-resolved.png",
+      "geometry": {
+        "width": 1366,
+        "documentWidth": 1366
+      },
+      "sha256": "d35302633d12f51ac169fcafe84bf1a06e8e86f5a5862d632165fc2b11fe7362"
+    },
+    {
+      "state": "stock-allocation",
+      "route": "/demo/app/warehouse",
+      "viewport": {
+        "name": "laptop",
+        "width": 1366,
+        "height": 768
+      },
+      "screenshot": "laptop-stock-allocation.png",
+      "geometry": {
+        "width": 1366,
+        "documentWidth": 1366
+      },
+      "sha256": "d0d8f50e1a777cbcad5493afba6dd3f4ae6db6e45c15e830d15d7d72acf443f2"
+    },
+    {
+      "state": "dashboard",
+      "route": "/demo/app/dashboard",
+      "viewport": {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "mobile-dashboard.png",
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390
+      },
+      "sha256": "1eeb45dbb225ea21640228846fb923bd79f4093bc77416ff3d8c611fca4421d5"
+    },
+    {
+      "state": "issues-resolved",
+      "route": "/demo/app/review?invoiceId=demo-invoice-07",
+      "viewport": {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "mobile-issues-resolved.png",
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390
+      },
+      "sha256": "0f73a13a6131bd2531e80464e5db81ac7e5df993c0c64ea6bf6fb9bbaf2b8081"
+    },
+    {
+      "state": "payment-workflow",
+      "route": "/demo/app/review?invoiceId=demo-invoice-07",
+      "viewport": {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "mobile-payment-workflow.png",
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390
+      },
+      "sha256": "5ba33ddafe4558fe458c4d6f8ab50f80134ef1020dd7265d8162608a571cdb1f"
+    },
+    {
+      "state": "more-tools",
+      "route": "/demo/app/dashboard",
+      "viewport": {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "mobile-more-tools.png",
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390
+      },
+      "sha256": "33eeb96715eb5bd4081554e8a6f57b351b207e5886c9528376bb09f27b92b525"
+    },
+    {
+      "state": "base bill review, no source edits",
+      "route": "/demo/app/review?invoiceId=demo-invoice-07",
+      "viewport": {
+        "name": "laptop",
+        "width": 1366,
+        "height": 768
+      },
+      "screenshot": "laptop-bill-review.png",
+      "sha256": "ef46503531b642bc7adb85411427cf81403c7d002de2cdada9a7cc1d113e496b"
+    }
+  ],
+  "journeys": [
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1920,
+        "height": 1080
+      },
+      "status": "PASS",
+      "journeys": 8,
+      "financial": {
+        "status": "VERIFIED",
+        "linkedExpenseId": "demo-expense-verified-demo-invoice-07",
+        "supplierId": "demo-vendor-subcontractor",
+        "description": "Synthetic reviewed steel framing bill",
+        "expenseCount": 1
+      },
+      "pageErrors": [],
+      "routeStates": [
+        {
+          "state": "dashboard",
+          "route": "/demo/app/dashboard",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "invoices",
+          "route": "/demo/app/invoices",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "projects",
+          "route": "/demo/app/projects",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "workbook",
+          "route": "/demo/app/workbook?sheet=projects",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "warehouse",
+          "route": "/demo/app/warehouse",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "documents",
+          "route": "/demo/app/documents",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "expenses",
+          "route": "/demo/app/expenses",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "cash",
+          "route": "/demo/app/cash",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "procurement",
+          "route": "/demo/app/procurement",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "equipment",
+          "route": "/demo/app/equipment",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "payroll",
+          "route": "/demo/app/payroll",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "reports",
+          "route": "/demo/app/reports",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "email-sms",
+          "route": "/demo/app/email-sms",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "settings",
+          "route": "/demo/app/settings",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "vendors",
+          "route": "/demo/app/vendors",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "extract",
+          "route": "/demo/app/extract",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "review",
+          "route": "/demo/app/review",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "existing-bill-payment",
+          "route": "/demo/app/invoices/demo-invoice-02?from=%2Fdemo%2Fapp%2Finvoices",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "issues-resolved",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "confirmation-warning",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "payment-workflow",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "stock-allocation",
+          "route": "/demo/app/warehouse",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "project-detail",
+          "route": "/demo/app/projects/demo-project-warehouse",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "worksheet-saved",
+          "route": "/demo/app/workbook?sheet=projects",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        },
+        {
+          "state": "more-tools",
+          "route": "/demo/app/dashboard",
+          "viewport": {
+            "name": "desktop",
+            "width": 1920,
+            "height": 1080
+          },
+          "geometry": {
+            "width": 1920,
+            "documentWidth": 1920
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "laptop",
+        "width": 1366,
+        "height": 768
+      },
+      "status": "PASS",
+      "journeys": 8,
+      "financial": {
+        "status": "VERIFIED",
+        "linkedExpenseId": "demo-expense-verified-demo-invoice-07",
+        "supplierId": "demo-vendor-subcontractor",
+        "description": "Synthetic reviewed steel framing bill",
+        "expenseCount": 1
+      },
+      "pageErrors": [],
+      "routeStates": [
+        {
+          "state": "dashboard",
+          "route": "/demo/app/dashboard",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "invoices",
+          "route": "/demo/app/invoices",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "projects",
+          "route": "/demo/app/projects",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "workbook",
+          "route": "/demo/app/workbook?sheet=projects",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "warehouse",
+          "route": "/demo/app/warehouse",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "documents",
+          "route": "/demo/app/documents",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "expenses",
+          "route": "/demo/app/expenses",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "cash",
+          "route": "/demo/app/cash",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "procurement",
+          "route": "/demo/app/procurement",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "equipment",
+          "route": "/demo/app/equipment",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "payroll",
+          "route": "/demo/app/payroll",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "reports",
+          "route": "/demo/app/reports",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "email-sms",
+          "route": "/demo/app/email-sms",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "settings",
+          "route": "/demo/app/settings",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "vendors",
+          "route": "/demo/app/vendors",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "extract",
+          "route": "/demo/app/extract",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "review",
+          "route": "/demo/app/review",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "existing-bill-payment",
+          "route": "/demo/app/invoices/demo-invoice-02?from=%2Fdemo%2Fapp%2Finvoices",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "issues-resolved",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "confirmation-warning",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "payment-workflow",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "stock-allocation",
+          "route": "/demo/app/warehouse",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "project-detail",
+          "route": "/demo/app/projects/demo-project-warehouse",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "worksheet-saved",
+          "route": "/demo/app/workbook?sheet=projects",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        },
+        {
+          "state": "more-tools",
+          "route": "/demo/app/dashboard",
+          "viewport": {
+            "name": "laptop",
+            "width": 1366,
+            "height": 768
+          },
+          "geometry": {
+            "width": 1366,
+            "documentWidth": 1366
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      "status": "PASS",
+      "journeys": 8,
+      "financial": {
+        "status": "VERIFIED",
+        "linkedExpenseId": "demo-expense-verified-demo-invoice-07",
+        "supplierId": "demo-vendor-subcontractor",
+        "description": "Synthetic reviewed steel framing bill",
+        "expenseCount": 1
+      },
+      "pageErrors": [],
+      "routeStates": [
+        {
+          "state": "dashboard",
+          "route": "/demo/app/dashboard",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "invoices",
+          "route": "/demo/app/invoices",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "projects",
+          "route": "/demo/app/projects",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "workbook",
+          "route": "/demo/app/workbook?sheet=projects",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "warehouse",
+          "route": "/demo/app/warehouse",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "documents",
+          "route": "/demo/app/documents",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "expenses",
+          "route": "/demo/app/expenses",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "cash",
+          "route": "/demo/app/cash",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "procurement",
+          "route": "/demo/app/procurement",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "equipment",
+          "route": "/demo/app/equipment",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "payroll",
+          "route": "/demo/app/payroll",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "reports",
+          "route": "/demo/app/reports",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "email-sms",
+          "route": "/demo/app/email-sms",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "settings",
+          "route": "/demo/app/settings",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "vendors",
+          "route": "/demo/app/vendors",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "extract",
+          "route": "/demo/app/extract",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "review",
+          "route": "/demo/app/review",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "existing-bill-payment",
+          "route": "/demo/app/invoices/demo-invoice-02?from=%2Fdemo%2Fapp%2Finvoices",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "issues-resolved",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "confirmation-warning",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "payment-workflow",
+          "route": "/demo/app/review?invoiceId=demo-invoice-07",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "stock-allocation",
+          "route": "/demo/app/warehouse",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "project-detail",
+          "route": "/demo/app/projects/demo-project-warehouse",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "worksheet-saved",
+          "route": "/demo/app/workbook?sheet=projects",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        },
+        {
+          "state": "more-tools",
+          "route": "/demo/app/dashboard",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "geometry": {
+            "width": 390,
+            "documentWidth": 390
+          }
+        }
+      ]
+    }
+  ],
+  "existingBrowser": {
+    "source": {
+      "commitSha": "fffda74308ef92f9de19ba574dd8314de848d759",
+      "branch": "codex/ux-reset-1",
+      "timestamp": "2026-10-12T14:05:23.666Z",
+      "trigger": "local",
+      "appMode": "demo"
+    },
+    "scenarioCount": 32,
+    "passed": 32
+  }
+}
