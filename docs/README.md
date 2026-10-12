@@ -18,6 +18,7 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 ## Start here
 
 - `../AGENTS.md` — repository rules, validation policy, merge workflow, safety boundaries.
+- `ACTIVE_DEVELOPMENT_BRIEF.md` — compact current-state entrypoint.
 - `AGENT_EXECUTION_EFFICIENCY.md` — focused implementation/testing workflow.
 - `HYDROQUALISENSE_ACTIVE_ROADMAP.md` — current sequencing and approved/deferred work.
 - `HYDROQUALISENSE_CURRENT_HANDOFF.md` — current takeover snapshot and important evidence.
@@ -51,7 +52,7 @@ Historical Engoryx-named files and old goal-state documents are context only unl
 - `evidence/wb-cert/manifest.json` — exact-source-SHA local synthetic browser evidence and manually inspected desktop, constrained-laptop, and phone screenshots.
 - `superpowers/specs/2026-09-20-worksheet-density-clarity-correction.md` — blocking UX-W4.5 usability correction before UX-W5. It now begins with an app-wide screenshot investigation/visual triage across major authenticated/demo routes and four viewport classes, then applies evidence-backed hierarchy, density, protected/read-only/provenance, progressive-disclosure, and chrome corrections.
 
-The selective-workbook rollout has progressed through the shared worksheet foundation, Projects, Supplier Invoice review, and bounded UX-W4 transaction editors. UX-W4 is complete and the UX-W4.5A app-wide screenshot investigation is recorded in `artifacts/ui-ux-audit/UX-W4.5A-REPORT.md`. The next phase is the bounded evidence-backed UX-W4.5 correction sequence before UX-W5 so the current visual problems are not copied into new domains. Real `.xlsx` round trips remain required where supported: export -> external edit -> upload -> validate/compare -> human review -> authoritative apply.
+The selective-workbook rollout, subsequent density/contextual-help corrections, UX-EDIT-1A and WB-CERT are implemented for their recorded scopes. Current priorities are hardening and certification; WB-3D+ and net-new workforce/finance expansion remain deferred. The specifications above preserve domain authority and design history, not commands to resume an earlier NEXT phase. Supported XLSX round trips remain export -> edit -> upload -> validate/compare -> human review -> authoritative Apply.
 
 ## Public landing and Canva visual direction
 
@@ -95,3 +96,10 @@ The compatibility stub `HYDROQUALISENSE_EXCEL_NATIVE_OPERATIONS_UX.md` remains o
 Files beginning with `ENGORYX_`, older `WAVE*_GOAL_STATE.md` files, and similarly dated historical documents remain in place to avoid breaking old references. They are not current product sequencing authority. Do not use them to override HydroQualiSense-named source-of-truth documents.
 
 Historical files remain in place unless a separately reviewed reference-impact change moves them. Do not mass-move them casually.
+
+## Historical active-state archives
+
+- `HYDROQUALISENSE_ACTIVE_ROADMAP_HISTORY_THROUGH_20261012.md` — full former roadmap; old NEXT/ACTIVE and agent/model instructions are historical.
+- `HYDROQUALISENSE_CURRENT_HANDOFF_HISTORY_THROUGH_20261012.md` — full former handoff with exact phase evidence.
+
+Search a known phase only when needed. Same-directory archives preserve relative link bases; specs and domain contracts remain in their original locations.

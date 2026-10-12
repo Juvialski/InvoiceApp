@@ -1,11 +1,5 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { buildTypesafeContextCommand } from "./contextCommand.ts";
-import { runTypesafeBenchmark } from "./benchmark.ts";
-import { classifyCiFailure } from "./ciTriage.ts";
-import { checkCompletionEvidence } from "./completionCheck.ts";
-import { runTypeSafeDoctor } from "./doctor.ts";
-import { triageAffectedTests } from "./testTriage.ts";
 import type { WorkflowDomain } from "../../workflow-map/types.ts";
 import type { CompletionEvidenceCategory, CompletionCheckInput } from "./completionCheck.ts";
 
@@ -114,19 +108,23 @@ export async function runTypesafeCli(args: readonly string[] = process.argv.slic
     return;
   }
   if (parsed.command === "doctor") {
+    const { runTypeSafeDoctor } = await import("./doctor.ts");
     output(await runTypeSafeDoctor({ live: parsed.live }));
     return;
   }
   if (parsed.command === "benchmark") {
+    const { runTypesafeBenchmark } = await import("./benchmark.ts");
     output(await runTypesafeBenchmark({ mode: parsed.live ? "live" : "mock" }));
     return;
   }
   if (parsed.command === "context") {
+    const { buildTypesafeContextCommand } = await import("./contextCommand.ts");
     if (!parsed.task) throw new Error("context requires --task.");
     output(await buildTypesafeContextCommand({ task: parsed.task, query: parsed.query, domain: parsed.domain as WorkflowDomain | undefined, maxSelected: parsed.maxSelected, live: parsed.live, useChangedFiles: true }));
     return;
   }
   if (parsed.command === "ci-triage") {
+    const { classifyCiFailure } = await import("./ciTriage.ts");
     const excerpt = parsed.filePath ? readFileSync(path.resolve(process.cwd(), parsed.filePath), "utf8") : readFileSync(0, "utf8");
     output(await classifyCiFailure({ excerpt, task: parsed.task, live: parsed.live }));
     return;
@@ -134,9 +132,11 @@ export async function runTypesafeCli(args: readonly string[] = process.argv.slic
   if (!parsed.inputPath) throw new Error(`${parsed.command} requires --input <json>.`);
   const input = inputJson(parsed.inputPath);
   if (parsed.command === "test-triage") {
+    const { triageAffectedTests } = await import("./testTriage.ts");
     output(await triageAffectedTests({ task: String(input.task || parsed.task || "TypeSafe test triage"), selection: input.selection as never, live: parsed.live }));
     return;
   }
+  const { checkCompletionEvidence } = await import("./completionCheck.ts");
   const completionInput: CompletionCheckInput = {
     taskScope: String(input.taskScope || parsed.task || "TypeSafe completion evidence"),
     changedFileCategories: Array.isArray(input.changedFileCategories) ? input.changedFileCategories.map(String) : [],
