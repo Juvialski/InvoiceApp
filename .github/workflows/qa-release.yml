@@ -39,6 +39,7 @@ jobs:
       change_class: ${{ steps.classify.outputs.change_class }}
       run_operations_workbook_matrix: ${{ steps.classify.outputs.run_operations_workbook_matrix }}
       requires_hosted_qa: ${{ steps.classify.outputs.requires_hosted_qa }}
+      requires_qa_release: ${{ steps.classify.outputs.requires_qa_release }}
     steps:
       - name: Checkout exact main SHA
         uses: actions/checkout@v4
@@ -102,7 +103,9 @@ jobs:
   qa_release:
     name: Promote and verify protected QA
     needs: classify
-    if: needs.classify.result == 'success'
+    # Always classify pushes, but never access remote QA for docs/tests/isolated
+    # marketing or release-tooling-only changes. Manual runs remain guarded.
+    if: needs.classify.result == 'success' && needs.classify.outputs.requires_qa_release == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: qa
