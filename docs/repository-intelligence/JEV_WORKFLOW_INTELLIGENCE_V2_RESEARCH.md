@@ -1,5 +1,7 @@
 # Jev Workflow Intelligence v2A — Research, Calibration, and Integration Design
 
+> Historical research and optional experiment evidence. Current `AGENTS.md` supersedes all recommended checkpoint schedules, model requirements and phase sizing below. No Jev call, SDK setup, retry, benchmark or diagnostic log is required for normal development.
+
 Status: **V2A RESEARCH/DESIGN COMPLETE — V2B IMPLEMENTATION NOT STARTED**
 Date: **2026-09-21**
 

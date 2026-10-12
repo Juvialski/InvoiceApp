@@ -7,7 +7,10 @@ const source = readFileSync(new URL("../scripts/hosted-qa-certification.ts", imp
 test("hosted QA route contracts track current task-first dashboard, Expenses, Payroll, and Documents copy", () => {
   assert.match(source, /\{ route: "\/dashboard", heading: "Home", requiredText: \["What do you want to do today\?"\] \}/);
   assert.match(source, /\{ route: "\/expenses", heading: "Expenses", requiredText: \["Expense register"\] \}/);
-  assert.match(source, /\{ route: "\/payroll", heading: "Payroll & labor", requiredText: \["Review payroll before calculation"\] \}/);
+  assert.match(source, /\{ route: "\/payroll", heading: "Payroll & labor", requiredText: \["Review this pay period\. Approval, payment, and finalized history stay protected\.", "Payroll period summary", "Payroll settings and automation"\] \}/);
+  const payrollSource = readFileSync(new URL("../src/components/payroll/PayrollPageV2.tsx", import.meta.url), "utf8");
+  assert.match(payrollSource, /Review this pay period\. Approval, payment, and finalized history stay protected\./);
+  assert.doesNotMatch(source, /Review payroll before calculation/);
   assert.match(source, /\{ route: "\/documents", heading: "Documents", requiredText: \["Find records, then continue to the owning workflow", "Procurement"\] \}/);
   assert.doesNotMatch(source, /Supplier invoices remain preserved evidence/);
   assert.doesNotMatch(source, /Unified access surface/);

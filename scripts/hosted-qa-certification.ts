@@ -52,7 +52,7 @@ const ROUTE_CONTRACTS: readonly HostedRouteContract[] = [
   { route: "/expenses", heading: "Expenses", requiredText: ["Expense register"] },
   { route: "/procurement", heading: "Procurement & Purchase Orders", requiredText: ["Purchase Orders"] },
   { route: "/warehouse", heading: "Warehouse Inventory", requiredText: ["Movement-derived stock truth"] },
-  { route: "/payroll", heading: "Payroll & labor", requiredText: ["Review payroll before calculation"] },
+  { route: "/payroll", heading: "Payroll & labor", requiredText: ["Review this pay period. Approval, payment, and finalized history stay protected.", "Payroll period summary", "Payroll settings and automation"] },
   { route: "/settings", heading: "Operational settings", requiredText: ["Regional display preferences", "AI configuration"] },
   { route: "/email-sms", heading: "Email / SMS", requiredText: ["Compose", "Email Provider Status"] },
   { route: "/documents", heading: "Documents", requiredText: ["Find records, then continue to the owning workflow", "Procurement"] },
