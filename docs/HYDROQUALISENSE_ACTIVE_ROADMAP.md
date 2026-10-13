@@ -27,13 +27,15 @@ Next bounded actions:
 
 ## Implemented capability boundaries
 
+**UX-RESET-2, 2026-10-13:** The explicitly authorized existing-domain hardening phase adds Suppliers, Supplier Invoices and Warehouse to the in-app Workbook, staged/reviewed creation in four supported domains, exact bill and inventory workflow handoffs, and shared light/dark presentation. The dated five-sheet/planning-only statements above and below describe the earlier boundary. New in-app sheets do not expand the legacy XLSX contract. [Evidence and limitations](UX-RESET-2-EVIDENCE.md).
+
 | Area | Implemented scope and authority |
 | --- | --- |
 | Projects and finance | Project controls/Cost Codes; supplier review linked to one canonical Expense/payable; Client Billing/Collections; Cash & Banking; explicit settlement/lifecycle workflows |
 | Procurement and operations | RFQs/quotations/POs, receipts/matching, subcontracts/claims/variations, materials/equipment and movement-based warehouse history |
 | Payroll and engineering | Existing payroll/workforce management; engineering documents, RFIs/coordination and Site Logs; permission-scoped detail/history |
 | Documents and communications | Templates, immutable issued artifacts, programmatic PDF fallback, managed files/versions; reviewed composition, delivery intents/history, recovery and provider adapters |
-| Worksheets and Operations Workbook | Shared editing, selected draft surfaces and real XLSX review/Apply; five in-app sheets: Projects, Cost Codes, Direct Expenses, RFQs, POs. Supporting exports do not add write authority |
+| Worksheets and Operations Workbook | Eight permission-filtered in-app sheets: Projects, Cost Codes, Supplier Invoices, Direct Expenses, RFQs, POs, Suppliers and Warehouse. Reviewed row creation in four supported domains; existing canonical services remain authoritative. Legacy XLSX review/Apply keeps its existing domain contract |
 | UI and architecture | Workflow-first navigation, contextual help, density/responsive corrections, entity media, public company/QA showcase separation; RI-1/2/3 and professionalization implemented |
 
 These are implementation boundaries, not universal hosted/provider certification.

@@ -2,6 +2,8 @@
 
 Prepared from UX-RESET-1 on base `3bf5db9460b972408b8037bfdc1dddb3822cd83e`, 2026-10-12. Planning only: this PR adds no workbook sheets, adapters, schema or mutation authority.
 
+**2026-10-13 implementation override:** The subsequent user-authorized UX-RESET-2 implementation adds staged, reviewed creation for Suppliers, Cost Codes, Direct Expense drafts and Warehouse items, plus Suppliers, Supplier Invoices and Warehouse in-app sheets. The older candidate sequence below remains historical design context. Existing Warehouse updates remain read-only until atomic concurrency is available; Supplier Invoices open the canonical bill workflow. Legacy combined/standalone XLSX contracts are unchanged and do not include these three new in-app sheets. See [implementation evidence](UX-RESET-2-EVIDENCE.md) for the exact scope, screenshots and limitations.
+
 ## Scope and existing implementation
 
 The production enabled adapter set in `src/app/routes/OperationsWorkbookRoute.tsx` is Projects, Cost Codes, direct Expenses, RFQs and Purchase Orders. `src/lib/operationsWorkbookModel.ts` already describes Supplier Invoices, Vendors, Materials, Equipment, Warehouse and Payroll as `future-adapter`; declarations are not operational adapters. Do not turn readiness flags on before data loading, delegated persistence, authorization, protected fields, conflicts and tests exist.
