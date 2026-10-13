@@ -796,7 +796,7 @@ export function OperationsWorkbookRoute({
           </div>
 
           <footer className="hqs-border hqs-surface min-w-0 shrink-0 border-t px-3 py-2 text-xs">
-            <span className="hqs-secondary-text">{selectedSheet.id === "warehouse" ? "Stock quantities come from recorded movements. Existing item metadata is read only here." : selectedSheet.id === "supplier-invoices" ? "Open a bill to review its source, correct details or record a payment." : "Edit cells, then review and save. Removing an unsaved row never deletes a saved record."}</span>
+            <span className="hqs-secondary-text">{selectedSheet.id === "warehouse" ? "Stock quantities come from recorded movements. Existing item metadata is read only here." : selectedSheet.id === "supplier-invoices" ? "Open a bill to review its source, correct details or record a payment." : worksheetCanSave ? "Edit cells, then review and save. Removing an unsaved row never deletes a saved record." : "Read only. Open the original workflow to make authorized changes."}</span>
           </footer>
         </> : <div className="min-h-0 flex-1" />}
       </div>

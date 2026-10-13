@@ -74,6 +74,7 @@ export function WorkbookCostCodes({ costCodes, projects, save, onDirtyChange, di
 }) {
   const columns = useMemo<readonly WorksheetColumn<CostRow>[]>(() => [
     { key: "projectId", header: "Project", kind: "select", minWidth: "15rem", editable: (row) => Boolean(save && row.isNew), protected: (row) => !row.isNew, value: (row) => row.projectId, setValue: (row, value) => ({ ...row, projectId: String(value) }), options: projects.filter((project) => project.status !== "ARCHIVED").map((project) => ({ value: project.id, label: `${project.projectCode} · ${project.projectName}` })) },
+    { key: "currency", header: "Budget currency", minWidth: "8rem", protected: true, mobileSummary: true, value: (row) => projects.find((project) => project.id === row.projectId)?.currency || "—" },
     ...([ ["code", "Cost code"], ["name", "Work package"], ["description", "Description"], ["approvedBudgetAmount", "Approved budget"], ["forecastAmount", "Forecast"] ] as const).map(([key, header]): WorksheetColumn<CostRow> => ({ key, header, minWidth: key === "name" ? "16rem" : "10rem", kind: key.includes("Amount") ? "number" : "text", editable: (row) => Boolean(save && row.status === "ACTIVE" && !row.archivedAt), value: (row) => row[key] ?? "", setValue: (row, value) => ({ ...row, [key]: key.includes("Amount") ? value === "" && key === "forecastAmount" ? undefined : Number(value) : String(value) }) })),
     { key: "status", header: "State", mobileSummary: true, protected: true, value: (row) => row.status },
   ], [projects, save]);

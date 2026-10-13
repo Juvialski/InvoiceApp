@@ -12,11 +12,11 @@
 }
 #workspace-navigation-drawer :is(.text-white, .text-slate-100, .text-slate-200, .text-slate-300) { color: var(--color-text-primary); }
 #workspace-navigation-drawer :is(.text-slate-400, .text-slate-500) { color: var(--color-text-secondary); }
-#workspace-navigation-drawer button[aria-current="page"] { background: var(--color-accent-muted); color: var(--color-accent); }
+#workspace-navigation-drawer button[aria-current="page"] { background: var(--color-accent-muted); color: light-dark(var(--color-accent), #c7d2fe); }
 #workspace-navigation-drawer [role="status"] { background: var(--color-background-muted); color: var(--color-text-secondary); border-color: var(--color-border); }
 #workspace-navigation-drawer [role="status"] :is(span, svg) { color: inherit; }
 #workspace-navigation-drawer button:hover { background: var(--color-background-muted); }
-#workspace-navigation-drawer button[aria-current="page"] svg { color: var(--color-accent); }
+#workspace-navigation-drawer button[aria-current="page"] svg { color: light-dark(var(--color-accent), #c7d2fe); }
 #workspace-navigation-drawer :is(button, a) { font-weight: 600; }
 .hqs-border[class~="divide-y"] > * { border-color: var(--color-border); border-radius: 0; }
 [data-ui="page-header"] { padding-bottom: 1rem; }
@@ -102,7 +102,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hqs-border { border-color: var(--color-border, light-dark(#e2e8f0, #334155)); }
 .hqs-control,
 .hqs-input {
-  border: 1px solid var(--color-border-emphasized, light-dark(#cbd5e1, #475569));
+  border: 1px solid light-dark(#cbd5e1, #94a3b8);
   background: var(--color-background-surface, light-dark(#ffffff, #1e293b));
   color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
 }

@@ -123,7 +123,7 @@ export function WorkbookChangeReview<T extends WorkbookStagedRow>({ sourceRows, 
         <div className="my-4 min-h-0 overflow-auto">{review.map((row) => {
           const original = sourceRows.find((candidate) => candidate.id === row.id);
           return <div key={row.id} className="hqs-border border-b py-3 text-sm"><strong className="hqs-primary-text">{row.isNew ? "New record" : "Update record"}</strong>
-            {columns.filter((column) => column.setValue && (row.isNew || String(column.value?.(row)) !== String(original && column.value?.(original)))).map((column) => <p key={column.key} className="hqs-secondary-text break-words"><span className="font-medium">{column.header}: </span>{original && <>{display(column, original)} → </>}{display(column, row)}</p>)}
+            {columns.filter((column) => column.key === "currency" || column.setValue && (row.isNew || String(column.value?.(row)) !== String(original && column.value?.(original)))).map((column) => <p key={column.key} className="hqs-secondary-text break-words"><span className="font-medium">{column.header}: </span>{original && (column.key !== "currency" || column.setValue) && <>{display(column, original)} → </>}{display(column, row)}</p>)}
           </div>;
         })}</div>
         <div className="flex justify-end gap-2"><button type="button" disabled={saving} onClick={onClose} className="hqs-control rounded-md border px-4 py-2 text-sm">Back to editing</button><button type="button" disabled={saving} onClick={onConfirm} className="hqs-focus-ring rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving…" : "Confirm save"}</button></div>

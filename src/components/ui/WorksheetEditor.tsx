@@ -594,13 +594,13 @@ export function WorksheetEditor<T>({
         <table role="grid" aria-label={ariaLabel} aria-rowcount={draftRows.length + 1} className="min-w-full border-collapse text-left text-xs">
           <thead className="hqs-surface-muted hqs-secondary-text sticky top-0 z-20 border-b hqs-border text-[10px] uppercase tracking-wide">
             <tr role="row">
-              {showRowNumbers && <th scope="col" className="hqs-border w-12 border-r border-b px-2 text-center">#</th>}
+              {showRowNumbers && <th role="columnheader" aria-colindex={1} scope="col" className="hqs-border w-12 border-r border-b px-2 text-center">#</th>}
               {columns.map((column, columnIndex) => (
                 <th
                   key={column.key}
                   role="columnheader"
                   scope="col"
-                  aria-colindex={columnIndex + 1}
+                  aria-colindex={columnIndex + (showRowNumbers ? 2 : 1)}
                   data-worksheet-align={column.align || "left"}
                   className={`hqs-border border-r border-b last:border-r-0 whitespace-nowrap px-2 ${density === "compact" ? "py-1" : "py-1.5"} ${alignClass(column.align)} ${columnIndex === frozenColumnIndex ? "hqs-surface-muted sticky left-0 z-30" : ""}`}
                   style={{ width: column.width, minWidth: column.minWidth }}
@@ -626,7 +626,7 @@ export function WorksheetEditor<T>({
                         key={column.key}
                         ref={(node) => { if (node) cellRefs.current.set(cell.key, node); else cellRefs.current.delete(cell.key); }}
                         role="gridcell"
-                        aria-colindex={columnIndex + 1}
+                        aria-colindex={columnIndex + (showRowNumbers ? 2 : 1)}
                         aria-readonly={cell.readOnlyCell || actionDisabled || undefined}
                         aria-selected={(!quietUnfocusedSelection || hasFocus) && activeCell.row === rowIndex && activeCell.column === columnIndex}
                         aria-describedby={viewDescribedBy}
