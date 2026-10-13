@@ -610,6 +610,14 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
                   PERMISSION_KEYS.expensesWrite,
                   PERMISSION_KEYS.procurementRead,
                   PERMISSION_KEYS.procurementWrite,
+                  PERMISSION_KEYS.vendorsRead,
+                  PERMISSION_KEYS.vendorsManage,
+                  PERMISSION_KEYS.invoicesRead,
+                  PERMISSION_KEYS.invoicesWrite,
+                  PERMISSION_KEYS.invoicesExtract,
+                  PERMISSION_KEYS.invoicesVerify,
+                  PERMISSION_KEYS.inventoryRead,
+                  PERMISSION_KEYS.inventoryManage,
                 ]
               : ["*"]}
             onNavigatePath={(path, replace = false) => onNavigate(path.startsWith("/demo/") ? path : demoPathForAppPath(path), replace)}
@@ -678,6 +686,12 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             pathForSiteLog={(siteLogId) => selectedProject ? demoPathForProject(selectedProject.id, "site-logs", siteLogId ? { siteLogId } : undefined) : demoPathForTab("projects")}
             onOpenProject={openProject}
             onSaveProject={(project) => dispatch({ type: "SAVE_PROJECT", value: project })}
+            onSaveCostCode={async (input) => {
+              const current = input.id ? data.costCodes?.find((row) => row.id === input.id) : undefined;
+              if (input.id && (!current || input.updatedAt !== current.updatedAt)) throw new Error("Cost code changed. Reload before saving.");
+              const now = new Date().toISOString();
+              dispatch({ type: "SAVE_COST_CODE", value: { ...input, id: input.id || crypto.randomUUID(), companyId: DEMO_COMPANY_ID, createdAt: current?.createdAt || now, updatedAt: now } });
+            }}
             onPreviewProjectLifecycle={projectLifecyclePreview}
             onApplyProjectLifecycle={applyProjectLifecycle}
             onArchiveProject={archiveProject}

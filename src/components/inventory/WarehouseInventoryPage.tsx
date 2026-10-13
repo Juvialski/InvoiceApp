@@ -344,6 +344,12 @@ export const WarehouseInventoryPage: React.FC<WarehouseInventoryPageProps> = ({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [itemModal, setItemModal] = useState<{ item?: InventoryItem } | null>(null);
   const [movementModal, setMovementModal] = useState<{ action: MovementAction; itemId?: string; receiptId?: string } | null>(null);
+  const requestedTask = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("task");
+  useEffect(() => {
+    if (!canManage || !onRecordMovement) return;
+    if (requestedTask === "receive") setMovementModal({ action: "RECEIPT" });
+    if (requestedTask === "allocate" && canReadProjects) setMovementModal({ action: "PROJECT_ISSUE" });
+  }, [canManage, canReadProjects, requestedTask]);
   const [reverseMovement, setReverseMovement] = useState<InventoryMovement | null>(null);
   const balances = useMemo(() => providedBalances || deriveInventoryBalances(items, movements), [items, movements, providedBalances]);
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);

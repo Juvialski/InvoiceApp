@@ -140,6 +140,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   useEffect(() => {
     if (canManage && initialEditingProject) setEditing(initialEditingProject);
   }, [canManage, initialEditingProject]);
+  useEffect(() => {
+    if (canManage && new URLSearchParams(window.location.search).get("create") === "1") setEditing(blankProject());
+  }, [canManage]);
 
   // 1. Build Single Source-of-Truth Project Management Views
   const projectViews = useMemo<ProjectManagementView[]>(() => {

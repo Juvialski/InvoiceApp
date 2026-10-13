@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { canNavigateInApp } from "../utils/clientNavigation.ts";
 import { DemoLandingPage } from "./DemoLandingPage.tsx";
 import { DemoWorkspace } from "./DemoWorkspace.tsx";
 import { DemoWorkspaceProvider, useDemoWorkspace } from "./DemoWorkspaceProvider.tsx";
@@ -16,6 +17,7 @@ function DemoRootContent() {
   }, []);
 
   const navigate = useCallback((path: string, replace = false) => {
+    if (!canNavigateInApp(path)) return;
     if (!(path === DEMO_ROOT_PATH || path.startsWith(`${DEMO_ROOT_PATH}/`))) {
       throw new Error("Demo navigation cannot leave the isolated /demo route namespace.");
     }

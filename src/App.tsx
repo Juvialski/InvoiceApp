@@ -373,6 +373,7 @@ function InvoiceWorkspace() {
     setSaveState(nextState);
   };
   const navigateToPath = (path: string, replace = false) => {
+    if (!window.dispatchEvent(new CustomEvent("hqs:before-navigate", { cancelable: true, detail: { path } }))) return;
     const nextPath = path.startsWith("/") ? path : `/${path}`;
     const [pathname, query = ""] = nextPath.split("?", 2);
     const nextSearch = query ? `?${query}` : "";

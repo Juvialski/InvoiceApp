@@ -23,7 +23,7 @@ test("host navigation uses SPA history and emits one router event", () => {
       pushState: (_state: unknown, _title: string, path: string) => { calls.push(`push:${path}`); updateLocation(path); },
       replaceState: (_state: unknown, _title: string, path: string) => { calls.push(`replace:${path}`); updateLocation(path); },
     },
-    dispatchEvent: () => { calls.push("popstate"); return true; },
+    dispatchEvent: (event: Event) => { if (event.type === "popstate") calls.push("popstate"); return true; },
   };
 
   Object.defineProperty(globalThis, "window", { configurable: true, value: fakeWindow });

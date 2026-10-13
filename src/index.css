@@ -3,6 +3,49 @@
 @import "@astryxdesign/core/astryx.css";
 @import "./ui/hydroqualisense.css";
 
+/* Daily workspace: one quiet office-software surface, including dark mode. */
+#workspace-navigation-drawer {
+  background: var(--color-background-surface);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+#workspace-navigation-drawer :is(.text-white, .text-slate-100, .text-slate-200, .text-slate-300) { color: var(--color-text-primary); }
+#workspace-navigation-drawer :is(.text-slate-400, .text-slate-500) { color: var(--color-text-secondary); }
+#workspace-navigation-drawer button[aria-current="page"] { background: var(--color-accent-muted); color: var(--color-accent); }
+#workspace-navigation-drawer [role="status"] { background: var(--color-background-muted); color: var(--color-text-secondary); border-color: var(--color-border); }
+#workspace-navigation-drawer [role="status"] :is(span, svg) { color: inherit; }
+#workspace-navigation-drawer button:hover { background: var(--color-background-muted); }
+#workspace-navigation-drawer button[aria-current="page"] svg { color: var(--color-accent); }
+#workspace-navigation-drawer :is(button, a) { font-weight: 600; }
+.hqs-border[class~="divide-y"] > * { border-color: var(--color-border); border-radius: 0; }
+[data-ui="page-header"] { padding-bottom: 1rem; }
+[data-ui="page-header-actions"] button { font-size: .875rem; font-weight: 600; }
+[data-testid="supplier-invoice-side-by-side-review"] { gap: 1.25rem; }
+[data-testid="supplier-invoice-review"] :is(button, summary) { font-size: .8125rem; }
+[data-testid="supplier-invoice-extracted-worksheet"] :is(th, [data-worksheet-value]) { font-size: .8125rem; }
+[data-documents-workspace="true"] [data-document-center-nav="true"] { border-radius: .5rem; box-shadow: none; }
+[data-document-center-nav="true"] button { font-weight: 600; }
+[data-app-shell-main="true"] :is(.ops-table, [data-invoice-directory-table="true"]) { font-size: .875rem; }
+[data-invoice-directory-table="true"] th { font-size: .75rem; letter-spacing: normal; text-transform: none; }
+[data-domain="warehouse-inventory"] :is(button, [data-inventory-item="true"]) { font-size: .8125rem; }
+[data-dashboard-view="home"] [data-home-task] { box-shadow: none; border-color: var(--color-border); }
+[data-operations-workbook="true"] [data-worksheet-action-bar="true"] { padding: .5rem .75rem; }
+[data-operations-workbook="true"] [data-worksheet-action-bar="true"] button { font-size: .8125rem; min-height: 2.5rem; }
+[data-operations-workbook="true"] [data-worksheet-action-bar="true"] button[data-worksheet-add-row="true"] { color: var(--color-accent); font-weight: 600; }
+[data-operations-workbook="true"] [data-worksheet-action-bar="true"] button[data-worksheet-save="true"] { background: var(--color-accent); border-color: var(--color-accent); color: light-dark(#ffffff, #0f172a); font-weight: 600; }
+[data-operations-workbook="true"] thead { font-size: .75rem; text-transform: none; letter-spacing: normal; }
+[data-operations-workbook="true"] [data-worksheet-desktop-grid="true"] td { height: 2.25rem; font-size: .8125rem; }
+[data-operations-workbook="true"] [data-worksheet-state="clean"] { background: var(--color-background-surface); }
+[data-operations-workbook="true"] [data-worksheet-state="protected"] { background: var(--color-background-muted); }
+[data-operations-workbook="true"] [data-worksheet-state="dirty"] { box-shadow: inset 3px 0 var(--color-accent); }
+[data-operations-workbook="true"] [data-worksheet-mobile-field] > div > span { font-size: .8125rem; }
+@media (max-width: 767px) {
+  [data-operations-workbook="true"] { height: min(80dvh, 56rem); min-height: 24rem; }
+  [data-operations-workbook="true"] [data-worksheet-mobile-row-key] { padding: .75rem; }
+  [data-operations-workbook="true"] [data-worksheet-mobile-row-key] + [data-worksheet-mobile-row-key] { border-top: 3px solid var(--color-border); }
+}
+
 :root {
   color-scheme: light dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -55,11 +98,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .hqs-primary-text { color: var(--color-text-primary, light-dark(#0f172a, #f8fafc)); }
 .hqs-secondary-text { color: var(--color-text-secondary, light-dark(#475569, #94a3b8)); }
-.hqs-accent-text { color: var(--color-text-accent, light-dark(#4f46e5, #818cf8)); }
+.hqs-accent-text { color: var(--color-accent, light-dark(#4f46e5, #818cf8)); }
 .hqs-border { border-color: var(--color-border, light-dark(#e2e8f0, #334155)); }
 .hqs-control,
 .hqs-input {
-  border: 1px solid light-dark(#64748b, #94a3b8);
+  border: 1px solid var(--color-border-emphasized, light-dark(#cbd5e1, #475569));
   background: var(--color-background-surface, light-dark(#ffffff, #1e293b));
   color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
 }

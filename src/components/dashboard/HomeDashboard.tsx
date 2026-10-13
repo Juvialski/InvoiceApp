@@ -36,9 +36,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({ data, projects, pe
     <section aria-label="Choose a task" className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {tasks.map((task) => {
         const Icon = TASK_ICONS[task.id];
-        return <button key={task.id} type="button" data-home-task={task.id} onClick={() => onNavigate(task.tab)} className="hqs-surface hqs-row-hover hqs-focus-ring flex min-h-28 min-w-0 items-start gap-3 rounded-xl p-4 text-left">
-          <Icon aria-hidden="true" className="hqs-accent-text mt-0.5 h-5 w-5 shrink-0" />
-          <span className="min-w-0"><strong className="hqs-primary-text block text-sm font-bold">{task.label}</strong><span className="hqs-secondary-text mt-1 block text-xs leading-5">{task.description}</span></span>
+        return <button key={task.id} type="button" data-home-task={task.id} onClick={() => onNavigate(task.tab)} className="hqs-surface hqs-row-hover hqs-focus-ring group flex min-h-24 min-w-0 items-start gap-3 rounded-lg p-4 text-left">
+          <span className="hqs-accent-text flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-muted)]"><Icon aria-hidden="true" className="h-5 w-5" /></span>
+          <span className="min-w-0"><strong className="hqs-primary-text block text-base font-semibold">{task.label}</strong><span className="hqs-secondary-text mt-1 block text-sm leading-5">{task.description}</span></span>
         </button>;
       })}
       {!tasks.length && <p className="hqs-secondary-text text-sm sm:col-span-2">Use the navigation to open the work areas available to your role.</p>}

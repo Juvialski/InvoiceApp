@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from "react";
+import { deriveInventoryBalances } from "../../lib/inventory.ts";
 import { cashSettlementTargetContextFromSearch, dashboardViewFromSearch, documentWorkspaceContextFromSearch, emailWorkspaceContextFromSearch, financialTransactionIdFromSearch, procurementContextFromSearch, warehouseContextFromSearch, type AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
@@ -217,6 +218,7 @@ export interface AppRouterProps {
   onEditProject?: () => void;
   onSaveCostCode?: (costCode: {
     id?: string;
+    updatedAt?: string;
     projectId: string;
     code: string;
     name: string;
@@ -758,6 +760,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onRefreshProcurement={onRefreshProcurement}
         onSaveRFQ={onSaveRFQ}
         onSavePurchaseOrder={onSavePO}
+        vendors={vendors || []}
+        inventoryItems={inventoryItems}
+        inventoryBalances={inventoryBalances || deriveInventoryBalances(inventoryItems, inventoryMovements || [])}
+        onSaveVendor={onAddVendor}
+        onSaveInventoryItem={onSaveInventoryItem}
+        onSaveCostCode={onSaveCostCode}
       />,
     );
   }

@@ -85,6 +85,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
       "Export Expenses and related supplier-payable context to a controlled Excel workbook, review supported direct-draft changes, and apply only permitted updates through the Expense workflow.",
       "Edit direct, active DRAFT Expenses in the Expenses worksheet or Operations Workbook when you have Expense management access; viewing still requires Expense read access, while source, settlement, FX, correction, archive, and void controls stay protected.",
       "Maintain safe canonical Vendor master metadata in a spreadsheet-familiar worksheet while supplier invoice evidence, procurement and Expense links, financial history, and lifecycle actions remain protected or purpose-built.",
+      "Add suppliers and direct expense drafts in the Operations Workbook, review changes before saving, and open the exact supplier bill for source review or payment.",
     ],
     sortOrder: 30,
   },

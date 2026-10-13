@@ -16,6 +16,7 @@ import type {
   PayrollPeriod,
   PayrollRun,
   Project,
+  ProjectCostCode,
   ProjectEquipment,
   ProjectMaterial,
   ProjectWorkerAssignment,
@@ -43,6 +44,7 @@ import { applySubcontractVariationTransition } from "../lib/subcontractVariation
 import { supplierExpenseProjectProjection } from "../utils/supplierInvoiceCostOwnership.ts";
 
 export type DemoWorkspaceMutation =
+  | { type: "SAVE_COST_CODE"; value: ProjectCostCode }
   | { type: "SAVE_PROJECT"; value: Project }
   | { type: "ARCHIVE_PROJECT"; value: Project }
   | { type: "PROJECT_LIFECYCLE"; project: Project; action: ProjectLifecycleAction }
@@ -135,6 +137,8 @@ export function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: P
 
 export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWorkspaceMutation): DemoWorkspaceData {
   switch (mutation.type) {
+    case "SAVE_COST_CODE":
+      return { ...state, costCodes: upsert(state.costCodes || [], mutation.value) };
     case "SAVE_PROJECT":
       return { ...state, projects: upsert(state.projects, { ...mutation.value, updatedAt: demoTimestamp(state.anchorDate, 16, 0) }) };
     case "ARCHIVE_PROJECT":

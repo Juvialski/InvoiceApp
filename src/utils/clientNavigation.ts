@@ -1,5 +1,9 @@
 export type AppNavigate = (path: string, replace?: boolean) => void;
 
+export function canNavigateInApp(path: string): boolean {
+  return typeof window === "undefined" || window.dispatchEvent(new CustomEvent("hqs:before-navigate", { cancelable: true, detail: { path } })) !== false;
+}
+
 /**
  * Navigate within the current browser application without forcing a document
  * reload. Hosts with their own route state should provide AppNavigate; this
@@ -10,6 +14,7 @@ export function navigateInApp(path: string, replace = false): void {
   const nextPath = path.startsWith("/") ? path : `/${path}`;
   const currentPath = `${window.location.pathname}${window.location.search}`;
   if (currentPath === nextPath) return;
+  if (!canNavigateInApp(nextPath)) return;
   const method = replace ? "replaceState" : "pushState";
   window.history[method]({}, "", nextPath);
   window.dispatchEvent(new Event("popstate"));

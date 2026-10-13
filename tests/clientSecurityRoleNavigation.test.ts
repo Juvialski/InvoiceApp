@@ -132,8 +132,8 @@ test("Viewer exposes only the read-capable modules in its profile", () => {
 });
 
 test("a restricted custom role follows selected permissions rather than a display name", () => {
-  assert.deepEqual(moduleLabels([PERMISSION_KEYS.inventoryRead]), ["warehouse"]);
-  assert.deepEqual(moduleLabels(["inventory.read"]), ["warehouse"]);
+  assert.deepEqual(moduleLabels([PERMISSION_KEYS.inventoryRead]), ["operations-workbook", "warehouse"]);
+  assert.deepEqual(moduleLabels(["inventory.read"]), ["operations-workbook", "warehouse"]);
 });
 
 test("Company Admin retains the complete permitted workspace and Settings access", () => {

@@ -439,7 +439,7 @@ export function OperationsWorkbookTransfer({
   };
 
   return (
-    <section aria-label="Combined Operations Workbook" className="hqs-border min-w-0 border-t bg-white">
+    <section aria-label="Combined Operations Workbook" className="hqs-surface hqs-border min-w-0 border-t">
       <details ref={transferDisclosureRef} data-workbook-transfer-disclosure="true" className="min-w-0">
         <summary className="hqs-secondary-text flex min-h-9 cursor-pointer list-none items-center px-2.5 py-1.5 text-[11px] font-semibold [&::-webkit-details-marker]:hidden">
           Import / export
@@ -451,7 +451,7 @@ export function OperationsWorkbookTransfer({
                 <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
                 <h2 className="text-xs font-semibold text-slate-900">Combined workbook</h2>
               </div>
-              <p className="mt-0.5 text-[11px] text-slate-600">Imports open a review; Apply remains separate by domain.</p>
+              <p className="hqs-secondary-text mt-0.5 text-xs">Excel files cover Projects, Expenses and Procurement. Imports open a review before applying changes.</p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               <button type="button" onClick={handleExport} disabled={busy || disabled} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">
