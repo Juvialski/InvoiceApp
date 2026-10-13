@@ -102,7 +102,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hqs-border { border-color: var(--color-border, light-dark(#e2e8f0, #334155)); }
 .hqs-control,
 .hqs-input {
-  border: 1px solid light-dark(#cbd5e1, #94a3b8);
+  border: 1px solid light-dark(#64748b, #94a3b8);
   background: var(--color-background-surface, light-dark(#ffffff, #1e293b));
   color: var(--color-text-primary, light-dark(#0f172a, #f8fafc));
 }
