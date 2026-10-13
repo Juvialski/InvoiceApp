@@ -47,7 +47,7 @@ function normalizedTaxKey(value: unknown): string | undefined {
   return normalizeTaxId(raw)?.normalized || raw.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-function newVendorWorksheetRow(): VendorWorksheetRow {
+export function newVendorWorksheetRow(): VendorWorksheetRow {
   return {
     id: newWorksheetDraftId("vendor"),
     name: "",
@@ -121,7 +121,7 @@ export function buildVendorSavePlan(
   return { valid: Object.keys(issues).length === 0, entries, issues };
 }
 
-function vendorWorksheetColumns(canManage: boolean): readonly WorksheetColumn<VendorWorksheetRow>[] {
+export function vendorWorksheetColumns(canManage: boolean): readonly WorksheetColumn<VendorWorksheetRow>[] {
   return [
     {
       key: "name",

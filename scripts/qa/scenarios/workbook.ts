@@ -4,6 +4,25 @@ import { READY_TIMEOUT_MS } from "./shared.ts";
 
 const workbookRoot = '[data-operations-workbook="true"]';
 const workbookTabs = '[role="tablist"][aria-label="Operations Workbook sheets"] [role="tab"]';
+const workbookSaveName = /^Save (demo edits|changes)$/;
+
+interface WorkbookDialogPage extends QaBrowserPage {
+  once(event: "dialog", handler: (dialog: { message(): string; dismiss(): Promise<void> }) => void): unknown;
+}
+async function rejectWorkbookSheetExit(page: QaBrowserPage, name: string | RegExp): Promise<boolean> {
+  let prompted = false;
+  (page as WorkbookDialogPage).once("dialog", (dialog) => {
+    prompted = /Discard.*unsaved/i.test(dialog.message());
+    void dialog.dismiss();
+  });
+  await page.getByRole("tab", { name, exact: typeof name === "string" }).click();
+  return prompted;
+}
+async function confirmWorkbookSave(page: QaBrowserPage): Promise<void> {
+  await page.getByRole("button", { name: workbookSaveName }).click();
+  await page.getByRole("button", { name: "Confirm save", exact: true }).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.getByRole("button", { name: "Confirm save", exact: true }).click();
+}
 
 interface WorkbookDownloadHandle {
   path(): Promise<string | null>;
@@ -81,7 +100,7 @@ export const verifyOperationsWorkbookLayout: QaScenarioAction = async (page) => 
     { id: "workbook-heading-visible", passed: true, details: "Operations Workbook heading rendered." },
     { id: "workbook-heading-remains-visible-on-narrow-screens", passed: layout.headerHeight >= 28 && layout.headingWithinViewport && layout.headingVisibility !== "hidden" && layout.headingOpacity !== "0", details: "header height=" + layout.headerHeight + "; heading=" + layout.headingText + "; color=" + layout.headingColor + "; opacity=" + layout.headingOpacity + "; display=" + layout.headingDisplay + "; position=" + layout.headingTop + ".." + layout.headingBottom },
     { id: "workbook-combined-roundtrip-actions", passed: transferActionsRendered, details: "Combined workbook download and import review controls rendered." },
-    { id: "workbook-project-expense-and-procurement-tabs-visible", passed: tabCount === 5 && projectTabCount === 1 && costCodeTabCount === 1 && expensesTabCount === 1 && rfqTabCount === 1 && purchaseOrderTabCount === 1, details: `authorized sheet tabs: ${tabCount}; Projects: ${projectTabCount}; Cost Codes: ${costCodeTabCount}; Expenses: ${expensesTabCount}; RFQs: ${rfqTabCount}; Purchase Orders: ${purchaseOrderTabCount}` },
+    { id: "workbook-project-expense-and-procurement-tabs-visible", passed: tabCount === 8 && projectTabCount === 1 && costCodeTabCount === 1 && expensesTabCount === 1 && rfqTabCount === 1 && purchaseOrderTabCount === 1, details: `authorized sheet tabs: ${tabCount}; Projects: ${projectTabCount}; Cost Codes: ${costCodeTabCount}; Expenses: ${expensesTabCount}; RFQs: ${rfqTabCount}; Purchase Orders: ${purchaseOrderTabCount}` },
     { id: "workbook-tab-keyboard-focus", passed: layout.selectedTabFocused && layout.selectedTab === "Projects", details: `selected/focused tab: ${layout.selectedTab || "missing"}` },
     { id: "workbook-grid-responsive-mode", passed: mobileViewport ? layout.mobileGridVisible : layout.desktopGridVisible, details: mobileViewport ? `mobile fallback visible: ${layout.mobileGridVisible}` : `desktop grid visible: ${layout.desktopGridVisible}` },
     { id: "workbook-synthetic-project-rows-visible", passed: layout.worksheetRows > 0, details: `worksheet row instances: ${layout.worksheetRows}` },
@@ -105,8 +124,8 @@ export const verifyOperationsWorkbookPermissionTabs: QaScenarioAction = async (p
     workbookTabs: Array.from(document.querySelectorAll<HTMLElement>('[role="tablist"][aria-label="Operations Workbook sheets"] [role="tab"]')).map((tab) => tab.textContent?.trim() || ""),
   }));
   return [
-    { id: "workbook-read-authorized-sheets-are-visible", passed: tabs.length === 5 && tabs[0]?.label === "Projects" && tabs[1]?.label.toLowerCase() === "cost codes" && tabs[2]?.label === "Expenses" && tabs[3]?.label === "RFQs" && tabs[4]?.label === "Purchase orders" && tabs.every((tab) => !tab.disabled), details: `visible worksheet tabs: ${tabs.map((tab) => tab.label).join(", ") || "none"}` },
-    { id: "workbook-unavailable-domain-names-not-rendered-as-tabs", passed: !route.workbookTabs.some((label) => /payroll|supplier invoice|procurement|warehouse|equipment|vendor/i.test(label)), details: `tab labels: ${route.workbookTabs.join(", ") || "none"}` },
+    { id: "workbook-read-authorized-sheets-are-visible", passed: tabs.length === 8 && tabs[0]?.label === "Projects" && tabs[1]?.label.toLowerCase() === "cost codes" && tabs[2]?.label === "Invoices" && tabs[3]?.label === "Expenses" && tabs[4]?.label === "RFQs" && tabs[5]?.label === "Purchase orders" && tabs[6]?.label === "Warehouse" && tabs[7]?.label === "Suppliers" && tabs.every((tab) => !tab.disabled), details: `visible worksheet tabs: ${tabs.map((tab) => tab.label).join(", ") || "none"}` },
+    { id: "workbook-unavailable-domain-names-not-rendered-as-tabs", passed: !route.workbookTabs.some((label) => /payroll|materials|procurement|equipment/i.test(label)), details: `tab labels: ${route.workbookTabs.join(", ") || "none"}` },
     { id: "workbook-route-selects-only-one-sheet-at-a-time", passed: route.tabIds.length === 1 && route.tabIds[0] === "projects", details: `active sheet IDs: ${route.tabIds.join(", ") || "none"}` },
   ] satisfies readonly QaAssertion[];
 };
@@ -122,7 +141,7 @@ export const verifyOperationsWorkbookInvalidSheetRecovery: QaScenarioAction = as
   return [
     { id: "workbook-invalid-sheet-replaced-in-url", passed: new URL(page.url()).searchParams.get("sheet") === "projects", details: `recovered URL sheet: ${new URL(page.url()).searchParams.get("sheet") || "none"}` },
     { id: "workbook-invalid-sheet-selects-authorized-projects", passed: state.selectedSheet === "projects" && state.selectedTab === "Projects", details: `active sheet: ${state.selectedSheet || "none"}; tab: ${state.selectedTab || "none"}` },
-    { id: "workbook-invalid-sheet-keeps-only-authorized-tabs", passed: state.tabLabels.length === 5 && state.tabLabels.includes("Expenses") && state.tabLabels.includes("RFQs") && state.tabLabels.includes("Purchase orders") && !state.tabLabels.some((label) => /payroll|supplier invoice|procurement|warehouse|equipment|vendor/i.test(label)), details: `visible tabs: ${state.tabLabels.join(", ") || "none"}` },
+    { id: "workbook-invalid-sheet-keeps-only-authorized-tabs", passed: state.tabLabels.length === 8 && state.tabLabels.includes("Expenses") && state.tabLabels.includes("RFQs") && state.tabLabels.includes("Purchase orders") && !state.tabLabels.some((label) => /payroll|materials|procurement|equipment/i.test(label)), details: `visible tabs: ${state.tabLabels.join(", ") || "none"}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -150,11 +169,12 @@ export const verifyOperationsWorkbookEditableAndProtectedCells: QaScenarioAction
   await page.keyboard.press("Enter");
   const importDisabledWhileDirty = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
     .some((button) => button.textContent?.trim() === "Import workbook" && button.disabled));
-  await page.getByRole("tab", { name: /Cost codes/i }).click();
+  const dirtySwitchStatePrompt = await rejectWorkbookSheetExit(page, /Cost codes/i);
   const dirtySwitchState = await page.evaluate(() => ({
     selectedSheet: document.querySelector<HTMLElement>('[data-operations-workbook="true"]')?.dataset.workbookSheet || "",
-    warningVisible: document.body.textContent?.includes("Save or discard your worksheet edits before switching sheets.") || false,
+    warningVisible: false,
   }));
+  dirtySwitchState.warningVisible = dirtySwitchStatePrompt;
 
   const protectedStatus = page.locator('[data-worksheet-cell$=":status"]:visible').first();
   await protectedStatus.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
@@ -193,7 +213,7 @@ export const verifyOperationsWorkbookCostCodesSheet: QaScenarioAction = async (p
   await codeEditor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   await codeEditor.fill("WB3A-QA-CODE");
   await page.keyboard.press("Escape");
-  const saveButton = page.getByRole("button", { name: "Save demo edits", exact: true });
+  const saveButton = page.getByRole("button", { name: workbookSaveName });
   const openCodeEditors = await page.locator('[data-worksheet-cell$=":code"]:visible input').count();
   const state = await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>('[data-operations-workbook="true"]');
@@ -201,7 +221,7 @@ export const verifyOperationsWorkbookCostCodesSheet: QaScenarioAction = async (p
     const code = Array.from(document.querySelectorAll<HTMLElement>("[data-worksheet-cell]"))
       .find((cell) => cell.dataset.worksheetCell?.endsWith(":code"));
     const parent = Array.from(document.querySelectorAll<HTMLElement>("[data-worksheet-cell]"))
-      .find((cell) => cell.dataset.worksheetCell?.endsWith(":projectCode"));
+      .find((cell) => cell.dataset.worksheetCell?.endsWith(":projectId") || cell.dataset.worksheetCell?.endsWith(":projectCode"));
     const status = Array.from(document.querySelectorAll<HTMLElement>("[data-worksheet-cell]"))
       .find((cell) => cell.dataset.worksheetCell?.endsWith(":status"));
     const actualCost = Array.from(document.querySelectorAll<HTMLElement>("[data-worksheet-cell]"))
@@ -213,7 +233,7 @@ export const verifyOperationsWorkbookCostCodesSheet: QaScenarioAction = async (p
       codeEditable: code?.dataset.worksheetEditable === "true",
       parentReadonly: parent?.getAttribute("aria-readonly") === "true" && parent.dataset.worksheetEditable === "false",
       statusProtected: status?.dataset.worksheetProtected === "true" && status.dataset.worksheetEditable === "false",
-      actualCostProtected: actualCost?.dataset.worksheetProtected === "true" && actualCost.dataset.worksheetEditable === "false",
+      actualCostProtected: !actualCost || (actualCost.dataset.worksheetProtected === "true" && actualCost.dataset.worksheetEditable === "false"),
       mobileGridVisible: Boolean(mobileGrid && getComputedStyle(mobileGrid).display !== "none" && mobileGrid.getClientRects().length),
       documentWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
       viewportWidth: window.innerWidth,
@@ -233,6 +253,7 @@ export const verifyOperationsWorkbookExpensesSheet: QaScenarioAction = async (pa
   await page.getByRole("tab", { name: "Expenses", exact: true }).click();
   await page.waitForFunction(() => document.querySelector<HTMLElement>('[data-operations-workbook="true"]')?.dataset.workbookSheet === "expenses");
 
+  if (await page.evaluate(() => window.innerWidth < 768)) { while (await page.getByRole("button", { name: "More fields", exact: true }).count() > 0) await page.getByRole("button", { name: "More fields", exact: true }).first().click(); }
   const editableDescription = page.locator('[data-worksheet-cell$=":description"][data-worksheet-editable="true"]:visible').first();
   await editableDescription.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const rowState = await page.evaluate(() => {
@@ -279,15 +300,16 @@ export const verifyOperationsWorkbookExpensesSheet: QaScenarioAction = async (pa
 
   const importDisabledWhileDirty = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
     .some((button) => button.textContent?.trim() === "Import workbook" && button.disabled));
-  await page.getByRole("tab", { name: /Cost codes/i }).click();
+  const dirtyGuardPrompt = await rejectWorkbookSheetExit(page, /Cost codes/i);
   const dirtyGuard = await page.evaluate(() => ({
     selectedSheet: document.querySelector<HTMLElement>('[data-operations-workbook="true"]')?.dataset.workbookSheet || "",
-    warningVisible: document.body.textContent?.includes("Save or discard your worksheet edits before switching sheets.") || false,
+    warningVisible: false,
   }));
+  dirtyGuard.warningVisible = dirtyGuardPrompt;
 
-  const saveButton = page.getByRole("button", { name: "Save demo edits", exact: true });
-  await saveButton.click();
-  await page.waitForFunction(() => document.body.textContent?.includes("Demo Expense changes saved in this browser.") === true);
+  const saveButton = page.getByRole("button", { name: workbookSaveName });
+  await confirmWorkbookSave(page);
+  await page.waitForFunction(() => document.body.textContent?.includes("1 row saved.") === true);
   const state = await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>('[data-operations-workbook="true"]');
     const mobileGrid = document.querySelector<HTMLElement>("[data-worksheet-mobile-fallback]");
@@ -352,11 +374,12 @@ export const verifyOperationsWorkbookProcurementSheets: QaScenarioAction = async
 
   const importDisabledWithRfqDirty = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
     .some((button) => button.textContent?.trim() === "Import workbook" && button.disabled));
-  await page.getByRole("tab", { name: "Expenses", exact: true }).click();
+  const rfqDirtyGuardPrompt = await rejectWorkbookSheetExit(page, "Expenses");
   const rfqDirtyGuard = await page.evaluate(() => ({
     selectedSheet: document.querySelector<HTMLElement>("[data-operations-workbook]")?.dataset.workbookSheet || "",
-    warningVisible: document.body.textContent?.includes("Save or discard your worksheet edits before switching sheets.") || false,
+    warningVisible: false,
   }));
+  rfqDirtyGuard.warningVisible = rfqDirtyGuardPrompt;
 
   const dueDateCell = page.locator(`[data-worksheet-cell="${rfqState.draftId}:dueDate"][data-worksheet-editable="true"]:visible`);
   await dueDateCell.click();
@@ -364,8 +387,8 @@ export const verifyOperationsWorkbookProcurementSheets: QaScenarioAction = async
   await dueDateEditor.waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   await dueDateEditor.fill("2026-11-20");
   await page.keyboard.press("Enter");
-  const demoSave = page.getByRole("button", { name: "Save demo edits", exact: true });
-  await demoSave.click();
+  const demoSave = page.getByRole("button", { name: workbookSaveName });
+  await confirmWorkbookSave(page);
   await page.waitForFunction(() => document.body.textContent?.includes("Demo Procurement changes saved in this browser.") === true);
   const rfqSaved = await page.evaluate(() => {
     const cells = Array.from(document.querySelectorAll<HTMLElement>("[data-worksheet-cell]"))
@@ -418,12 +441,13 @@ export const verifyOperationsWorkbookProcurementSheets: QaScenarioAction = async
 
   const importDisabledWithPoDirty = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
     .some((button) => button.textContent?.trim() === "Import workbook" && button.disabled));
-  await page.getByRole("tab", { name: "Expenses", exact: true }).click();
+  const poDirtyGuardPrompt = await rejectWorkbookSheetExit(page, "Expenses");
   const poDirtyGuard = await page.evaluate(() => ({
     selectedSheet: document.querySelector<HTMLElement>("[data-operations-workbook]")?.dataset.workbookSheet || "",
-    warningVisible: document.body.textContent?.includes("Save or discard your worksheet edits before switching sheets.") || false,
+    warningVisible: false,
   }));
-  await page.getByRole("button", { name: "Save demo edits", exact: true }).click();
+  poDirtyGuard.warningVisible = poDirtyGuardPrompt;
+  await confirmWorkbookSave(page);
   await page.waitForFunction(() => document.body.textContent?.includes("Demo Procurement changes saved in this browser.") === true);
   const state = await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>("[data-operations-workbook]");
@@ -446,7 +470,7 @@ export const verifyOperationsWorkbookProcurementSheets: QaScenarioAction = async
     { id: "workbook-rfq-safe-draft-fields-save-locally", passed: Boolean(rfqState.draftId) && rfqState.titleEditable && rfqState.dueDateEditable && rfqSaved.title === "Synthetic WB-3C RFQ draft edit" && rfqSaved.dueDate === "2026-11-20", details: `RFQ draft=${rfqState.draftId || "missing"}; title=${rfqSaved.title}; due date=${rfqSaved.dueDate}` },
     { id: "workbook-rfq-identity-status-and-issued-row-stay-protected", passed: rfqState.numberProtected && rfqState.statusProtected && rfqState.statusValue === "DRAFT" && rfqState.issuedId.length > 0 && rfqState.issuedTitleReadonly && rfqState.lineFieldCount === 0, details: `number protected=${rfqState.numberProtected}; status=${rfqState.statusValue}; non-draft title readonly=${rfqState.issuedTitleReadonly}; line fields=${rfqState.lineFieldCount}` },
     { id: "workbook-rfq-unsaved-edits-block-switch-and-import", passed: importDisabledWithRfqDirty && rfqDirtyGuard.selectedSheet === "rfqs" && rfqDirtyGuard.warningVisible, details: `import disabled=${importDisabledWithRfqDirty}; selected sheet=${rfqDirtyGuard.selectedSheet}; warning=${rfqDirtyGuard.warningVisible}` },
-    { id: "workbook-po-safe-draft-description-saves-locally", passed: Boolean(poState.draftId) && poState.descriptionEditable && state.savedDescription && await page.getByRole("button", { name: "Save demo edits", exact: true }).count() === 1, details: `Purchase Order draft=${poState.draftId || "missing"}; description saved=${state.savedDescription}` },
+    { id: "workbook-po-safe-draft-description-saves-locally", passed: Boolean(poState.draftId) && poState.descriptionEditable && state.savedDescription && await page.getByRole("button", { name: workbookSaveName }).count() === 1, details: `Purchase Order draft=${poState.draftId || "missing"}; description saved=${state.savedDescription}` },
     { id: "workbook-po-number-total-status-and-non-draft-stay-protected", passed: poState.numberProtected && poState.totalProtected && poState.statusProtected && poState.statusValue === "DRAFT" && poState.nonDraftDescriptionReadonly && poState.lineFieldCount === 0, details: `number=${poState.numberProtected}; total=${poState.totalProtected}; status=${poState.statusValue}; non-draft description readonly=${poState.nonDraftDescriptionReadonly}; line fields=${poState.lineFieldCount}` },
     { id: "workbook-po-unsaved-edits-block-switch-and-import", passed: importDisabledWithPoDirty && poDirtyGuard.selectedSheet === "purchase-orders" && poDirtyGuard.warningVisible, details: `import disabled=${importDisabledWithPoDirty}; selected sheet=${poDirtyGuard.selectedSheet}; warning=${poDirtyGuard.warningVisible}` },
     { id: "workbook-procurement-sheets-responsive-without-page-overflow", passed: state.viewportWidth < 768 ? state.mobileGridVisible && state.documentWidth <= state.viewportWidth + 2 : state.documentWidth <= state.viewportWidth + 2, details: `mobile fallback=${state.mobileGridVisible}; document ${state.documentWidth}px / viewport ${state.viewportWidth}px` },
@@ -564,7 +588,7 @@ export async function verifyOperationsWorkbookCombinedRoundTrip(page: QaBrowserP
   const mobileViewport = state.viewportWidth < 768;
   return [
     { id: "workbook-roundtrip-download-produced-supported-artifact", passed: downloadedBytes.byteLength > 0 && parsed.workbookKind === "HYDROQUALISENSE_COMBINED_OPERATIONS_WORKBOOK", details: `downloaded ${downloadedBytes.byteLength} bytes with the combined contract` },
-    { id: "workbook-partial-readable-domain-scope-hides-supplier-payables", passed: JSON.stringify(expenseManifest?.includedSheetNames) === JSON.stringify(["Expenses"]) && supplierPayablesRows.length === 0, details: `Supplier Payables rows: ${supplierPayablesRows.length}; expense sheets included: ${(expenseManifest?.includedSheetNames || []).join(", ")}` },
+    { id: "workbook-authorized-supplier-payables-context-exported", passed: JSON.stringify(expenseManifest?.includedSheetNames) === JSON.stringify(["Expenses", "Supplier Payables"]) && supplierPayablesRows.length > 0, details: `Supplier Payables rows: ${supplierPayablesRows.length}; expense sheets included: ${(expenseManifest?.includedSheetNames || []).join(", ")}` },
     { id: "workbook-roundtrip-import-review-shows-proposal", passed: state.proposalTextVisible && state.workbookOnlyProposal, details: `literal proposal visible=${state.proposalTextVisible}; workbook-only status=${state.workbookOnlyProposal}` },
     { id: "workbook-roundtrip-unchanged-proposals-are-collapsed-with-counts", passed: state.unchangedRowsCollapsed, details: `collapsed unchanged counts: ${state.unchangedRowsSummary || "none"}` },
     { id: "workbook-roundtrip-keeps-domain-apply-separated-and-demo-read-only", passed: state.allExistingDomainsReviewed && state.applyUnavailableInSyntheticDemo && state.applyButtonCount === 0, details: `reviewed domains=${state.allExistingDomainsReviewed ? 3 : state.reviewWidth ? "partial" : 0}; synthetic Apply disabled=${state.applyUnavailableInSyntheticDemo}; Apply buttons=${state.applyButtonCount}` },

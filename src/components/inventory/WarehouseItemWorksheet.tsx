@@ -86,7 +86,7 @@ export function warehouseItemWorksheetRow(
   };
 }
 
-function newWarehouseItemWorksheetRow(): WarehouseItemWorksheetRow {
+export function newWarehouseItemWorksheetRow(): WarehouseItemWorksheetRow {
   return warehouseItemWorksheetRow({
     id: newWorksheetDraftId("inventory-item"),
     itemName: "",
@@ -136,7 +136,7 @@ function movementTotals(row: WarehouseItemWorksheetRow): string {
   return `Opening ${row.openingQuantity} · received ${row.receivedQuantity} · issued ${row.issuedQuantity} · returned ${row.returnedQuantity}`;
 }
 
-function warehouseItemColumns(canManage: boolean): readonly WorksheetColumn<WarehouseItemWorksheetRow>[] {
+export function warehouseItemColumns(canManage: boolean): readonly WorksheetColumn<WarehouseItemWorksheetRow>[] {
   return [
     {
       key: "itemName",

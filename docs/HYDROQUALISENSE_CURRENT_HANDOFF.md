@@ -66,6 +66,8 @@ establish manual visual quality, provider readiness or production readiness.
 
 ## Next action and incomplete scope
 
+UX-RESET-2 now supplies central staged row creation for Suppliers, Cost Codes, Direct Expense drafts and Warehouse catalog items, supported edits, exact source/workflow links, and shared light/dark UI corrections. Existing Warehouse updates remain read-only because their canonical service has no atomic expected-version input. Supplier Invoices remain a projection over canonical bills/payables. Materials, Equipment and Payroll have no new production workbook tabs; XLSX remains the legacy permission-filtered version-1 contract. [Current implementation evidence](UX-RESET-2-EVIDENCE.md) records local synthetic browser/persistence and visual scope; no production or hosted certification is implied. Review the implementation PR; Codex must not merge it.
+
 The hardening-first freeze remains active. Use the
 [active roadmap](HYDROQUALISENSE_ACTIVE_ROADMAP.md) for implemented/deferred scope.
 Provider runtime, authenticated template/render readiness and marketing audio

@@ -180,7 +180,7 @@ export function DocumentsRoute({
 
       {view === "library" && !managedDocumentId && <>
         <FilterBar ariaLabel="Document filters" resultLabel={filteredEntries.length + " of " + entries.length + " documents"} hasActiveFilters={hasActiveFilters} onReset={() => { setSearch(""); setKindFilter("ALL"); setModuleFilter("ALL"); setOriginFilter("ALL"); setStatusFilter("ALL"); setProjectFilter("ALL"); setCounterpartyFilter("ALL"); }}>
-          <label className="relative min-w-0 flex-1 sm:min-w-[220px]"><span className="sr-only">Search documents</span><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input className="field-input pl-8" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search documents…" /></label>
+          <label className="relative min-w-0 flex-1 sm:min-w-[220px]"><span className="sr-only">Search documents</span><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input style={{ paddingInlineStart: "2rem" }} className="field-input pl-8" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search documents…" /></label>
           <label className="min-w-[10rem]"><span className="field-label">Type</span><select className="field-input" value={kindFilter} onChange={(event) => setKindFilter(event.target.value as typeof kindFilter)}><option value="ALL">All types</option>{Object.entries(KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         </FilterBar>
         <DisclosureSection title="More filters" description="Narrow by project, counterparty, owning module, origin, or status." className="mt-3">

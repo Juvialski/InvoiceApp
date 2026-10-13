@@ -218,7 +218,7 @@ export function PageHeader({ eyebrow, title, description, actions, className = "
   return <header data-ui="page-header" className={`flex min-w-0 flex-col gap-3 border-b hqs-border pb-4 sm:flex-row sm:items-center sm:justify-between ${className}`}>
     <div className="min-w-0">
       {eyebrow && <p className="hqs-accent-text text-[11px] font-semibold tracking-[0.12em]">{eyebrow}</p>}
-      <h1 data-ui="page-header-title" className="hqs-primary-text mt-0.5 text-[1.65rem] font-extrabold tracking-tight sm:text-[1.75rem]">{title}</h1>
+      <h1 data-ui="page-header-title" className="hqs-primary-text mt-0.5 text-2xl font-semibold tracking-tight">{title}</h1>
       {description && <p className="hqs-secondary-text mt-1 max-w-2xl text-sm leading-5">{description}</p>}
     </div>
     <div data-ui="page-header-actions" className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}<HelpAction topicId={helpTopicId} /></div>

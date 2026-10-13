@@ -1,0 +1,238 @@
+{
+  "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3",
+  "environment": "Local isolated headless synthetic Demo QA; no hosted/production writes",
+  "captures": [
+    {
+      "filename": "desktop-dashboard.png",
+      "route": "http://127.0.0.1:3012/demo/app/dashboard",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "desktop-invoices.png",
+      "route": "http://127.0.0.1:3012/demo/app/invoices",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "desktop-warehouse.png",
+      "route": "http://127.0.0.1:3012/demo/app/warehouse",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "desktop-projects.png",
+      "route": "http://127.0.0.1:3012/demo/app/projects",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "desktop-documents.png",
+      "route": "http://127.0.0.1:3012/demo/app/documents",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "desktop-workbook.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=projects",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "laptop-invoice-review.png",
+      "route": "http://127.0.0.1:3012/demo/app/review?invoiceId=demo-invoice-07",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "laptop-workbook-add-row.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "light",
+      "state": "add",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "laptop-workbook-validation.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "light",
+      "state": "invalid",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "laptop-workbook-review.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "light",
+      "state": "review",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "mobile-dashboard.png",
+      "route": "http://127.0.0.1:3012/demo/app/dashboard",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "mobile-more-tools.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=projects",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "state": "more",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "mobile-supplier-invoices.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=supplier-invoices",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "mobile-stock-in-workflow.png",
+      "route": "http://127.0.0.1:3012/demo/app/warehouse?task=receive",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-laptop-dashboard.png",
+      "route": "http://127.0.0.1:3012/demo/app/dashboard",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-laptop-workbook.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-laptop-workbook-add-row.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "dark",
+      "state": "add",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-laptop-review.png",
+      "route": "http://127.0.0.1:3012/demo/app/review?invoiceId=demo-invoice-07",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-mobile-workbook.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-mobile-warehouse.png",
+      "route": "http://127.0.0.1:3012/demo/app/warehouse",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-desktop-documents.png",
+      "route": "http://127.0.0.1:3012/demo/app/documents",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    }
+  ],
+  "visualReview": "Lead inspected actual React captures; final sidebar contrast, document search spacing and laptop focused input are corrected."
+}

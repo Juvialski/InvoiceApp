@@ -20,7 +20,7 @@ test("daily navigation keeps existing route identities and secondary tools remai
   assert.deepEqual(all.modules.find((module) => module.id === "invoices")?.routes.map((route) => route.path), ["/invoices", "/extract", "/review", "/vendors"]);
   const restricted = getNavigationModel({ permissions: [P.invoicesRead], hiddenModules: parseHiddenDeploymentModules("documents") });
   assert.deepEqual(restricted.groups.map((group) => group.id), ["everyday"]);
-  assert.deepEqual(restricted.modules.map((module) => module.id), ["invoices"]);
+  assert.deepEqual(restricted.modules.map((module) => module.id), ["operations-workbook", "invoices"]);
   const settingsOnly = getNavigationModel({ permissions: [P.settingsRead] });
   assert.equal(settingsOnly.groups.some((group) => group.id === "more-tools"), true);
   assert.equal(settingsOnly.settingsRoute?.id, "settings");
@@ -36,9 +36,9 @@ test("More Tools starts collapsed and its controls retain accessible disclosure 
 
 test("Home task permissions match the actual upload, settlement, workbook and stock workflows", () => {
   assert.deepEqual(dashboardQuickTasksForPermissions(["*"]).map((task) => [task.label, task.tab]), [["Add bill", "extractor"], ["Record payment", "invoices"], ["Open workbook", "workbook"], ["Assign stock to a project", "warehouse"]]);
-  assert.deepEqual(dashboardQuickTasksForPermissions([P.invoicesRead]), []);
+  assert.deepEqual(dashboardQuickTasksForPermissions([P.invoicesRead]).map((task) => task.tab), ["workbook"]);
   assert.deepEqual(dashboardQuickTasksForPermissions([P.projectsRead]).map((task) => task.tab), ["workbook"]);
-  assert.deepEqual(dashboardQuickTasksForPermissions([P.inventoryRead, P.inventoryManage]), []);
+  assert.deepEqual(dashboardQuickTasksForPermissions([P.inventoryRead, P.inventoryManage]).map((task) => task.tab), ["workbook"]);
   assert.deepEqual(dashboardQuickTasksForPermissions([P.invoicesExtract]), []);
   assert.deepEqual(dashboardQuickTasksForPermissions([]), []);
 });

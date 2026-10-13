@@ -2,6 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WorksheetEditor, WorksheetTabs } from "../../components/ui/WorksheetEditor.tsx";
 import { getWorksheetCellId } from "../../components/ui/worksheetEditorModel.ts";
 import { OperationsWorkbookTransfer } from "./OperationsWorkbookTransfer.tsx";
+import { WorkbookSuppliers, WorkbookWarehouse, WorkbookCostCodes, WorkbookExpenses } from "./WorkbookDomainSheets.tsx";
+import { WorkbookInvoiceSheet } from "./WorkbookInvoiceSheet.tsx";
+import { WorkbookChangeReview } from "./WorkbookRecordSheet.tsx";
+import type { VendorSaveInput } from "../../lib/vendors.ts";
+import type { InventoryItem, InventoryBalance, InventoryItemSaveInput } from "../../lib/inventory.ts";
+import type { Vendor } from "../../types.ts";
+import type { ProjectCostCodeSaveInput } from "../../components/projects/ProjectCostCodesWorksheet.tsx";
+import { appPathForTab } from "../../utils/appRouting.ts";
 import {
   availableOperationsWorkbookSheets,
   canAccessOperationsWorkbook,
@@ -157,6 +165,12 @@ export interface OperationsWorkbookRouteProps {
   onRefreshProcurement?: () => Promise<ProcurementRefreshContext>;
   onSaveRFQ?: ProcurementApplyCallbacks["saveRFQ"];
   onSavePurchaseOrder?: ProcurementApplyCallbacks["savePurchaseOrder"];
+  vendors?: readonly Vendor[];
+  inventoryItems?: readonly InventoryItem[];
+  inventoryBalances?: readonly InventoryBalance[];
+  onSaveVendor?: (input: VendorSaveInput) => Promise<Vendor>;
+  onSaveInventoryItem?: (input: InventoryItemSaveInput) => Promise<InventoryItem>;
+  onSaveCostCode?: (input: ProjectCostCodeSaveInput) => Promise<void> | void;
 }
 
 export function OperationsWorkbookRoute({
@@ -178,6 +192,7 @@ export function OperationsWorkbookRoute({
   onRefreshProcurement,
   onSaveRFQ,
   onSavePurchaseOrder,
+  vendors = [], inventoryItems = [], inventoryBalances = [], onSaveVendor, onSaveInventoryItem, onSaveCostCode,
 }: OperationsWorkbookRouteProps) {
   const permissionSnapshotKey = [...new Set(permissions)].sort().join(",");
   const currentContextKey = operationsWorkbookContextKey(companyId, permissions, demoMode);
@@ -214,6 +229,31 @@ export function OperationsWorkbookRoute({
   const [editorRevision, setEditorRevision] = useState(0);
   const [cellIssues, setCellIssues] = useState<WorkbookIssueMap>({});
   const [feedback, setFeedback] = useState<SaveFeedback | null>(null);
+  const [legacyReview, setLegacyReview] = useState<readonly WorkbookRow[] | null>(null);
+  const [query, setQuery] = useState("");
+  const dirtyChange = React.useCallback((dirty: boolean, busy = false) => { stagedEditsRef.current = dirty; setHasStagedEdits(dirty); setIsSaving(busy); }, []);
+  useEffect(() => {
+    if (!hasStagedEdits) return;
+    const unload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    const leave = (event: Event) => {
+      if (isSaving) { event.preventDefault(); return; }
+      if (event.defaultPrevented || !stagedEditsRef.current) return;
+      if (!window.confirm("Discard your unsaved workbook changes and leave this sheet?")) event.preventDefault();
+      else stagedEditsRef.current = false;
+    };
+    const currentPath = `${window.location.pathname}${window.location.search}`;
+    const historyLeave = (event: PopStateEvent) => {
+      if (!stagedEditsRef.current || `${window.location.pathname}${window.location.search}` === currentPath) return;
+      if (isSaving || !window.confirm("Discard your unsaved workbook changes and leave this sheet?")) {
+        window.history.pushState({}, "", currentPath);
+        event.stopImmediatePropagation();
+      } else stagedEditsRef.current = false;
+    };
+    window.addEventListener("beforeunload", unload);
+    window.addEventListener("hqs:before-navigate", leave);
+    window.addEventListener("popstate", historyLeave, true);
+    return () => { window.removeEventListener("beforeunload", unload); window.removeEventListener("hqs:before-navigate", leave); window.removeEventListener("popstate", historyLeave, true); };
+  }, [hasStagedEdits, isSaving]);
   const hasReadAndManage = hasAllPermissions(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.projectsWrite]);
   const productionSaveReady = Boolean(onRefreshProjects && onApplyProjectWorkbookGroup);
   const canSaveProjectSheets = !workspaceLoading && hasReadAndManage && (demoMode || productionSaveReady);
@@ -261,6 +301,7 @@ export function OperationsWorkbookRoute({
     setIsSaving(false);
     setCellIssues({});
     setFeedback(null);
+    setLegacyReview(null);
     setEditorRevision((revision) => revision + 1);
   }, [currentContextKey]);
 
@@ -658,8 +699,16 @@ export function OperationsWorkbookRoute({
   }
 
   const rows = !selectedSheet || !workbookAdapter || workspaceLoading ? [] : workbookAdapter.rows;
+  const visibleRows = query ? rows.filter((row) => columns.some((column) => String(column.value?.(row) ?? "").toLowerCase().includes(query.toLowerCase()))) : rows;
   const sheetTabs = visibleSheets.map((sheet) => ({ id: sheet.id, label: sheet.shortName || sheet.name }));
-  const worksheetCanSave = Boolean(workbookAdapter?.onSave);
+  const worksheetCanSave = Boolean(workbookAdapter?.onSave)
+    || selectedSheet?.id === "vendors" && Boolean(onSaveVendor) && hasAllPermissions(permissions, [PERMISSION_KEYS.vendorsRead, PERMISSION_KEYS.vendorsManage])
+    || selectedSheet?.id === "warehouse" && Boolean(onSaveInventoryItem) && hasAllPermissions(permissions, [PERMISSION_KEYS.inventoryRead, PERMISSION_KEYS.inventoryManage])
+    || selectedSheet?.id === "cost-codes" && Boolean(onSaveCostCode) && hasReadAndManage;
+  const domainSheet = selectedSheet && (["vendors", "warehouse", "supplier-invoices", "expenses"].includes(selectedSheet.id) || selectedSheet.id === "cost-codes" && Boolean(onSaveCostCode));
+  const contextRows = <T,>(values: readonly T[]): readonly T[] => demoMode || !companyId ? values : values.filter((row) => !(row as { companyId?: string }).companyId || (row as { companyId?: string }).companyId === companyId);
+  const manageVendors = hasAllPermissions(permissions, [PERMISSION_KEYS.vendorsRead, PERMISSION_KEYS.vendorsManage]);
+  const manageInventory = hasAllPermissions(permissions, [PERMISSION_KEYS.inventoryRead, PERMISSION_KEYS.inventoryManage]);
   const statusText = demoMode
     ? "Demo · edits stay in this browser"
     : selectedSheet
@@ -697,35 +746,44 @@ export function OperationsWorkbookRoute({
       <div
         data-operations-workbook="true"
         data-workbook-sheet={selectedSheet?.id}
-        className="flex h-[min(82dvh,56rem)] min-h-[28rem] min-w-0 flex-col overflow-hidden border border-slate-300 bg-white text-slate-900"
-        style={{ colorScheme: "light" }}
+        className="hqs-surface hqs-border hqs-primary-text flex h-[min(82dvh,56rem)] min-h-[28rem] min-w-0 flex-col overflow-hidden rounded-lg border"
       >
         <header className="hqs-border flex min-h-8 shrink-0 min-w-0 flex-wrap items-center justify-between gap-2 border-b px-2.5 py-1.5">
-          <h1 className="min-w-0 text-sm font-semibold">Operations Workbook</h1>
+          <h1 className="min-w-0 text-base font-semibold">Operations Workbook</h1>
           {statusText && <span role="status" data-workbook-status="true" className="hqs-secondary-text max-w-full text-[10px] font-medium sm:text-[11px]">{statusText}</span>}
         </header>
 
-        {selectedSheet && workbookAdapter ? <>
+        {selectedSheet && (workbookAdapter || domainSheet) ? <>
+          <div className="hqs-border shrink-0 border-b px-2"><WorksheetTabs ariaLabel="Operations Workbook sheets" tabs={sheetTabs} value={selectedSheet.id} onChange={(sheetId) => {
+            if (isSaving) return;
+            if (sheetId !== selectedSheet.id && stagedEditsRef.current && !window.confirm("Discard your unsaved changes and switch sheets?")) return;
+            dirtyChange(false); setFeedback(null); onNavigatePath?.(appPathForWorkbookSheet(sheetId));
+          }} className="border-b-0" /></div>
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-            <WorksheetEditor
+            {domainSheet ? <React.Fragment key={`${currentContextKey}:${selectedSheet.id}`}>
+              {selectedSheet.id === "vendors" && <WorkbookSuppliers vendors={contextRows(vendors)} save={manageVendors ? onSaveVendor : undefined} onDirtyChange={dirtyChange} disabled={workspaceLoading} />}
+              {selectedSheet.id === "warehouse" && <WorkbookWarehouse items={contextRows(inventoryItems)} balances={inventoryBalances} save={manageInventory ? onSaveInventoryItem : undefined} onDirtyChange={dirtyChange} disabled={workspaceLoading} actions={onNavigatePath ? <>{manageInventory && <button type="button" onClick={() => onNavigatePath(`${appPathForTab("warehouse")}?task=receive`)} className="hqs-control rounded-md border px-3 py-2 text-sm">Stock In</button>}{manageInventory && hasAllPermissions(permissions, [PERMISSION_KEYS.projectsRead]) && <button type="button" onClick={() => onNavigatePath(`${appPathForTab("warehouse")}?task=allocate`)} className="hqs-control rounded-md border px-3 py-2 text-sm">Stock Out / Allocate</button>}<button type="button" onClick={() => onNavigatePath(appPathForTab("warehouse"))} className="hqs-control rounded-md border px-3 py-2 text-sm">Stock history</button></> : undefined} />}
+              {selectedSheet.id === "supplier-invoices" && <WorkbookInvoiceSheet projects={hasAllPermissions(permissions, [PERMISSION_KEYS.projectsRead]) ? projects : []} invoices={expenses.invoices} projections={expenses.settlementProjections} onNavigate={onNavigatePath} onDirtyChange={dirtyChange} canAdd={hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify])} disabled={workspaceLoading} />}
+              {selectedSheet.id === "cost-codes" && <WorkbookCostCodes costCodes={contextRows(costCodes)} projects={contextRows(projects)} save={hasReadAndManage ? onSaveCostCode : undefined} onDirtyChange={dirtyChange} disabled={workspaceLoading} />}
+              {selectedSheet.id === "expenses" && <WorkbookExpenses records={expenses} permissions={permissions} save={hasExpenseReadAndManage && (demoMode || onRefreshExpenses) ? onSaveExpenseDraft : undefined} refresh={onRefreshExpenses} companyId={companyId} demoMode={demoMode} onDirtyChange={dirtyChange} disabled={workspaceLoading} />}
+            </React.Fragment> : <WorksheetEditor
               key={`${currentContextKey}:${selectedSheet.id}:${editorRevision}`}
               ariaLabel={`${selectedSheet.name} worksheet`}
-              rows={rows}
+              rows={visibleRows}
               columns={columns}
               rowKey={(row) => row.id}
               showActionBar={worksheetCanSave}
               fillHeight
-              toolbar={feedback ? <span role={feedback.kind === "error" || feedback.kind === "conflict" ? "alert" : "status"} className={`text-[11px] font-semibold ${feedback.kind === "success" ? "text-emerald-800" : "text-rose-800"}`}>{feedback.message}</span> : undefined}
-              actions={feedback?.kind === "conflict" && worksheetCanSave && !demoMode
-                ? <button type="button" onClick={() => void reloadLatest()} disabled={isSaving} className="inline-flex min-h-9 items-center rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-bold text-rose-800 disabled:opacity-50">Reload latest</button>
-                : undefined}
+              showRowNumbers
+              toolbar={<><input type="search" aria-label={`Search ${selectedSheet.name}`} placeholder="Search this sheet…" value={query} disabled={hasStagedEdits} onChange={(event) => setQuery(event.target.value)} className="hqs-control min-h-10 min-w-0 rounded-md px-3 text-sm" />{feedback && <span role={feedback.kind === "error" || feedback.kind === "conflict" ? "alert" : "status"} className={`text-sm font-semibold ${feedback.kind === "success" ? "hqs-success-text" : "hqs-error-text"}`}>{feedback.message}</span>}</>}
+              actions={<>{selectedSheet.id === "projects" && hasReadAndManage && onNavigatePath && <button type="button" onClick={() => onNavigatePath(`${appPathForTab("projects")}?create=1`)} className="hqs-control rounded-md border px-3 py-2 text-sm">Add project</button>}{feedback?.kind === "conflict" && worksheetCanSave && !demoMode && <button type="button" onClick={() => void reloadLatest()} disabled={isSaving} className="inline-flex min-h-9 items-center rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-bold text-rose-800 disabled:opacity-50">Reload latest</button>}</>}
               onRowsChange={worksheetCanSave ? () => { stagedEditsRef.current = true; setHasStagedEdits(true); } : undefined}
               onCellChange={() => {
                 setCellIssues({});
                 setFeedback(null);
               }}
               cellIssues={cellIssues}
-              onSave={workbookAdapter.onSave}
+              onSave={workbookAdapter?.onSave ? (nextRows) => setLegacyReview(nextRows.filter((row) => { const base = rows.find((candidate) => candidate.id === row.id); return columns.some((column) => column.setValue && String(column.value?.(row)) !== String(base && column.value?.(base))); })) : undefined}
               onCancel={worksheetCanSave ? () => { stagedEditsRef.current = false; setHasStagedEdits(false); setCellIssues({}); setFeedback(null); } : undefined}
               saveLabel={demoMode ? "Save demo edits" : "Save changes"}
               cancelLabel="Discard edits"
@@ -734,27 +792,19 @@ export function OperationsWorkbookRoute({
               emptyState={workspaceLoading ? "Loading worksheet rows…" : selectedSheet.emptyState}
               className="h-full min-w-0 rounded-none"
               density="compact"
-            />
+            />}
           </div>
 
-          <footer className="hqs-border min-w-0 shrink-0 border-t bg-white px-1">
-            <WorksheetTabs
-              ariaLabel="Operations Workbook sheets"
-              tabs={sheetTabs}
-              value={selectedSheet.id}
-              onChange={(sheetId) => {
-                if (!visibleSheets.some((sheet) => sheet.id === sheetId)) return;
-                if (sheetId !== selectedSheet.id && stagedEditsRef.current) {
-                  setFeedback({ kind: "error", message: "Save or discard your worksheet edits before switching sheets." });
-                  return;
-                }
-                onNavigatePath?.(appPathForWorkbookSheet(sheetId));
-              }}
-              className="border-b-0"
-            />
+          <footer className="hqs-border hqs-surface min-w-0 shrink-0 border-t px-3 py-2 text-xs">
+            <span className="hqs-secondary-text">{selectedSheet.id === "warehouse" ? "Stock quantities come from recorded movements. Existing item metadata is read only here." : selectedSheet.id === "supplier-invoices" ? "Open a bill to review its source, correct details or record a payment." : worksheetCanSave ? "Edit cells, then review and save. Removing an unsaved row never deletes a saved record." : "Read only. Open the original workflow to make authorized changes."}</span>
           </footer>
         </> : <div className="min-h-0 flex-1" />}
       </div>
+
+      {legacyReview && <WorkbookChangeReview sourceRows={rows} review={legacyReview} columns={columns} saving={isSaving} onClose={() => { if (!isSaving) setLegacyReview(null); }} onConfirm={() => {
+        if (isSaving || !workbookAdapter?.onSave) return;
+        void Promise.resolve(workbookAdapter.onSave(legacyReview)).finally(() => setLegacyReview(null));
+      }} />}
 
       <OperationsWorkbookTransfer
         permissions={permissions}

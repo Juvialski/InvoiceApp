@@ -268,7 +268,7 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
     name: "Supplier Invoices",
     shortName: "Invoices",
     domainOwner: "invoices",
-    readiness: "future-adapter",
+    readiness: "available",
     authorization: { readAnyOf: [PERMISSION_KEYS.invoicesRead], writeAllOf: [PERMISSION_KEYS.invoicesWrite] },
     rowIdentity: { field: "id", label: "Invoice ID" },
     capabilities: { read: true, write: "domain-delegated" },
@@ -280,7 +280,7 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
       { id: "total", label: "Source total", type: "currency", authority: "calculated", display: { align: "right", currencyField: "currency" } },
       { id: "reviewStatus", label: "Review", type: "select", authority: "workflow-only" },
     ],
-    emptyState: "Supplier Invoices are not onboarded to the unified workbook yet.",
+    emptyState: "No supplier bills found. Add a bill or change your search.",
     authorityBoundary: "Invoice source evidence, verification, and Expense creation remain owned by the invoice workflow.",
   },
   {
@@ -392,7 +392,7 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
     id: "warehouse",
     name: "Warehouse",
     domainOwner: "inventory",
-    readiness: "future-adapter",
+    readiness: "available",
     authorization: { readAnyOf: [PERMISSION_KEYS.inventoryRead], writeAllOf: [PERMISSION_KEYS.inventoryManage] },
     rowIdentity: { field: "id", label: "Inventory item ID" },
     capabilities: { read: true, write: "domain-delegated" },
@@ -402,14 +402,14 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
       { id: "balance", label: "Balance", type: "number", authority: "calculated", display: { align: "right" } },
       { id: "active", label: "Active", type: "boolean", authority: "lifecycle-controlled" },
     ],
-    emptyState: "Warehouse is not onboarded to the unified workbook yet.",
+    emptyState: "No warehouse items found. Add an item before recording stock.",
     authorityBoundary: "Balances remain derived from authoritative inventory movement history.",
   },
   {
     id: "vendors",
-    name: "Vendors",
+    name: "Suppliers",
     domainOwner: "vendors",
-    readiness: "future-adapter",
+    readiness: "available",
     authorization: { readAnyOf: [PERMISSION_KEYS.vendorsRead], writeAllOf: [PERMISSION_KEYS.vendorsManage] },
     rowIdentity: { field: "id", label: "Vendor ID" },
     capabilities: { read: true, write: "domain-delegated" },
@@ -418,7 +418,7 @@ export const OPERATIONS_WORKBOOK_SHEET_REGISTRY: readonly OperationsWorkbookShee
       { id: "taxId", label: "Tax ID", type: "identifier", authority: "source-evidence" },
       { id: "active", label: "Active", type: "boolean", authority: "lifecycle-controlled" },
     ],
-    emptyState: "Vendors are not onboarded to the unified workbook yet.",
+    emptyState: "No suppliers found. Add a supplier to get started.",
     authorityBoundary: "Canonical vendor identity and lifecycle remain owned by the Vendors domain.",
   },
   {
@@ -453,6 +453,9 @@ export const OPERATIONS_WORKBOOK_ENABLED_ADAPTERS: readonly OperationsWorkbookSh
   "expenses",
   "rfqs",
   "purchase-orders",
+  "vendors",
+  "supplier-invoices",
+  "warehouse",
 ]);
 
 export function findOperationsWorkbookSheet(sheetId: string | null | undefined): OperationsWorkbookSheetDefinition | undefined {

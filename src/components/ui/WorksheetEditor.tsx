@@ -62,6 +62,9 @@ export interface WorksheetEditorProps<T> {
   density?: "compact" | "comfortable";
   /** Keep repeated fact sections quiet until keyboard/pointer focus enters them. */
   quietUnfocusedSelection?: boolean;
+  showRowNumbers?: boolean;
+  preserveEditingOnRowsChange?: boolean;
+  mobileSummaryColumns?: number;
 }
 
 function issueValue(value: WorksheetCellIssue | string | undefined, defaultSeverity: WorksheetCellIssue["severity"] = "warning"): WorksheetCellIssue | undefined {
@@ -154,6 +157,9 @@ export function WorksheetEditor<T>({
   className = "",
   density = "compact",
   quietUnfocusedSelection = false,
+  showRowNumbers = false,
+  preserveEditingOnRowsChange = false,
+  mobileSummaryColumns,
 }: WorksheetEditorProps<T>) {
   const actionDisabled = disabled || isSaving;
   const initialEditingPosition = !actionDisabled && initialEditingCell && rows[initialEditingCell.row] && columns[initialEditingCell.column] && isWorksheetColumnEditable(columns[initialEditingCell.column], rows[initialEditingCell.row], initialEditingCell.row)
@@ -177,17 +183,28 @@ export function WorksheetEditor<T>({
   const mobileCellRefs = useRef(new Map<string, HTMLElement>());
   const pendingActionRef = useRef<"save" | "apply" | null>(null);
   const focusActiveCellRef = useRef(false);
+  const committedEditorRef = useRef(false);
+  const [expandedMobileRows, setExpandedMobileRows] = useState<ReadonlySet<string>>(new Set());
+  const nextCell = (position: WorksheetCellPosition, key: WorksheetNavigationKey, shift = false) => {
+    let next = getNextWorksheetCell(position, key, draftRows.length, columns.length, shift);
+    while (key === "Tab" && next && !isWorksheetColumnEditable(columns[next.column], draftRows[next.row], next.row)) {
+      next = getNextWorksheetCell(next, key, draftRows.length, columns.length, shift);
+    }
+    return next;
+  };
 
   useEffect(() => {
     if (sourceRowsRef.current === rows) return;
     sourceRowsRef.current = rows;
     setDraftRows(rows.slice());
     setActiveCell((position) => clampPosition(position, rows.length, columns.length));
-    setEditingCell(null);
-    setEditorValue("");
+    if (!preserveEditingOnRowsChange) {
+      setEditingCell(null);
+      setEditorValue("");
+    }
     setLocalIssues({});
     setLocalDirtyCells(new Set());
-  }, [columns.length, rows]);
+  }, [columns.length, rows, preserveEditingOnRowsChange]);
 
   useEffect(() => {
     setActiveCell((position) => clampPosition(position, draftRows.length, columns.length));
@@ -210,6 +227,7 @@ export function WorksheetEditor<T>({
       ? cell.querySelector<HTMLInputElement | HTMLSelectElement>("input, select")
       : null;
     const target = input || cell;
+    cell.scrollIntoView({ block: "nearest", inline: "nearest" });
     if (typeof document !== "undefined" && document.activeElement === target) return;
     target.focus();
   }, [activeCell, columns.length, draftRows.length, editingCell]);
@@ -241,6 +259,9 @@ export function WorksheetEditor<T>({
   const positionForCell = (rowIndex: number, columnIndex: number): WorksheetCellPosition => ({ row: rowIndex, column: columnIndex });
 
   const focusCell = (position: WorksheetCellPosition) => {
+    if (mobileSummaryColumns && position.column >= mobileSummaryColumns && draftRows[position.row]) {
+      setExpandedMobileRows((current) => new Set(current).add(rowKey(draftRows[position.row], position.row)));
+    }
     focusActiveCellRef.current = true;
     setActiveCell(position);
   };
@@ -251,6 +272,7 @@ export function WorksheetEditor<T>({
     if (!row || !column || actionDisabled || !isWorksheetColumnEditable(column, row, position.row)) return;
     const key = getWorksheetCellId(rowKey(row, position.row), column.key);
     setActiveCell(position);
+    committedEditorRef.current = false;
     setEditingCell(position);
     setEditorValue(formatWorksheetInputValue(getWorksheetColumnValue(row, column)));
     setLocalIssues((current) => {
@@ -271,17 +293,19 @@ export function WorksheetEditor<T>({
     });
   };
 
-  const commitEditing = (navigationKey?: WorksheetNavigationKey, shiftKey = false): boolean => {
+  const commitEditing = (navigationKey?: WorksheetNavigationKey, shiftKey = false, rawValue = editorValue): boolean => {
+    if (committedEditorRef.current) return true;
     if (!editingCell) return true;
     const row = draftRows[editingCell.row];
     const column = columns[editingCell.column];
     if (!row || !column) return false;
     const key = getWorksheetCellId(rowKey(row, editingCell.row), column.key);
-    const result = applyWorksheetCellEdit(draftRows, columns, rowKey, editingCell.row, column.key, editorValue);
+    const result = applyWorksheetCellEdit(draftRows, columns, rowKey, editingCell.row, column.key, rawValue);
     if (result.issue) {
       setLocalIssues((current) => ({ ...current, [key]: result.issue as WorksheetCellIssue }));
       return false;
     }
+    committedEditorRef.current = true;
     if (result.changed) {
       updateRows(result.rows);
       setLocalDirtyCells((current) => new Set(current).add(key));
@@ -292,7 +316,7 @@ export function WorksheetEditor<T>({
     setEditingCell(null);
     setEditorValue("");
     if (navigationKey) {
-      const next = getNextWorksheetCell(editingCell, navigationKey, draftRows.length, columns.length, shiftKey);
+      const next = nextCell(editingCell, navigationKey, shiftKey);
       if (next) focusCell(next);
     }
     return true;
@@ -404,7 +428,7 @@ export function WorksheetEditor<T>({
       return;
     }
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(event.key)) {
-      const next = getNextWorksheetCell(position, event.key as WorksheetNavigationKey, draftRows.length, columns.length, event.shiftKey);
+      const next = nextCell(position, event.key as WorksheetNavigationKey, event.shiftKey);
       if (!next && event.key === "Tab") return;
       event.preventDefault();
       if (next) focusCell(next);
@@ -419,7 +443,7 @@ export function WorksheetEditor<T>({
     }
     if (event.key === "Enter" || event.key === "Tab") {
       if (event.key === "Tab") {
-        const next = getNextWorksheetCell(position, "Tab", draftRows.length, columns.length, event.shiftKey);
+        const next = nextCell(position, "Tab", event.shiftKey);
         if (!next) {
           commitEditing();
           return;
@@ -437,7 +461,14 @@ export function WorksheetEditor<T>({
     const newRow = newRowValue as T;
     const nextRows = [...draftRows, newRow];
     updateRows(nextRows);
-    focusCell({ row: nextRows.length - 1, column: 0 });
+    const firstEditable = columns.findIndex((column) => isWorksheetColumnEditable(column, newRow, nextRows.length - 1));
+    const position = { row: nextRows.length - 1, column: Math.max(0, firstEditable) };
+    setActiveCell(position);
+    if (firstEditable >= 0) {
+      committedEditorRef.current = false;
+      setEditingCell(position);
+      setEditorValue(formatWorksheetInputValue(getWorksheetColumnValue(newRow, columns[firstEditable])));
+    } else focusCell(position);
     setNotice("New row staged for editing.");
   };
 
@@ -495,7 +526,7 @@ export function WorksheetEditor<T>({
   const renderEditorControl = (cell: CellView, describedBy = cell.describedBy) => cell.column.kind === "select" ? (
     <select
       value={editorValue}
-      onChange={(event) => setEditorValue(event.currentTarget.value)}
+      onChange={(event) => { setEditorValue(event.currentTarget.value); commitEditing(undefined, false, event.currentTarget.value); }}
       onBlur={() => commitEditing()}
       onKeyDown={(event) => handleInputKeyDown(event, cell.position)}
       onCopy={(event) => { event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
@@ -553,7 +584,7 @@ export function WorksheetEditor<T>({
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {actions}
           {onCancel && <button type="button" onClick={() => { pendingActionRef.current = null; updateRows(rows.slice()); setLocalDirtyCells(new Set()); setLocalIssues({}); setEditingCell(null); setEditorValue(""); onCancel(); }} disabled={actionDisabled} className="hqs-control inline-flex min-h-10 items-center rounded-md px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">{cancelLabel}</button>}
-          {onSave && <button type="button" onClick={() => requestAction("save", onSave)} disabled={actionDisabled} className="hqs-control hqs-accent-text inline-flex min-h-10 items-center rounded-md px-2.5 py-1 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">{saveLabel}</button>}
+          {onSave && <button type="button" data-worksheet-save="true" onClick={() => requestAction("save", onSave)} disabled={actionDisabled} className="hqs-control hqs-accent-text inline-flex min-h-10 items-center rounded-md px-2.5 py-1 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">{saveLabel}</button>}
           {onApply && <button type="button" onClick={() => requestAction("apply", onApply)} disabled={actionDisabled} className="inline-flex min-h-10 items-center rounded-md bg-indigo-700 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">{applyLabel}</button>}
           {onAddRow && <button type="button" data-worksheet-add-row="true" onClick={handleAddRow} disabled={actionDisabled || !canAddRow} className="hqs-control inline-flex min-h-10 items-center rounded-md px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8">Add row</button>}
         </div>
@@ -563,12 +594,13 @@ export function WorksheetEditor<T>({
         <table role="grid" aria-label={ariaLabel} aria-rowcount={draftRows.length + 1} className="min-w-full border-collapse text-left text-xs">
           <thead className="hqs-surface-muted hqs-secondary-text sticky top-0 z-20 border-b hqs-border text-[10px] uppercase tracking-wide">
             <tr role="row">
+              {showRowNumbers && <th role="columnheader" aria-colindex={1} scope="col" className="hqs-border w-12 border-r border-b px-2 text-center">#</th>}
               {columns.map((column, columnIndex) => (
                 <th
                   key={column.key}
                   role="columnheader"
                   scope="col"
-                  aria-colindex={columnIndex + 1}
+                  aria-colindex={columnIndex + (showRowNumbers ? 2 : 1)}
                   data-worksheet-align={column.align || "left"}
                   className={`hqs-border border-r border-b last:border-r-0 whitespace-nowrap px-2 ${density === "compact" ? "py-1" : "py-1.5"} ${alignClass(column.align)} ${columnIndex === frozenColumnIndex ? "hqs-surface-muted sticky left-0 z-30" : ""}`}
                   style={{ width: column.width, minWidth: column.minWidth }}
@@ -580,11 +612,12 @@ export function WorksheetEditor<T>({
             </tr>
           </thead>
           <tbody>
-            {draftRows.length === 0 && <tr role="row"><td role="gridcell" colSpan={columns.length + (onRemoveRow ? 1 : 0)} className="hqs-secondary-text p-6 text-center text-xs">{emptyState}</td></tr>}
+            {draftRows.length === 0 && <tr role="row"><td role="gridcell" colSpan={columns.length + (onRemoveRow ? 1 : 0) + (showRowNumbers ? 1 : 0)} className="hqs-secondary-text p-6 text-center text-xs">{emptyState}</td></tr>}
             {draftRows.map((row, rowIndex) => {
               const currentRowKey = rowKey(row, rowIndex);
               return (
                 <tr key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-row-key={currentRowKey}>
+                  {showRowNumbers && <th scope="row" className="hqs-border hqs-surface-muted border-r border-b px-2 text-center text-xs font-normal tabular-nums">{rowIndex + 1}{(row as { isNew?: boolean }).isNew && <span className="hqs-warning-text block text-[11px]">Unsaved</span>}</th>}
                   {columns.map((column, columnIndex) => {
                     const cell = getCellView(row, rowIndex, column, columnIndex);
                     const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-desktop` : undefined;
@@ -593,7 +626,7 @@ export function WorksheetEditor<T>({
                         key={column.key}
                         ref={(node) => { if (node) cellRefs.current.set(cell.key, node); else cellRefs.current.delete(cell.key); }}
                         role="gridcell"
-                        aria-colindex={columnIndex + 1}
+                        aria-colindex={columnIndex + (showRowNumbers ? 2 : 1)}
                         aria-readonly={cell.readOnlyCell || actionDisabled || undefined}
                         aria-selected={(!quietUnfocusedSelection || hasFocus) && activeCell.row === rowIndex && activeCell.column === columnIndex}
                         aria-describedby={viewDescribedBy}
@@ -609,7 +642,7 @@ export function WorksheetEditor<T>({
                         onClick={() => {
                           if (cell.isEditing) return;
                           if (cell.editableCell) beginEditing(cell.position);
-                          else setActiveCell(cell.position);
+                          else { setActiveCell(cell.position); setNotice(typeof column.readOnlyReason === "function" ? column.readOnlyReason(row) : column.readOnlyReason || "This field is controlled by its source workflow and cannot be edited here."); }
                         }}
                         onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
                         onPaste={(event) => handlePaste(event, cell.position)}
@@ -637,6 +670,7 @@ export function WorksheetEditor<T>({
             return (
               <div key={currentRowKey} role="row" aria-rowindex={rowIndex + 2} data-worksheet-mobile-row-key={currentRowKey} className="min-w-0 px-3 py-1">
                 {columns.map((column, columnIndex) => {
+                  if (mobileSummaryColumns && columnIndex >= mobileSummaryColumns && !column.mobileSummary && !(row as { isNew?: boolean }).isNew && !expandedMobileRows.has(currentRowKey)) return null;
                   const cell = getCellView(row, rowIndex, column, columnIndex);
                   const viewDescribedBy = cell.describedBy ? `${cell.describedBy}-mobile` : undefined;
                   return (
@@ -663,7 +697,7 @@ export function WorksheetEditor<T>({
                       onClick={() => {
                         if (cell.isEditing) return;
                         if (cell.editableCell) beginEditing(cell.position);
-                        else setActiveCell(cell.position);
+                        else { setActiveCell(cell.position); setNotice(typeof column.readOnlyReason === "function" ? column.readOnlyReason(row) : column.readOnlyReason || "This field is controlled by its source workflow and cannot be edited here."); }
                       }}
                       onCopy={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); copyCell(cell.position, event.clipboardData); }}
                       onPaste={(event) => handlePaste(event, cell.position)}
@@ -681,6 +715,7 @@ export function WorksheetEditor<T>({
                     </div>
                   );
                 })}
+                {mobileSummaryColumns && columns.length > mobileSummaryColumns && !(row as { isNew?: boolean }).isNew && <button type="button" aria-expanded={expandedMobileRows.has(currentRowKey)} onClick={() => setExpandedMobileRows((current) => { const next = new Set(current); if (next.has(currentRowKey)) next.delete(currentRowKey); else next.add(currentRowKey); return next; })} className="hqs-accent-text hqs-focus-ring min-h-10 rounded-md px-1 text-sm font-semibold">{expandedMobileRows.has(currentRowKey) ? "Fewer fields" : "More fields"}</button>}
                 {onRemoveRow && ((typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow) || !hideUnavailableRemoveRowAction) && <button type="button" data-worksheet-remove-row={currentRowKey} onClick={() => handleRemoveRow(row, rowIndex)} disabled={actionDisabled || !(typeof canRemoveRow === "function" ? canRemoveRow(row, rowIndex) : canRemoveRow)} className="hqs-exception-danger inline-flex min-h-9 items-center rounded-md px-2.5 py-1.5 text-[10px] font-black disabled:cursor-not-allowed disabled:opacity-40">Remove row {rowIndex + 1}</button>}
               </div>
             );

@@ -54,6 +54,9 @@ export interface WorksheetColumn<T> {
   width?: string;
   minWidth?: string;
   frozen?: boolean;
+  readOnlyReason?: string | ((row: T) => string);
+  /** Keep a record's key state/action outside optional mobile field disclosure. */
+  mobileSummary?: boolean;
 }
 
 export interface WorksheetCellPosition {

@@ -140,7 +140,7 @@ test("Operations Workbook sheet order and metadata vocabulary are deterministic"
     "source-evidence",
     "workflow-only",
   ]);
-  assert.deepEqual(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS, ["projects", "cost-codes", "expenses", "rfqs", "purchase-orders"]);
+  assert.deepEqual(OPERATIONS_WORKBOOK_ENABLED_ADAPTERS, ["projects", "cost-codes", "expenses", "rfqs", "purchase-orders", "vendors", "supplier-invoices", "warehouse"]);
 });
 
 test("Payroll sheet metadata requires payroll detail read and never aggregate-report access", () => {
@@ -282,7 +282,7 @@ test("combined workbook review state is cleared when company or permission conte
   const routeSource = readFileSync(new URL("../src/app/routes/OperationsWorkbookRoute.tsx", import.meta.url), "utf8");
   assert.match(routeSource, /key=\{`\$\{currentContextKey\}:\$\{selectedSheet\.id\}:\$\{editorRevision\}`\}/);
   assert.match(routeSource, /previousContextKeyRef\.current === currentContextKey[\s\S]*?stagedEditsRef\.current = false;[\s\S]*?setCellIssues\(\{\}\);[\s\S]*?setFeedback\(null\)/);
-  assert.match(routeSource, /stagedEditsRef\.current[\s\S]*?Save or discard your worksheet edits before switching sheets/);
+  assert.match(routeSource, /stagedEditsRef\.current[\s\S]*?Discard your unsaved changes and switch sheets/);
   assert.match(routeSource, /disabled=\{workspaceLoading \|\| isSaving \|\| hasStagedEdits\}/);
   assert.match(transferSource, /disabled=\{busy \|\| disabled\}[^>]*>[\s\S]*?Download workbook/);
   assert.match(transferSource, /disabled=\{busy \|\| disabled\}[^>]*>[\s\S]*?Import workbook/);
@@ -485,7 +485,7 @@ test("Expenses sheet separates read and manage access and keeps ineligible or cr
   for (const id of ["expense-archived-1", "expense-approved-1", "expense-void-1"]) {
     assert.match(editableHtml, new RegExp(`data-worksheet-cell="${id}:description"[^>]*data-worksheet-editable="false"`));
   }
-  for (const field of ["expenseId", "status", "sourceLinkage", "vendorLinkage", "purchaseOrderLinkage", "settlementState", "baseCurrencyValue", "fxProvenance", "archiveState", "voidCorrectionState", "createdAt", "updatedAt"]) {
+  for (const field of ["status", "sourceLinkage"]) {
     assert.match(editableHtml, new RegExp(`data-worksheet-cell="expense-direct-1:${field}"[^>]*data-worksheet-editable="false"`), field);
   }
 

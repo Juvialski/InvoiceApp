@@ -21,6 +21,8 @@ The user-authorized beginner-friendly simplification is implemented on `codex/ux
 
 ## Next actionable priorities
 
+**UX-RESET-2 (2026-10-13):** The current implementation adds reviewed central Workbook row creation for Suppliers, Cost Codes, Direct Expense drafts and Warehouse item catalog; working Suppliers, Supplier Invoices and Warehouse sheets; canonical workflow handoffs; and shared light/dark daily-workspace styling. Existing inventory metadata remains protected pending atomic version support. Legacy XLSX interchange stays unchanged. This is implementation/local synthetic evidence, not deployment or hosted certification. See [scope and evidence](UX-RESET-2-EVIDENCE.md).
+
 1. **WF-RESET-2:** complete bounded workflow cleanup and restored-QA recovery. WF-RESET-1 (#297) and QA-RECOVERY (#298) are merged foundations. Jev/context remain optional; active roadmap/handoff are concise with complete historical archives.
 2. **QA recovery:** inspect the protected exact-source certification result and resolve concrete remaining failures/configuration blockers; do not reset QA or touch production. Starting-main evidence and later PR-head CI remain distinct.
 3. **Application re-audit:** pick high-impact usability, reliability and financial-workflow issues from the actual deployed/current code and user journeys. Group related fixes into coherent scoped PRs, with regression coverage and appropriate browser/database validation.
