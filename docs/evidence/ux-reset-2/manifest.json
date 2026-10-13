@@ -1,305 +1,238 @@
 {
-  "sha": "1490feaadf8d43c77b7cc78dcba34ec7ac0c286f",
-  "runtimeDiffSha256": "9829fa4c0f0a8015bc18118f91e968ed1fc820855040094e823bd88eee011d9f",
-  "environment": "Local isolated headless synthetic Demo QA; no hosted or production writes",
+  "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3",
+  "environment": "Local isolated headless synthetic Demo QA; no hosted/production writes",
   "captures": [
     {
       "filename": "desktop-dashboard.png",
+      "route": "http://127.0.0.1:3012/demo/app/dashboard",
       "viewport": {
-        "name": "desktop",
         "width": 1920,
         "height": 1080
       },
-      "route": "http://127.0.0.1:3012/demo/app/dashboard",
-      "state": "dashboard",
-      "geometry": {
-        "width": 1920,
-        "scrollWidth": 1920
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "desktop-invoices.png",
+      "route": "http://127.0.0.1:3012/demo/app/invoices",
       "viewport": {
-        "name": "desktop",
         "width": 1920,
         "height": 1080
       },
-      "route": "http://127.0.0.1:3012/demo/app/invoices",
-      "state": "invoices",
-      "geometry": {
-        "width": 1920,
-        "scrollWidth": 1920
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "desktop-warehouse.png",
+      "route": "http://127.0.0.1:3012/demo/app/warehouse",
       "viewport": {
-        "name": "desktop",
         "width": 1920,
         "height": 1080
       },
-      "route": "http://127.0.0.1:3012/demo/app/warehouse",
-      "state": "warehouse",
-      "geometry": {
-        "width": 1920,
-        "scrollWidth": 1920
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "desktop-projects.png",
+      "route": "http://127.0.0.1:3012/demo/app/projects",
       "viewport": {
-        "name": "desktop",
         "width": 1920,
         "height": 1080
       },
-      "route": "http://127.0.0.1:3012/demo/app/projects",
-      "state": "projects",
-      "geometry": {
-        "width": 1920,
-        "scrollWidth": 1920
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "desktop-documents.png",
+      "route": "http://127.0.0.1:3012/demo/app/documents",
       "viewport": {
-        "name": "desktop",
         "width": 1920,
         "height": 1080
       },
-      "route": "http://127.0.0.1:3012/demo/app/documents",
-      "state": "documents",
-      "geometry": {
-        "width": 1920,
-        "scrollWidth": 1920
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "desktop-workbook.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=projects",
       "viewport": {
-        "name": "desktop",
         "width": 1920,
         "height": 1080
       },
-      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=projects",
-      "state": "workbook",
-      "geometry": {
-        "width": 1920,
-        "scrollWidth": 1920
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "laptop-invoice-review.png",
+      "route": "http://127.0.0.1:3012/demo/app/review?invoiceId=demo-invoice-07",
       "viewport": {
-        "name": "laptop",
         "width": 1366,
         "height": 768
       },
-      "route": "http://127.0.0.1:3012/demo/app/review?invoiceId=demo-invoice-07",
-      "state": "invoice-review",
-      "geometry": {
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "laptop-workbook-add-row.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
+      "viewport": {
         "width": 1366,
-        "scrollWidth": 1366
-      }
+        "height": 768
+      },
+      "theme": "light",
+      "state": "add",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "laptop-workbook-validation.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
       "viewport": {
-        "name": "laptop",
         "width": 1366,
         "height": 768
       },
-      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
-      "state": "workbook-validation",
-      "geometry": {
-        "width": 1366,
-        "scrollWidth": 1366
-      }
+      "theme": "light",
+      "state": "invalid",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "laptop-workbook-review.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
       "viewport": {
-        "name": "laptop",
         "width": 1366,
         "height": 768
       },
-      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=warehouse",
-      "state": "workbook-review",
-      "geometry": {
-        "width": 1366,
-        "scrollWidth": 1366
-      }
+      "theme": "light",
+      "state": "review",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "mobile-dashboard.png",
+      "route": "http://127.0.0.1:3012/demo/app/dashboard",
       "viewport": {
-        "name": "mobile",
         "width": 390,
         "height": 844
       },
-      "route": "http://127.0.0.1:3012/demo/app/dashboard",
-      "state": "dashboard",
-      "geometry": {
-        "width": 390,
-        "scrollWidth": 390
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "mobile-more-tools.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=projects",
       "viewport": {
-        "name": "mobile",
         "width": 390,
         "height": 844
       },
-      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=projects",
-      "state": "more-tools",
-      "geometry": {
-        "width": 390,
-        "scrollWidth": 390
-      }
+      "theme": "light",
+      "state": "more",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "mobile-supplier-invoices.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=supplier-invoices",
       "viewport": {
-        "name": "mobile",
         "width": 390,
         "height": 844
       },
-      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=supplier-invoices",
-      "state": "supplier-invoices",
-      "geometry": {
-        "width": 390,
-        "scrollWidth": 390
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "mobile-stock-in-workflow.png",
+      "route": "http://127.0.0.1:3012/demo/app/warehouse?task=receive",
       "viewport": {
-        "name": "mobile",
         "width": 390,
         "height": 844
       },
-      "route": "http://127.0.0.1:3012/demo/app/warehouse?task=receive",
-      "state": "stock-in-workflow",
-      "geometry": {
-        "width": 390,
-        "scrollWidth": 390
-      }
+      "theme": "light",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "dark-laptop-dashboard.png",
-      "viewport": {
-        "name": "laptop",
-        "width": 1366,
-        "height": 768
-      },
       "route": "http://127.0.0.1:3012/demo/app/dashboard",
-      "state": "dashboard",
-      "theme": "dark"
-    },
-    {
-      "filename": "dark-laptop-review.png",
       "viewport": {
-        "name": "laptop",
         "width": 1366,
         "height": 768
       },
-      "route": "http://127.0.0.1:3012/demo/app/review?invoiceId=demo-invoice-07",
-      "state": "review?invoiceId=demo-invoice-07",
-      "theme": "dark"
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "dark-laptop-workbook.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
       "viewport": {
-        "name": "laptop",
         "width": 1366,
         "height": 768
       },
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-laptop-workbook-add-row.png",
       "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
-      "state": "workbook?sheet=vendors",
-      "theme": "dark"
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "dark",
+      "state": "add",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-laptop-review.png",
+      "route": "http://127.0.0.1:3012/demo/app/review?invoiceId=demo-invoice-07",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "dark-mobile-workbook.png",
+      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
       "viewport": {
-        "name": "mobile",
         "width": 390,
         "height": 844
       },
-      "route": "http://127.0.0.1:3012/demo/app/workbook?sheet=vendors",
-      "state": "workbook?sheet=vendors",
-      "theme": "dark"
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     },
     {
       "filename": "dark-mobile-warehouse.png",
+      "route": "http://127.0.0.1:3012/demo/app/warehouse",
       "viewport": {
-        "name": "mobile",
         "width": 390,
         "height": 844
       },
-      "route": "http://127.0.0.1:3012/demo/app/warehouse",
-      "state": "warehouse",
-      "theme": "dark"
-    }
-  ],
-  "journeys": [
-    {
-      "viewport": "desktop",
-      "journey": "Real legacy combined XLSX download and import review",
-      "result": "PASS"
-    },
-    {
-      "viewport": "desktop",
-      "journey": "Supplier additions, invalid-field correction, edit, multiple rows and reload",
-      "result": "PASS"
-    },
-    {
-      "viewport": "desktop",
-      "journey": "Cost code, draft expense and zero-stock item creation with reload",
-      "result": "PASS"
-    },
-    {
-      "viewport": "laptop",
-      "journey": "Supplier additions, invalid-field correction, edit, multiple rows and reload",
-      "result": "PASS"
-    },
-    {
-      "viewport": "laptop",
-      "journey": "Cost code, draft expense and zero-stock item creation with reload",
-      "result": "PASS"
-    },
-    {
-      "viewport": "mobile",
-      "journey": "Supplier additions, invalid-field correction, edit, multiple rows and reload",
-      "result": "PASS"
-    },
-    {
-      "viewport": "mobile",
-      "journey": "Cost code, draft expense and zero-stock item creation with reload",
-      "result": "PASS"
-    }
-  ],
-  "visualReview": "Lead inspected actual React captures. Laptop focus visibility corrected and rechecked in light and dark mode after the full matrix.",
-  "applicationCommit": "e0e3363ce39cafe1f212cf3422b4e086982100b2",
-  "supplementalCaptures": [
-    {
-      "theme": "light",
-      "viewport": {
-        "height": 768,
-        "width": 1366
-      },
-      "state": "Add Row focused input fully contained",
-      "sha": "e0e3363ce39cafe1f212cf3422b4e086982100b2",
-      "filename": "laptop-workbook-add-row.png"
-    },
-    {
       "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
+    },
+    {
+      "filename": "dark-desktop-documents.png",
+      "route": "http://127.0.0.1:3012/demo/app/documents",
       "viewport": {
-        "height": 768,
-        "width": 1366
+        "width": 1920,
+        "height": 1080
       },
-      "state": "Add Row focused input fully contained",
-      "sha": "e0e3363ce39cafe1f212cf3422b4e086982100b2",
-      "filename": "dark-laptop-workbook-add-row.png"
+      "theme": "dark",
+      "state": "browse",
+      "sha": "0530b4d687f1c8ec5547810b991cdc59336082b3"
     }
-  ]
+  ],
+  "visualReview": "Lead inspected actual React captures; final sidebar contrast, document search spacing and laptop focused input are corrected."
 }

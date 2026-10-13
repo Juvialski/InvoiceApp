@@ -119,12 +119,23 @@ stops at one open PR; Codex does not merge it or begin another product phase.
   fixed with deliberate cell scrolling. Light/dark focused inputs now sit wholly
   inside the worksheet scroll frame (top 698.59, bottom 718.59, frame bottom
   728.75 at 1366x768). Post-correction editor/creation regressions: **40/40**.
-- The full matrix predates only that final focus-scroll line. Its manifest keeps
-  the captured base SHA and runtime diff hash; the two replacement laptop focus
-  captures are separately identified at the application-bearing commit. Unchanged
-  static screen captures were retained rather than recreated after documentation.
-- Curated evidence: [screenshot manifest](evidence/ux-reset-2/manifest.json),
-  20 representative screenshots; the other run output remains ignored locally.
+- Initial full functional matrix and 759-test affected selection precede the final
+  visual/CI follow-ups. The final Workbook browser scenarios pass **16/16** with
+  reviewed saves and rejected discard prompts; focused dark scenarios pass
+  **4/4**. Browser harness regression checks pass **47/47** and final editor/
+  creation/theme checks pass **45/45**. Protected CI supplies final-head build,
+  typecheck, affected selection and browser proof.
+- CI exposed obsolete five-sheet/save expectations and contrast requirements.
+  Scenarios now test eight authorized sheets, actual review confirmation, retained
+  failed/discarded changes and authorized Supplier Payables export. Light controls
+  retain the established accessible border; dark sidebar active labels use
+  brighter text against indigo. Cost Codes show their protected budget currency.
+- Documents search has 8px clearance between icon and text in both themes.
+- Curated [screenshot manifest](evidence/ux-reset-2/manifest.json): **21** actual
+  app captures refreshed at final application commit
+  `0530b4d687f1c8ec5547810b991cdc59336082b3`, including light/dark Workbook and
+  Documents. Earlier transient matrix output stays ignored locally.
 - Exact final PR head and protected CI are recorded in the PR. No merge,
   authenticated hosted write, provider certification or production deployment is
   claimed by this local evidence.
+- Final closeout theme/creation/browser-harness regressions: **59/59**.
